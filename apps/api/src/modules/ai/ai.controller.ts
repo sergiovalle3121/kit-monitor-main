@@ -13,9 +13,12 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AiService, ReqUser } from './ai.service';
+import { AiActionsService } from './ai-actions.service';
+import { AiInsightsService } from './ai-insights.service';
 import { ChatDto } from './dto/chat.dto';
 import { ConfigDto } from './dto/config.dto';
 import { RenameConversationDto } from './dto/rename-conversation.dto';
+import { ExecuteActionDto } from './dto/execute-action.dto';
 
 interface AuthReq {
   user: ReqUser;
@@ -32,7 +35,11 @@ interface SseResponse {
 @UseGuards(JwtAuthGuard)
 @Controller('ai')
 export class AiController {
-  constructor(private readonly ai: AiService) {}
+  constructor(
+    private readonly ai: AiService,
+    private readonly actions: AiActionsService,
+    private readonly insights: AiInsightsService,
+  ) {}
 
   /** Chat with the copilot. Available to every authenticated user. */
   @Post('chat')
@@ -78,6 +85,24 @@ export class AiController {
     } finally {
       res.end();
     }
+  }
+
+  /**
+   * Execute an action CIDE proposed, AFTER the user confirmed it in the chat.
+   * Re-checks the action's write permission and re-validates params server-side.
+   */
+  @Post('actions/execute')
+  executeAction(@Request() req: AuthReq, @Body() dto: ExecuteActionDto) {
+    return this.actions.execute(req.user, dto.actionKey, dto.params ?? {});
+  }
+
+  /**
+   * Proactive "Centinela" situation report: ranked, RBAC-filtered findings that
+   * need attention now (KPIs in alert, overdue maintenance, quality holds, EHS).
+   */
+  @Get('insights')
+  insightsReport(@Request() req: AuthReq) {
+    return this.insights.situationReport(req.user);
   }
 
   @Get('conversations')

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { parseRange } from './charts';
+import { parseRange, type ChartConfig } from './charts';
 import { colName } from './sheetOps';
 
 export type AxosConnectorType =
@@ -199,6 +199,46 @@ export function createAxosConnectorInstance(type: AxosConnectorType, sheetIndex:
   };
 }
 
+
+export type AxosConnectorFreshness = 'fresh' | 'due' | 'stale' | 'invalid';
+
+export interface AxosConnectorFreshnessReport {
+  id: string;
+  type: AxosConnectorType;
+  label: string;
+  status: AxosConnectorFreshness;
+  ageMinutes: number | null;
+  refreshPolicy: AxosConnectorDefinition['refreshPolicy'];
+}
+
+export function connectorFreshnessFor(instance: AxosConnectorInstance, now = new Date()): AxosConnectorFreshnessReport {
+  const def = AXOS_CONNECTOR_BY_TYPE[instance.type];
+  const refreshedAt = Date.parse(String(instance.lastRefreshedAt ?? ''));
+  if (!def || !Number.isFinite(refreshedAt)) {
+    return { id: instance.id, type: instance.type, label: instance.label, status: 'invalid', ageMinutes: null, refreshPolicy: def?.refreshPolicy ?? 'manual' };
+  }
+  const ageMinutes = Math.max(0, Math.floor((now.getTime() - refreshedAt) / 60000));
+  const dueAfter = def.refreshPolicy === 'scheduled-ready' ? 60 : 24 * 60;
+  const staleAfter = def.refreshPolicy === 'scheduled-ready' ? 24 * 60 : 7 * 24 * 60;
+  const status: AxosConnectorFreshness = ageMinutes > staleAfter ? 'stale' : ageMinutes > dueAfter ? 'due' : 'fresh';
+  return { id: instance.id, type: instance.type, label: instance.label, status, ageMinutes, refreshPolicy: def.refreshPolicy };
+}
+
+export function connectorRefreshDue(instance: AxosConnectorInstance, now = new Date()): boolean {
+  const status = connectorFreshnessFor(instance, now).status;
+  return status === 'due' || status === 'stale' || status === 'invalid';
+}
+
+export function summarizeConnectorFreshness(instances: AxosConnectorInstance[], now = new Date()): { reports: AxosConnectorFreshnessReport[]; due: number; stale: number; invalid: number } {
+  const reports = instances.map((instance) => connectorFreshnessFor(instance, now));
+  return {
+    reports,
+    due: reports.filter((report) => report.status === 'due').length,
+    stale: reports.filter((report) => report.status === 'stale').length,
+    invalid: reports.filter((report) => report.status === 'invalid').length,
+  };
+}
+
 export function originFromConnectorRange(range: string): { r: number; c: number } | null {
   const parsed = parseRange(range);
   return parsed ? { r: parsed.r1, c: parsed.c1 } : null;
@@ -213,4 +253,46 @@ export function buildAxosConnectorRefresh(instance: AxosConnectorInstance, now =
   if (!origin) return null;
   const table = buildAxosConnectorTable(instance.type, origin);
   return { table, instance: { ...refreshedAxosConnectorInstance(instance, now), range: table.range } };
+}
+
+
+export function connectorProtectionFor(instance: AxosConnectorInstance): { range: string; locked: true; reason: string; connectorId: string; connectorType: AxosConnectorType } {
+  return {
+    range: instance.range,
+    locked: true,
+    reason: `AXOS connector · ${instance.label}`,
+    connectorId: instance.id,
+    connectorType: instance.type,
+  };
+}
+
+
+export function suggestedChartsForConnector(instance: AxosConnectorInstance): ChartConfig[] {
+  const base = {
+    id: `axc_chart_${instance.id}`,
+    sheetIndex: instance.sheetIndex,
+    range: instance.range,
+    legend: 'bottom' as const,
+    palette: 'brand',
+  };
+  switch (instance.type) {
+    case 'inventory_snapshot':
+      return [{ ...base, type: 'bar', title: `${instance.label} · Disponible/Reservado`, yTitle: 'Cantidad' }];
+    case 'bom_cost_rollup':
+      return [{ ...base, type: 'doughnut', title: `${instance.label} · Costo por componente`, yTitle: 'Costo' }];
+    case 'work_orders':
+      return [{ ...base, type: 'bar', title: `${instance.label} · Plan vs buenas`, yTitle: 'Cantidad' }];
+    case 'oee_by_line':
+      return [{ ...base, type: 'combo', title: `${instance.label} · OEE`, yTitle: 'Componentes', y1Title: 'OEE', series: [{ type: 'bar' }, { type: 'bar' }, { type: 'bar' }, { type: 'line', axis: 'y1', color: '#ef4444' }] }];
+    case 'supplier_scorecard':
+      return [{ ...base, type: 'radar', title: `${instance.label} · Score proveedor`, yTitle: 'Score' }];
+    case 'ncr_scrap':
+      return [{ ...base, type: 'bar', title: `${instance.label} · Scrap por defecto`, yTitle: 'Qty / costo' }];
+    case 'purchase_orders':
+      return [{ ...base, type: 'bar', title: `${instance.label} · Qty abierta`, yTitle: 'Cantidad' }];
+    case 'mrp_shortages':
+      return [{ ...base, type: 'bar', title: `${instance.label} · Shortage`, yTitle: 'Cantidad' }];
+    default:
+      return [];
+  }
 }

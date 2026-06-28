@@ -33,6 +33,7 @@ import {
   CreateNpiProjectDto,
   CreateNpiRiskDto,
   DecideGateDto,
+  ReleaseProjectDto,
   UpdateNpiRiskDto,
 } from './dto/npi.dto';
 import { RISK_SEVERITY_RANK } from './npi-risk-state';
@@ -62,12 +63,36 @@ export interface NpiProjectView extends NpiProject {
   readiness: ReadinessSnapshot;
 }
 
+/** Light per-project rollup for the launch cards (no full readiness payload). */
+export interface NpiProjectSummary {
+  gateReady: boolean;
+  readyCount: number;
+  notReadyCount: number;
+  unknownCount: number;
+  criteriaTotal: number;
+  gatesCleared: number;
+  gatesTotal: number;
+  openRisks: number;
+  openHighRisks: number;
+}
+
+export interface NpiProjectListItem extends NpiProject {
+  summary: NpiProjectSummary;
+}
+
 export type SnapshotReason =
   | 'GATE_DECISION'
   | 'SCAN'
   | 'MANUAL'
   | 'PROJECT_CREATED'
-  | 'MODEL_ACTIVATION';
+  | 'MODEL_ACTIVATION'
+  | 'RELEASE';
+
+/** Result of evaluating a launch's release checklist (hard go/no-go). */
+export interface ReleaseChecklist {
+  ready: boolean;
+  blockers: string[];
+}
 
 export interface CaptureSnapshotOptions {
   projectId?: string | null;
@@ -152,6 +177,55 @@ export class NpiService {
     if (filter.model) qb.andWhere('p.model_number = :m', { m: filter.model });
     if (filter.status) qb.andWhere('p.status = :s', { s: filter.status });
     return qb.orderBy('p.created_at', 'DESC').getMany();
+  }
+
+  /**
+   * Same list, each project enriched with a LIGHT readiness/gates/risk summary
+   * so the launch cards can show go/no-go, gate progress and risk count without
+   * N+1 round-trips from the client. Per-project resolution is best-effort:
+   * a failure degrades to a null-ish summary, never breaks the list.
+   */
+  async listProjectsWithSummary(
+    filter: { model?: string; status?: string } = {},
+  ): Promise<NpiProjectListItem[]> {
+    const projects = await this.listProjects(filter);
+    return Promise.all(
+      projects.map(async (p) => ({
+        ...p,
+        summary: await this.summarizeProject(p),
+      })),
+    );
+  }
+
+  private async summarizeProject(
+    project: NpiProject,
+  ): Promise<NpiProjectSummary> {
+    const [readiness, gates, risks] = await Promise.all([
+      this.deriveReadiness(project.modelNumber, project.revision).catch(
+        () => null,
+      ),
+      this.gates
+        .find({ where: { projectId: project.id } })
+        .catch(() => [] as NpiGate[]),
+      this.risks
+        .find({ where: { projectId: project.id } })
+        .catch(() => [] as NpiRisk[]),
+    ]);
+    const gatesCleared = gates.filter(
+      (g) => g.status === 'PASSED' || g.status === 'WAIVED',
+    ).length;
+    const open = risks.filter((r) => r.status !== 'CLOSED');
+    return {
+      gateReady: !!readiness?.gateReady,
+      readyCount: readiness?.readyCount ?? 0,
+      notReadyCount: readiness?.notReadyCount ?? 0,
+      unknownCount: readiness?.unknownCount ?? 0,
+      criteriaTotal: readiness?.criteria.length ?? 0,
+      gatesCleared,
+      gatesTotal: gates.length,
+      openRisks: open.length,
+      openHighRisks: open.filter((r) => r.severity === 'HIGH').length,
+    };
   }
 
   async getProject(id: string): Promise<NpiProjectView> {
@@ -640,6 +714,98 @@ export class NpiService {
     return saved;
   }
 
+  // ── Release to MP (explicit, audited) ───────────────────────────────────────
+  /**
+   * Evaluate the hard release checklist for a launch: readiness green, every gate
+   * cleared (PASSED/WAIVED), and no open HIGH-severity risk. Pure read.
+   */
+  async releaseChecklist(project: NpiProject): Promise<ReleaseChecklist> {
+    const [readiness, gates, risks] = await Promise.all([
+      this.deriveReadiness(project.modelNumber, project.revision),
+      this.gates.find({ where: { projectId: project.id } }),
+      this.risks.find({ where: { projectId: project.id } }),
+    ]);
+    const blockers: string[] = [];
+
+    if (!readiness.gateReady) {
+      blockers.push(
+        readiness.blockers.length
+          ? `Readiness: ${readiness.blockers.join(', ')}`
+          : 'Readiness no está en verde',
+      );
+    }
+    for (const g of this.sortGates(gates)) {
+      if (g.status !== 'PASSED' && g.status !== 'WAIVED') {
+        blockers.push(`Gate ${g.phase} sin aprobar`);
+      }
+    }
+    for (const r of risks) {
+      if (r.status !== 'CLOSED' && r.severity === 'HIGH') {
+        blockers.push(`Riesgo alto abierto: ${r.title}`);
+      }
+    }
+
+    return { ready: blockers.length === 0, blockers };
+  }
+
+  /**
+   * Release a launch to mass production. By default BLOCKS when the checklist is
+   * not met; `force` releases with a deviation. Audited: stamps released_at/by,
+   * snapshots readiness, and records a ledger event. Idempotent if already
+   * RELEASED. Mutates `npi_project` only — never activates the product-model.
+   */
+  async releaseProject(
+    id: string,
+    dto: ReleaseProjectDto = {},
+  ): Promise<NpiProjectView> {
+    const project = await this.projects.findOne({ where: { id } });
+    if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    if (project.status === 'RELEASED') return this.getProject(id);
+    if (project.status === 'CANCELLED') {
+      throw new BadRequestException('No se puede liberar un launch cancelado.');
+    }
+
+    const checklist = await this.releaseChecklist(project);
+    if (!checklist.ready && !dto.force) {
+      throw new BadRequestException(
+        `No se puede liberar: ${checklist.blockers.join('; ')}. ` +
+          `Usa force=true para liberar con desviación.`,
+      );
+    }
+
+    const forced = !checklist.ready;
+    const note = dto.note?.trim() || null;
+    const releaseNote = forced
+      ? `${note ? `${note} ` : ''}[Desviación: ${checklist.blockers.join('; ')}]`.slice(
+          0,
+          500,
+        )
+      : note;
+
+    project.status = 'RELEASED';
+    project.releasedAt = new Date();
+    project.releasedBy = this.tenantCtx.getUserEmail() || null;
+    project.releaseNote = releaseNote;
+    await this.projects.save(project);
+
+    await this.captureSnapshotSafe(project.modelNumber, project.revision, {
+      projectId: project.id,
+      phase: 'MP',
+      reason: 'RELEASE',
+      note: forced
+        ? `Liberado a MP con desviación: ${checklist.blockers.join('; ')}`
+        : 'Liberado a MP con checklist en verde.',
+    });
+    await this.record('NPI_RELEASED', project.id, {
+      model: project.modelNumber,
+      revision: project.revision,
+      forced,
+      blockers: checklist.blockers,
+    });
+
+    return this.getProject(id);
+  }
+
   /**
    * Move the project's advisory `currentPhase` forward when a gate is cleared,
    * and mark it RELEASED when the MP gate passes. Mutates `npi_project` only.
@@ -726,10 +892,7 @@ export class NpiService {
     });
   }
 
-  async createRisk(
-    projectId: string,
-    dto: CreateNpiRiskDto,
-  ): Promise<NpiRisk> {
+  async createRisk(projectId: string, dto: CreateNpiRiskDto): Promise<NpiRisk> {
     const project = await this.projects.findOne({ where: { id: projectId } });
     if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
     const risk = this.risks.create({

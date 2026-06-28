@@ -60,8 +60,8 @@ assert.equal(
 );
 assert.equal(
   CAD_COMMAND_REGISTRY.length,
-  8,
-  "initial registry exposes 8 commands",
+  9,
+  "initial registry exposes 9 commands",
 );
 
 const parsed = parseCadCommand("haz un pasillo de 1.2m entre SMT e inspección");
@@ -85,6 +85,75 @@ assert.equal(
   invalid.issues.some((i) => i.code === "selection_too_small"),
   true,
   "validator reports selection issue",
+);
+
+const flowPreview = previewCadCommand(
+  { id: "connect_flow", objectIds: ["smt", "aoi", "pack"] },
+  ctx,
+);
+assert.equal(
+  flowPreview.operations.some((op) => op.type === "report"),
+  true,
+  "connect flow includes flow metrics report",
+);
+
+const arrangePreview = previewCadCommand(
+  { id: "arrange_line", direction: "left_to_right", objectIds: ["smt", "aoi"] },
+  ctx,
+);
+assert.equal(
+  arrangePreview.operations.some((op) => op.type === "report"),
+  true,
+  "arrange line includes post-flow score report",
+);
+
+const collisionPreview = previewCadCommand(
+  { id: "find_collisions" },
+  {
+    ...ctx,
+    objects: [
+      ctx.objects[0],
+      { ...ctx.objects[0], id: "overlap", label: "Overlap", x: 500 },
+    ],
+  },
+);
+assert.equal(
+  collisionPreview.affectedObjectIds.includes("smt"),
+  true,
+  "collision preview reports object ids",
+);
+assert.equal(
+  collisionPreview.issues.some((issue) => issue.code === "collisions_found"),
+  true,
+  "collision preview warns when overlaps exist",
+);
+
+const validatePreview = previewCadCommand(
+  { id: "validate_layout" },
+  {
+    ...ctx,
+    objects: [
+      ctx.objects[0],
+      { ...ctx.objects[0], id: "overlap", label: "Overlap", x: 500 },
+    ],
+  },
+);
+assert.equal(
+  validatePreview.operations.some(
+    (op) => op.type === "report" && op.title === "Validación de layout",
+  ),
+  true,
+  "validate layout emits a combined validation report",
+);
+assert.equal(
+  validatePreview.issues.some((issue) => issue.code === "layout_critical"),
+  true,
+  "validate layout flags critical severity on collisions",
+);
+assert.equal(
+  parseCadCommand("valida el layout").input?.id,
+  "validate_layout",
+  "parser recognizes validate layout intent",
 );
 
 let history: CadCommandHistoryState = { undo: [], redo: [] };

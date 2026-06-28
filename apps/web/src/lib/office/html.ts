@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { axosRefHref, axosRefText } from './axosRefs';
 
 const esc = (s: any) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const safeName = (s: string) => (s || 'documento').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 120);
@@ -23,7 +24,12 @@ function inline(nodes: any[] = []): string {
     if (n.type === 'text') return marks(n.text || '', n);
     if (n.type === 'hardBreak') return '<br />';
     if (n.type === 'image') return `<img src="${esc(n.attrs?.src)}" alt="${esc(n.attrs?.alt)}" />`;
-    if (n.type === 'axosRef') return `<span class="axos-ref" data-entity="${esc(n.attrs?.entity)}" data-ref-id="${esc(n.attrs?.refId)}">${esc(n.attrs?.label || n.attrs?.refId)}</span>`;
+    if (n.type === 'axosRef') {
+      const href = axosRefHref(n.attrs?.entity, n.attrs?.refId);
+      const text = esc(axosRefText(n.attrs?.entity, n.attrs?.refId, n.attrs?.label));
+      const attrs = `class="axos-ref" data-entity="${esc(n.attrs?.entity)}" data-ref-id="${esc(n.attrs?.refId)}"`;
+      return href ? `<a ${attrs} href="${esc(href)}">${text}</a>` : `<span ${attrs}>${text}</span>`;
+    }
     if (n.type === 'docField') return `<span class="doc-field" data-key="${esc(n.attrs?.key)}">${esc(n.attrs?.value || n.attrs?.label || n.attrs?.key)}</span>`;
     if (n.type === 'crossRef') return `<a class="xref" href="#bm-${esc(n.attrs?.target)}">${esc(n.attrs?.label || n.attrs?.target)}</a>`;
     if (n.type === 'bookmark') return `<a id="bm-${esc(n.attrs?.name)}"></a>`;

@@ -45,6 +45,7 @@ import { buildChartGroup, defaultChartSpec, isChart, type ChartSpec } from './sl
 import { SlideChartEditor } from './SlideChartEditor';
 import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slides/smartart';
 import { SlideSmartArtEditor } from './SlideSmartArtEditor';
+import { SMART_OBJECTS, buildSmartObjectGroup, defaultSmartObject, isSmartObject } from './slides/smartObjects';
 import { makeConnector, refreshConnectors, pickTwo, isConnector } from './slides/connectors';
 import { SlideFindReplace } from './SlideFindReplace';
 import { SlideOutline } from './SlideOutline';
@@ -69,6 +70,7 @@ function labelOf(slide: any): string {
 }
 function typeName(o: any): string {
   if (isChart(o)) return 'Gráfico';
+  if (isSmartObject(o)) return 'Smart Object';
   if (isSmart(o)) return 'SmartArt';
   if (isTable(o)) return 'Tabla';
   if (isConnector(o)) return 'Conector';
@@ -81,6 +83,7 @@ function typeName(o: any): string {
 }
 function objLabel(o: any): string {
   if (isChart(o)) return o.chartSpec?.title || 'Gráfico';
+  if (isSmartObject(o)) return o.smartObject?.title || 'Smart Object';
   if (isSmart(o)) return `SmartArt · ${o.smart?.kind ?? ''}`;
   if (o?.type === 'textbox' || o?.type === 'i-text' || o?.type === 'text') return (String(o.text || '').split('\n')[0] || 'Texto').slice(0, 26);
   return typeName(o);
@@ -196,7 +199,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   const clipboardRef = useRef<any>(null);
   const [presenting, setPresenting] = useState(false);
   const [preview, setPreview] = useState(false); // vista previa de animación (una diapositiva)
-  const [presentStart, setPresentStart] = useState(0);
+  const presentStartRef = useRef(0);
   const [sorter, setSorter] = useState(false);
   const [selAnim, setSelAnim] = useState<string>('none');
   const [selAnimOrder, setSelAnimOrder] = useState(0);
@@ -215,10 +218,6 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   const [selType, setSelType] = useState<string>('');
   const [selCount, setSelCount] = useState(0);
   const [selAngle, setSelAngle] = useState(0);
-  const [animList, setAnimList] = useState<AnimItem[]>([]);
-  const [layerList, setLayerList] = useState<LayerItem[]>([]);
-  const [activeIdx, setActiveIdx] = useState(-1);
-  const [selGeom, setSelGeom] = useState<{ x: number; y: number; w: number; h: number; angle: number } | null>(null);
   const [imgFx, setImgFx] = useState<ImgFx>(readImgFx(null));
   const [drawMode, setDrawMode] = useState(false);
   const [penColor, setPenColor] = useState('#ef4444');
@@ -257,14 +256,6 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   const footerRef = useRef<string>(value?.footer || '');
   const numbersRef = useRef<boolean>(!!value?.showNumbers);
   const [showNumbers, setShowNumbers] = useState<boolean>(!!value?.showNumbers);
-  const [presentMeta, setPresentMeta] = useState(() => ({
-    notes: initialNotes,
-    transitions: initialTransitions,
-    transDurs: initialTransDurs,
-    advanceAfters: initialAdvance,
-    master: '',
-    footer: value?.footer || '',
-  }));
   const theme = () => SLIDE_THEMES.find((t) => t.id === themeRef.current) || SLIDE_THEMES[0];
   // ── Patrón de diapositivas (slide master) ───────────────────────────────────
   // Modelo: un Fabric JSON con la «mobiliaria» compartida (logo, barras, marcos,
@@ -292,70 +283,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     o.set('animStart', v); setSelAnimStart(v); capture(); sync();
   }
 
-  function refreshCanvasSnapshot(canvas = fabricRef.current) {
-    if (!canvas) {
-      setAnimList([]);
-      setLayerList([]);
-      setActiveIdx(-1);
-      setSelGeom(null);
-      return;
-    }
-    const objects = canvas.getObjects();
-    setAnimList(
-      objects
-        .map((o: any, idx: number) => ({ o, idx }))
-        .filter((x) => !isConnector(x.o) && !isBgFill(x.o))
-        .map(({ o, idx }) => ({
-          idx,
-          label: objLabel(o),
-          type: typeName(o),
-          anim: (o.anim as string) || 'none',
-          order: o.animOrder ?? 0,
-          dur: o.animDur ?? 500,
-          delay: o.animDelay ?? 0,
-          start: (o.animStart as string) || DEFAULT_ANIM_START,
-          repeat: o.animRepeat ?? 1,
-          kind: animKind(o.anim as string),
-        })),
-    );
-    setLayerList(
-      objects
-        .map((o: any, idx: number) => ({ o, idx }))
-        .filter((x) => !isBgFill(x.o))
-        .map(({ o, idx }) => ({
-          idx,
-          label: objLabel(o),
-          type: typeName(o),
-          visible: o.visible !== false,
-          locked: !!o.locked,
-        })),
-    );
-    const active = canvas.getActiveObject() as any;
-    setActiveIdx(active ? objects.indexOf(active) : -1);
-    setSelGeom(
-      active
-        ? {
-          x: Math.round(active.left || 0),
-          y: Math.round(active.top || 0),
-          w: Math.round(active.getScaledWidth?.() || 0),
-          h: Math.round(active.getScaledHeight?.() || 0),
-          angle: Math.round(active.angle || 0),
-        }
-        : null,
-    );
-  }
-
   function sync() {
     setSlides([...slidesRef.current]);
     setSections([...sectionsRef.current]);
-    setPresentMeta({
-      notes: [...notesRef.current],
-      transitions: [...transitionsRef.current],
-      transDurs: [...transDursRef.current],
-      advanceAfters: [...advanceRef.current],
-      master: masterImgRef.current,
-      footer: footerRef.current,
-    });
     setComments([...commentsRef.current]);
     onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, advanceAfters: advanceRef.current, loop: loopRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current, master: masterRef.current, comments: commentsRef.current, pptxCompatibility: value?.pptxCompatibility });
   }
@@ -364,14 +294,20 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   function commentFromApi(c: any): SlideComment {
     return {
       id: String(c.id),
+      parentId: c.parentId || undefined,
       slide: typeof c.slideIndex === 'number' ? c.slideIndex : 0,
       objectId: c.objectId || undefined,
       objectLabel: c.anchorLabel || undefined,
       author: c.authorEmail || undefined,
+      assignedTo: c.assignedTo || undefined,
       text: String(c.text || ''),
       createdAt: c.createdAt ? new Date(c.createdAt).getTime() : Date.now(),
       resolved: !!c.resolved,
     };
+  }
+  function assignedFromText(text: string): string | undefined {
+    const m = text.match(/@([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
+    return m ? m[1].toLowerCase() : undefined;
   }
 
   function ensureObjectCommentId(o: any): string {
@@ -391,6 +327,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
       slide: curRef.current,
       objectId,
       objectLabel: objectId && active ? objLabel(active) : undefined,
+      assignedTo: assignedFromText(text),
       text,
       createdAt: Date.now(),
     };
@@ -401,13 +338,40 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     try {
       const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ anchorType: objectId ? 'object' : 'slide', slideIndex: curRef.current, objectId, anchorLabel: local.objectLabel, text }),
+        body: JSON.stringify({ anchorType: objectId ? 'object' : 'slide', slideIndex: curRef.current, objectId, anchorLabel: local.objectLabel, assignedTo: local.assignedTo, text }),
       });
       if (!r.ok) return;
       const saved = commentFromApi(await r.json());
       commentsRef.current = commentsRef.current.map((x) => (x.id === local.id ? saved : x));
       sync();
     } catch { /* keep local optimistic comment */ }
+  }
+  async function replyComment(parentId: string, text: string) {
+    const parent = commentsRef.current.find((c) => c.id === parentId);
+    if (!parent) return;
+    const local: SlideComment = {
+      id: `r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      parentId,
+      slide: parent.slide,
+      objectId: parent.objectId,
+      objectLabel: parent.objectLabel,
+      assignedTo: assignedFromText(text),
+      text,
+      createdAt: Date.now(),
+    };
+    commentsRef.current = [...commentsRef.current, local];
+    sync();
+    if (!docId) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentId, anchorType: parent.objectId ? 'object' : 'slide', slideIndex: parent.slide, objectId: parent.objectId, anchorLabel: parent.objectLabel, assignedTo: local.assignedTo, text }),
+      });
+      if (!r.ok) return;
+      const saved = commentFromApi(await r.json());
+      commentsRef.current = commentsRef.current.map((x) => (x.id === local.id ? saved : x));
+      sync();
+    } catch { /* keep local optimistic reply */ }
   }
   function resolveComment(id: string, resolved: boolean) {
     commentsRef.current = commentsRef.current.map((c) => (c.id === id ? { ...c, resolved } : c));
@@ -431,7 +395,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   }, [docId]);
 
   function deleteComment(id: string) {
-    commentsRef.current = commentsRef.current.filter((c) => c.id !== id);
+    commentsRef.current = commentsRef.current.filter((c) => c.id !== id && c.parentId !== id);
     sync();
     if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${id}`, { method: 'DELETE' }).catch(() => undefined);
   }
@@ -507,7 +471,6 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
       }
     }
     themeRef.current = id; setThemeId(id);
-    // eslint-disable-next-line react-hooks/immutability -- loadInto is a hoisted function declaration; safe to call from this event handler.
     await loadInto(curRef.current);
     sync();
   }
@@ -589,6 +552,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     c.add(g); c.setActiveObject(g); c.requestRenderAll();
     smartTargetRef.current = null; setSmartEditor(null);
     capture(); sync();
+  }
+  // ── Smart Objects AXOS (objetos visuales conectables a ERP/MES) ─────────────
+  function insertSmartObject(kind: (typeof SMART_OBJECTS)[number]['kind']) {
+    const c = fabricRef.current; if (!c) return;
+    const g = buildSmartObjectGroup(defaultSmartObject(kind), { accent: theme().accent });
+    c.add(g); c.setActiveObject(g); c.requestRenderAll(); capture(); sync();
   }
   // ── Conectores anclados (se pegan a dos formas y se mueven con ellas) ───────
   function connect(arrow: boolean) {
@@ -918,7 +887,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
   function capture() {
     const c = fabricRef.current; if (!c) return;
-    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'animRepeat', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph', 'assetId', 'assetCategory']);
+    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'animRepeat', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'smartObject', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph', 'assetId', 'assetCategory', 'masterRole']);
     // El patrón se compone como backgroundImage en modo normal: no debe quedar
     // guardado dentro del JSON de la diapositiva.
     delete data.backgroundImage; delete data.overlayImage;
@@ -973,6 +942,48 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     await loadInto(curRef.current);
     sync();
   }
+
+  async function applyMasterPreset(kind: 'executive' | 'plant' | 'minimal') {
+    const c = fabricRef.current;
+    const t = theme();
+    const H = slideHeight(ratioRef.current);
+    const objects: any[] = [];
+    const add = (o: any, role: string) => { o.set?.('masterRole', role); objects.push(o); };
+    if (kind === 'executive') {
+      add(new Rect({ left: 0, top: 0, width: CW, height: 7, fill: t.accent, ph: 'bar' } as any), 'top-accent');
+      add(new Textbox('AXOS', { left: 56, top: 28, width: 95, fontSize: 18, fill: t.text, fontFamily: themeHeading(t), fontWeight: 'bold', ph: 'subtitle' } as any), 'logo');
+      add(new Line([56, H - 44, CW - 56, H - 44], { stroke: t.surface, strokeWidth: 1.5 } as any), 'footer-rule');
+      add(new Textbox('Executive Operations Review', { left: 56, top: H - 34, width: 430, fontSize: 11, fill: t.muted, fontFamily: t.font, ph: 'subtitle' } as any), 'footer-text');
+      add(new Textbox('{{slideNumber}}', { left: CW - 102, top: H - 35, width: 46, fontSize: 11, fill: t.muted, fontFamily: t.font, textAlign: 'right', ph: 'subtitle' } as any), 'slide-number');
+    } else if (kind === 'plant') {
+      add(new Rect({ left: 0, top: 0, width: 76, height: H, fill: t.accent, ph: 'bar' } as any), 'side-rail');
+      add(new Textbox('AXOS\nPLANT', { left: 18, top: 26, width: 44, fontSize: 13, fill: '#ffffff', fontFamily: themeHeading(t), fontWeight: 'bold', textAlign: 'center', ph: 'subtitle' } as any), 'logo');
+      add(new Textbox('{{date}}', { left: 96, top: H - 36, width: 160, fontSize: 11, fill: t.muted, fontFamily: t.font, ph: 'subtitle' } as any), 'date');
+      add(new Textbox('Daily Production Meeting', { left: 274, top: H - 36, width: 390, fontSize: 11, fill: t.muted, fontFamily: t.font, textAlign: 'center', ph: 'subtitle' } as any), 'footer-text');
+      add(new Textbox('{{slideNumber}}', { left: CW - 92, top: H - 36, width: 36, fontSize: 11, fill: t.muted, fontFamily: t.font, textAlign: 'right', ph: 'subtitle' } as any), 'slide-number');
+    } else {
+      add(new Line([56, 44, CW - 56, 44], { stroke: t.surface, strokeWidth: 1.5 } as any), 'header-rule');
+      add(new Textbox('AXOS', { left: 56, top: 20, width: 90, fontSize: 14, fill: t.muted, fontFamily: themeHeading(t), fontWeight: 'bold', ph: 'subtitle' } as any), 'logo');
+      add(new Line([56, H - 40, CW - 56, H - 40], { stroke: t.surface, strokeWidth: 1.2 } as any), 'footer-rule');
+      add(new Textbox('{{footer}}', { left: 56, top: H - 31, width: 520, fontSize: 10, fill: t.muted, fontFamily: t.font, ph: 'subtitle' } as any), 'footer-text');
+    }
+    const json = { version: '7', objects: objects.map((o) => o.toObject(['ph', 'masterRole'])) };
+    masterRef.current = json;
+    if (masterModeRef.current && c) {
+      loadingRef.current = true;
+      c.getObjects().slice().forEach((o) => c.remove(o));
+      objects.forEach((o) => c.add(o));
+      c.backgroundColor = t.bg;
+      loadingRef.current = false;
+      c.requestRenderAll();
+      setHasMaster(objects.length > 0);
+    } else {
+      await renderMasterImage();
+      await applyMasterBg();
+    }
+    sync();
+  }
+
   function clearMaster() {
     masterRef.current = { version: '7', objects: [] };
     masterImgRef.current = ''; setHasMaster(false);
@@ -996,7 +1007,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     if (!elRef.current) return;
     const canvas = new Canvas(elRef.current, { width: CW, height: ch, backgroundColor: '#ffffff', preserveObjectStacking: true });
     fabricRef.current = canvas;
-    const onMod = () => { if (loadingRef.current) return; refreshCanvasSnapshot(canvas); capture(); sync(); };
+    const onMod = () => { if (loadingRef.current) return; capture(); sync(); };
     canvas.on('object:added', onMod);
     canvas.on('object:modified', onMod);
     canvas.on('object:removed', onMod);
@@ -1006,11 +1017,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
       setSelCount(o?.type === 'activeselection' || o?.type === 'activeSelection' ? (o._objects?.length ?? 0) : (o ? 1 : 0));
       setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0); setSelAnimRepeat(o?.animRepeat ?? 1); setSelAnimStart((o?.animStart as string) || DEFAULT_ANIM_START);
       setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); setImgFx(readImgFx(o)); setSelAngle(Math.round(o?.angle ?? 0)); setSelectedCommentLabel(o ? objLabel(o) : '');
-      refreshCanvasSnapshot(canvas);
     };
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
-    canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); setSelAnimRepeat(1); setSelectedCommentLabel(''); refreshCanvasSnapshot(canvas); });
+    canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); setSelAnimRepeat(1); setSelectedCommentLabel(''); });
     // Doble clic en un gráfico o SmartArt → reabre su editor.
     canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (readOnly) return; if (isChart(o)) editChartObj(o); else if (isSmart(o)) editSmartObj(o); else if (isTable(o)) editTableObj(o); });
     // Conectores anclados: recalcular al mover/escalar/rotar formas.
@@ -1117,7 +1127,6 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
         } catch { c.backgroundImage = undefined as any; }
       } else { c.backgroundImage = undefined as any; }
       c.requestRenderAll();
-      refreshCanvasSnapshot(c);
     } catch { /* noop */ }
     loadingRef.current = false;
     curRef.current = i;
@@ -1485,7 +1494,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const c = fabricRef.current; if (!c) return;
       if (croppingRef.current) { if (e.key === 'Escape') cancelCropFrame(); else if (e.key === 'Enter') applyCropFrame(); return; }
-      if (e.key === 'F5') { e.preventDefault(); capture(); setPresentStart(e.shiftKey ? curRef.current : 0); setPresenterMode(false); setPresenting(true); return; }
+      if (e.key === 'F5') { e.preventDefault(); capture(); presentStartRef.current = e.shiftKey ? curRef.current : 0; setPresenterMode(false); setPresenting(true); return; }
       const o = c.getActiveObject() as any;
       const meta = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
@@ -1605,6 +1614,27 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     c.add(g); c.setActiveObject(g); c.requestRenderAll(); capture(); sync();
   }
 
+  // Lista para el panel de animación (se recalcula en cada render desde el lienzo).
+  const animList: AnimItem[] = (() => {
+    const c = fabricRef.current; if (!showAnimPanel || !c) return [];
+    return c.getObjects()
+      .map((o: any, idx: number) => ({ o, idx }))
+      .filter((x) => !isConnector(x.o) && !isBgFill(x.o))
+      .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0, start: (o.animStart as string) || DEFAULT_ANIM_START, repeat: o.animRepeat ?? 1, kind: animKind(o.anim as string) }));
+  })();
+  const layerList: LayerItem[] = (() => {
+    const c = fabricRef.current; if (!showLayers || !c) return [];
+    return c.getObjects().map((o: any, idx: number) => ({ o, idx })).filter((x) => !isBgFill(x.o)).map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), visible: o.visible !== false, locked: !!o.locked }));
+  })();
+  const activeIdx = (() => {
+    const c = fabricRef.current; const a = c?.getActiveObject(); if (!c || !a) return -1;
+    return c.getObjects().indexOf(a as any);
+  })();
+  const selGeom = (() => {
+    const o = fabricRef.current?.getActiveObject() as any; if (!o) return null;
+    return { x: Math.round(o.left || 0), y: Math.round(o.top || 0), w: Math.round(o.getScaledWidth?.() || 0), h: Math.round(o.getScaledHeight?.() || 0), angle: Math.round(o.angle || 0) };
+  })();
+
   return (
     <div className="flex flex-col gap-3 h-full p-3">
       <OfficeRibbon storageKey="ribbon:slides">
@@ -1675,6 +1705,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
               <RibbonButton icon={LayoutGrid} label="Plantillas" hideLabel={false} onClick={() => setShowTemplates(true)} />
               <RibbonMenuButton icon={Stamp} label={masterMode ? 'Patrón ✦' : 'Patrón'} menuWidth={250} items={[
                 { label: masterMode ? '✕ Salir del patrón' : '✎ Editar patrón de diapositivas', onClick: () => (masterMode ? exitMasterMode() : enterMasterMode()) },
+                { label: 'Preset · Ejecutivo', onClick: () => applyMasterPreset('executive') },
+                { label: 'Preset · Planta', onClick: () => applyMasterPreset('plant') },
+                { label: 'Preset · Minimal', onClick: () => applyMasterPreset('minimal') },
                 ...(hasMaster ? [{ label: '🗑 Vaciar patrón', onClick: clearMaster }] : []),
               ]} />
             </RibbonGroup>
@@ -1738,6 +1771,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
             <RibbonGroup label="Gráfico">
               <RibbonButton icon={BarChart3} label="Gráfico" hideLabel={false} onClick={openChartEditor} />
               <RibbonButton icon={Workflow} label="SmartArt" hideLabel={false} onClick={openSmartEditor} />
+              <RibbonMenuButton icon={Sparkles} label="Smart Objects" menuWidth={250} items={SMART_OBJECTS.map((it) => ({ label: `${it.label} · ${it.hint}`, onClick: () => insertSmartObject(it.kind) }))} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Tablas">
@@ -1831,7 +1865,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
             <RibbonSeparator />
             <RibbonGroup label="Estilo de forma">
               <RibbonMenuButton icon={Sparkles} label="Estilos rápidos" menuWidth={284}>
-                <QuickStyleGallery accent={(SLIDE_THEMES.find((t) => t.id === themeId) || SLIDE_THEMES[0]).accent} onPick={applyQuickStyle} />
+                <QuickStyleGallery accent={theme().accent} onPick={applyQuickStyle} />
               </RibbonMenuButton>
               <RibbonColorButton icon={PaintBucket} title="Color de relleno" onChange={setColor} swatchBar={false} />
               <RibbonButton icon={Pipette} label="Cuentagotas (color del lienzo)" active={eyedropper} onClick={startEyedropper} />
@@ -1985,9 +2019,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           )}
           <RibbonSeparator />
           <RibbonGroup label="Presentación">
-            <RibbonButton icon={Play} label="Presentar (F5)" hideLabel={false} onClick={() => { capture(); setPresentStart(0); setPresenterMode(false); setPresenting(true); }} />
-            <RibbonButton icon={PlayCircle} label="Desde aquí (Shift+F5)" hideLabel={false} onClick={() => { capture(); setPresentStart(cur); setPresenterMode(false); setPresenting(true); }} />
-            <RibbonButton icon={MonitorPlay} label="Presentador" hideLabel={false} onClick={() => { capture(); setPresentStart(cur); setPresenterMode(true); setPresenting(true); }} />
+            <RibbonButton icon={Play} label="Presentar (F5)" hideLabel={false} onClick={() => { capture(); presentStartRef.current = 0; setPresenterMode(false); setPresenting(true); }} />
+            <RibbonButton icon={PlayCircle} label="Desde aquí (Shift+F5)" hideLabel={false} onClick={() => { capture(); presentStartRef.current = cur; setPresenterMode(false); setPresenting(true); }} />
+            <RibbonButton icon={MonitorPlay} label="Presentador" hideLabel={false} onClick={() => { capture(); presentStartRef.current = cur; setPresenterMode(true); setPresenting(true); }} />
             <RibbonButton icon={LayoutGrid} label="Clasificador" hideLabel={false} onClick={() => { capture(); setSorter(true); }} />
             {!readOnly && <RibbonButton icon={ListTree} label="Esquema" hideLabel={false} onClick={() => { capture(); setOutlineOpen(true); }} />}
           </RibbonGroup>
@@ -2063,7 +2097,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           </div>
         </div>
         {showAnimPanel && !readOnly && (
-          <SlideAnimationPanel items={animList} activeIdx={activeIdx} onChange={setAnimByIndex} onSelect={selectByIndex} onPreview={() => { capture(); setPresentStart(curRef.current); setPreview(true); }} onClose={() => setShowAnimPanel(false)} />
+          <SlideAnimationPanel items={animList} activeIdx={activeIdx} onChange={setAnimByIndex} onSelect={selectByIndex} onPreview={() => { capture(); presentStartRef.current = curRef.current; setPreview(true); }} onClose={() => setShowAnimPanel(false)} />
         )}
         {showLayers && !readOnly && (
           <SlideLayersPanel items={layerList} activeIdx={activeIdx} onSelect={selectByIndex} onToggleVisible={toggleVisibleIdx} onToggleLock={toggleLockIdx} onForward={forwardIdx} onBackward={backwardIdx} onFront={frontIdx} onBack={backIdx} onReorder={reorderObject} onClose={() => setShowLayers(false)} />
@@ -2076,6 +2110,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
             selectedLabel={selectedCommentLabel}
             canCommentObject={hasSel && selCount === 1}
             onAdd={addComment}
+            onReply={replyComment}
             onResolve={resolveComment}
             onDelete={deleteComment}
             onClose={() => setShowComments(false)}
@@ -2091,8 +2126,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
         </div>
       )}
 
-      {presenting && <Present slides={slides} notes={presentMeta.notes} transition={transition} transitions={presentMeta.transitions} transDurs={presentMeta.transDurs} advanceAfters={presentMeta.advanceAfters} loop={loop} master={presentMeta.master} footer={presentMeta.footer} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStart} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
-      {preview && <Present slides={slides} transitions={presentMeta.transitions} transDurs={presentMeta.transDurs} master={presentMeta.master} ratio={ratio} previewOne startAt={presentStart} onClose={() => setPreview(false)} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} advanceAfters={advanceRef.current} loop={loop} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      {preview && <Present slides={slides} transitions={transitionsRef.current} transDurs={transDursRef.current} master={masterImgRef.current} ratio={ratio} previewOne startAt={presentStartRef.current} onClose={() => setPreview(false)} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
       </AnimatePresence>
@@ -2100,7 +2135,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
         {reuseOpen && !readOnly && (
           <SlideReusePanel
             ratio={ratio}
-            current={slides.map((s, i) => ({ slide: s, note: presentMeta.notes[i] || '', transition: presentMeta.transitions[i] || 'fade', transDur: presentMeta.transDurs[i] || DEFAULT_TRANS_DUR }))}
+            current={slidesRef.current.map((s, i) => ({ slide: s, note: notesRef.current[i] || '', transition: transitionsRef.current[i] || 'fade', transDur: transDursRef.current[i] || DEFAULT_TRANS_DUR }))}
             onInsert={(item) => { insertReused(item); setReuseOpen(false); }}
             onClose={() => setReuseOpen(false)}
           />
@@ -2246,14 +2281,8 @@ function StaticDeck({ deck, master }: { deck?: Deck; master?: string }) {
   if (!deck) return <div className="w-full h-full bg-white" />;
   return (
     <div className="absolute inset-0" style={{ background: deck.bg }}>
-      {master && (
-        // eslint-disable-next-line @next/next/no-img-element -- Presentation layers are generated data URLs; next/image optimization is not useful here.
-        <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain" />
-      )}
-      {deck.layers.map((L, j) => (
-        // eslint-disable-next-line @next/next/no-img-element -- Presentation layers are generated data URLs; next/image optimization is not useful here.
-        <img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain" />
-      ))}
+      {master && <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain" />}
+      {deck.layers.map((L, j) => <img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain" />)}
     </div>
   );
 }
@@ -2265,10 +2294,7 @@ function AnimatedDeck({ deck, master, plan, revealed }: { deck?: Deck; master?: 
   if (!deck) return <div className="absolute inset-0 bg-white" />;
   return (
     <div className="absolute inset-0" style={{ background: deck.bg }}>
-      {master && (
-        // eslint-disable-next-line @next/next/no-img-element -- Presentation layers are generated data URLs; next/image optimization is not useful here.
-        <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
-      )}
+      {master && <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />}
       {deck.layers.map((L, j) => {
         const p = plan.get(j);
         const animated = !!(L.anim && L.anim !== 'none');
@@ -2326,10 +2352,7 @@ function Present({
   const gridRef = useRef(false);
   const previewOneRef = useRef(!!previewOne);
   useEffect(() => { previewOneRef.current = !!previewOne; }, [previewOne]);
-  useEffect(() => {
-    iRef.current = i;
-    queueMicrotask(() => setLaser(null));
-  }, [i]);
+  useEffect(() => { iRef.current = i; setLaser(null); }, [i]);
   useEffect(() => { revealedRef.current = revealed; }, [revealed]);
   useEffect(() => { loopRef.current = loop; }, [loop]);
   useEffect(() => { gridRef.current = gridNav; }, [gridNav]);
@@ -2387,7 +2410,7 @@ function Present({
     };
     window.addEventListener('keydown', onKey);
     return () => { active = false; window.removeEventListener('keydown', onKey); };
-  }, [slides, onClose, ch]);
+  }, [slides, onClose]);
 
   // Temporizador + reloj de hora del día (vista de presentador).
   useEffect(() => {

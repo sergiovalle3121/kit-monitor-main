@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
   Copy, Pencil, RotateCcw, Check, X, Clock, Users, Search, ArrowDownUp, Upload,
-  Star, Pin, Tags, LayoutGrid, List, Filter, Sparkles,
+  Star, Pin, Tags, LayoutGrid, List, Filter, Sparkles, ShieldCheck, FileLock2, CircleDot, Archive,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -21,9 +21,10 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 type DocType = 'doc' | 'sheet' | 'slides';
-type LibraryScope = 'all' | 'owned' | 'shared' | 'favorites' | 'pinned' | 'recent';
+type LifecycleState = 'draft' | 'in_review' | 'approved' | 'effective' | 'obsolete';
+type LibraryScope = 'all' | 'owned' | 'shared' | 'favorites' | 'pinned' | 'recent' | LifecycleState;
 type ViewMode = 'grid' | 'list';
-interface OfficeDoc { id: string; type: DocType; title: string; updatedAt?: string; createdBy?: string | null }
+interface OfficeDoc { id: string; type: DocType; title: string; updatedAt?: string; createdBy?: string | null; lifecycleState?: LifecycleState; locked?: boolean }
 interface LibraryMeta { favorite?: boolean; pinned?: boolean; tags?: string[] }
 
 const LIBRARY_META_KEY = 'axos.office.libraryMeta.v1';
@@ -41,7 +42,26 @@ const SCOPES: { id: LibraryScope; label: string; helper: string }[] = [
   { id: 'favorites', label: 'Favoritos', helper: 'Marcados para trabajo recurrente' },
   { id: 'pinned', label: 'Fijados', helper: 'Críticos para operación diaria' },
   { id: 'recent', label: 'Recientes', helper: 'Actualizados en los últimos 14 días' },
+  { id: 'draft', label: 'Borradores', helper: 'Documentos editables en preparación' },
+  { id: 'in_review', label: 'En revisión', helper: 'Pendientes de revisión/aprobación' },
+  { id: 'approved', label: 'Aprobados', helper: 'Aprobados y bloqueados, pendientes de liberar' },
+  { id: 'effective', label: 'Vigentes', helper: 'Documentos efectivos en punto de uso' },
+  { id: 'obsolete', label: 'Obsoletos', helper: 'Retirados del uso operativo' },
 ];
+
+const LIFECYCLE_META: Record<LifecycleState, { label: string; cls: string; icon: typeof FileText }> = {
+  draft: { label: 'Borrador', cls: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300', icon: FileText },
+  in_review: { label: 'En revisión', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300', icon: CircleDot },
+  approved: { label: 'Aprobado', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', icon: ShieldCheck },
+  effective: { label: 'Vigente', cls: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300', icon: FileLock2 },
+  obsolete: { label: 'Obsoleto', cls: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300', icon: Archive },
+};
+
+function LifecycleBadge({ state = 'draft', locked }: { state?: LifecycleState; locked?: boolean }) {
+  const meta = LIFECYCLE_META[state] ?? LIFECYCLE_META.draft;
+  const Icon = locked ? Lock : meta.icon;
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}><Icon className="h-3 w-3" /> {meta.label}</span>;
+}
 
 function relTime(iso?: string): string {
   if (!iso) return '';
@@ -67,7 +87,6 @@ export default function OfficeHubPage() {
   const { data, isLoading, forbidden, mutate } = useApi<OfficeDoc[]>(`/office-documents?type=${tab}${trash ? '&trash=1' : ''}`);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [gallery, setGallery] = useState(false);
@@ -82,6 +101,11 @@ export default function OfficeHubPage() {
   const isShared = (d: OfficeDoc) => Boolean(!isAdmin && d.createdBy && user?.email && d.createdBy !== user.email);
   const isOwned = (d: OfficeDoc) => Boolean(!d.createdBy || !user?.email || d.createdBy === user.email || isAdmin);
   const allTags = useMemo(() => Array.from(new Set(Object.values(libraryMeta).flatMap((m) => m.tags ?? []))).sort((a, b) => a.localeCompare(b)), [libraryMeta]);
+  const lifecycleSummary = useMemo(() => rawDocs.reduce<Record<LifecycleState, number>>((acc, doc) => {
+    const state = doc.lifecycleState ?? 'draft';
+    acc[state] = (acc[state] ?? 0) + 1;
+    return acc;
+  }, { draft: 0, in_review: 0, approved: 0, effective: 0, obsolete: 0 }), [rawDocs]);
   const docs = rawDocs
     .filter((d) => {
       const local = libraryMeta[d.id] ?? {};
@@ -95,7 +119,8 @@ export default function OfficeHubPage() {
         || (scope === 'shared' && isShared(d))
         || (scope === 'favorites' && local.favorite)
         || (scope === 'pinned' && local.pinned)
-        || (scope === 'recent' && updatedAt >= recentCutoff);
+        || (scope === 'recent' && updatedAt >= recentCutoff)
+        || (['draft', 'in_review', 'approved', 'effective', 'obsolete'].includes(scope) && (d.lifecycleState ?? 'draft') === scope);
       return matchesQuery && matchesTag && matchesScope;
     })
     .sort((a, b) => {
@@ -173,7 +198,7 @@ export default function OfficeHubPage() {
   // presentación con el contenido resultante.
   async function onImportPptx(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
-    setErr(null); setNotice(null); setBusy(true);
+    setErr(null); setBusy(true);
     let deck: any;
     try {
       const buf = await f.arrayBuffer();
@@ -184,11 +209,6 @@ export default function OfficeHubPage() {
       setBusy(false); return;
     }
     setBusy(false);
-    const issues = deck?.pptxCompatibility?.issues;
-    if (Array.isArray(issues) && issues.length) {
-      const top = issues.slice(0, 3).map((x: any) => x.message).join(' ');
-      setNotice(`Importado con ${issues.length} aviso(s) de compatibilidad. ${top}`);
-    }
     await createFrom(deck, f.name.replace(/\.pptx$/i, '') || 'Importada');
   }
 
@@ -284,6 +304,18 @@ export default function OfficeHubPage() {
               </button>
             ))}
           </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-5">
+            {(Object.keys(LIFECYCLE_META) as LifecycleState[]).map((state) => {
+              const metaState = LIFECYCLE_META[state];
+              const Icon = metaState.icon;
+              return (
+                <button key={state} onClick={() => setScope(state)} className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-left transition-all ${scope === state ? 'border-black bg-black text-white dark:border-white dark:bg-white dark:text-black' : 'border-black/5 bg-white/50 text-gray-500 hover:text-black dark:border-white/10 dark:bg-white/5 dark:hover:text-white'}`}>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold"><Icon className="h-3.5 w-3.5" /> {metaState.label}</span>
+                  <span className="text-xs font-bold">{lifecycleSummary[state]}</span>
+                </button>
+              );
+            })}
+          </div>
           {allTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-black/5 dark:border-white/10">
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400"><Tags className="w-3.5 h-3.5" /> Tags</span>
@@ -328,11 +360,6 @@ export default function OfficeHubPage() {
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {err}
           </div>
         )}
-        {notice && (
-          <div className="flex gap-2 items-start p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 text-sm mb-4">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {notice}
-          </div>
-        )}
 
         {forbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
@@ -369,6 +396,7 @@ export default function OfficeHubPage() {
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-500" title={`Compartido por ${d.createdBy}`}><Users className="w-3 h-3" /> Compartido</span>
                       )}
                       {libraryMeta[d.id]?.pinned && <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600"><Pin className="w-3 h-3" /> Fijado</span>}
+                      <LifecycleBadge state={d.lifecycleState ?? 'draft'} locked={d.locked} />
                     </div>
                     <p className="font-bold truncate">{d.title}</p>
                     <p className="flex items-center gap-1 text-[11px] text-gray-400"><Clock className="w-3 h-3" /> {relTime(d.updatedAt)}</p>
@@ -392,7 +420,7 @@ export default function OfficeHubPage() {
                         <IconBtn title={libraryMeta[d.id]?.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(d.id)} className={`${libraryMeta[d.id]?.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
                         <IconBtn title={libraryMeta[d.id]?.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(d.id)} className={`${libraryMeta[d.id]?.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Editar tags" onClick={() => editTags(d.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
-                        <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>
+                        {!d.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
                         <IconBtn title="Duplicar" onClick={() => duplicate(d.id)} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Mover a papelera" onClick={() => toTrash(d.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
                       </>
@@ -479,6 +507,7 @@ function DocumentRow({
                 {isShared && <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-500 dark:bg-blue-500/10"><Users className="h-3 w-3" /> Compartido</span>}
                 {local.favorite && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:bg-amber-500/10"><Star className="h-3 w-3" /> Favorito</span>}
                 {local.pinned && <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-500/10"><Pin className="h-3 w-3" /> Fijado</span>}
+                <LifecycleBadge state={doc.lifecycleState ?? 'draft'} locked={doc.locked} />
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
                 <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {relTime(doc.updatedAt)}</span>
@@ -502,7 +531,7 @@ function DocumentRow({
               <IconBtn title={local.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(doc.id)} className={`${local.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
               <IconBtn title={local.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(doc.id)} className={`${local.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
               <IconBtn title="Editar tags" onClick={() => editTags(doc.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
-              <IconBtn title="Renombrar" onClick={() => { setEditingId(doc.id); setDraft(doc.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>
+              {!doc.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(doc.id); setDraft(doc.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
               <IconBtn title="Duplicar" onClick={() => duplicate(doc.id)} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
               <IconBtn title="Mover a papelera" onClick={() => toTrash(doc.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
             </>

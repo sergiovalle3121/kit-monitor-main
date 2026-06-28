@@ -2697,4 +2697,187 @@ build y el lint. No se añadió spec no ejecutable.
 **Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
 existente cambia.
 
+## 123. CIDE — cobertura total: que la IA entienda todos los módulos de Axos OS
+
+**Contexto.** CIDE ya razonaba sobre producción, inventario, MRP, compras, finanzas, ventas,
+calidad (holds/CAPA), proveedores, BOM, Event Ledger y métricas. Pero quedaban módulos
+operativos sin herramientas, así que la IA "no veía" partes del negocio. El objetivo de esta
+fase: que CIDE **entienda todo Axos OS**.
+
+**Decisión.** Añadir **11 herramientas read-only**, cada una gateada por el permiso real de
+lectura del módulo (mismo principio: la IA nunca lee lo que el usuario no podría leer en la UI)
+y auto-escopada por tenant (ALS), resolviendo los servicios vía `ModuleRef` (todos singleton):
+- **Mantenimiento:** `maintenance_orders`, `maintenance_assets`, `maintenance_pm_plans`
+  (`maintenance:read`).
+- **EHS/Seguridad:** `safety_incidents` (`reports:read`).
+- **Calidad:** `fai_records` (FAI, `quality:report`), `rma_cases` (devoluciones, `quality:read`).
+- **Logística:** `list_shipments` (`materials:read`).
+- **Herramentales:** `list_tools` (`maintenance:read`).
+- **Finanzas:** `list_fixed_assets` (activos fijos, `finance:read`).
+- **Trazabilidad:** `genealogy_links` (genealogía as-built, `production:report`).
+- **Ingeniería:** `visual_aids` (ayudas visuales / instrucciones, abierto a usuario autenticado,
+  como su endpoint).
+
+El system prompt se actualizó para enumerar explícitamente todos los dominios cubiertos, y
+`cideSuggestions` ganó prompts contextuales para EHS, herramentales, RMA y activos fijos.
+
+**Verificación:** `build API` ✓, **API tests 1101/1101** ✓ (sin regresiones; servicios singleton
+confirmados, no request-scoped), `lint web` 0 errores, `build web` ✓. Solo lectura; sin
+migraciones; ningún endpoint ni comportamiento existente cambia.
+
+## 124. CIDE — "Ponme al día": briefing ejecutivo de un clic
+
+**Contexto.** Con CIDE entendiendo ya todos los módulos (§123), un caso de alto valor para un
+dueño/gerente es un resumen accionable de "cómo está la planta ahora" sin escribir la pregunta.
+
+**Decisión (solo `apps/web`, aditiva).** Botón **"Ponme al día"** destacado en el estado inicial
+del chat que envía un `BRIEFING_PROMPT` curado por el flujo de streaming normal: CIDE encadena
+sus herramientas (KPIs en alerta, novedades 24 h, calidad —holds/CAPA/FAI—, mantenimiento
+vencido, embarques del día) y responde con secciones breves + "Acciones sugeridas" (máx 3,
+priorizadas), siempre fundamentado en datos reales. Sin backend nuevo: reusa `POST
+/ai/chat/stream` y todo el toolset RBAC. El prompt vive en `lib/chat/cideSuggestions.ts`.
+
+**Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
+existente cambia.
+
+## 125. CIDE — toggle de auto-escalación por tenant en el panel admin
+
+**Contexto.** La auto-escalación de modelo (§118) era solo por env (`CIDE_AUTO_ESCALATE`),
+global a todo el proceso. Un admin no podía activarla/desactivarla por organización ni verla
+en la UI.
+
+**Decisión (aditiva).** Hacerla configurable por tenant, conservando el default de proceso.
+- **Esquema:** `ai_tenant_config.auto_escalate` (boolean, nullable). `null` = heredar el env;
+  true/false = override del tenant. Migración idempotente `AddAiAutoEscalate20260627150000`.
+- **Backend:** `ConfigDto.autoEscalate`; `setConfig` lo persiste; `publicConfig` expone el valor
+  **efectivo** (`cfg.autoEscalate ?? AUTO_ESCALATE`) y `autoEscalateSource` ('tenant'|'default');
+  `prepare()` pasa `cfg.autoEscalate ?? undefined` a `chooseModel` (override gana; null hereda).
+- **UI admin:** toggle "Escalado automático de modelo" en `/dashboard/admin/ai`, con nota de
+  herencia cuando viene del entorno.
+
+**Verificación:** `build API` ✓, **API tests 1108/1108** (+2: setConfig persiste el override y
+reporta source; default cuando no hay override), `lint web` 0 errores, `build web` ✓. Migración
+100% aditiva (columna nullable); nada existente cambia.
+
+## 126. CIDE — acciones con confirmación humana (el salto Palantir, human-in-the-loop)
+
+**Contexto.** Hasta aquí CIDE era estrictamente **read-only** (§22/§23: "la ejecución es acción
+humana"). El siguiente salto de producto —pasar de un panel que *informa* a un cerebro que
+*opera* AXOS OS— requiere que CIDE pueda **accionar**. Se hace con autorización explícita del
+usuario y revirtiendo de forma controlada esa postura read-only, **sin** dar a la IA poder de
+ejecución autónomo.
+
+**Decisión.** Patrón **human-in-the-loop**: la IA **propone**, el humano **confirma**, el backend
+**ejecuta** con el RBAC del usuario.
+- **Registro de acciones (`ai-actions.ts`, puro):** catálogo acotado de acciones permitidas.
+  Arranca con **una**: `create_maintenance_order` (permiso `maintenance:write`). Cada acción trae
+  validación + normalización de params y un resumen legible.
+- **Propuesta (tool `propose_action`):** la IA puede *proponer* (no ejecutar). El tool valida
+  permiso + params y devuelve una **tarjeta de confirmación** (`action_proposal`); nunca muta.
+- **Ejecución (`AiActionsService` + `POST /ai/actions/execute`):** único punto de escritura;
+  re-chequea permiso y **re-valida** params (no confía en el cliente), despacha al servicio del
+  módulo (que ya registra su evento en el **Event Ledger** → auditable). Proxy Next dedicado.
+- **UI:** la tarjeta de propuesta en el chat muestra el resumen y botones **Confirmar/Descartar**;
+  al confirmar ejecuta y muestra el folio resultante. El system prompt instruye a proponer solo
+  cuando el usuario lo pida explícitamente.
+
+**Seguridad.** La IA jamás ejecuta sola; toda acción pasa por (1) confirmación humana explícita,
+(2) RBAC del usuario re-verificado en el backend, (3) re-validación de params y (4) traza en el
+Event Ledger. El catálogo es deliberadamente mínimo para validar el patrón antes de ampliarlo.
+
+**Verificación:** `build API` ✓, **API tests 1118/1118** (+10: validación del registro y
+`AiActionsService` —permiso denegado, acción desconocida, params inválidos, éxito—), `lint web`
+0 errores, `build web` ✓. Sin migraciones; los módulos de lectura no cambian.
+
+## 127. CIDE — ampliar el catálogo de acciones (calidad, compras, producción, EHS)
+
+**Contexto.** §126 validó el patrón human-in-the-loop con una sola acción
+(`create_maintenance_order`). Con el patrón probado, se amplía el catálogo a las acciones de
+mayor valor operativo, reusando exactamente la misma infraestructura (propose_action → tarjeta
+de confirmación → `POST /ai/actions/execute` con RBAC re-verificado y traza en el ledger).
+
+**Decisión.** Cuatro acciones nuevas en `ACTIONS`, cada una con su permiso real y su ejecutor:
+- `release_quality_hold` (`QUALITY_APPROVE`) → `QualityService.releaseHold(holdId, actor)`.
+- `create_purchase_requisition` (`materials:write`) → `ErpMmService.createRequisition` (cierra
+  el lazo MRP→compra; `createdBy` = el usuario).
+- `create_production_plan` (`MANAGE_PLANS`) → `PlansService.create` (model, line 1–7, quantity,
+  shift T1/T2/T3, …).
+- `assign_ehs_incident_owner` (`reports:read`, como su endpoint) → `EhsService.update` fijando
+  `capaOwner`/`capaDueDate`.
+El `run()` del servicio ahora recibe el `reqUser` para inyectar el actor donde se requiere
+(liberación de hold, createdBy de la requisición). La descripción de `propose_action` enumera
+las 5 acciones y sus params. La UI no cambió: la tarjeta de propuesta ya es agnóstica a la acción.
+
+**Verificación:** `build API` ✓, **API tests 1125/1125** (+7: validación de las 4 acciones y
+execute de requisición/forbid EHS), `lint web` 0 errores. Mismas garantías de §126 (confirmación
+humana + RBAC + re-validación + ledger). Sin migraciones.
+
+## 128. CIDE "Centinela" — inteligencia proactiva (de reactivo a "te aviso yo")
+
+**Contexto.** Hasta aquí CIDE respondía cuando le preguntabas. El salto: que **proponga la
+agenda** — al abrirlo, muestra priorizado y filtrado por permisos "qué necesita tu atención
+ahora" cruzando todos los dominios, cada hallazgo a un clic de análisis profundo (y de ahí, de
+una acción §126/§127). Esto convierte a CIDE de panel reactivo en monitor proactivo.
+
+**Decisión (aditiva, sin migración).**
+- **Núcleo determinista (`ai-insights.ts`, puro):** mappers que convierten la salida de las
+  herramientas read-only en `Insight { area, severity, title, detail, suggestedQuestion }`:
+  KPIs en alerta (uno por alerta), mantenimiento vencido, retenciones de calidad activas,
+  incidentes EHS abiertos. `buildSituationReport` combina y ordena por severidad. **No usa el
+  LLM**, así que funciona aunque el motor no esté arriba.
+- **Servicio (`AiInsightsService`):** corre `kpi_alerts`, `maintenance_orders`, `quality_holds`
+  y `safety_incidents` vía `AiToolsService.execute` bajo el RBAC del usuario (fuentes sin
+  permiso se omiten), y arma el reporte. Endpoint `GET /api/ai/insights` + proxy Next.
+- **UI:** nueva vista **"Centinela"** (icono escudo) en el widget de CIDE: lista priorizada con
+  puntos de severidad; cada hallazgo tiene "Analizar con CIDE →" que salta al chat con la
+  pregunta de profundización.
+
+**Verificación:** `build API` ✓, **API tests 1131/1131** (+6: mappers y `buildSituationReport`,
+incl. tolerancia a shapes/RBAC y orden por severidad), `lint web` 0 errores, `build web` ✓
+(ruta `/api/ai/insights` registrada). RBAC: nunca surfacea lo que el usuario no podría ver.
+
+## 129. CIDE — copiloto estilo ChatGPT: alcance amplio, respuestas ricas y Markdown
+
+**Contexto.** El usuario quiere usar CIDE como usa ChatGPT. El diseño previo lo limitaba a
+analista de datos que **rechazaba** todo lo demás, con respuestas muy cortas y texto plano. Se
+amplía a un copiloto de trabajo completo sin perder el grounding de datos. (No se reentrenan
+pesos —el modelo es open-weight self-hosted—; el salto es de prompt, presupuesto y formato.)
+
+**Decisión.**
+- **System prompt reescrito:** CIDE es ahora un copiloto con DOS capacidades que combina: (1)
+  analista de datos (usa herramientas para todo lo de la operación) y (2) asistente general
+  (explicar, redactar/mejorar textos, traducir, resumir, calcular, idear, fórmulas/Excel,
+  programación básica, dudas de uso). Se elimina el rechazo general; solo declina lo dañino/
+  ilegal. **Regla de oro intacta:** para datos concretos de la empresa, solo lo que devuelven
+  las herramientas (nunca inventar cifras/nombres); el conocimiento general sí puede responderse.
+- **Respuestas ricas:** `AI_MAX_OUTPUT_TOKENS` default 700 → **1500**; longitud adaptativa
+  (concisa para lo simple, completa cuando amerite); historial de contexto 20 → **40** mensajes.
+- **Markdown:** el prompt pide formato Markdown; nuevo `MarkdownLite.tsx` (sin dependencias,
+  XSS-safe por construcción) renderiza negritas, listas, encabezados, código y enlaces en las
+  respuestas del asistente del chat.
+
+**Verificación:** `build API` ✓, `tsc` ✓, **AI tests 52/52**, `lint web` 0 errores, `build web` ✓.
+Sin migraciones; los flujos de datos/acciones no cambian.
+
+## 130. CIDE — "enséñale tu empresa": conocimiento propio por organización
+
+**Contexto.** §129 amplió a CIDE a copiloto general, pero no "sabía" lo específico de la empresa
+(políticas, definiciones, abreviaturas, objetivos). No se pueden reentrenar pesos (modelo
+open-weight self-hosted); la vía práctica es **inyectar conocimiento curado** en su contexto.
+
+**Decisión (aditiva).** Un panel donde el admin escribe el conocimiento de la organización y
+CIDE lo usa como contexto autoritativo.
+- **Esquema:** `ai_tenant_config.knowledge` (text, nullable). Migración idempotente
+  `AddAiKnowledge20260628010000`.
+- **Backend:** `ConfigDto.knowledge` (máx 8000); `setConfig` lo persiste (trim; vacío → null);
+  `publicConfig` lo expone; `buildSystem(reqUser, knowledge)` inyecta un bloque "CONOCIMIENTO DE
+  LA EMPRESA" cuando hay texto, instruyendo a priorizarlo sobre el conocimiento general (sin
+  romper la regla de oro: los datos concretos siguen viniendo de las herramientas).
+- **UI admin:** sección "Conocimiento de la empresa" en `/dashboard/admin/ai` con textarea
+  (contador 0/8000) y guardado.
+
+**Verificación:** `build API` ✓, `tsc` ✓, **AI tests 55/55** (+3: inyección en el prompt y
+persistencia/limpieza de `knowledge`), `lint web` 0 errores, `build web` ✓. Total API 1134.
+Migración 100% aditiva (columna nullable).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

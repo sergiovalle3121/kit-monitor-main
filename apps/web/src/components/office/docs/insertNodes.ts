@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Node, Extension } from '@tiptap/core';
+import { axosEntityLabel, axosRefHref, axosRefText } from '@/lib/office/axosRefs';
 
 /**
  * Elementos de inserción «tipo Word»:
@@ -161,13 +162,16 @@ export const AxosRef = Node.create({
     }];
   },
   renderHTML({ node }: any) {
+    const href = axosRefHref(node.attrs.entity, node.attrs.refId);
+    const text = axosRefText(node.attrs.entity, node.attrs.refId, node.attrs.label);
     return ['span', {
       'data-axos-ref': 'true',
       'data-entity': node.attrs.entity || 'work_order',
       'data-ref-id': node.attrs.refId || '',
+      'data-href': href || '',
       'data-status': node.attrs.status || '',
       class: 'doc-axos-ref',
-    }, node.attrs.label || `${node.attrs.entity}:${node.attrs.refId}`];
+    }, text];
   },
   addNodeView() {
     return ({ node }: any) => {
@@ -177,9 +181,16 @@ export const AxosRef = Node.create({
       dom.dataset.axosRef = 'true';
       dom.dataset.entity = node.attrs.entity || 'work_order';
       dom.dataset.refId = node.attrs.refId || '';
+      dom.dataset.href = axosRefHref(node.attrs.entity, node.attrs.refId) || '';
       dom.dataset.status = node.attrs.status || '';
-      dom.textContent = node.attrs.label || `${node.attrs.entity}:${node.attrs.refId}`;
-      dom.title = `AXOS ${node.attrs.entity} · ${node.attrs.refId || 'sin id'}`;
+      dom.textContent = axosRefText(node.attrs.entity, node.attrs.refId, node.attrs.label);
+      dom.title = `${axosEntityLabel(node.attrs.entity)} · ${node.attrs.refId || 'sin id'}`;
+      dom.addEventListener('click', (e) => {
+        const href = axosRefHref(node.attrs.entity, node.attrs.refId);
+        if (!href) return;
+        e.preventDefault();
+        window.open(href, '_blank', 'noopener,noreferrer');
+      });
       return { dom };
     };
   },

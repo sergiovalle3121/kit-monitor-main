@@ -3,10 +3,10 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Plus, Trash2, BarChart3, BarChart2, LineChart, AreaChart, PieChart, CircleDashed, ChartNoAxesCombined, CandlestickChart, Gauge } from 'lucide-react';
+import { X, Plus, Trash2, BarChart3, BarChart2, LineChart, AreaChart, PieChart, CircleDashed, ChartNoAxesCombined, CandlestickChart, Gauge, ScatterChart, Radar } from 'lucide-react';
 import { CHART_TYPES, CHART_PALETTES, buildChartGroup, type ChartSpec, type ChartType } from './slides/chart';
 
-const TYPE_ICON: Record<ChartType, any> = { bar: BarChart3, hbar: BarChart2, line: LineChart, area: AreaChart, pie: PieChart, doughnut: CircleDashed, pareto: ChartNoAxesCombined, waterfall: CandlestickChart, gauge: Gauge };
+const TYPE_ICON: Record<ChartType, any> = { bar: BarChart3, hbar: BarChart2, line: LineChart, area: AreaChart, pie: PieChart, doughnut: CircleDashed, scatter: ScatterChart, bubble: CircleDashed, radar: Radar, pareto: ChartNoAxesCombined, waterfall: CandlestickChart, gauge: Gauge };
 
 /** Editor de gráfico: tipo + título + tabla de datos editable con vista previa. */
 export function SlideChartEditor({ spec: initial, onApply, onClose }: {
@@ -96,10 +96,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
 
           {/* Vista previa */}
           <div className="rounded-xl bg-gray-50 dark:bg-black/30 border border-black/5 dark:border-white/10 flex items-center justify-center p-2" style={{ minHeight: 170 }}>
-            {preview ? (
-              // eslint-disable-next-line @next/next/no-img-element -- Chart preview is a client-generated data URL from Fabric.
-              <img src={preview} alt="Vista previa" className="max-h-[210px] w-auto" />
-            ) : <span className="text-sm text-gray-400">Generando vista previa…</span>}
+            {preview ? <img src={preview} alt="Vista previa" className="max-h-[210px] w-auto" /> : <span className="text-sm text-gray-400">Generando vista previa…</span>}
           </div>
           {pieNote && <p className="text-xs text-amber-600 dark:text-amber-400">Este tipo usa sólo la primera serie de datos.</p>}
 

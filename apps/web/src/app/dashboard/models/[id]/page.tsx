@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ChevronLeft, Loader2, Lock, Save, CheckCircle2, Archive, RotateCcw, Boxes,
+  Loader2, Lock, Save, CheckCircle2, Archive, RotateCcw, Boxes,
   Layers, Plus, Trash2, Pencil, Check, X, ShieldCheck, Inbox, Megaphone, ArrowRight,
   Rocket,
 } from 'lucide-react';
@@ -44,7 +44,7 @@ const STATUS_META: Record<Status, { label: string; color: string }> = {
 };
 
 const field =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 transition-all';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all';
 
 export default function ModelDetailPage() {
   const params = useParams();
@@ -105,10 +105,6 @@ export default function ModelDetailPage() {
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
-        <Link href="/dashboard/models" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-black dark:hover:text-white mb-5">
-          <ChevronLeft className="w-4 h-4" /> Modelos
-        </Link>
-
         {/* Header */}
         <header className="mb-8 flex items-center gap-4">
           <IconTile domain="engineering" size={52} icon={Boxes} />

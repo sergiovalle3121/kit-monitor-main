@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, ChevronDown } from 'lucide-react';
 import { glass } from '@/lib/glass';
+import { useRouteChrome } from '@/lib/routeChrome';
 import { DOMAINS, ICON_STROKE } from '@/lib/design/domains';
 import { chatApi } from '@/lib/chatApi';
 import { ChatExperience } from '@/components/chat/ChatExperience';
@@ -15,17 +15,13 @@ import { ChatExperience } from '@/components/chat/ChatExperience';
  * haciendo y puedes cerrarlo para seguir. Reutiliza `ChatExperience` (la misma
  * lógica/visual del chat a pantalla completa) en su variante compacta.
  *
- * Se oculta dentro del propio chat a pantalla completa y del editor de Office.
+ * Se oculta donde estorbaría (kiosko, chat a pantalla completa y cualquier
+ * workbench: Office, CAD…) según la Shell Taxonomy (`useRouteChrome`).
  */
 export function ChatWidget() {
-  const pathname = usePathname();
+  const { hideFloatingWidgets: hidden } = useRouteChrome();
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
-
-  const hidden =
-    !pathname?.startsWith('/dashboard') ||
-    pathname?.startsWith('/dashboard/chat') ||
-    pathname?.startsWith('/dashboard/office/');
 
   // Cierra el dock al entrar a rutas donde no aplica; se difiere para no
   // disparar el lint de React Compiler sobre setState síncrono en effects.

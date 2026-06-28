@@ -8,6 +8,20 @@
  * on an unmapped module.
  */
 
+/**
+ * One-click executive briefing. Sent as a normal chat turn, so CIDE chains its
+ * grounding tools (KPIs, activity, quality, maintenance, logistics) and answers
+ * from real data. Kept explicit so the summary is comprehensive and structured.
+ */
+export const BRIEFING_PROMPT =
+  'Hazme un resumen ejecutivo del estado de la planta AHORA, en español, ' +
+  'basándote solo en los datos reales de las herramientas. Revisa: KPIs en ' +
+  'alerta o fuera de objetivo, novedades operativas de las últimas 24 h, ' +
+  'calidad (retenciones, CAPA y FAI), mantenimiento vencido o crítico, y ' +
+  'embarques/entregas del día. Estructura la respuesta en secciones cortas con ' +
+  'viñetas y termina con "Acciones sugeridas" (máximo 3, priorizadas). Si algún ' +
+  'dato no está disponible, dilo en vez de suponer.';
+
 /** Generic starters, used off-module or as a fallback. */
 export const GENERIC_SUGGESTIONS = [
   '¿Cómo va la planta hoy?',
@@ -67,6 +81,26 @@ const BY_MODULE: Record<string, string[]> = {
     '¿Qué órdenes de mantenimiento están vencidas?',
     '¿Qué activos tienen más paros no planeados?',
     '¿Qué mantenimientos preventivos tocan esta semana?',
+  ],
+  ehs: [
+    '¿Qué incidentes de seguridad hay abiertos?',
+    '¿Qué áreas concentran más incidentes?',
+    '¿Qué CAPAs de EHS están por vencer?',
+  ],
+  tooling: [
+    '¿Qué herramentales están en uso ahora?',
+    '¿Qué herramentales están por calibrar?',
+    '¿Qué herramentales están fuera de servicio?',
+  ],
+  rma: [
+    '¿Qué devoluciones (RMA) están abiertas?',
+    '¿Qué clientes tienen más RMA?',
+    '¿Qué motivos de devolución son más frecuentes?',
+  ],
+  'fixed-assets': [
+    '¿Qué activos fijos hay por categoría?',
+    '¿Qué activos están por depreciarse?',
+    '¿Cuál es el valor de los activos fijos?',
   ],
   shipping: [
     '¿Qué embarques están programados para hoy?',

@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsIn,
   IsISO8601,
   IsOptional,
@@ -148,6 +149,29 @@ export class UpdateNpiRiskDto {
   @IsString()
   @Length(0, 1000)
   mitigation?: string;
+}
+
+/**
+ * Release a launch to mass production. By default the release is BLOCKED when the
+ * checklist (readiness green, every gate cleared, no open HIGH risk) is not met;
+ * `force: true` releases with a deviation (note recommended) and is audited.
+ */
+export class ReleaseProjectDto {
+  @ApiPropertyOptional({
+    description: 'Libera con desviación aunque el checklist no esté completo.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Nota / justificación de la liberación.',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  note?: string;
 }
 
 const GATE_DECISIONS: NpiGateStatus[] = ['PASSED', 'FAILED', 'WAIVED'];

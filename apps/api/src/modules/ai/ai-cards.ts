@@ -19,6 +19,14 @@ export type CideCard =
       type: 'actions';
       title: string;
       items: { title: string; severity: string }[];
+    }
+  | {
+      /** A write action CIDE proposes; the user confirms it to execute. */
+      type: 'action_proposal';
+      title: string;
+      actionKey: string;
+      summary: string;
+      params: Record<string, unknown>;
     };
 
 const SEVERITY_ORDER: Record<string, number> = {
@@ -137,12 +145,43 @@ export function buildCard(tool: string, out: unknown): CideCard | null {
   }
 }
 
-/** Collect cards from executed tools, de-duplicated by title and capped. */
+/** Build an action-proposal card from a `propose_action` tool result, if valid. */
+export function buildActionCard(out: unknown): CideCard | null {
+  const o = asObj(out);
+  const proposal = o ? asObj(o.proposal) : null;
+  if (!proposal) return null;
+  const actionKey =
+    typeof proposal.actionKey === 'string' ? proposal.actionKey : null;
+  const summary =
+    typeof proposal.summary === 'string' ? proposal.summary : null;
+  if (!actionKey || !summary) return null;
+  const params = asObj(proposal.params) ?? {};
+  return {
+    type: 'action_proposal',
+    title: typeof proposal.label === 'string' ? proposal.label : 'Acción',
+    actionKey,
+    summary,
+    params,
+  };
+}
+
+/**
+ * Collect cards from executed tools. Action proposals always come first and are
+ * never dropped (the user must see what to confirm); visual cards follow,
+ * de-duplicated by title and capped.
+ */
 export function collectCards(
   pairs: { tool: string; out: unknown }[],
   max = 3,
 ): CideCard[] {
-  const cards: CideCard[] = [];
+  const actions: CideCard[] = [];
+  for (const { tool, out } of pairs) {
+    if (tool !== 'propose_action') continue;
+    const card = buildActionCard(out);
+    if (card) actions.push(card);
+  }
+
+  const visual: CideCard[] = [];
   const seen = new Set<string>();
   for (const { tool, out } of pairs) {
     const card = buildCard(tool, out);
@@ -150,8 +189,8 @@ export function collectCards(
     const key = `${card.type}:${card.title}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    cards.push(card);
-    if (cards.length >= max) break;
+    visual.push(card);
+    if (visual.length >= max) break;
   }
-  return cards;
+  return [...actions, ...visual];
 }

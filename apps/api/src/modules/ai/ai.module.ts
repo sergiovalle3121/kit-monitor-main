@@ -7,6 +7,8 @@ import { AiMessage } from './entities/ai-message.entity';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { AiToolsService } from './ai-tools.service';
+import { AiActionsService } from './ai-actions.service';
+import { AiInsightsService } from './ai-insights.service';
 
 /**
  * CIDE — Axos OS's own AI. A self-hosted, OpenAI-compatible AI layer (no external
@@ -25,6 +27,6 @@ import { AiToolsService } from './ai-tools.service';
     ]),
   ],
   controllers: [AiController],
-  providers: [AiService, AiToolsService],
+  providers: [AiService, AiToolsService, AiActionsService, AiInsightsService],
 })
 export class AiModule {}

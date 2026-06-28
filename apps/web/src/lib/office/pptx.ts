@@ -151,7 +151,7 @@ function addChartObject(slide: any, o: any, pptx: any) {
   }
   let data = spec.series.map((s: any) => ({ name: String(s.name ?? ''), labels, values: (s.data ?? []).map((n: any) => Number(n) || 0) }));
   if (spec.type === 'pareto' || spec.type === 'waterfall') data = data.slice(0, 1);
-  const type = spec.type === 'line' ? T.line : spec.type === 'area' ? T.area : T.bar;
+  const type = spec.type === 'line' || spec.type === 'scatter' || spec.type === 'bubble' || spec.type === 'radar' ? T.line : spec.type === 'area' ? T.area : T.bar;
   slide.addChart(type, data, { ...common, barDir: spec.type === 'hbar' ? 'bar' : 'col', ...(spec.stacked && (spec.type === 'bar' || spec.type === 'hbar') ? { barGrouping: 'stacked' } : {}) });
 }
 

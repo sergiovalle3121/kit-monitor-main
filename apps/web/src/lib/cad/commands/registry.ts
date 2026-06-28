@@ -7,11 +7,14 @@ import type {
   CadConnectorInput,
   CadOperation,
 } from "./types";
+import { measureBoxes, measurementLabel } from "../measurements";
+import { detectCadCollisions } from "../collisions";
+import { scoreFlowLayout } from "../flow-optimization";
+import { buildCadValidationReport } from "../validation-report";
 import {
   error,
   findObjectByLabel,
   outOfBounds,
-  overlaps,
   selectedObjects,
   validateDistance,
   warning,
@@ -24,7 +27,6 @@ const result = (
   applied: boolean,
   historyLabel: string,
 ): CadCommandResult => ({ ...preview, applied, historyLabel });
-const center = (b: CadBox) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
 const uniq = <T>(xs: T[]) => [...new Set(xs)];
 const bySequence = (xs: CadBox[]) =>
   [...xs].sort(
@@ -168,6 +170,26 @@ function flowObjects(
   return bySequence(objects);
 }
 
+function flowScoreRows(objects: CadBox[]): { label: string; value: string }[] {
+  const score = scoreFlowLayout(
+    objects.map((object) => ({
+      id: object.id,
+      label: object.label,
+      x: object.x + object.w / 2,
+      y: object.y + object.h / 2,
+    })),
+  );
+  return [
+    { label: "Score", value: `${score.score}/100` },
+    {
+      label: "Distancia total",
+      value: `${Math.round(score.totalDistance)} mm`,
+    },
+    { label: "Cruces", value: String(score.crossingCount) },
+    { label: "Backtracking", value: String(score.backtrackingCount) },
+  ];
+}
+
 export const CAD_COMMAND_REGISTRY: CadCommandDefinition[] = [
   {
     id: "create_clearance_aisle",
@@ -308,10 +330,15 @@ export const CAD_COMMAND_REGISTRY: CadCommandDefinition[] = [
         to: xs[idx + 1].id,
         kind: "flow",
       }));
+      const flowReport: CadOperation = {
+        type: "report",
+        title: "Métricas de flujo",
+        rows: flowScoreRows(xs),
+      };
       return {
         summary: `Conectar ${ops.length} tramos de flujo.`,
         affectedObjectIds: xs.map((o) => o.id),
-        operations: ops,
+        operations: xs.length >= 2 ? [...ops, flowReport] : ops,
         issues:
           xs.length >= 2
             ? []
@@ -360,10 +387,18 @@ export const CAD_COMMAND_REGISTRY: CadCommandDefinition[] = [
         else cursor.x += o.w + gap;
         return { type: "move", objectId: o.id, before: o, after };
       });
+      const arranged = ops
+        .map((op) => (op.type === "move" ? op.after : null))
+        .filter((box): box is CadBox => !!box);
+      const flowReport: CadOperation = {
+        type: "report",
+        title: "Score de flujo posterior",
+        rows: flowScoreRows(arranged),
+      };
       return {
         summary: `Acomodar ${xs.length} estaciones por secuencia.`,
         affectedObjectIds: xs.map((o) => o.id),
-        operations: ops,
+        operations: xs.length ? [...ops, flowReport] : ops,
         issues: xs.length
           ? []
           : [error("selection_empty", "No hay estaciones para acomodar.")],
@@ -414,25 +449,25 @@ export const CAD_COMMAND_REGISTRY: CadCommandDefinition[] = [
                 "No encontré ambos objetos para medir.",
               ),
             ];
-      const distance =
+      const measurement =
         a && b
-          ? Math.hypot(center(a).x - center(b).x, center(a).y - center(b).y)
-          : 0;
+          ? measureBoxes(a, b, "direct", c.unit === "m" ? "m" : "mm")
+          : null;
       return {
         summary:
-          a && b
-            ? `Distancia ${a.label} ↔ ${b.label}: ${Math.round(distance)}${c.unit}.`
+          a && b && measurement
+            ? measurementLabel(a, b, measurement)
             : "Medir distancia",
         affectedObjectIds: [a?.id, b?.id].filter(Boolean) as string[],
         operations:
-          a && b
+          a && b && measurement
             ? [
                 {
                   type: "measure",
                   from: a.id,
                   to: b.id,
-                  distance,
-                  unit: c.unit,
+                  distance: measurement.distanceMm,
+                  unit: "mm",
                 },
               ]
             : [],
@@ -462,22 +497,36 @@ export const CAD_COMMAND_REGISTRY: CadCommandDefinition[] = [
       const xs = ids?.length
         ? c.objects.filter((o) => ids.includes(o.id))
         : c.objects;
-      const rows: { label: string; value: string }[] = [];
-      for (let a = 0; a < xs.length; a++)
-        for (let b = a + 1; b < xs.length; b++)
-          if (overlaps(xs[a], xs[b]))
-            rows.push({ label: xs[a].label, value: xs[b].label });
+      const byId = new Map(xs.map((box) => [box.id, box]));
+      const collisions = detectCadCollisions(
+        xs.map((box) => ({
+          id: box.id,
+          label: box.label,
+          x: box.x + box.w / 2,
+          y: box.y + box.h / 2,
+          width: box.w,
+          height: box.h,
+        })),
+      );
+      const rows = collisions.map((hit) => ({
+        label: hit.aLabel,
+        value: `${hit.bLabel} · ${Math.round(hit.area)} mm²`,
+      }));
       return {
         summary: rows.length
           ? `${rows.length} colisiones detectadas.`
           : "Sin colisiones detectadas.",
-        affectedObjectIds: uniq(rows.flatMap((r) => [r.label, r.value])),
+        affectedObjectIds: uniq(
+          collisions
+            .flatMap((hit) => [hit.aId, hit.bId])
+            .filter((id) => byId.has(id)),
+        ),
         operations: [{ type: "report", title: "Colisiones", rows }],
         issues: rows.length
           ? [
               warning(
                 "collisions_found",
-                `${rows.length} traslapes básicos detectados.`,
+                `${rows.length} traslapes detectados con bounding boxes compartidos.`,
               ),
             ]
           : [],
@@ -486,6 +535,97 @@ export const CAD_COMMAND_REGISTRY: CadCommandDefinition[] = [
     execute: (i, c) => {
       const p = CAD_COMMAND_REGISTRY.find(
         (d) => d.id === "find_collisions",
+      )!.preview(i, c);
+      return result(p, true, p.summary);
+    },
+  },
+  {
+    id: "validate_layout",
+    label: "Validar layout",
+    category: "analysis",
+    description:
+      "Reporte combinado: colisiones, holguras, zonas de seguridad y flujo, con veredicto de severidad.",
+    inputSchema: {
+      objectIds: { type: "string[]", description: "Subconjunto opcional." },
+      requiredClearance: {
+        type: "number",
+        description: "Holgura mínima requerida en mm (opcional).",
+      },
+    },
+    examples: ["valida el layout", "valida el layout con holgura 800"],
+    validate: () => [],
+    preview: (i, c) => {
+      const input = i as Extract<CadCommandInput, { id: "validate_layout" }>;
+      const xs = input.objectIds?.length
+        ? c.objects.filter((o) => input.objectIds!.includes(o.id))
+        : c.objects;
+      const boxes = xs.map((box) => ({
+        id: box.id,
+        label: box.label,
+        x: box.x + box.w / 2,
+        y: box.y + box.h / 2,
+        width: box.w,
+        height: box.h,
+      }));
+      const flowNodes = bySequence(xs.filter((o) => o.type === "station")).map(
+        (box) => ({
+          id: box.id,
+          label: box.label,
+          x: box.x + box.w / 2,
+          y: box.y + box.h / 2,
+        }),
+      );
+      const report = buildCadValidationReport({
+        boxes,
+        flowNodes: flowNodes.length >= 2 ? flowNodes : undefined,
+        requiredClearance: input.requiredClearance,
+      });
+      const severityLabel =
+        report.severity === "critical"
+          ? "Crítico"
+          : report.severity === "warning"
+            ? "Advertencia"
+            : "OK";
+      const rows = [
+        { label: "Severidad", value: severityLabel },
+        { label: "Colisiones", value: String(report.collisions.length) },
+        { label: "Holguras", value: String(report.clearances.length) },
+        { label: "Zonas de seguridad", value: String(report.safety.length) },
+      ];
+      if (report.flow)
+        rows.push({ label: "Flujo", value: `${report.flow.score}/100` });
+      const affected = uniq([
+        ...report.collisions.flatMap((hit) => [hit.aId, hit.bId]),
+        ...report.clearances.flatMap((issue) => [issue.aId, issue.bId]),
+      ]).filter((id) => xs.some((o) => o.id === id));
+      return {
+        summary:
+          report.severity === "ok"
+            ? "Layout validado: sin incidencias."
+            : `Layout ${severityLabel.toLowerCase()}: ${report.collisions.length} colisiones, ${report.clearances.length} holguras, ${report.safety.length} zonas.`,
+        affectedObjectIds: affected,
+        operations: [{ type: "report", title: "Validación de layout", rows }],
+        issues:
+          report.severity === "critical"
+            ? [
+                error(
+                  "layout_critical",
+                  "El layout tiene incidencias críticas (colisiones o invasión de zona).",
+                ),
+              ]
+            : report.severity === "warning"
+              ? [
+                  warning(
+                    "layout_warning",
+                    "El layout tiene advertencias (holguras, zonas o flujo subóptimo).",
+                  ),
+                ]
+              : [],
+      };
+    },
+    execute: (i, c) => {
+      const p = CAD_COMMAND_REGISTRY.find(
+        (d) => d.id === "validate_layout",
       )!.preview(i, c);
       return result(p, true, p.summary);
     },

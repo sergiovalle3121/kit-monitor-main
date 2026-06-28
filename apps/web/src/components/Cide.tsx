@@ -22,11 +22,15 @@ import {
   Check,
   RefreshCw,
   Pencil,
+  Newspaper,
+  ShieldAlert,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
+import { useRouteChrome } from '@/lib/routeChrome';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
-import { suggestionsFor } from '@/lib/chat/cideSuggestions';
+import { BRIEFING_PROMPT, suggestionsFor } from '@/lib/chat/cideSuggestions';
+import { MarkdownLite } from '@/components/MarkdownLite';
 
 type CideCard =
   | { type: 'metric'; title: string; value: number; unit?: string | null }
@@ -41,6 +45,13 @@ type CideCard =
       type: 'actions';
       title: string;
       items: { title: string; severity: string }[];
+    }
+  | {
+      type: 'action_proposal';
+      title: string;
+      actionKey: string;
+      summary: string;
+      params: Record<string, unknown>;
     };
 
 const SEVERITY_DOT: Record<string, string> = {
@@ -65,6 +76,15 @@ interface ConvSummary {
   id: string;
   title: string;
   updatedAt: string;
+}
+
+/** A proactive finding as returned by GET /api/ai/insights. */
+interface Insight {
+  area: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  detail: string;
+  suggestedQuestion: string;
 }
 
 /** A stored message as returned by GET /api/ai/conversations/:id. */
@@ -106,16 +126,19 @@ function relativeTime(iso: string): string {
 
 export function Cide() {
   const pathname = usePathname();
+  const { hideFloatingWidgets } = useRouteChrome();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<'chat' | 'history'>('chat');
+  const [view, setView] = useState<'chat' | 'history' | 'insights'>('chat');
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [insights, setInsights] = useState<Insight[] | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { session } = useDashboardSession();
@@ -130,7 +153,9 @@ export function Cide() {
 
   const suggestions = suggestionsFor(pathname);
 
-  if (!pathname?.startsWith('/dashboard')) return null;
+  // Oculto fuera del dashboard, en kiosko/bare y en cualquier workbench (donde
+  // flotaba ENCIMA del lienzo del editor) — vía Shell Taxonomy.
+  if (hideFloatingWidgets) return null;
 
   /** Update the trailing assistant message (the one being streamed). */
   function patchAssistant(fn: (a: ChatMsg) => ChatMsg) {
@@ -291,6 +316,30 @@ export function Cide() {
     }
   }
 
+  async function openInsights() {
+    setView('insights');
+    setLoadingInsights(true);
+    try {
+      const res = await fetch('/api/ai/insights', { cache: 'no-store' });
+      if (res.ok) {
+        const data = (await res.json()) as { insights?: Insight[] };
+        setInsights(data.insights ?? []);
+      } else {
+        setInsights([]);
+      }
+    } catch {
+      setInsights([]);
+    } finally {
+      setLoadingInsights(false);
+    }
+  }
+
+  /** Jump from a Centinela finding into a chat deep-dive. */
+  function analyzeInsight(question: string) {
+    setView('chat');
+    void send(question);
+  }
+
   async function openHistory() {
     setView('history');
     setLoadingHistory(true);
@@ -422,6 +471,20 @@ export function Cide() {
                     <Plus className="h-4 w-4" />
                   </button>
                   <button
+                    onClick={() =>
+                      view === 'insights' ? setView('chat') : openInsights()
+                    }
+                    aria-label="Centinela · alertas"
+                    title="Centinela · qué necesita tu atención"
+                    className={`rounded-lg p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10 ${
+                      view === 'insights'
+                        ? 'text-violet-600 dark:text-violet-300'
+                        : 'text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white'
+                    }`}
+                  >
+                    <ShieldAlert className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={() => (view === 'history' ? setView('chat') : openHistory())}
                     aria-label="Historial de conversaciones"
                     title="Historial"
@@ -467,6 +530,13 @@ export function Cide() {
                     onDelete={deleteConversation}
                     onRename={renameConversation}
                   />
+                ) : view === 'insights' ? (
+                  <InsightsView
+                    insights={insights}
+                    loading={loadingInsights}
+                    onAnalyze={analyzeInsight}
+                    onRefresh={openInsights}
+                  />
                 ) : (
                   <>
                 {messages.length === 0 && (
@@ -479,6 +549,13 @@ export function Cide() {
                       producción, MRP, calidad, finanzas y la bitácora de eventos
                       — respetando tus permisos.
                     </p>
+                    <button
+                      onClick={() => send(BRIEFING_PROMPT)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-violet-600 to-pink-500 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                      <Newspaper className="h-4 w-4" />
+                      Ponme al día
+                    </button>
                     <div className="flex flex-col gap-2">
                       {suggestions.map((s) => (
                         <button
@@ -507,17 +584,22 @@ export function Cide() {
                           : 'max-w-[90%] rounded-2xl rounded-bl-md bg-black/5 px-4 py-2.5 text-sm dark:bg-white/10'
                       }
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {m.content}
-                        {m.role === 'assistant' &&
-                          !m.content &&
+                      {m.role === 'assistant' ? (
+                        m.content ? (
+                          <MarkdownLite text={m.content} />
+                        ) : (
                           loading && (
                             <span className="inline-flex items-center gap-2 text-black/50 dark:text-white/50">
                               <Loader2 className="h-4 w-4 animate-spin" />
                               Analizando…
                             </span>
-                          )}
-                      </p>
+                          )
+                        )
+                      ) : (
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {m.content}
+                        </p>
+                      )}
                       {m.role === 'assistant' && m.cards && m.cards.length > 0 && (
                         <div className="mt-2.5 space-y-2">
                           {m.cards.map((c, ci) => (
@@ -785,6 +867,102 @@ function HistoryView({
   );
 }
 
+// ── Centinela (proactive insights) ─────────────────────────────────────────
+
+const INSIGHT_DOT: Record<string, string> = {
+  critical: 'bg-red-500',
+  high: 'bg-orange-500',
+  medium: 'bg-amber-500',
+  low: 'bg-emerald-500',
+};
+
+function InsightsView({
+  insights,
+  loading,
+  onAnalyze,
+  onRefresh,
+}: {
+  insights: Insight[] | null;
+  loading: boolean;
+  onAnalyze: (question: string) => void;
+  onRefresh: () => void;
+}) {
+  if (loading && !insights) {
+    return (
+      <div className="flex items-center justify-center gap-2 pt-10 text-sm text-black/50 dark:text-white/50">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Revisando la operación…
+      </div>
+    );
+  }
+  if (!insights || insights.length === 0) {
+    return (
+      <div className="space-y-3 pt-10 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500">
+          <ShieldAlert className="h-6 w-6" />
+        </div>
+        <p className="text-sm text-black/60 dark:text-white/60">
+          Todo en orden por ahora. No hay alertas que requieran tu atención
+          según tus permisos.
+        </p>
+        <button
+          onClick={onRefresh}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Revisar de nuevo
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-1 pb-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-black/40 dark:text-white/40">
+          Qué necesita tu atención
+        </p>
+        <button
+          onClick={onRefresh}
+          aria-label="Actualizar"
+          className="rounded-md p-1 text-black/40 hover:bg-black/5 hover:text-black/70 dark:text-white/40 dark:hover:bg-white/10"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {insights.map((it, i) => (
+        <div
+          key={i}
+          className="rounded-xl border border-black/10 px-3 py-2.5 dark:border-white/10"
+        >
+          <div className="flex items-start gap-2">
+            <span
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${INSIGHT_DOT[it.severity] ?? 'bg-zinc-400'}`}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-black/40 dark:text-white/40">
+                  {it.area}
+                </span>
+              </div>
+              <p className="text-sm font-medium leading-snug">{it.title}</p>
+              {it.detail && (
+                <p className="mt-0.5 text-xs text-black/55 dark:text-white/55">
+                  {it.detail}
+                </p>
+              )}
+              <button
+                onClick={() => onAnalyze(it.suggestedQuestion)}
+                className="mt-1.5 text-xs font-medium text-violet-600 hover:underline dark:text-violet-300"
+              >
+                Analizar con CIDE →
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Inline analysis cards (lightweight; no chart lib in the global bundle) ──
 
 function fmtNum(v: number, unit?: string | null): string {
@@ -863,7 +1041,104 @@ function Sparkline({
   );
 }
 
+/** Confirmation card for a CIDE-proposed write action. */
+function ActionProposalCard({
+  card,
+}: {
+  card: Extract<CideCard, { type: 'action_proposal' }>;
+}) {
+  const [state, setState] = useState<
+    'idle' | 'running' | 'done' | 'error' | 'dismissed'
+  >('idle');
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function confirm() {
+    setState('running');
+    setMsg(null);
+    try {
+      const res = await fetch('/api/ai/actions/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionKey: card.actionKey, params: card.params }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        result?: { folio?: string | null };
+        message?: string;
+      };
+      if (res.ok && data.ok) {
+        setState('done');
+        setMsg(
+          data.result?.folio
+            ? `Hecho · folio ${data.result.folio}`
+            : 'Acción ejecutada.',
+        );
+      } else {
+        setState('error');
+        setMsg(data.error || data.message || 'No se pudo ejecutar.');
+      }
+    } catch {
+      setState('error');
+      setMsg('Error de red al ejecutar.');
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-violet-400/40 bg-violet-500/5 px-3 py-2.5">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-violet-600 dark:text-violet-300">
+        <Zap className="h-3 w-3" /> Acción propuesta · requiere tu confirmación
+      </div>
+      <p className="mt-1 text-sm">{card.summary}</p>
+      {state === 'done' ? (
+        <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <Check className="h-3.5 w-3.5" /> {msg}
+        </p>
+      ) : state === 'dismissed' ? (
+        <p className="mt-2 text-xs text-black/45 dark:text-white/45">
+          Acción descartada.
+        </p>
+      ) : state === 'error' ? (
+        <div className="mt-2">
+          <p className="text-xs text-amber-600 dark:text-amber-400">{msg}</p>
+          <button
+            onClick={confirm}
+            className="mt-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2.5 flex items-center gap-2">
+          <button
+            onClick={confirm}
+            disabled={state === 'running'}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          >
+            {state === 'running' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}
+            Confirmar
+          </button>
+          <button
+            onClick={() => setState('dismissed')}
+            disabled={state === 'running'}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-black/55 hover:bg-black/5 disabled:opacity-50 dark:text-white/55 dark:hover:bg-white/10"
+          >
+            Descartar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CardView({ card }: { card: CideCard }) {
+  if (card.type === 'action_proposal') {
+    return <ActionProposalCard card={card} />;
+  }
   if (card.type === 'metric') {
     return (
       <div className="rounded-xl border border-black/10 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/5">

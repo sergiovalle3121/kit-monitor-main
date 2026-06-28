@@ -1,0 +1,176 @@
+export type ScanKind =
+  | "wo"
+  | "serial"
+  | "lot"
+  | "material"
+  | "qr"
+  | "datamatrix"
+  | "code128";
+
+export type ScanState = "idle" | "reading" | "valid" | "invalid";
+
+export interface ScanResult {
+  raw: string;
+  normalized: string;
+  kind: ScanKind;
+  valid: boolean;
+  message: string;
+  at: string;
+}
+
+export interface OfflineAction {
+  id: string;
+  type: "confirm" | "incident" | "andon" | "material";
+  label: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  attempts: number;
+}
+
+export function classifyScan(raw: string): Omit<ScanResult, "at"> {
+  const normalized = raw.trim();
+  const upper = normalized.toUpperCase();
+  if (!normalized) {
+    return {
+      raw,
+      normalized,
+      kind: "code128",
+      valid: false,
+      message: "Escaneo vacío. Intenta de nuevo.",
+    };
+  }
+  if (/^WO[-_:\s]?[A-Z0-9-]{3,}$/i.test(upper) || /^[0-9]{5,}$/.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^WO[-_:\s]?/i, ""),
+      kind: "wo",
+      valid: true,
+      message: "WO detectada y lista para montar.",
+    };
+  }
+  if (/^(SN|SERIAL)[-_:\s]?[A-Z0-9-]{4,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(SN|SERIAL)[-_:\s]?/i, "SN-"),
+      kind: "serial",
+      valid: true,
+      message: "Número de serie capturado.",
+    };
+  }
+  if (/^(LOT|LOTE)[-_:\s]?[A-Z0-9-]{3,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(LOT|LOTE)[-_:\s]?/i, "LOT-"),
+      kind: "lot",
+      valid: true,
+      message: "Lote detectado para trazabilidad.",
+    };
+  }
+  if (/^(MAT|PN|MPN)[-_:\s]?[A-Z0-9_.-]{3,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(MAT|PN|MPN)[-_:\s]?/i, ""),
+      kind: "material",
+      valid: true,
+      message: "Material detectado.",
+    };
+  }
+  if (/^\]C1/.test(normalized)) {
+    return {
+      raw,
+      normalized: normalized.slice(3),
+      kind: "code128",
+      valid: true,
+      message: "Code128 GS1 capturado.",
+    };
+  }
+  if (
+    /^\]D2/.test(normalized) ||
+    normalized.includes(String.fromCharCode(29))
+  ) {
+    return {
+      raw,
+      normalized: normalized
+        .replace(/^\]D2/, "")
+        .replaceAll(String.fromCharCode(29), "|"),
+      kind: "datamatrix",
+      valid: true,
+      message: "DataMatrix capturado.",
+    };
+  }
+  if (/^https?:\/\//i.test(normalized) || /^[A-Z0-9]{12,}$/.test(upper)) {
+    return {
+      raw,
+      normalized,
+      kind: "qr",
+      valid: true,
+      message: "QR capturado.",
+    };
+  }
+  return {
+    raw,
+    normalized,
+    kind: "code128",
+    valid: normalized.length >= 3,
+    message:
+      normalized.length >= 3
+        ? "Código capturado; valida que corresponda al campo activo."
+        : "Código demasiado corto para validación industrial.",
+  };
+}
+
+export interface ProductionMetricStep {
+  unitsCompleted: number;
+  scrapQty: number;
+  segregatedQty: number;
+}
+
+export interface ProductionMetricsInput {
+  quantity: number;
+  steps: ProductionMetricStep[];
+  overall: number;
+  downtimeSummarySec: number;
+  openDowntimeDurationsSec: number[];
+}
+
+export interface ProductionMetrics {
+  target: number;
+  real: number;
+  remaining: number;
+  oeePercent: number;
+  yieldPercent: number;
+  scrap: number;
+  rework: number;
+  downtimeSec: number;
+  wip: number;
+}
+
+export function deriveProductionMetrics(
+  input: ProductionMetricsInput,
+): ProductionMetrics {
+  const target = Math.max(0, input.quantity);
+  const real = input.steps.length
+    ? Math.max(...input.steps.map((step) => step.unitsCompleted), 0)
+    : 0;
+  const scrap = input.steps.reduce((sum, step) => sum + step.scrapQty, 0);
+  const rework = input.steps.reduce((sum, step) => sum + step.segregatedQty, 0);
+  const downtimeSec =
+    input.downtimeSummarySec +
+    input.openDowntimeDurationsSec.reduce((sum, duration) => sum + duration, 0);
+  const yieldPct = real + scrap > 0 ? real / (real + scrap) : 1;
+  const wip = input.steps.reduce(
+    (sum, step) => sum + Math.max(0, step.unitsCompleted - real),
+    0,
+  );
+  return {
+    target,
+    real,
+    remaining: Math.max(0, target - real),
+    oeePercent: Math.round(input.overall * 100),
+    yieldPercent: Math.round(yieldPct * 100),
+    scrap,
+    rework,
+    downtimeSec,
+    wip,
+  };
+}

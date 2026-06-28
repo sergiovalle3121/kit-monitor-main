@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { LucideIcon } from 'lucide-react';
 import {
   Plus,
   Loader2,
@@ -15,6 +16,9 @@ import {
   Gauge,
   ArrowRight,
   Boxes,
+  CircleDot,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { IconTile } from '@/components/ui/IconTile';
@@ -23,7 +27,12 @@ import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { NpiProject, PHASE_LABEL, ReadinessReport } from './_lib/npi';
+import {
+  NpiProject,
+  PHASE_LABEL,
+  PROJECT_STATUS_META,
+  ReadinessReport,
+} from './_lib/npi';
 import { phaseRailCounts } from './_lib/launch';
 import { ProjectStatusPill, ReadinessPill } from './_lib/pills';
 
@@ -32,7 +41,7 @@ const API_BASE = (
 ).replace(/\/$/, '');
 
 const field =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 transition-all';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all';
 
 /** Minimal shape we need from the product-model master to cross-link launches. */
 interface ModelLite {
@@ -48,8 +57,9 @@ export default function NpiPage() {
   const toast = useToast();
   const { canWrite } = usePermissions();
 
-  const { data, isLoading, forbidden, mutate } =
-    useApi<NpiProject[]>('/npi/projects');
+  const { data, isLoading, forbidden, mutate } = useApi<NpiProject[]>(
+    '/npi/projects?withReadiness=true',
+  );
   // Read-only join against the product master so launch cards can deep-link to
   // the canonical model (no backend change — purely a client-side lookup).
   const { data: modelsData } = useApi<ModelLite[]>('/product-models');
@@ -78,8 +88,16 @@ export default function NpiPage() {
 
   const kpis = useMemo(() => {
     const by = { OPEN: 0, ON_HOLD: 0, RELEASED: 0, CANCELLED: 0 };
-    for (const p of list) by[p.status] = (by[p.status] ?? 0) + 1;
-    return { total: list.length, ...by };
+    let atRisk = 0;
+    let ready = 0;
+    for (const p of list) {
+      by[p.status] = (by[p.status] ?? 0) + 1;
+      if (p.status !== 'RELEASED' && p.status !== 'CANCELLED') {
+        if ((p.summary?.openHighRisks ?? 0) > 0) atRisk += 1;
+        if (p.summary?.gateReady) ready += 1;
+      }
+    }
+    return { total: list.length, ...by, atRisk, ready };
   }, [list]);
 
   const rail = useMemo(() => phaseRailCounts(list), [list]);
@@ -182,11 +200,12 @@ export default function NpiPage() {
         />
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Kpi label="Launches" value={kpis.total} color="#5b5bd6" />
-          <Kpi label="Abiertos" value={kpis.OPEN} color="#3b82f6" />
-          <Kpi label="En hold" value={kpis.ON_HOLD} color="#f59e0b" />
-          <Kpi label="Liberados" value={kpis.RELEASED} color="#10b981" />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          <Kpi label="Launches" value={kpis.total} color="#5b5bd6" icon={Rocket} />
+          <Kpi label="Abiertos" value={kpis.OPEN} color="#3b82f6" icon={CircleDot} />
+          <Kpi label="En riesgo" value={kpis.atRisk} color="#f43f5e" icon={ShieldAlert} />
+          <Kpi label="Listos" value={kpis.ready} color="#10b981" icon={ShieldCheck} />
+          <Kpi label="Liberados" value={kpis.RELEASED} color="#16a34a" icon={CheckCircle2} />
         </div>
 
         {/* Phase rail */}
@@ -389,68 +408,109 @@ function Kpi({
   label,
   value,
   color,
+  icon: Icon,
 }: {
   label: string;
   value: number | string;
   color: string;
+  icon: LucideIcon;
 }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">
-        {label}
+      <div className="flex items-center justify-between">
+        <span
+          className="inline-flex h-8 w-8 items-center justify-center rounded-xl"
+          style={{ background: `${color}1a`, color }}
+        >
+          <Icon className="h-4 w-4" strokeWidth={2} />
+        </span>
       </div>
       <div
-        className="text-2xl font-semibold mt-1 tabular-nums"
+        className="text-3xl font-semibold mt-3 tabular-nums leading-none"
         style={{ color }}
       >
         {value}
       </div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-400 mt-1.5">
+        {label}
+      </div>
     </div>
   );
 }
 
-/** Pipeline rail: QUOTE → … → MP with a live count of projects per phase. */
-function PhaseRail({
-  rail,
-}: {
-  rail: { phase: string; count: number }[];
-}) {
+const ACCENT = '#5b5bd6';
+
+/** Pipeline rail: QUOTE → … → MP as a connected, color-accented funnel. */
+function PhaseRail({ rail }: { rail: { phase: string; count: number }[] }) {
+  const total = rail.reduce((s, r) => s + r.count, 0);
   return (
-    <div className={`${glass} rounded-2xl p-4 mb-6`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-3">
-        Pipeline de lanzamiento
+    <div className={`${glass} rounded-2xl p-5 mb-6`}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">
+          Pipeline de lanzamiento
+        </div>
+        <div className="text-[11px] text-gray-400">
+          {total} en vuelo · QUOTE → MP
+        </div>
       </div>
-      <div className="flex items-stretch gap-1.5 overflow-x-auto">
-        {rail.map((r, i) => (
-          <React.Fragment key={r.phase}>
-            <div
-              className={`flex-1 min-w-[5rem] rounded-xl px-3 py-2.5 text-center ${
-                r.count > 0
-                  ? 'bg-black/[0.04] dark:bg-white/[0.06]'
-                  : 'bg-transparent'
-              }`}
-            >
-              <div className="text-2xl font-semibold tabular-nums leading-none">
-                {r.count}
+      <div className="flex items-stretch gap-2 overflow-x-auto">
+        {rail.map((r, i) => {
+          const active = r.count > 0;
+          return (
+            <React.Fragment key={r.phase}>
+              <div
+                className="flex-1 min-w-[5.25rem] rounded-2xl px-3 py-3 text-center border transition-colors"
+                style={{
+                  background: active ? `${ACCENT}14` : 'transparent',
+                  borderColor: active ? `${ACCENT}40` : 'transparent',
+                }}
+              >
+                <div
+                  className="text-[26px] font-bold tabular-nums leading-none"
+                  style={{ color: active ? ACCENT : undefined }}
+                >
+                  {r.count}
+                </div>
+                <div className="text-[12px] font-semibold mt-2">{r.phase}</div>
+                <div className="text-[10px] text-gray-400 truncate">
+                  {PHASE_LABEL[r.phase as keyof typeof PHASE_LABEL] ?? r.phase}
+                </div>
               </div>
-              <div className="text-[11px] font-medium mt-1.5">{r.phase}</div>
-              <div className="text-[10px] text-gray-400 truncate">
-                {PHASE_LABEL[r.phase as keyof typeof PHASE_LABEL] ?? r.phase}
-              </div>
-            </div>
-            {i < rail.length - 1 && (
-              <div className="self-center text-gray-300 dark:text-gray-600">
-                <ArrowRight className="w-4 h-4" />
-              </div>
-            )}
-          </React.Fragment>
-        ))}
+              {i < rail.length - 1 && (
+                <div className="self-center shrink-0 text-gray-300 dark:text-gray-600">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/** A launch card: the model, its phase, and quick jumps to launch + master. */
+/** A small labeled progress bar (filled/total) with a color. */
+function MiniBar({
+  filled,
+  total,
+  color,
+}: {
+  filled: number;
+  total: number;
+  color: string;
+}) {
+  const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+  return (
+    <div className="h-1.5 w-full rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+      <div
+        className="h-full rounded-full"
+        style={{ width: `${pct}%`, background: color }}
+      />
+    </div>
+  );
+}
+
+/** A rich launch card: status accent, readiness, gate progress and risk signal. */
 function LaunchCard({
   project: p,
   model,
@@ -458,11 +518,24 @@ function LaunchCard({
   project: NpiProject;
   model: ModelLite | null;
 }) {
+  const s = p.summary;
+  const accent = PROJECT_STATUS_META[p.status]?.color ?? '#9ca3af';
+  const released = p.status === 'RELEASED';
+  const readyColor = s?.gateReady ? '#10b981' : '#f59e0b';
+  const highRisks = s?.openHighRisks ?? 0;
+
   return (
-    <div className={`${glass} group rounded-2xl p-4 flex flex-col gap-3`}>
+    <div
+      className={`${glass} group relative overflow-hidden rounded-2xl p-4 pl-5 flex flex-col gap-3 transition-transform hover:-translate-y-0.5`}
+    >
+      <span
+        aria-hidden
+        className="absolute left-0 top-0 h-full w-1.5"
+        style={{ background: accent }}
+      />
       <Link
         href={`/dashboard/npi/${p.id}`}
-        className="flex items-center gap-3 text-left"
+        className="flex items-start gap-3 text-left"
       >
         <IconTile domain="engineering" size={44} icon={Rocket} />
         <div className="min-w-0 flex-1">
@@ -471,17 +544,80 @@ function LaunchCard({
               {p.modelNumber}
             </span>
             <ProjectStatusPill status={p.status} />
+            {highRisks > 0 && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{ color: '#f43f5e', background: '#f43f5e1a' }}
+              >
+                <ShieldAlert className="w-3 h-3" /> {highRisks}
+              </span>
+            )}
           </div>
-          <div className="font-semibold truncate">
-            {model?.name || p.customer || 'Sin cliente'} · rev {p.revision}
+          <div className="font-semibold truncate mt-0.5">
+            {model?.name || p.customer || 'Sin cliente'}
           </div>
           <div className="text-xs text-gray-400 truncate">
-            {p.customer ? `${p.customer} · ` : ''}Fase{' '}
-            {PHASE_LABEL[p.currentPhase] ?? p.currentPhase}
+            rev {p.revision}
+            {p.customer ? ` · ${p.customer}` : ''}
             {p.programId ? ` · ${p.programId}` : ''}
           </div>
         </div>
       </Link>
+
+      {/* Signal row: phase chip + readiness + gate progress */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+          style={{ background: `${ACCENT}14`, color: ACCENT }}
+        >
+          {PHASE_LABEL[p.currentPhase] ?? p.currentPhase}
+        </span>
+        {s && (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+            style={{ color: readyColor, background: `${readyColor}1a` }}
+          >
+            {s.gateReady ? (
+              <ShieldCheck className="w-3 h-3" />
+            ) : (
+              <ShieldAlert className="w-3 h-3" />
+            )}
+            {released ? 'Liberado' : s.gateReady ? 'Listo' : 'No listo'}
+          </span>
+        )}
+      </div>
+
+      {s && s.criteriaTotal > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+              <span>Readiness</span>
+              <span className="tabular-nums">
+                {s.readyCount}/{s.criteriaTotal}
+              </span>
+            </div>
+            <MiniBar
+              filled={s.readyCount}
+              total={s.criteriaTotal}
+              color={readyColor}
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+              <span>Gates</span>
+              <span className="tabular-nums">
+                {s.gatesCleared}/{s.gatesTotal}
+              </span>
+            </div>
+            <MiniBar
+              filled={s.gatesCleared}
+              total={s.gatesTotal}
+              color={ACCENT}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 border-t border-black/5 dark:border-white/5 pt-2.5">
         <Link
           href={`/dashboard/npi/${p.id}`}

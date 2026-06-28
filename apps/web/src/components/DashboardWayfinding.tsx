@@ -9,6 +9,7 @@ import { glass } from '@/lib/glass';
 import { seesAllAreas } from '@/lib/owner';
 import { AREAS, type DashboardArea } from '@/lib/dashboardAreas';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
+import { BARE_PREFIXES } from '@/lib/routeChrome';
 
 /**
  * Tira de wayfinding del shell del dashboard. Montada UNA vez en DashboardShell,
@@ -24,9 +25,8 @@ import { useDashboardSession } from '@/hooks/useDashboardSession';
  * de backend, roles[]— que podría divergir del gate del hub.)
  */
 
-// Mismas rutas "bare" que DashboardShell: defensa extra aunque el shell ya las
-// excluya. Mantener en sync con DashboardShell.BARE_PREFIXES.
-const BARE_PREFIXES = ['/dashboard/chat', '/dashboard/select-workspace'];
+// Las rutas "bare" se comparten con el shell desde la Shell Taxonomy
+// (`@/lib/routeChrome`) para no duplicar la lista.
 
 // Overrides para que los segmentos sin área lean bien en español.
 const SEGMENT_LABELS: Record<string, string> = {
@@ -132,7 +132,7 @@ function SectionDropdown({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex min-w-0 max-w-[40vw] items-center gap-0.5 rounded-md px-1 text-gray-500 transition-colors hover:text-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 dark:text-gray-400 dark:hover:text-violet-300 sm:max-w-none"
+        className="flex min-w-0 max-w-[40vw] items-center gap-0.5 rounded-md px-1 text-gray-500 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-gray-400 dark:hover:text-primary sm:max-w-none"
       >
         <span className="truncate">{label}</span>
         <ChevronDown
@@ -162,9 +162,9 @@ function SectionDropdown({
                   data-menuitem
                   aria-current={active ? 'page' : undefined}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 ${
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                     active
-                      ? 'bg-violet-500/10 font-medium text-violet-700 dark:text-violet-300'
+                      ? 'bg-primary/10 font-medium text-primary'
                       : 'text-gray-700 hover:bg-black/5 dark:text-gray-200 dark:hover:bg-white/10'
                   }`}
                 >
@@ -263,7 +263,7 @@ export function DashboardWayfinding() {
             href={parentHref}
             aria-label="Subir un nivel"
             title="Subir un nivel"
-            className="flex-shrink-0 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-black/5 hover:text-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-violet-300"
+            className="flex-shrink-0 rounded-full p-1.5 text-gray-500 transition-colors hover:bg-black/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-primary"
           >
             <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
           </Link>
@@ -305,7 +305,7 @@ export function DashboardWayfinding() {
                     ) : c.href ? (
                       <Link
                         href={c.href}
-                        className="rounded-md px-0.5 text-gray-500 transition-colors hover:text-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 dark:text-gray-400 dark:hover:text-violet-300"
+                        className="rounded-md px-0.5 text-gray-500 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-gray-400 dark:hover:text-primary"
                       >
                         {c.label}
                       </Link>

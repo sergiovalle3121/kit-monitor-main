@@ -54,7 +54,7 @@ const NEXT_STATES: Record<NodeStatus, NodeStatus[]> = {
 const ITEM_CATEGORIES: ItemCategory[] = ['STANDARD', 'PHANTOM', 'NON_STOCK', 'REFERENCE'];
 
 const field =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30';
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 });
 
 export default function BomEditorPage() {
