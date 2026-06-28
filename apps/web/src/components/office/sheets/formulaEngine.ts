@@ -66,6 +66,7 @@ import { WILDCARD_FUNCTIONS, wildcardMatch } from './wildcard';
 import { CRITERIA_FUNCTIONS } from './criteriaIf';
 import { LOOKUP_WILDCARD_FUNCTIONS } from './lookupWildcards';
 import { applyScalarBroadcast } from './scalarBroadcast';
+import { AXOS_INDUSTRIAL_FUNCTIONS } from './industrialFunctions';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -293,6 +294,8 @@ export function ISNA(params: any[]): any { return isNAValue(params[0]); }
 export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   XLOOKUP, XMATCH, TEXTJOIN, MAXIFS, MINIFS, TEXT,
   IFERROR, IFNA, ISERROR, ISERR, ISNA,
+  // Funciones industriales AXOS (OEE, yield, scrap, Cpk, turns, ABC, costos).
+  ...AXOS_INDUSTRIAL_FUNCTIONS,
   // Funciones modernas de Excel 365 (matrices dinámicas + texto) — ver `modernFunctions.ts`.
   ...MODERN_FUNCTIONS,
   // Familia LAMBDA (orden superior: MAP/REDUCE/SCAN/BYROW/BYCOL/MAKEARRAY) — ver `lambdaExpand.ts`.

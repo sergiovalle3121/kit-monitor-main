@@ -5,12 +5,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine, CalendarRange } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine, CalendarRange, Lock, MessageSquare, Home, Eye, Clipboard, Scissors, Trash2, PaintBucket, Columns3 as ColumnsIcon, Percent, DollarSign, Eraser, MinusCircle, PlusCircle } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
 import { SheetFindReplace } from './SheetFindReplace';
 import { SheetDataDialog, type DataMode } from './SheetDataDialog';
+import { upsertDataValidationSheet } from '@/lib/office/dataValidationSheet';
 import { SheetPivot } from './SheetPivot';
 import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
 import { SheetNameManager } from './SheetNameManager';
@@ -19,7 +20,7 @@ import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { SheetSlicer } from './sheets/SheetSlicer';
 import { slicerValues, applySlicers, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, rawOf, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
 import { rangeToMarkdown } from '@/lib/office/sheetMarkdown';
 import { installFormulaEngine } from './sheets/formulaEngine';
@@ -35,9 +36,23 @@ import { solve, type SolverVar } from './sheets/solver';
 import { SheetSolver, type SolverPayload } from './SheetSolver';
 import { consolidateByPosition, consolidateByCategory } from './sheets/consolidate';
 import { SheetConsolidate, type ConsolidatePayload } from './SheetConsolidate';
+import { SheetConnectorParams } from './SheetConnectorParams';
 import { setTableRegistry, type TableDef } from './sheets/tableRefs';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
+import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, type SignatureState } from '@/lib/office/workbookPerformance';
+import { upsertWorkbookInventorySheet } from '@/lib/office/workbookInventorySheet';
+import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, buildAxosConnectorTableFromDataset, connectorInstanceFromDataset, connectorProtectionFor,
+  formatConnectorRefreshReport, createAxosConnectorInstance, originFromConnectorRange, suggestedChartsForConnector, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
+import { fetchAxosConnectorDataset } from '@/lib/office/axosConnectorApi';
+import { appendConnectorRefreshAudit, createConnectorRefreshAuditEntry, formatConnectorRefreshAuditSummary, summarizeConnectorRefreshAudit, upsertConnectorAuditSheet, type AxosConnectorRefreshAuditEntry } from '@/lib/office/axosConnectorAudit';
+import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
+import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
+import { upsertFormulaErrorSheet } from '@/lib/office/formulaErrorSheet';
+import { analyzeWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
+import { upsertWorkbookHealthSheet } from '@/lib/office/workbookHealthSheet';
+import { evaluateWorkbookPublishGate, formatWorkbookPublishGate } from '@/lib/office/workbookPublishGate';
+import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
 // carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
@@ -65,12 +80,31 @@ function pivotsOf(v: any): StoredPivot[] {
 function scenariosOf(v: any): Scenario[] {
   return v && Array.isArray(v.scenarios) ? v.scenarios : [];
 }
+function commentsOf(v: any): SheetCommentThread[] {
+  return v && Array.isArray(v.comments) ? v.comments : [];
+}
+function connectorsOf(v: any): AxosConnectorInstance[] {
+  return v && Array.isArray(v.connectors) ? v.connectors : [];
+}
+function connectorAuditOf(v: any): AxosConnectorRefreshAuditEntry[] {
+  return v && Array.isArray(v.connectorAudit) ? v.connectorAudit : [];
+}
 type StoredTable = { name: string; sheetIndex: number; range: string };
 function tablesOf(v: any): StoredTable[] {
   return v && Array.isArray(v.tables) ? v.tables : [];
 }
 const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column: 30, config: {} };
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
+function rangeHasCell(range: string, r: number, c: number): boolean {
+  const rng = parseRange(range);
+  return !!rng && r >= rng.r1 && r <= rng.r2 && c >= rng.c1 && c <= rng.c2;
+}
+function isCellProtected(sheet: any, r: number, c: number): boolean {
+  const protection = sheet?.axosProtection;
+  if (!protection) return false;
+  if (protection.sheetLocked) return true;
+  return Array.isArray(protection.ranges) && protection.ranges.some((x: any) => x.locked !== false && rangeHasCell(x.range, r, c));
+}
 
 // Robustece el motor de fórmulas de la rejilla (booleanos sueltos + funciones registradas:
 // XLOOKUP, TEXTJOIN, MAXIFS/MINIFS, TEXT, SI.ERROR sobre #DIV/0!…). Parchea el `Parser`
@@ -94,6 +128,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const scenariosRef = useRef<Scenario[]>(scenariosOf(value));
   const [scenarios, setScenarios] = useState<Scenario[]>(scenariosRef.current);
   const tablesRef = useRef<StoredTable[]>(tablesOf(value));
+  const commentsRef = useRef<SheetCommentThread[]>(commentsOf(value));
+  const connectorsRef = useRef<AxosConnectorInstance[]>(connectorsOf(value));
+  const connectorAuditRef = useRef<AxosConnectorRefreshAuditEntry[]>(connectorAuditOf(value));
   const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
@@ -109,10 +146,17 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showDataTable, setShowDataTable] = useState(false);
   const [showSolver, setShowSolver] = useState(false);
   const [showConsolidate, setShowConsolidate] = useState(false);
+  const [pendingConnector, setPendingConnector] = useState<AxosConnectorType | null>(null);
+  const [selectionText, setSelectionText] = useState('A1');
+  const [formulaText, setFormulaText] = useState('');
+  const [editMode, setEditMode] = useState<'Listo' | 'Editando'>('Listo');
+  const [zoom, setZoom] = useState(100);
+  const [contextMenu, setContextMenu] = useState<null | { x: number; y: number }>(null);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const emitSignatureRef = useRef<SignatureState>({});
 
   // Atajos de teclado estilo Excel/Sheets. Ctrl/⌘+P imprimir y Ctrl/⌘+F buscar (los de
   // antes) + deshacer/rehacer y portapapeles CABLEADOS AL MOTOR de Fortune-Sheet.
@@ -165,9 +209,47 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return () => { if (t) clearTimeout(t); ro.disconnect(); };
   }, []);
 
-  const emit = useCallback(() => {
-    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current, scenarios: scenariosRef.current, tables: tablesRef.current });
+
+  useEffect(() => {
+    const refresh = () => {
+      try {
+        const range = selectionRange();
+        setSelectionText(range.includes(':') ? range : `${range}:${range}`);
+        const sheet = sheetsRef.current[activeIndex()] ?? sheetsRef.current[0];
+        const first = range.split(':')[0];
+        const rng = parseRange(first);
+        const cd = rng ? (sheet?.celldata ?? []).find((x: any) => x.r === rng.r1 && x.c === rng.c1) : null;
+        const v = cd?.v;
+        setFormulaText(v && typeof v === 'object' && v.f ? String(v.f) : String(rawOf(cd as any) ?? ''));
+      } catch { /* noop: selection is not ready while Fortune-Sheet mounts */ }
+    };
+    refresh();
+    const t = window.setInterval(refresh, 700);
+    return () => window.clearInterval(t);
   }, []);
+
+  const workbookPayload = useCallback(() => ({
+    sheets: sheetsRef.current,
+    charts: chartsRef.current,
+    names: namesRef.current,
+    pivots: pivotsRef.current,
+    scenarios: scenariosRef.current,
+    tables: tablesRef.current,
+    comments: commentsRef.current,
+    connectors: connectorsRef.current,
+    connectorAudit: connectorAuditRef.current,
+  }), []);
+
+  const emit = useCallback(() => {
+    const payload = workbookPayload();
+    if (!shouldEmitWorkbook(payload, emitSignatureRef.current)) return;
+    onChangeRef.current(payload);
+  }, [workbookPayload]);
+
+  const currentWorkbookStats = () => {
+    const stats = estimateWorkbookStats(workbookPayload());
+    return { ...stats, label: workbookPerformanceLabel(stats) };
+  };
 
   // Registro de tablas con nombre para las referencias estructuradas `Tabla[Columna]`. Se
   // resuelve a TableDef[] (con nombre de hoja, rango y cabeceras leídas de la fila superior) y se
@@ -196,6 +278,11 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   // f + v y recalcule dependientes. Objeto estable (definido una vez).
   const wbHooks = useMemo(() => ({
     beforeUpdateCell: (r: number, c: number, value: any): boolean => {
+      const sheet = sheetsRef.current[activeIndex()] ?? sheetsRef.current[0];
+      if (isCellProtected(sheet, r, c)) {
+        toast.error('Celda protegida. Quita la protección de hoja o rango para editar.');
+        return false;
+      }
       if (typeof value !== 'string' || value.indexOf('\n') >= 0) return true;
       const norm = normalizeCellInput(value);
       if (norm === value) return true; // nada que reescribir → flujo normal
@@ -204,7 +291,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       window.setTimeout(() => { try { wb.setCellValue(r, c, norm); } catch { /* noop */ } }, 0);
       return false; // cancela la escritura del texto crudo
     },
-  }), []);
+  }), [toast]);
 
   const addName = useCallback((nr: NamedRange) => { namesRef.current = [...namesRef.current, nr]; setNames(namesRef.current); emit(); }, [emit]);
   const removeName = useCallback((nm: string) => { namesRef.current = namesRef.current.filter((n) => n.name !== nm); setNames(namesRef.current); emit(); }, [emit]);
@@ -228,6 +315,243 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     emit();
   }
   const sheetNames = () => liveData.map((s: any) => s?.name ?? '');
+
+  function selectionStats() {
+    const sheet = sheetsRef.current[activeIndex()] ?? sheetsRef.current[0];
+    const rng = parseRange(selectionRange());
+    if (!sheet || !rng) return { count: 0, nums: 0, sum: 0, avg: 0, min: null as number | null, max: null as number | null };
+    const cells = (sheet.celldata ?? []).filter((cd: any) => cd.r >= rng.r1 && cd.r <= rng.r2 && cd.c >= rng.c1 && cd.c <= rng.c2);
+    const values = cells.map((cd: any) => rawOf(cd)).filter((v: any) => v !== '' && v != null);
+    const nums = values.map((v: any) => Number(v)).filter((n: number) => Number.isFinite(n));
+    const sum = nums.reduce((a: number, b: number) => a + b, 0);
+    return { count: values.length, nums: nums.length, sum, avg: nums.length ? sum / nums.length : 0, min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null };
+  }
+  function commitFormulaBar() {
+    const cell = selectionRange().split(':')[0];
+    const rng = parseRange(cell);
+    const wb = wbRef.current;
+    if (!rng || !wb?.setCellValue) return;
+    try { wb.setCellValue(rng.r1, rng.c1, normalizeCellInput(formulaText)); setEditMode('Listo'); }
+    catch { toast.error('No se pudo escribir en la celda seleccionada.'); }
+  }
+  function applyQuickNumberFormat(code: string, currency?: string) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0]; if (!sheet) return;
+    applyNumberFormat(sheet, selectionRange(), code, { currency });
+    remount(sheets);
+  }
+  function applyQuickStyle(style: any) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0]; if (!sheet) return;
+    applyCellStyle(sheet, selectionRange(), style);
+    remount(sheets);
+  }
+  function clearSelectedFormatting() {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0]; const rng = parseRange(selectionRange());
+    if (!sheet || !rng) return;
+    for (const cd of sheet.celldata ?? []) if (cd.r >= rng.r1 && cd.r <= rng.r2 && cd.c >= rng.c1 && cd.c <= rng.c2 && cd.v && typeof cd.v === 'object') {
+      for (const k of ['bg', 'fc', 'bl', 'it', 'fs', 'ff', 'ht', 'vt', 'tb', 'cl', 'un', 'bd']) delete cd.v[k];
+      cd.v.ct = { fa: 'General', t: typeof cd.v.v === 'number' ? 'n' : 's' };
+    }
+    remount(sheets);
+  }
+  function shiftRows(at: number, delta: 1 | -1) {
+    const sheets = clone(sheetsRef.current); const sheet = sheets[activeIndex()] ?? sheets[0]; if (!sheet) return;
+    sheet.celldata = (sheet.celldata ?? [])
+      .filter((cd: any) => !(delta < 0 && cd.r === at))
+      .map((cd: any) => (cd.r >= at + (delta < 0 ? 1 : 0) ? { ...cd, r: cd.r + delta } : cd));
+    sheet.row = Math.max(1, (sheet.row ?? 100) + delta);
+    remount(sheets);
+  }
+  function shiftCols(at: number, delta: 1 | -1) {
+    const sheets = clone(sheetsRef.current); const sheet = sheets[activeIndex()] ?? sheets[0]; if (!sheet) return;
+    sheet.celldata = (sheet.celldata ?? [])
+      .filter((cd: any) => !(delta < 0 && cd.c === at))
+      .map((cd: any) => (cd.c >= at + (delta < 0 ? 1 : 0) ? { ...cd, c: cd.c + delta } : cd));
+    sheet.column = Math.max(1, (sheet.column ?? 26) + delta);
+    remount(sheets);
+  }
+  function selectionOrigin() {
+    const rng = parseRange(selectionRange());
+    return { r: rng?.r1 ?? 0, c: rng?.c1 ?? 0 };
+  }
+
+
+  function upsertConnectorProtection(sheet: any, instance: AxosConnectorInstance) {
+    const protection = sheet.axosProtection ?? {};
+    const ranges = Array.isArray(protection.ranges) ? protection.ranges : [];
+    const next = connectorProtectionFor(instance);
+    sheet.axosProtection = {
+      ...protection,
+      ranges: [...ranges.filter((r: any) => r.connectorId !== instance.id && !(r.connectorType === instance.type && r.range === instance.range)), next],
+    };
+  }
+
+
+  function insertAxosConnector(type: AxosConnectorType, params: Record<string, string> = {}) {
+    if (readOnly) return;
+    const sheets = clone(sheetsRef.current);
+    const sheetIndex = activeIndex();
+    const sheet = sheets[sheetIndex] ?? sheets[0]; if (!sheet) return;
+    const origin = selectionOrigin();
+    const built = buildAxosConnectorTable(type, origin);
+    sheet.celldata = sheet.celldata || [];
+    const occupied = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+    built.celldata.forEach((cd) => occupied.set(`${cd.r}_${cd.c}`, cd));
+    sheet.celldata = [...occupied.values()];
+    sheet.row = Math.max(sheet.row ?? 100, origin.r + built.nRows + 3);
+    sheet.column = Math.max(sheet.column ?? 30, origin.c + built.nCols + 2);
+    const instance = createAxosConnectorInstance(type, sheetIndex, built.range, new Date(), params);
+    upsertConnectorProtection(sheet, instance);
+    const chartSuggestions = suggestedChartsForConnector(instance);
+    if (chartSuggestions.length) {
+      chartsRef.current = [...chartsRef.current.filter((chart) => !chartSuggestions.some((next) => next.id === chart.id)), ...chartSuggestions];
+      setCharts(chartsRef.current);
+    }
+    connectorsRef.current = [...connectorsRef.current.filter((c) => !(c.sheetIndex === sheetIndex && c.type === type && c.range === built.range)), instance];
+    remount(sheets);
+    window.setTimeout(() => toast.success(`${instance.label} insertado en ${built.range}.`), 30);
+  }
+
+  function insertConnectorAuditSheet() {
+    if (readOnly) return;
+    if (!connectorAuditRef.current.length) { toast.info('Aún no hay auditoría de refresh de conectores AXOS.'); return; }
+    const sheets = upsertConnectorAuditSheet(clone(sheetsRef.current), connectorAuditRef.current);
+    remount(sheets);
+    window.setTimeout(() => toast.success(formatConnectorRefreshAuditSummary(summarizeConnectorRefreshAudit(connectorAuditRef.current))), 30);
+  }
+
+  async function refreshAxosConnectors() {
+    if (readOnly) return;
+    if (!connectorsRef.current.length) { toast.info('No hay conectores AXOS insertados en este libro.'); return; }
+    const sheets = clone(sheetsRef.current);
+    const refreshed: AxosConnectorInstance[] = [];
+    const auditEntries: AxosConnectorRefreshAuditEntry[] = [];
+    let count = 0;
+    let apiCount = 0;
+    let fallbackCount = 0;
+    let warningCount = 0;
+    for (const connector of connectorsRef.current) {
+      const sheet = sheets[connector.sheetIndex];
+      const built = buildAxosConnectorRefresh(connector);
+      if (!sheet || !built) { refreshed.push(connector); continue; }
+      const attemptAt = new Date().toISOString();
+      try {
+        const dataset = await fetchAxosConnectorDataset(connector);
+        const origin = originFromConnectorRange(connector.range);
+        if (origin) built.table = buildAxosConnectorTableFromDataset(dataset, origin);
+        built.instance = { ...connectorInstanceFromDataset(built.instance, dataset), range: built.table.range };
+        apiCount++;
+        if (dataset.warnings?.length) warningCount++;
+        auditEntries.push(createConnectorRefreshAuditEntry({ connectorId: connector.id, connectorType: connector.type, label: connector.label, range: built.table.range, sheetIndex: connector.sheetIndex, status: 'api', source: 'api', refreshedAt: built.instance.lastRefreshedAt, warnings: dataset.warnings ?? [] }));
+      } catch (error) {
+        fallbackCount++;
+        const message = error instanceof Error ? error.message : 'API no disponible';
+        auditEntries.push(createConnectorRefreshAuditEntry({ connectorId: connector.id, connectorType: connector.type, label: connector.label, range: built.table.range, sheetIndex: connector.sheetIndex, status: 'fallback', source: 'local', refreshedAt: attemptAt, warnings: [message], message }));
+        console.warn('[AXOS Sheets] connector refresh fallback', error);
+      }
+      const occupied = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+      built.table.celldata.forEach((cd) => occupied.set(`${cd.r}_${cd.c}`, cd));
+      sheet.celldata = [...occupied.values()];
+      sheet.row = Math.max(sheet.row ?? 100, built.table.celldata.reduce((m, cd) => Math.max(m, cd.r + 4), 0));
+      sheet.column = Math.max(sheet.column ?? 30, built.table.celldata.reduce((m, cd) => Math.max(m, cd.c + 3), 0));
+      upsertConnectorProtection(sheet, built.instance);
+      const chartSuggestions = suggestedChartsForConnector(built.instance);
+      if (chartSuggestions.length) chartsRef.current = [...chartsRef.current.filter((chart) => !chartSuggestions.some((next) => next.id === chart.id)), ...chartSuggestions];
+      refreshed.push(built.instance);
+      count++;
+    }
+    connectorsRef.current = refreshed;
+    connectorAuditRef.current = appendConnectorRefreshAudit(connectorAuditRef.current, auditEntries);
+    setCharts(chartsRef.current);
+    remount(sheets);
+    window.setTimeout(() => toast.success(formatConnectorRefreshReport({ total: count, api: apiCount, fallback: fallbackCount, warnings: warningCount })), 30);
+  }
+
+  function runGridCommand(cmd: 'copy' | 'cut' | 'paste') {
+    const wb = wbRef.current;
+    const grid = gridRef.current;
+    grid?.querySelector<HTMLElement>('.luckysheet-cell-input')?.focus();
+    if (cmd === 'copy') wb?.handleCopy?.();
+    else if (cmd === 'cut') wb?.handleCut?.();
+    else wb?.handlePaste?.();
+  }
+
+
+  function selectedCommentThreads(includeResolved = false) {
+    return commentsForSelection(commentsRef.current, activeIndex(), selectionRange(), includeResolved);
+  }
+  function addSheetComment() {
+    const text = window.prompt('Comentario para la celda/rango seleccionado:');
+    if (!text?.trim()) return;
+    const comment = createSheetCommentThread({ sheetIndex: activeIndex(), range: selectionRange(), text, author: 'AXOS' });
+    commentsRef.current = [...commentsRef.current, comment];
+    emit();
+    toast.success(`Comentario agregado en ${comment.range}.`);
+  }
+  function showSheetComments() {
+    const mine = commentsRef.current.filter((c) => c.sheetIndex === activeIndex() && !c.resolved);
+    if (!mine.length) { toast.info('No hay comentarios abiertos en esta hoja.'); return; }
+    window.alert(mine.map((c, i) => `${i + 1}. ${formatSheetCommentSummary(c)}`).join('\n'));
+  }
+  function replySelectionComment() {
+    const [first] = selectedCommentThreads();
+    if (!first) { toast.info(`No hay comentarios abiertos exactamente en ${selectionRange()}.`); return; }
+    const text = window.prompt('Respuesta al comentario seleccionado:');
+    if (!text?.trim()) return;
+    commentsRef.current = addSheetCommentReply(commentsRef.current, first.id, text, 'AXOS');
+    emit();
+    toast.success(`Respuesta agregada en ${first.range}.`);
+  }
+  function resolveSelectionComments() {
+    const threads = selectedCommentThreads();
+    if (!threads.length) { toast.info(`No hay comentarios abiertos exactamente en ${selectionRange()}.`); return; }
+    for (const thread of threads) commentsRef.current = resolveSheetComment(commentsRef.current, thread.id);
+    emit();
+    toast.success(`Comentarios resueltos en ${selectionRange()}.`);
+  }
+  function reopenSelectionComments() {
+    const threads = selectedCommentThreads(true).filter((c) => c.resolved);
+    if (!threads.length) { toast.info(`No hay comentarios resueltos exactamente en ${selectionRange()}.`); return; }
+    for (const thread of threads) commentsRef.current = reopenSheetComment(commentsRef.current, thread.id);
+    emit();
+    toast.success(`Comentarios reabiertos en ${selectionRange()}.`);
+  }
+  function deleteSelectionComments() {
+    const threads = selectedCommentThreads(true);
+    if (!threads.length) { toast.info(`No hay comentarios exactamente en ${selectionRange()}.`); return; }
+    if (!window.confirm(`Eliminar ${threads.length} comentario(s) de ${selectionRange()}?`)) return;
+    for (const thread of threads) commentsRef.current = deleteSheetComment(commentsRef.current, thread.id);
+    emit();
+    toast.success(`Comentarios eliminados en ${selectionRange()}.`);
+  }
+  function protectSheet(lock: boolean) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return;
+    sheet.axosProtection = { ...(sheet.axosProtection ?? {}), sheetLocked: lock };
+    remount(sheets);
+    window.setTimeout(() => toast.success(lock ? 'Hoja protegida.' : 'Protección de hoja desactivada.'), 30);
+  }
+  function protectSelectionRange() {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return;
+    const range = selectionRange();
+    sheet.axosProtection = { ...(sheet.axosProtection ?? {}), ranges: [...(sheet.axosProtection?.ranges ?? []), { range, locked: true, createdAt: new Date().toISOString() }] };
+    remount(sheets);
+    window.setTimeout(() => toast.success(`Rango protegido: ${range}.`), 30);
+  }
+  function clearRangeProtection() {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet?.axosProtection?.ranges?.length) { toast.info('No hay rangos protegidos en esta hoja.'); return; }
+    const range = selectionRange();
+    sheet.axosProtection.ranges = sheet.axosProtection.ranges.filter((x: any) => x.range !== range);
+    remount(sheets);
+    window.setTimeout(() => toast.info(`Protección quitada para ${range} si existía.`), 30);
+  }
 
   function applyValidation({ range, sheetIndex, cfg, action }: ValidationPayload) {
     const rng = parseRange(range);
@@ -431,21 +755,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   function refreshPivots() {
     const stored = pivotsRef.current;
     if (!stored.length) { toast.info('No hay tablas dinámicas guardadas para actualizar.'); return; }
-    const sheets = clone(sheetsRef.current);
-    let updated = 0;
-    for (const sp of stored) {
-      const target = sheets.find((s: any) => s.name === sp.sheetName);
-      const src = sheets[sp.config.sheetIndex];
-      if (!target || !src) continue; // hoja destino u origen no localizada (renombrada/borrada)
-      const res = buildPivot(src, sp.config);
-      if (!res.matrix.length) continue;
-      target.celldata = pivotToCelldata(res, 0, 0);
-      target.row = Math.max(100, res.nRows + 8);
-      target.column = Math.max(26, res.nCols + 4);
-      updated++;
-    }
-    remount(sheets);
-    window.setTimeout(() => toast.success(`${updated} tabla(s) dinámica(s) actualizada(s).`), 30);
+    const { sheets, report } = refreshStoredPivots(sheetsRef.current, stored);
+    if (report.updated > 0) remount(sheets);
+    const message = formatPivotRefreshReport(report);
+    window.setTimeout(() => {
+      if (report.skipped > 0) toast.info(message);
+      else toast.success(message);
+    }, 30);
   }
 
   // Derrama (spill) la fórmula matricial de la celda seleccionada a las celdas vecinas
@@ -639,6 +955,56 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return 'A1:A10';
   }
 
+
+
+  function showWorkbookHealth() {
+    const report = analyzeWorkbookHealth(workbookPayload());
+    window.alert(formatWorkbookHealthReport(report));
+  }
+
+  function runPublishPreflight() {
+    const gate = evaluateWorkbookPublishGate(workbookPayload());
+    window.alert(formatWorkbookPublishGate(gate));
+  }
+
+  function insertDataValidationSheet() {
+    if (readOnly) return;
+    const payload = workbookPayload();
+    const result = upsertDataValidationSheet(clone(sheetsRef.current), payload);
+    remount(result.sheets);
+    window.setTimeout(() => toast.success(`Validaciones auditadas · ${result.audit.invalid} inválida(s).`), 30);
+  }
+
+  function insertWorkbookInventorySheet() {
+    if (readOnly) return;
+    const payload = workbookPayload();
+    const result = upsertWorkbookInventorySheet(clone(sheetsRef.current), payload);
+    remount(result.sheets);
+    window.setTimeout(() => toast.success(`Inventario insertado · ${result.summary.sheets} hoja(s), ${result.summary.connectors} conector(es).`), 30);
+  }
+
+  function insertWorkbookHealthSheet() {
+    if (readOnly) return;
+    const payload = workbookPayload();
+    const result = upsertWorkbookHealthSheet(clone(sheetsRef.current), payload);
+    remount(result.sheets);
+    window.setTimeout(() => toast.success(`Reporte de salud insertado · score ${result.report.score}/100.`), 30);
+  }
+
+  function auditFormulas() {
+    const result = auditWorkbookFormulas(workbookPayload());
+    if (!result.total) { toast.info('No hay fórmulas para auditar en este libro.'); return; }
+    window.alert(formatFormulaAuditSummary(result));
+  }
+
+  function insertFormulaErrorSheet() {
+    if (readOnly) return;
+    const payload = workbookPayload();
+    const result = upsertFormulaErrorSheet(clone(sheetsRef.current), payload);
+    remount(result.sheets);
+    window.setTimeout(() => toast.success(`Errores de fórmula auditados: ${result.audit.total}.`), 30);
+  }
+
   function applyNumberFmt(p: NumberFmtPayload) {
     const sheets = clone(sheetsRef.current);
     const sheet = sheets[p.sheetIndex] ?? sheets[0]; if (!sheet) { setShowFormat(false); return; }
@@ -710,9 +1076,37 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           </RibbonTab>
         )}
         {!readOnly && (
+          <RibbonTab id="home" label="Inicio" icon={Home}>
+            <RibbonGroup label="Portapapeles">
+              <RibbonButton icon={Clipboard} label="Copiar" onClick={() => runGridCommand('copy')} />
+              <RibbonButton icon={Scissors} label="Cortar" onClick={() => runGridCommand('cut')} />
+              <RibbonButton icon={ClipboardPaste} label="Pegar" onClick={() => runGridCommand('paste')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Número">
+              <RibbonButton icon={DollarSign} label="Moneda" onClick={() => applyQuickNumberFormat('"$"#,##0.00', 'USD')} />
+              <RibbonButton icon={Percent} label="Porcentaje" onClick={() => applyQuickNumberFormat('0.0%')} />
+              <RibbonButton icon={Hash} label="General" onClick={() => applyQuickNumberFormat('General')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Formato rápido">
+              <RibbonButton icon={PaintBucket} label="Relleno AXOS" onClick={() => applyQuickStyle({ bg: '#ecfdf5', fc: '#065f46' })} />
+              <RibbonButton icon={Eraser} label="Limpiar formato" onClick={clearSelectedFormatting} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Celdas">
+              <RibbonButton icon={PlusCircle} label="Insertar fila" onClick={() => shiftRows(selectionOrigin().r, 1)} />
+              <RibbonButton icon={MinusCircle} label="Eliminar fila" onClick={() => shiftRows(selectionOrigin().r, -1)} />
+              <RibbonButton icon={ColumnsIcon} label="Insertar columna" onClick={() => shiftCols(selectionOrigin().c, 1)} />
+              <RibbonButton icon={Trash2} label="Eliminar columna" onClick={() => shiftCols(selectionOrigin().c, -1)} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+        {!readOnly && (
           <RibbonTab id="data" label="Datos">
             <RibbonGroup label="Herramientas de datos">
               <RibbonButton icon={ListChecks} label="Validación de datos" onClick={() => setTool('validation')} />
+              <RibbonButton icon={ListChecks} label="Auditar validación" onClick={insertDataValidationSheet} />
               <RibbonButton icon={Palette} label="Formato condicional" onClick={() => setTool('condformat')} />
               <RibbonButton icon={Hash} label="Copiar como Markdown" hideLabel={false} onClick={copyRangeAsMarkdown} />
             </RibbonGroup>
@@ -787,6 +1181,29 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             </RibbonGroup>
           </RibbonTab>
         )}
+        <RibbonTab id="view" label="Vista" icon={Eye}>
+          <RibbonGroup label="Ventana">
+            <RibbonMenuButton icon={Snowflake} label="Inmovilizar" menuWidth={250} items={[
+              { label: 'Inmovilizar fila 1', onClick: () => applyFreeze('row') },
+              { label: 'Inmovilizar columna A', onClick: () => applyFreeze('column') },
+              { label: 'Inmovilizar fila 1 + columna A', onClick: () => applyFreeze('both') },
+              { label: 'Inmovilizar hasta una celda…', onClick: applyFreezeAt },
+              { label: 'Quitar inmovilización', onClick: () => applyFreeze('') },
+            ]} />
+          </RibbonGroup>
+        </RibbonTab>
+        <RibbonTab id="axos" label="AXOS" icon={Activity}>
+          <RibbonGroup label="Conectores ERP/MES">
+            <RibbonMenuButton icon={RefreshCw} label="Insertar conector" menuWidth={320} items={AXOS_SHEET_CONNECTORS.map((connector) => ({
+              label: `${connector.label} · ${connector.domain}`,
+              onClick: () => setPendingConnector(connector.type),
+            }))} />
+            <RibbonButton icon={Table2} label="Inventario" onClick={() => setPendingConnector('inventory_snapshot')} />
+            <RibbonButton icon={Activity} label="OEE" onClick={() => setPendingConnector('oee_by_line')} />
+            <RibbonButton icon={RefreshCw} label="Refrescar" onClick={refreshAxosConnectors} />
+            <RibbonButton icon={ListChecks} label="Auditoría" onClick={insertConnectorAuditSheet} />
+          </RibbonGroup>
+        </RibbonTab>
         <RibbonTab id="layout" label="Diseño de página">
           <RibbonGroup label="Imprimir">
             <RibbonButton icon={Printer} label="Imprimir / vista previa" shortcut="Ctrl+P" hideLabel={false} onClick={() => setShowPrint(true)} />
@@ -806,6 +1223,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonSeparator />
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
+              <RibbonButton icon={Search} label="Auditar fórmulas" hideLabel={false} onClick={auditFormulas} />
+              <RibbonButton icon={ListChecks} label="Hoja de errores" hideLabel={false} onClick={insertFormulaErrorSheet} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Nombres definidos">
@@ -817,21 +1236,96 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <RibbonTab id="review" label="Revisar">
             <RibbonGroup label="Edición">
               <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
+              <RibbonButton icon={Activity} label="Salud del workbook" hideLabel={false} onClick={showWorkbookHealth} />
+              <RibbonButton icon={ListChecks} label="Preflight" hideLabel={false} onClick={runPublishPreflight} />
+              <RibbonButton icon={ListChecks} label="Insertar reporte" hideLabel={false} onClick={insertWorkbookHealthSheet} />
+              <RibbonButton icon={LayoutGrid} label="Inventario" hideLabel={false} onClick={insertWorkbookInventorySheet} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Comentarios">
               <RibbonButton icon={StickyNote} label="Nota de celda" onClick={() => setDataMode('note')} />
+              <RibbonButton icon={MessageSquare} label="Comentar rango" onClick={addSheetComment} />
+              <RibbonMenuButton icon={MessageSquare} label="Comentarios" menuWidth={260} items={[
+                { label: 'Ver comentarios abiertos', onClick: showSheetComments },
+                { label: 'Responder comentario de la selección', onClick: replySelectionComment },
+                { label: 'Resolver comentarios de la selección', onClick: resolveSelectionComments },
+                { label: 'Reabrir comentarios de la selección', onClick: reopenSelectionComments },
+                { label: 'Eliminar comentarios de la selección', onClick: deleteSelectionComments },
+              ]} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Protección">
+              <RibbonMenuButton icon={Lock} label="Proteger" menuWidth={260} items={[
+                { label: 'Proteger hoja activa', onClick: () => protectSheet(true) },
+                { label: 'Quitar protección de hoja', onClick: () => protectSheet(false) },
+                { label: 'Proteger rango seleccionado', onClick: protectSelectionRange },
+                { label: 'Quitar protección del rango', onClick: clearRangeProtection },
+              ]} />
             </RibbonGroup>
           </RibbonTab>
         )}
       </OfficeRibbon>
 
-      <div ref={gridRef} className="flex-1 min-h-0 bg-white relative">
-        <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} hooks={wbHooks} />
+      <div className="h-10 flex items-center gap-2 border-y border-black/5 dark:border-white/10 bg-gray-50/80 dark:bg-white/[0.03] px-3">
+        <input
+          value={selectionText}
+          onChange={(e) => setSelectionText(e.target.value.toUpperCase())}
+          className="h-7 w-28 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-black/20 px-2 text-xs font-semibold text-gray-600 dark:text-gray-300 outline-none focus:ring-2 focus:ring-emerald-500/30"
+          aria-label="Name box"
+        />
+        <div className="h-6 w-px bg-black/10 dark:bg-white/10" />
+        <span className="text-xs font-bold text-emerald-600">fx</span>
+        <input
+          value={formulaText}
+          readOnly={readOnly}
+          onFocus={() => setEditMode('Editando')}
+          onBlur={() => setEditMode('Listo')}
+          onChange={(e) => setFormulaText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !readOnly) commitFormulaBar(); if (e.key === 'Escape') setEditMode('Listo'); }}
+          className="h-7 flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-black/20 px-3 text-xs font-mono outline-none focus:ring-2 focus:ring-emerald-500/30"
+          placeholder="Escribe una fórmula o valor…"
+          aria-label="Barra de fórmula"
+        />
+      </div>
+
+      <div
+        ref={gridRef}
+        className="flex-1 min-h-0 bg-white relative overflow-hidden"
+        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }); }}
+        onClick={() => setContextMenu(null)}
+      >
+        <div className="absolute inset-0" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left', width: `${10000 / zoom}%`, height: `${10000 / zoom}%` }}>
+          <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} hooks={wbHooks} />
+        </div>
         {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} activeSheetIndex={activeIndex()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
       </div>
 
+      {contextMenu && !readOnly && (
+        <div className="fixed z-[70] w-56 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#161616] p-1.5 shadow-2xl" style={{ left: contextMenu.x, top: contextMenu.y }}>
+          {[
+            ['Copiar', () => runGridCommand('copy')], ['Cortar', () => runGridCommand('cut')], ['Pegar', () => runGridCommand('paste')],
+            ['Formato moneda', () => applyQuickNumberFormat('"$"#,##0.00', 'USD')], ['Formato porcentaje', () => applyQuickNumberFormat('0.0%')],
+            ['Limpiar formato', clearSelectedFormatting], ['Insertar fila', () => shiftRows(selectionOrigin().r, 1)], ['Eliminar fila', () => shiftRows(selectionOrigin().r, -1)],
+            ['Insertar columna', () => shiftCols(selectionOrigin().c, 1)], ['Eliminar columna', () => shiftCols(selectionOrigin().c, -1)],
+          ].map(([label, fn]) => <button key={String(label)} onClick={() => { (fn as () => void)(); setContextMenu(null); }} className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10">{String(label)}</button>)}
+        </div>
+      )}
+
       <SheetCharts charts={charts} sheets={sheetsRef.current} readOnly={readOnly} onAdd={addChart} onRemove={removeChart} onUpdate={updateChart} />
+
+      <div className="h-8 flex items-center justify-between border-t border-black/5 dark:border-white/10 bg-gray-50 dark:bg-[#111] px-3 text-[11px] text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <span className="font-semibold text-emerald-600">{editMode}</span>
+          <span>{selectionText}</span>
+          {(() => { const s = selectionStats(); return <span className="truncate">Conteo {s.count} · Núm {s.nums} · Suma {s.sum.toLocaleString()} · Prom {s.avg.toLocaleString()} · Min {s.min ?? '—'} · Max {s.max ?? '—'}</span>; })()}
+          <span className="hidden lg:inline-flex rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 uppercase tracking-wide">{(() => { const p = currentWorkbookStats(); return `${p.label} · ${p.cells.toLocaleString()} celdas · ${(p.approxJsonBytes / 1024).toFixed(0)} KB`; })()}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setZoom((z) => Math.max(60, z - 10))} className="px-2 py-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10">−</button>
+          <span className="w-12 text-center font-semibold">{zoom}%</span>
+          <button onClick={() => setZoom((z) => Math.min(160, z + 10))} className="px-2 py-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10">+</button>
+        </div>
+      </div>
 
       {showSlicers && (
         <SheetSlicer
@@ -875,6 +1369,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         )}
         {showConsolidate && (
           <SheetConsolidate onApply={doConsolidate} onClose={() => setShowConsolidate(false)} />
+        )}
+        {pendingConnector && (
+          <SheetConnectorParams
+            type={pendingConnector}
+            onApply={(params) => { insertAxosConnector(pendingConnector, params); setPendingConnector(null); }}
+            onClose={() => setPendingConnector(null)}
+          />
         )}
         {showPivot && (
           <SheetPivot
