@@ -205,3 +205,9 @@ AXOS connector instances now have a pure freshness model derived from connector 
 AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
 The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+## Fase 5 expansion — Slicers and timeline filters foundation
+
+AXOS Sheets now persists slicer and timeline filter metadata as `AxosSlicer` and `AxosTimelineFilter` models on sheet JSON. The pure slicer helper layer exposes unique-value extraction, date-window matching, row-hidden filtering, and projection into pivot include-filters so existing pivot generation and refresh can honor active slicers without changing the pivot engine output shape.
+
+The existing Sheet slicer inspector remains the first UI surface for creating and editing basic slicers/timelines from the active range. Focused regression coverage validates unique values, date filters, row filtering, pivot projection, and the AXOS Sheets spec runner includes the slicer suite.

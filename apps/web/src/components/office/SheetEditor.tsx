@@ -17,7 +17,7 @@ import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
 import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { SheetSlicer } from './sheets/SheetSlicer';
-import { slicerValues, applySlicers, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
+import { slicerValues, applySlicers, applySlicersToPivotConfig, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, rawOf, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
@@ -956,7 +956,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const sheets = clone(sheetsRef.current);
     const src = sheets[cfg.sheetIndex] ?? sheets[0];
     if (!src) { setShowPivot(false); return; }
-    const res = buildPivot(src, cfg);
+    const res = buildPivot(src, applySlicersToPivotConfig(src, cfg, { slicers: src.slicers ?? [], timelines: src.timelines ?? [] }));
     if (!res.matrix.length) { toast.error(res.warnings[0] || 'No se pudo generar la tabla dinámica.'); return; }
     if (target.mode === 'cell') {
       const origin = parseRange(target.cell || 'A1');

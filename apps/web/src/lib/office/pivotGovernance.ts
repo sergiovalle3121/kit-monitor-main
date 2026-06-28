@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { buildPivot, pivotToCelldata, type PivotConfig } from './sheetOps';
+import { applySlicersToPivotConfig, type AxosSlicer, type AxosTimelineFilter } from '../../components/office/sheets/slicer';
 
 export type StoredPivotDefinition = { id: string; config: PivotConfig; sheetName: string };
 export type PivotRefreshStatus = 'updated' | 'missing-source' | 'missing-target' | 'empty-result';
@@ -49,7 +50,10 @@ export function refreshStoredPivots(
       findings.push(findingFor(pivot, 'missing-target'));
       continue;
     }
-    const result = buildPivot(src, pivot.config);
+    const slicers = Array.isArray(src.slicers) ? (src.slicers as AxosSlicer[]) : [];
+    const timelines = Array.isArray(src.timelines) ? (src.timelines as AxosTimelineFilter[]) : [];
+    const config = applySlicersToPivotConfig(src, pivot.config, { slicers, timelines, pivotId: pivot.id });
+    const result = buildPivot(src, config);
     if (!result.matrix.length) {
       skipped++;
       findings.push({ ...findingFor(pivot, 'empty-result'), warnings: result.warnings });
