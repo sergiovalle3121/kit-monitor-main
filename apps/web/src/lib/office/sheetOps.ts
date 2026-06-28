@@ -403,7 +403,17 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
   if (!read) return { matrix: [], nRows: 0, nCols: 0, warnings: ['Rango inválido. Ej.: A1:D100'] };
   const { headers, rows } = read;
   const idxOf = (name: string) => headers.indexOf(name);
-  const values = cfg.values.length ? cfg.values : [{ field: headers[headers.length - 1] ?? '', agg: 'count' as AggFn }];
+  const warnMissing = (kind: string, fields: string[]) => {
+    for (const field of fields) warnings.push(`Campo ${kind} inválido o no encontrado: ${field}`);
+  };
+  warnMissing('de fila', cfg.rows.filter((f) => idxOf(f) < 0));
+  warnMissing('de columna', cfg.cols.filter((f) => idxOf(f) < 0));
+  const configuredValues = cfg.values.length ? cfg.values : [{ field: headers[headers.length - 1] ?? '', agg: 'count' as AggFn }];
+  warnMissing('de valor', configuredValues.filter((vf) => idxOf(vf.field) < 0).map((vf) => vf.field));
+  const values = configuredValues.filter((vf) => idxOf(vf.field) >= 0);
+  if (!values.length) {
+    return { matrix: [], nRows: 0, nCols: 0, warnings: [...warnings, 'No hay campos de valor válidos para construir la tabla dinámica.'] };
+  }
   const rowFields = cfg.rows.filter((f) => idxOf(f) >= 0);
   const colFields = cfg.cols.filter((f) => idxOf(f) >= 0);
   if (!rows.length) warnings.push('El rango no contiene filas de datos.');
@@ -411,10 +421,19 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
   // Filtros por valor.
   let recs = rows;
   for (const f of cfg.filters ?? []) {
-    const ci = idxOf(f.field); if (ci < 0 || !f.include?.length) continue;
+    const ci = idxOf(f.field);
+    if (ci < 0) {
+      warnings.push(`Filtro omitido porque el campo no existe: ${f.field}`);
+      continue;
+    }
+    if (!f.include?.length) {
+      warnings.push(`Filtro omitido porque no incluye valores permitidos: ${f.field}`);
+      continue;
+    }
     const inc = new Set(f.include.map(String));
     recs = recs.filter((row) => inc.has(String(row[ci] ?? '')));
   }
+  if (rows.length && !recs.length) warnings.push('Los filtros no dejaron filas de datos para la tabla dinámica.');
 
   const rowKeyOf = (rec: any[]) => rowFields.map((f) => String(rec[idxOf(f)] ?? ''));
   const colKeyOf = (rec: any[]) => colFields.map((f) => String(rec[idxOf(f)] ?? ''));
@@ -537,8 +556,9 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
     ));
   }
 
-  // Fila de total general.
-  if (showColTotals && rowKeys.length) {
+  // Fila de total general. También se emite para datos vacíos/filtrados,
+  // de modo que el resultado conserve cabeceras y diagnósticos visibles.
+  if (showColTotals) {
     matrix.push(bodyRow(
       ['Total general'], 'grandtotal',
       (ck) => colRecs.get(jk(ck)),
