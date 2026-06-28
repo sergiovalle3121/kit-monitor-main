@@ -150,7 +150,7 @@ function SectionDropdown({
             animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className={`${glass} absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-56 overflow-y-auto rounded-2xl p-1.5 shadow-xl`}
+            className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-56 overflow-y-auto rounded-2xl border border-border bg-white p-1.5 shadow-xl dark:bg-slate-900"
           >
             {siblings.map((s) => {
               const active = s.href === currentHref;

@@ -18,17 +18,20 @@
   :root {
     /* === Paleta semántica (canales HSL → usar con hsl(var(--token))) ======
        CLARO: sobrio estilo banca — blancos, gris pizarra, acento índigo. */
-    --background: 220 33% 99%;
-    --foreground: 222 47% 11%;
+    /* Confort de lectura prolongada: fondo off-white calmado (menos glare que el
+       blanco puro) y texto slate algo más suave que el casi-negro. Las tarjetas
+       siguen casi blancas, así "flotan" con suavidad sobre el fondo. */
+    --background: 220 24% 96.5%;
+    --foreground: 222 40% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222 40% 15%;
     --surface: 0 0% 100%;
-    --surface-foreground: 222 47% 11%;
+    --surface-foreground: 222 40% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --muted: 220 16% 96%;
-    --muted-foreground: 220 9% 43%;
-    --border: 220 13% 91%;
+    --popover-foreground: 222 40% 15%;
+    --muted: 220 16% 93%;
+    --muted-foreground: 220 10% 40%;
+    --border: 220 13% 89%;
     --input: 220 13% 91%;
 
     /* Acento de marca (índigo) — IDÉNTICO en claro y oscuro. Nada de cyan. */
