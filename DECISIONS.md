@@ -2880,4 +2880,23 @@ CIDE lo usa como contexto autoritativo.
 persistencia/limpieza de `knowledge`), `lint web` 0 errores, `build web` ✓. Total API 1134.
 Migración 100% aditiva (columna nullable).
 
+## 131. CIDE — evidencia clicable (provenance) + más acciones
+
+**Contexto.** Dos pulidos: (1) dar **trazabilidad** a las respuestas (de dónde salieron los
+datos), estilo Palantir; (2) ampliar el catálogo de acciones human-in-the-loop.
+
+**Decisión (aditiva).**
+- **Evidencia clicable (#1, web):** nuevo `lib/chat/toolSources.ts` mapea cada herramienta de
+  grounding a su módulo (`toolSource`/`sourcesFor`). En el chat, bajo cada respuesta, los chips
+  de herramientas se reemplazan por **"Fuentes: …"** con enlaces al módulo consultado (Inventario,
+  Calidad, Mantenimiento, Finanzas, etc.). Determinista; tools sin página no enlazan.
+- **Más acciones (#3, backend):** dos acciones nuevas en el patrón ya validado (propose→confirm→
+  execute con RBAC + ledger): `set_maintenance_order_status` (`maintenance:write` →
+  `MaintenanceService.updateOrder` con status OPEN/IN_PROGRESS/COMPLETED/CANCELLED) y
+  `create_safety_incident` (`reports:read` → `EhsService.create`, folio INC-). `propose_action`
+  ahora documenta 7 acciones.
+
+**Verificación:** `build API` ✓, **API tests 1137/1137** (+3: validación de las 2 acciones),
+`lint web` 0 errores, `build web` ✓. Sin migraciones.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
