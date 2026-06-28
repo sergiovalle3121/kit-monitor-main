@@ -41,18 +41,27 @@ falta de herramientas de encuadre, no el contenedor DOM.
   - Modo foco: oculta ambos paneles laterales para maximizar el lienzo (el
     `ResizeObserver` ya redimensiona el canvas).
   - Toolbar + atajos `F` / `Shift+F` / `\` + comando `fit_view` + ayuda.
-- **`feat(cad): plant overview minimap`**
+- **`feat(cad): plant overview minimap`** (`d72c9bd`)
   - Nuevo `apps/web/src/lib/cad/minimap.ts` (puro, con tests): escala del
     minimapa, mapeo target↔mundo↔píxel, clamp a la huella.
   - Nuevo `PlantMinimap.tsx` — overlay SVG (mismo patrón de polling con rAF que
     `Minimap.tsx`, sin re-render del editor): huella + estaciones + equipos +
     objetivo de cámara; clic para centrar la vista conservando el zoom.
   - Toolbar: toggle de minimapa (📍). Pensado para navegar plantas grandes.
+- **`feat(cad): dynamic scale bar (real-units ruler)`**
+  - `niceScaleBarMeters` (1/2/5×10ⁿ) en `world-scale.ts` (con tests).
+  - Nuevo `ScaleBar.tsx` — proyecta una base de 10 m en el plano del objetivo a
+    píxeles y dibuja una barra de escala 1/2/5 en metros; se adapta al zoom.
+    Regla de unidades reales robusta bajo cámara en perspectiva.
 
 ### Pendiente en EPIC 0
-- Reglas (rulers) en bordes con unidades reales y grid adaptativo enganchado a
-  `adaptiveGridStepM` (hoy el grid usa `footprint.gridSize`).
+- Grid adaptativo enganchado a `adaptiveGridStepM` (hoy el grid usa
+  `footprint.gridSize`; el lib ya expone el paso adaptativo).
 - Pan con barra espaciadora + arrastre (OrbitControls ya da rueda/órbita).
+
+**EPIC 0 — AC cubiertos:** lienzo full-bleed ✅ · escala de nave hasta 500 m con
+presets ✅ · fit a planta/contenido/selección ✅ · modo foco ✅ · minimapa ✅ ·
+escala con unidades reales ✅.
 
 ## EPIC 1–8 — pendientes
 Ver backlog del prompt. Se abordan en orden tras cerrar EPIC 0.
