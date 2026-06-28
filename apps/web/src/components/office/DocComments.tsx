@@ -63,10 +63,28 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
     return () => { active = false; };
   }, [open, docId, filter, query, author]);
 
-  const comments = open ? collect(editor).map((c) => {
-    const row = persisted[c.id];
-    return row ? { ...c, persistedId: row.id, text: row.text, author: row.author || c.author, createdAt: row.createdAt, resolved: !!row.resolved, replies: Array.isArray(row.replies) ? row.replies : [], mentions: row.mentions ?? [], assignedTo: row.assignedTo ?? null } : c;
-  }).filter((c) => {
+  const comments = open ? (() => {
+    const local = collect(editor).map((c) => {
+      const row = persisted[c.id];
+      return row ? { ...c, persistedId: row.id, text: row.text, author: row.author || c.author, createdAt: row.createdAt, resolved: !!row.resolved, replies: Array.isArray(row.replies) ? row.replies : [], mentions: row.mentions ?? [], assignedTo: row.assignedTo ?? null } : c;
+    });
+    const localIds = new Set(local.map((c) => c.id));
+    const serverOnly = Object.values(persisted).filter((row: any) => !localIds.has(row.anchorId)).map((row: any) => ({
+      id: row.anchorId,
+      persistedId: row.id,
+      text: row.text,
+      author: row.author || '',
+      createdAt: row.createdAt ?? null,
+      resolved: !!row.resolved,
+      replies: Array.isArray(row.replies) ? row.replies : [],
+      from: typeof row.anchor?.from === 'number' ? row.anchor.from : 0,
+      to: typeof row.anchor?.to === 'number' ? row.anchor.to : 0,
+      quoted: row.quotedText || 'Ancla no disponible en el contenido actual',
+      mentions: row.mentions ?? [],
+      assignedTo: row.assignedTo ?? null,
+    }));
+    return [...local, ...serverOnly];
+  })().filter((c) => {
     if (filter === 'open' && c.resolved) return false;
     if (filter === 'resolved' && !c.resolved) return false;
     if (filter === 'assigned' && (!author || c.assignedTo !== author.toLowerCase())) return false;
@@ -105,7 +123,9 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
     setOpen(true);
     refresh();
   }
-  const goTo = (c: CommentItem) => editor.chain().focus().setTextSelection({ from: c.from, to: c.to }).scrollIntoView().run();
+  const goTo = (c: CommentItem) => {
+    if (c.from > 0 && c.to > c.from) editor.chain().focus().setTextSelection({ from: c.from, to: c.to }).scrollIntoView().run();
+  };
   const toggleResolved = (c: CommentItem) => update(c, { resolved: !c.resolved });
   const assign = (c: CommentItem) => {
     const next = window.prompt('Asignar a usuario/email (vacío para quitar asignación)', c.assignedTo ?? '');

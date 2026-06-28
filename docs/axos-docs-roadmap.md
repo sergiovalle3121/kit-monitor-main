@@ -6,7 +6,7 @@ AXOS Docs evolves the existing `/dashboard/office` document editor into a Word-c
 
 1. **Persistent review threads**
    - Persist comment threads outside TipTap JSON so review history survives future import/export and can be audited independently.
-   - Keep a TipTap `commentId` mark as the visual anchor, backed by `office_document_comments` records.
+   - Keep a TipTap `commentId` mark as the visual anchor, backed by shared `office_comments` records for Office-wide review threads.
    - Support replies, `@mentions`, assignment, resolve/reopen, delete, author, timestamps, tenant scope, filters, search, and future notification fan-out.
 
 2. **Track changes parity**
@@ -34,11 +34,11 @@ AXOS Docs evolves the existing `/dashboard/office` document editor into a Word-c
 
 ## Current implementation slice
 
-The first slice implements persistent comment storage while preserving the existing in-editor comment mark UX:
+The current slice implements persistent comment storage while preserving the existing in-editor comment mark UX:
 
-- New `office_document_comments` table with snake_case database columns (`tenant_id`, `document_id`, `anchor_id`) plus text, mentions, assigned user, quoted text, anchor range, replies, resolved state, resolver, and timestamps.
-- New authenticated Office API endpoints for filtering, searching, listing, creating, assigning, replying, resolving/reopening, and deleting document comments.
-- `DocComments` now creates and updates server-backed threads when a document id is available, while continuing to update the TipTap mark so comments remain visible in the editor and DOCX export path.
+- Docs reuses the shared `office_comments` table already used by Office comments instead of adding a third comments model. Root Docs comments are stored as `anchorType = text`; the TipTap comment id is kept in `rangeRef`/`objectId`, quoted text in `anchorLabel`, replies as child `office_comments` rows, and assignment plus resolve/reopen state on the shared thread.
+- The existing authenticated Docs comments API shape remains available for filtering, searching, listing, creating, assigning, replying, resolving/reopening, and deleting document comments.
+- `DocComments` now creates and updates server-backed threads when a document id is available, while continuing to update the TipTap mark so comments remain visible in the editor and DOCX export path. If the API does not respond, the local TipTap mark remains the fallback.
 
 ## Execution notes
 
