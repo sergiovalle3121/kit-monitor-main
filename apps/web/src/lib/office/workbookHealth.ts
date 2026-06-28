@@ -45,3 +45,52 @@ export function formatWorkbookHealthReport(report: WorkbookHealthReport): string
   if (!report.findings.length) return `Salud del workbook: ${report.score}/100 · ${report.label}\nSin hallazgos relevantes.`;
   return [`Salud del workbook: ${report.score}/100 · ${report.label}`, ...report.findings.map((f) => `${f.severity.toUpperCase()} [${f.code}] ${f.message}`)].join('\n');
 }
+
+export interface SheetRangeRef { r1: number; c1: number; r2: number; c2: number }
+export interface SheetSelectionStats { range: string; count: number; nums: number; sum: number; average: number; min: number | null; max: number | null; formulas: number; comments: number; protected: boolean; invalid: number }
+export interface SheetSummary { sheets: number; usedCells: number; formulas: number; charts: number; pivots: number; validations: number; comments: number; protectedRanges: number; namedRanges: number; filters: number; connectors: number }
+export interface DerivedWorkbookHealth extends SheetSummary { unsupportedXlsxFeatures: number; importWarnings: number; staleAxosConnectors: number; score: number; findings: WorkbookHealthFinding[] }
+
+function sheetsOf(content: any): any[] { return Array.isArray(content) ? content : (Array.isArray(content?.sheets) ? content.sheets : []); }
+function colNameLocal(n: number): string { let s = ''; n += 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - m) / 26); } return s; }
+export function formatSheetRange(input?: Partial<SheetRangeRef> | string | null): string {
+  if (!input) return 'Sin selección';
+  if (typeof input === 'string') return input;
+  const r1 = Math.max(0, input.r1 ?? 0), c1 = Math.max(0, input.c1 ?? 0), r2 = Math.max(r1, input.r2 ?? r1), c2 = Math.max(c1, input.c2 ?? c1);
+  const a = `${colNameLocal(c1)}${r1 + 1}`, b = `${colNameLocal(c2)}${r2 + 1}`;
+  return a === b ? a : `${a}:${b}`;
+}
+function parseA1(range: string): SheetRangeRef | null {
+  const m = /^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/i.exec(range.trim());
+  if (!m) return null;
+  const toCol = (s: string) => s.toUpperCase().split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+  const r1 = Number(m[2]) - 1, c1 = toCol(m[1]), r2 = m[4] ? Number(m[4]) - 1 : r1, c2 = m[3] ? toCol(m[3]) : c1;
+  return { r1: Math.min(r1, r2), c1: Math.min(c1, c2), r2: Math.max(r1, r2), c2: Math.max(c1, c2) };
+}
+function raw(cd: any): any { const v = cd?.v; return v && typeof v === 'object' ? (v.v ?? v.m ?? v.f ?? '') : v; }
+export function deriveSheetSelectionStats(sheet: any, rangeInput: string | SheetRangeRef, comments: any[] = []): SheetSelectionStats {
+  const rng = typeof rangeInput === 'string' ? parseA1(rangeInput) : rangeInput;
+  const range = formatSheetRange(rangeInput as any);
+  if (!sheet || !rng) return { range, count: 0, nums: 0, sum: 0, average: 0, min: null, max: null, formulas: 0, comments: 0, protected: false, invalid: 0 };
+  const cells = (sheet.celldata ?? []).filter((cd: any) => cd.r >= rng.r1 && cd.r <= rng.r2 && cd.c >= rng.c1 && cd.c <= rng.c2);
+  const values = cells.map(raw).filter((v: any) => v !== '' && v != null);
+  const nums = values.map(Number).filter(Number.isFinite);
+  const sum = nums.reduce((a: number, b: number) => a + b, 0);
+  const protection = sheet.axosProtection ?? {};
+  const protectedRanges = Array.isArray(protection.ranges) ? protection.ranges : [];
+  return { range, count: values.length, nums: nums.length, sum, average: nums.length ? sum / nums.length : 0, min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null, formulas: cells.filter((cd: any) => typeof cd?.v?.f === 'string').length, comments: comments.filter((c) => c.range === range || c.range === formatSheetRange(range)).length, protected: !!protection.sheetLocked || protectedRanges.some((p: any) => p.range === range), invalid: cells.filter((cd: any) => cd?.v?.bg === '#fee2e2' || cd?.v?.axosInvalid).length };
+}
+export function deriveSheetSummary(content: any): SheetSummary {
+  const sheets = sheetsOf(content);
+  const validations = sheets.reduce((sum, s) => sum + Object.keys(s?.dataVerification ?? s?.dataVerificationConfig ?? {}).length, 0);
+  const protectedRanges = sheets.reduce((sum, s) => sum + (s?.axosProtection?.sheetLocked ? 1 : 0) + (Array.isArray(s?.axosProtection?.ranges) ? s.axosProtection.ranges.length : 0), 0);
+  const filters = sheets.filter((s) => !!(s?.filter_select || s?.config?.filter_select)).length;
+  return { sheets: sheets.length, usedCells: sheets.reduce((sum, s) => sum + ((s?.celldata ?? []) as any[]).length, 0), formulas: sheets.reduce((sum, s) => sum + ((s?.celldata ?? []) as any[]).filter((cd) => typeof cd?.v?.f === 'string').length, 0), charts: Array.isArray(content?.charts) ? content.charts.length : 0, pivots: Array.isArray(content?.pivots) ? content.pivots.length : 0, validations, comments: Array.isArray(content?.comments) ? content.comments.length : 0, protectedRanges, namedRanges: Array.isArray(content?.names) ? content.names.length : 0, filters, connectors: Array.isArray(content?.connectors) ? content.connectors.length : 0 };
+}
+export function deriveWorkbookHealth(content: any, now = new Date()): DerivedWorkbookHealth {
+  const summary = deriveSheetSummary(content);
+  const report = analyzeWorkbookHealth(content, now);
+  const connectors = Array.isArray(content?.connectors) ? content.connectors : [];
+  const freshness = summarizeConnectorFreshness(connectors, now);
+  return { ...summary, unsupportedXlsxFeatures: Array.isArray(content?.unsupportedXlsxFeatures) ? content.unsupportedXlsxFeatures.length : 0, importWarnings: Array.isArray(content?.importWarnings) ? content.importWarnings.length : 0, staleAxosConnectors: freshness.stale + freshness.invalid, score: report.score, findings: report.findings };
+}

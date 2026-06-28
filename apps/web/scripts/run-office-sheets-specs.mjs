@@ -12,6 +12,7 @@ const specs = [
   'src/lib/office/axosConnectors.spec.ts',
   'src/lib/office/workbookPerformance.spec.ts',
   'src/lib/office/workbookHealth.spec.ts',
+  'src/lib/office/sheetWorkbench.spec.ts',
   'src/lib/office/sheetComments.spec.ts',
   'src/lib/office/formulaAudit.spec.ts',
   'src/lib/office/formulaDependencies.spec.ts',

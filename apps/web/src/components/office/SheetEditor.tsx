@@ -42,7 +42,8 @@ import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, ty
 import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, connectorProtectionFor, createAxosConnectorInstance, suggestedChartsForConnector, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
 import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
-import { analyzeWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
+import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
+import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
@@ -133,6 +134,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showDataTable, setShowDataTable] = useState(false);
   const [showSolver, setShowSolver] = useState(false);
   const [showConsolidate, setShowConsolidate] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<'workbook' | 'cell' | 'data' | 'charts' | 'pivot' | 'comments' | 'protection' | 'xlsx' | 'axos'>('workbook');
   const [selectionText, setSelectionText] = useState('A1');
   const [formulaText, setFormulaText] = useState('');
   const [editMode, setEditMode] = useState<'Listo' | 'Editando'>('Listo');
@@ -200,7 +202,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const refresh = () => {
       try {
         const range = selectionRange();
-        setSelectionText(range.includes(':') ? range : `${range}:${range}`);
+        setSelectionText(range);
         const sheet = sheetsRef.current[activeIndex()] ?? sheetsRef.current[0];
         const first = range.split(':')[0];
         const rng = parseRange(first);
@@ -303,13 +305,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
   function selectionStats() {
     const sheet = sheetsRef.current[activeIndex()] ?? sheetsRef.current[0];
-    const rng = parseRange(selectionRange());
-    if (!sheet || !rng) return { count: 0, nums: 0, sum: 0, avg: 0, min: null as number | null, max: null as number | null };
-    const cells = (sheet.celldata ?? []).filter((cd: any) => cd.r >= rng.r1 && cd.r <= rng.r2 && cd.c >= rng.c1 && cd.c <= rng.c2);
-    const values = cells.map((cd: any) => rawOf(cd)).filter((v: any) => v !== '' && v != null);
-    const nums = values.map((v: any) => Number(v)).filter((n: number) => Number.isFinite(n));
-    const sum = nums.reduce((a: number, b: number) => a + b, 0);
-    return { count: values.length, nums: nums.length, sum, avg: nums.length ? sum / nums.length : 0, min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null };
+    return deriveSheetSelectionStats(sheet, selectionRange(), commentsRef.current.filter((c) => c.sheetIndex === activeIndex()));
   }
   function commitFormulaBar() {
     const cell = selectionRange().split(':')[0];
@@ -1202,7 +1198,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         />
       </div>
 
-      <div
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div
         ref={gridRef}
         className="flex-1 min-h-0 bg-white relative overflow-hidden"
         onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }); }}
@@ -1212,6 +1209,35 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} hooks={wbHooks} />
         </div>
         {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} activeSheetIndex={activeIndex()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
+        </div>
+        <SheetWorkbenchInspector
+          tab={inspectorTab}
+          onTab={setInspectorTab}
+          health={deriveWorkbookHealth(workbookPayload())}
+          compatibility={scanXlsxCompatibility(workbookPayload())}
+          selection={selectionStats()}
+          sheets={sheetsRef.current}
+          activeSheetIndex={activeIndex()}
+          charts={chartsRef.current}
+          pivots={pivotsRef.current}
+          comments={commentsRef.current}
+          connectors={connectorsRef.current}
+          names={namesRef.current}
+          readOnly={readOnly}
+          onOpenValidation={() => setTool('validation')}
+          onOpenConditional={() => setTool('condformat')}
+          onOpenNames={() => setShowNames(true)}
+          onOpenPivot={() => setShowPivot(true)}
+          onOpenChart={() => setDataMode('spark')}
+          onOpenScenarios={() => setShowScenarios(true)}
+          onOpenGoalSeek={() => setShowGoalSeek(true)}
+          onOpenSolver={() => setShowSolver(true)}
+          onAddComment={addSheetComment}
+          onProtectSelection={protectSelectionRange}
+          onProtectSheet={() => protectSheet(true)}
+          onRefreshConnectors={refreshAxosConnectors}
+          onInsertConnector={insertAxosConnector}
+        />
       </div>
 
       {contextMenu && !readOnly && (
@@ -1231,7 +1257,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         <div className="flex items-center gap-3 overflow-hidden">
           <span className="font-semibold text-emerald-600">{editMode}</span>
           <span>{selectionText}</span>
-          {(() => { const s = selectionStats(); return <span className="truncate">Conteo {s.count} · Núm {s.nums} · Suma {s.sum.toLocaleString()} · Prom {s.avg.toLocaleString()} · Min {s.min ?? '—'} · Max {s.max ?? '—'}</span>; })()}
+          {(() => { const s = selectionStats(); return <span className="truncate">Conteo {s.count} · Núm {s.nums} · Suma {s.sum.toLocaleString()} · Prom {s.average.toLocaleString()} · Min {s.min ?? '—'} · Max {s.max ?? '—'}</span>; })()}
           <span className="hidden lg:inline-flex rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 uppercase tracking-wide">{(() => { const p = currentWorkbookStats(); return `${p.label} · ${p.cells.toLocaleString()} celdas · ${(p.approxJsonBytes / 1024).toFixed(0)} KB`; })()}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -1338,3 +1364,82 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     </div>
   );
 }
+
+function SheetWorkbenchInspector({
+  tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, readOnly,
+  onOpenValidation, onOpenConditional, onOpenNames, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
+  onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector,
+}: any) {
+  const tabs = [
+    ['workbook', 'Workbook'], ['cell', 'Cell'], ['data', 'Data'], ['charts', 'Charts'], ['pivot', 'Pivot'], ['comments', 'Comments'], ['protection', 'Protection'], ['xlsx', 'XLSX'], ['axos', 'AXOS'],
+  ];
+  const activeSheet = sheets[activeSheetIndex] ?? sheets[0] ?? {};
+  const openComments = comments.filter((c: any) => !c.resolved);
+  const protectedRanges = sheets.flatMap((s: any, i: number) => [
+    ...(s?.axosProtection?.sheetLocked ? [{ sheet: s.name || `Hoja ${i + 1}`, range: 'Hoja completa', locked: true }] : []),
+    ...(Array.isArray(s?.axosProtection?.ranges) ? s.axosProtection.ranges.map((r: any) => ({ ...r, sheet: s.name || `Hoja ${i + 1}` })) : []),
+  ]);
+  const tool = 'w-full rounded-xl border border-black/10 dark:border-white/10 px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40';
+  return (
+    <aside className="hidden xl:flex w-[340px] shrink-0 flex-col border-l border-black/10 dark:border-white/10 bg-gray-50/80 dark:bg-[#101010]">
+      <div className="border-b border-black/10 dark:border-white/10 p-3">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">AXOS Sheets Workbench v2</div>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Inspector industrial</div>
+          <span className="rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 text-[10px] font-semibold">{health.score}/100</span>
+        </div>
+      </div>
+      <div className="flex gap-1 overflow-x-auto border-b border-black/10 dark:border-white/10 p-2">
+        {tabs.map(([id, label]) => <button key={id} onClick={() => onTab(id)} className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${tab === id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`}>{label}</button>)}
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto p-3 text-xs text-gray-600 dark:text-gray-300">
+        {tab === 'workbook' && <Panel title="Workbook Health">
+          <Metric label="Hojas" value={health.sheets} /><Metric label="Celdas usadas" value={health.usedCells} /><Metric label="Fórmulas" value={health.formulas} /><Metric label="Charts" value={health.charts} /><Metric label="Pivots" value={health.pivots} /><Metric label="Validaciones" value={health.validations} /><Metric label="Comentarios" value={health.comments} /><Metric label="Rangos protegidos" value={health.protectedRanges} /><Metric label="Nombres definidos" value={health.namedRanges} /><Metric label="Warnings import/XLSX" value={health.importWarnings + health.unsupportedXlsxFeatures} />
+          <div className="mt-3 space-y-2">{health.findings.slice(0, 5).map((f: any) => <div key={f.code} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{f.severity}</b> · {f.message}</div>)}{!health.findings.length && <div className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]">Sin hallazgos relevantes para compartir/exportar.</div>}</div>
+        </Panel>}
+        {tab === 'cell' && <Panel title="Selección / celda">
+          <Metric label="Rango" value={selection.range} /><Metric label="Count" value={selection.count} /><Metric label="Números" value={selection.nums} /><Metric label="Sum" value={selection.sum.toLocaleString()} /><Metric label="Average" value={selection.average.toLocaleString()} /><Metric label="Min" value={selection.min ?? '—'} /><Metric label="Max" value={selection.max ?? '—'} /><Metric label="Fórmulas" value={selection.formulas} /><Metric label="Comentarios" value={selection.comments} /><Metric label="Estado" value={selection.protected ? 'Protected' : 'Ready'} />
+        </Panel>}
+        {tab === 'data' && <Panel title="Data Tools">
+          <button disabled={readOnly} className={tool} onClick={onOpenValidation}>Validación de datos — reglas por rango</button>
+          <button disabled={readOnly} className={tool} onClick={onOpenConditional}>Formato condicional — resaltar riesgos</button>
+          <button disabled={readOnly} className={tool} onClick={onOpenNames}>Nombres definidos — manager</button>
+          <button disabled={readOnly} className={tool} onClick={onOpenScenarios}>Escenarios — what-if industrial</button>
+          <button disabled={readOnly} className={tool} onClick={onOpenGoalSeek}>Goal Seek — objetivo financiero/OEE</button>
+          <button disabled={readOnly} className={tool} onClick={onOpenSolver}>Solver — optimización restringida</button>
+        </Panel>}
+        {tab === 'charts' && <Panel title="Charts">
+          <button disabled={readOnly} className={tool} onClick={onOpenChart}>Insertar sparkline desde rango</button>
+          {charts.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{c.title || 'Chart'}</b><br />{c.type} · {c.range}</div>)}{!charts.length && <Empty text="No hay charts persistidos; usa Insertar para construir visualizaciones." />}
+        </Panel>}
+        {tab === 'pivot' && <Panel title="Pivot Workbench">
+          <button disabled={readOnly} className={tool} onClick={onOpenPivot}>Crear tabla dinámica desde selección</button>
+          {pivots.map((p: any) => <div key={p.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{p.sheetName}</b><br />Rows {(p.config?.rows ?? []).join(', ') || '—'} · Values {(p.config?.values ?? []).length}</div>)}{!pivots.length && <Empty text="Sin definiciones de pivot guardadas." />}
+        </Panel>}
+        {tab === 'comments' && <Panel title="Comments">
+          <button disabled={readOnly} className={tool} onClick={onAddComment}>Agregar comentario a {selection.range}</button>
+          {openComments.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{sheets[c.sheetIndex]?.name || 'Hoja'}</b> · {c.range}<br />{c.text || c.messages?.[0]?.text || 'Comentario'}</div>)}{!openComments.length && <Empty text="No hay comentarios abiertos." />}
+        </Panel>}
+        {tab === 'protection' && <Panel title="Protection">
+          <button disabled={readOnly} className={tool} onClick={onProtectSelection}>Bloquear rango seleccionado</button>
+          <button disabled={readOnly} className={tool} onClick={onProtectSheet}>Proteger hoja activa</button>
+          {protectedRanges.map((p: any, i: number) => <div key={i} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{p.sheet}</b> · {p.range}</div>)}{!protectedRanges.length && <Empty text="La hoja activa no tiene protección AXOS visible." />}
+        </Panel>}
+        {tab === 'xlsx' && <Panel title="XLSX Compatibility Review">
+          <Metric label="Score" value={`${compatibility.score}/100`} /><Metric label="Revisión" value={compatibility.reviewCount} /><Metric label="No soportado" value={compatibility.unsupportedCount} />
+          <div className="mt-3 space-y-2">{compatibility.features.map((f: any) => <div key={f.key} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{f.label}</b> · {f.count} · {f.severity}<br /><span className="text-gray-500">{f.note}</span></div>)}</div>
+        </Panel>}
+        {tab === 'axos' && <Panel title="AXOS Data">
+          <button className={tool} onClick={onRefreshConnectors}>Refrescar conectores insertados</button>
+          <div className="grid grid-cols-1 gap-2">{AXOS_SHEET_CONNECTORS.map((c) => <button key={c.type} disabled={readOnly} onClick={() => onInsertConnector(c.type)} className={tool}><b>{c.label}</b><br /><span className="text-gray-500">{c.description}</span></button>)}</div>
+          <div className="mt-3 text-[11px] text-gray-500">Contratos reales ERP/MES: se insertan solo conectores soportados por metadata AXOS; endpoints externos quedan pendientes de contrato, sin simular refresh.</div>
+          {connectors.map((c: any) => <div key={c.id} className="mt-2 rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{c.label}</b> · {c.range}<br />Último refresh {c.lastRefreshedAt || '—'}</div>)}
+        </Panel>}
+      </div>
+      <div className="border-t border-black/10 dark:border-white/10 p-3 text-[11px] text-gray-500">Hoja activa: {activeSheet.name || `Hoja ${activeSheetIndex + 1}`} · {names.length} nombres · {connectors.length} conectores</div>
+    </aside>
+  );
+}
+function Panel({ title, children }: any) { return <div className="space-y-2"><h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</h3>{children}</div>; }
+function Metric({ label, value }: any) { return <div className="flex items-center justify-between border-b border-black/5 py-1 dark:border-white/10"><span>{label}</span><b className="text-gray-900 dark:text-gray-100">{value}</b></div>; }
+function Empty({ text }: { text: string }) { return <div className="rounded-xl border border-dashed border-black/10 p-3 text-gray-500 dark:border-white/10">{text}</div>; }
