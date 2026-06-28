@@ -28,6 +28,7 @@ interface AiConfig {
   periodStart: string | null;
   autoEscalate: boolean;
   autoEscalateSource: 'tenant' | 'default';
+  knowledge: string;
   engine: {
     name: string;
     selfHosted: boolean;
@@ -388,6 +389,25 @@ export default function AiAdminPage() {
         </section>
       </div>
 
+      {/* Company knowledge — teach CIDE */}
+      <section className={`${glass} mt-6 rounded-2xl p-5`}>
+        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-violet-500" /> Conocimiento de la
+          empresa
+        </h2>
+        <p className="mb-3 text-xs text-black/55 dark:text-white/55">
+          Enséñale a CIDE el contexto propio de tu organización: políticas,
+          definiciones, abreviaturas, FAQs, objetivos. Lo usará como contexto
+          autoritativo al responder (no sustituye los datos reales de los
+          módulos). Máximo 8000 caracteres.
+        </p>
+        <KnowledgeEditor
+          value={cfg.knowledge ?? ''}
+          disabled={saving}
+          onSave={(v) => patch({ knowledge: v }, 'Conocimiento actualizado.')}
+        />
+      </section>
+
       {/* Usage */}
       <section className={`${glass} mt-6 rounded-2xl p-5`}>
         <h2 className="mb-4 text-sm font-semibold">Uso (tokens)</h2>
@@ -502,6 +522,49 @@ function ConnectivityPill({
       )}
       {ok ? 'motor en línea' : warn ? 'motor sin modelo' : 'motor inaccesible'}
     </span>
+  );
+}
+
+function KnowledgeEditor({
+  value,
+  disabled,
+  onSave,
+}: {
+  value: string;
+  disabled: boolean;
+  onSave: (v: string) => void;
+}) {
+  const [v, setV] = useState(value);
+  const [lastValue, setLastValue] = useState(value);
+  if (value !== lastValue) {
+    setLastValue(value);
+    setV(value);
+  }
+  return (
+    <div>
+      <textarea
+        value={v}
+        onChange={(e) => setV(e.target.value.slice(0, 8000))}
+        rows={8}
+        placeholder={
+          'Ej.: Facturamos los viernes. "OTD" = On-Time Delivery, objetivo 95%.\n' +
+          'El cliente A exige FAI por lote. La línea 3 es SMT de alta mezcla…'
+        }
+        className="w-full resize-y rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5"
+      />
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-[11px] text-black/45 dark:text-white/45">
+          {v.length}/8000
+        </span>
+        <button
+          onClick={() => onSave(v)}
+          disabled={disabled || v === value}
+          className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white disabled:opacity-40"
+        >
+          Guardar conocimiento
+        </button>
+      </div>
+    </div>
   );
 }
 

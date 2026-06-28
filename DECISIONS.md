@@ -2859,4 +2859,25 @@ pesos —el modelo es open-weight self-hosted—; el salto es de prompt, presupu
 **Verificación:** `build API` ✓, `tsc` ✓, **AI tests 52/52**, `lint web` 0 errores, `build web` ✓.
 Sin migraciones; los flujos de datos/acciones no cambian.
 
+## 130. CIDE — "enséñale tu empresa": conocimiento propio por organización
+
+**Contexto.** §129 amplió a CIDE a copiloto general, pero no "sabía" lo específico de la empresa
+(políticas, definiciones, abreviaturas, objetivos). No se pueden reentrenar pesos (modelo
+open-weight self-hosted); la vía práctica es **inyectar conocimiento curado** en su contexto.
+
+**Decisión (aditiva).** Un panel donde el admin escribe el conocimiento de la organización y
+CIDE lo usa como contexto autoritativo.
+- **Esquema:** `ai_tenant_config.knowledge` (text, nullable). Migración idempotente
+  `AddAiKnowledge20260628010000`.
+- **Backend:** `ConfigDto.knowledge` (máx 8000); `setConfig` lo persiste (trim; vacío → null);
+  `publicConfig` lo expone; `buildSystem(reqUser, knowledge)` inyecta un bloque "CONOCIMIENTO DE
+  LA EMPRESA" cuando hay texto, instruyendo a priorizarlo sobre el conocimiento general (sin
+  romper la regla de oro: los datos concretos siguen viniendo de las herramientas).
+- **UI admin:** sección "Conocimiento de la empresa" en `/dashboard/admin/ai` con textarea
+  (contador 0/8000) y guardado.
+
+**Verificación:** `build API` ✓, `tsc` ✓, **AI tests 55/55** (+3: inyección en el prompt y
+persistencia/limpieza de `knowledge`), `lint web` 0 errores, `build web` ✓. Total API 1134.
+Migración 100% aditiva (columna nullable).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

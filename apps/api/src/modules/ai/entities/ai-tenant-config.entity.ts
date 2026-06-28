@@ -67,6 +67,14 @@ export class AiTenantConfig {
   @Column({ type: 'boolean', nullable: true })
   autoEscalate: boolean | null;
 
+  /**
+   * Free-text company knowledge the admin teaches CIDE (FAQs, policies,
+   * definitions, naming, context). Injected into the system prompt so CIDE
+   * answers with it. Plain text; capped at the DTO layer.
+   */
+  @Column({ type: 'text', nullable: true })
+  knowledge: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -1,4 +1,13 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { ALLOWED_MODELS } from '../ai-pricing';
 
 export class ConfigDto {
@@ -28,4 +37,9 @@ export class ConfigDto {
   @IsOptional()
   @IsBoolean()
   autoEscalate?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  knowledge?: string;
 }

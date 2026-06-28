@@ -209,6 +209,8 @@ export class AiService {
     if (dto.rateLimitPerHour !== undefined)
       cfg.rateLimitPerHour = dto.rateLimitPerHour;
     if (dto.autoEscalate !== undefined) cfg.autoEscalate = dto.autoEscalate;
+    if (dto.knowledge !== undefined)
+      cfg.knowledge = dto.knowledge.trim() ? dto.knowledge.trim() : null;
     await this.configRepo.save(cfg);
     return this.publicConfig(cfg);
   }
@@ -226,6 +228,7 @@ export class AiService {
       // Effective auto-escalation: tenant override, or the process default.
       autoEscalate: cfg.autoEscalate ?? AUTO_ESCALATE,
       autoEscalateSource: cfg.autoEscalate === null ? 'default' : 'tenant',
+      knowledge: cfg.knowledge ?? '',
       // CIDE runs on your own infrastructure — no external AI vendor.
       engine: {
         name: 'CIDE',
@@ -494,7 +497,7 @@ export class AiService {
       // Tenant override (true/false) wins; null inherits the process default.
       autoEscalate: cfg.autoEscalate ?? undefined,
     });
-    const system = this.buildSystem(reqUser);
+    const system = this.buildSystem(reqUser, cfg.knowledge);
     const specs = this.tools.toolSpecs(ctx);
 
     return {
@@ -674,9 +677,9 @@ export class AiService {
     return [e instanceof Error ? e.message : 'Error en CIDE.', undefined];
   }
 
-  private buildSystem(reqUser: ReqUser): string {
+  private buildSystem(reqUser: ReqUser, knowledge?: string | null): string {
     const today = new Date().toISOString().slice(0, 10);
-    return [
+    const lines = [
       'Eres CIDE (Cognitive Intelligence & Decision Engine), la inteligencia artificial propia integrada en Axos OS, un sistema industrial MES/ERP para una EMS (manufactura por contrato de electrónica).',
       `Fecha de hoy: ${today}.`,
       `Usuario: ${reqUser.email} (rol: ${reqUser.role}).`,
@@ -696,7 +699,17 @@ export class AiService {
       // ── Estilo y formato ────────────────────────────────────────────────
       'Adapta la extensión a la pregunta: directo y conciso para consultas simples; completo y bien estructurado cuando el tema lo amerite o te lo pidan. No te limites artificialmente.',
       'Da formato a tus respuestas en Markdown cuando ayude: usa **negritas** para lo clave, listas con viñetas o numeradas para pasos/opciones, tablas para comparaciones, y bloques de código con ``` para código o fórmulas. Termina, si es natural, ofreciendo el siguiente paso.',
-    ].join('\n');
+    ];
+    // Company knowledge taught by the admin — authoritative context to answer with.
+    const kb = knowledge?.trim();
+    if (kb) {
+      lines.push(
+        '── CONOCIMIENTO DE LA EMPRESA (provisto por tu organización) ──',
+        'Lo siguiente son hechos, políticas y definiciones propias de esta empresa que debes usar como contexto autoritativo al responder (junto con los datos de las herramientas). Si contradice tu conocimiento general, prioriza esto. No lo cites textualmente salvo que ayude:',
+        kb.slice(0, 8000),
+      );
+    }
+    return lines.join('\n');
   }
 
   /** Construct an engine client for a model. Overridable in tests. */
