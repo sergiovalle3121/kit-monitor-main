@@ -2836,4 +2836,27 @@ una acción §126/§127). Esto convierte a CIDE de panel reactivo en monitor pro
 incl. tolerancia a shapes/RBAC y orden por severidad), `lint web` 0 errores, `build web` ✓
 (ruta `/api/ai/insights` registrada). RBAC: nunca surfacea lo que el usuario no podría ver.
 
+## 129. CIDE — copiloto estilo ChatGPT: alcance amplio, respuestas ricas y Markdown
+
+**Contexto.** El usuario quiere usar CIDE como usa ChatGPT. El diseño previo lo limitaba a
+analista de datos que **rechazaba** todo lo demás, con respuestas muy cortas y texto plano. Se
+amplía a un copiloto de trabajo completo sin perder el grounding de datos. (No se reentrenan
+pesos —el modelo es open-weight self-hosted—; el salto es de prompt, presupuesto y formato.)
+
+**Decisión.**
+- **System prompt reescrito:** CIDE es ahora un copiloto con DOS capacidades que combina: (1)
+  analista de datos (usa herramientas para todo lo de la operación) y (2) asistente general
+  (explicar, redactar/mejorar textos, traducir, resumir, calcular, idear, fórmulas/Excel,
+  programación básica, dudas de uso). Se elimina el rechazo general; solo declina lo dañino/
+  ilegal. **Regla de oro intacta:** para datos concretos de la empresa, solo lo que devuelven
+  las herramientas (nunca inventar cifras/nombres); el conocimiento general sí puede responderse.
+- **Respuestas ricas:** `AI_MAX_OUTPUT_TOKENS` default 700 → **1500**; longitud adaptativa
+  (concisa para lo simple, completa cuando amerite); historial de contexto 20 → **40** mensajes.
+- **Markdown:** el prompt pide formato Markdown; nuevo `MarkdownLite.tsx` (sin dependencias,
+  XSS-safe por construcción) renderiza negritas, listas, encabezados, código y enlaces en las
+  respuestas del asistente del chat.
+
+**Verificación:** `build API` ✓, `tsc` ✓, **AI tests 52/52**, `lint web` 0 errores, `build web` ✓.
+Sin migraciones; los flujos de datos/acciones no cambian.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
