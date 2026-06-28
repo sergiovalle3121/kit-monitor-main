@@ -63,8 +63,21 @@ falta de herramientas de encuadre, no el contenedor DOM.
 presets ✅ · fit a planta/contenido/selección ✅ · modo foco ✅ · minimapa ✅ ·
 escala con unidades reales ✅.
 
-## EPIC 1–8 — pendientes
-Ver backlog del prompt. Se abordan en orden tras cerrar EPIC 0.
+## EPIC 7 — Precisión y productividad CAD · EN CURSO
+
+- **`feat(cad): reuse tested cad-array + add polar array`**
+  - El arreglo rectangular del editor (`arrayAssets`) ahora delega en el helper
+    puro y probado `rectangularArray` (`cad-array.ts`) — elimina lógica de bucle
+    duplicada (regla "no dupliques lógica").
+  - Nuevo **arreglo polar** de equipo (`polarArrayAssets`) sobre el helper
+    `polarArray`: N copias alrededor del centro de la planta en un span de
+    ángulo configurable. UI: fila "Polar (N en X°)" en el panel de propiedades.
+  - AC parcial: matriz NxM con paso exacto ✅ (ya existía) + patrón polar ✅.
+  - Pendiente del epic: command palette extendido, snaps endpoint/mid/intersection,
+    coordenadas absolutas exactas para colocar, copiar/pegar con offset.
+
+## EPIC 1–6, 8 — pendientes
+Ver backlog del prompt. Se abordan en orden.
 
 ---
 
