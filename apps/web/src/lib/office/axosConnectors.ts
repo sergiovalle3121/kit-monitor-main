@@ -18,6 +18,8 @@ export interface AxosConnectorDefinition {
   description: string;
   domain: 'Inventory' | 'BOM' | 'Production' | 'OEE' | 'Quality' | 'Purchasing' | 'MRP' | 'Supplier';
   refreshPolicy: 'manual' | 'scheduled-ready';
+  endpoint?: string;
+  contractStatus: 'live' | 'contract-pending';
   headers: string[];
   rows: (string | number)[][];
 }
@@ -56,6 +58,7 @@ export const AXOS_SHEET_CONNECTORS: AxosConnectorDefinition[] = [
     label: 'Inventory snapshot',
     domain: 'Inventory',
     refreshPolicy: 'manual',
+    contractStatus: 'contract-pending',
     description: 'Existencias por SKU/ubicación con reservado, tránsito, valor estándar y clase ABC.',
     headers: ['SKU', 'Ubicación', 'Disponible', 'Reservado', 'En tránsito', 'Valor estándar', 'Clase ABC'],
     rows: [
@@ -70,6 +73,7 @@ export const AXOS_SHEET_CONNECTORS: AxosConnectorDefinition[] = [
     label: 'BOM cost rollup',
     domain: 'BOM',
     refreshPolicy: 'manual',
+    contractStatus: 'contract-pending',
     description: 'Rollup de costo por componente/commodity con scrap y costo extendido.',
     headers: ['Padre', 'Componente', 'Commodity', 'Qty', 'Costo estándar', 'Scrap %', 'Costo extendido'],
     rows: [
@@ -84,6 +88,7 @@ export const AXOS_SHEET_CONNECTORS: AxosConnectorDefinition[] = [
     label: 'Work orders',
     domain: 'Production',
     refreshPolicy: 'scheduled-ready',
+    contractStatus: 'contract-pending',
     description: 'Órdenes de trabajo por línea/estado para planeación y seguimiento.',
     headers: ['WO', 'SKU', 'Línea', 'Estado', 'Qty plan', 'Qty buena', 'Inicio plan', 'Prioridad'],
     rows: [
@@ -98,6 +103,7 @@ export const AXOS_SHEET_CONNECTORS: AxosConnectorDefinition[] = [
     label: 'OEE by line',
     domain: 'OEE',
     refreshPolicy: 'manual',
+    contractStatus: 'contract-pending',
     description: 'Disponibilidad, performance, calidad y OEE por línea/turno.',
     headers: ['Línea', 'Turno', 'Disponibilidad', 'Performance', 'Calidad', 'OEE'],
     rows: [
@@ -112,6 +118,8 @@ export const AXOS_SHEET_CONNECTORS: AxosConnectorDefinition[] = [
     label: 'Supplier scorecard',
     domain: 'Supplier',
     refreshPolicy: 'scheduled-ready',
+    endpoint: '/suppliers/scorecards',
+    contractStatus: 'live',
     description: 'Score proveedor con OTD, calidad, costo, respuesta y estado.',
     headers: ['Proveedor', 'OTD', 'Calidad', 'Costo', 'Respuesta', 'Score', 'Estado'],
     rows: [
@@ -126,6 +134,7 @@ export const AXOS_SHEET_CONNECTORS: AxosConnectorDefinition[] = [
     label: 'NCR / Scrap',
     domain: 'Quality',
     refreshPolicy: 'manual',
+    contractStatus: 'contract-pending',
     description: 'No conformidades y scrap por defecto, línea, costo y responsable.',
     headers: ['NCR', 'Fecha', 'Línea', 'Defecto', 'Qty scrap', 'Costo scrap', 'Responsable'],
     rows: [
@@ -140,6 +149,7 @@ export const AXOS_SHEET_CONNECTORS: AxosConnectorDefinition[] = [
     label: 'Purchase orders',
     domain: 'Purchasing',
     refreshPolicy: 'scheduled-ready',
+    contractStatus: 'contract-pending',
     description: 'Órdenes de compra abiertas con proveedor, ETA, qty, precio y riesgo.',
     headers: ['PO', 'Proveedor', 'SKU', 'ETA', 'Qty abierta', 'Precio', 'Riesgo'],
     rows: [
@@ -154,6 +164,7 @@ export const AXOS_SHEET_CONNECTORS: AxosConnectorDefinition[] = [
     label: 'MRP shortages',
     domain: 'MRP',
     refreshPolicy: 'manual',
+    contractStatus: 'contract-pending',
     description: 'Faltantes MRP por SKU con demanda, disponible, incoming y fecha de necesidad.',
     headers: ['SKU', 'Demanda', 'Disponible', 'Incoming', 'Shortage', 'Fecha necesidad', 'Comprador'],
     rows: [
@@ -173,14 +184,18 @@ export const AXOS_CONNECTOR_BY_TYPE: Record<AxosConnectorType, AxosConnectorDefi
 export function buildAxosConnectorTable(type: AxosConnectorType, origin: { r: number; c: number }): ConnectorTableBuild {
   const def = AXOS_CONNECTOR_BY_TYPE[type];
   if (!def) throw new Error(`Conector AXOS no soportado: ${type}`);
+  return buildAxosConnectorTableFromRows(def.headers, def.rows, origin);
+}
+
+export function buildAxosConnectorTableFromRows(headers: string[], rows: (string | number)[][], origin: { r: number; c: number }): ConnectorTableBuild {
   const celldata: any[] = [];
-  def.headers.forEach((header, i) => celldata.push({ r: origin.r, c: origin.c + i, v: cellValueForConnector(header, true) }));
-  def.rows.forEach((row, ri) => row.forEach((value, ci) => celldata.push({ r: origin.r + ri + 1, c: origin.c + ci, v: cellValueForConnector(value) })));
+  headers.forEach((header, i) => celldata.push({ r: origin.r, c: origin.c + i, v: cellValueForConnector(header, true) }));
+  rows.forEach((row, ri) => row.forEach((value, ci) => celldata.push({ r: origin.r + ri + 1, c: origin.c + ci, v: cellValueForConnector(value) })));
   return {
     celldata,
-    nRows: def.rows.length + 1,
-    nCols: def.headers.length,
-    range: `${colName(origin.c)}${origin.r + 1}:${colName(origin.c + def.headers.length - 1)}${origin.r + def.rows.length + 1}`,
+    nRows: rows.length + 1,
+    nCols: headers.length,
+    range: `${colName(origin.c)}${origin.r + 1}:${colName(origin.c + headers.length - 1)}${origin.r + rows.length + 1}`,
   };
 }
 

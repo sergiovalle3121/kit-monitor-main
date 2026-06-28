@@ -205,3 +205,9 @@ AXOS connector instances now have a pure freshness model derived from connector 
 AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
 The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+### Fase 7 expansion — visible AXOS Data panel
+
+The Sheets workbench now exposes a visible **AXOS Data** inspector panel with a connector gallery instead of hiding connector insertion behind ribbon-only actions. Each connector card shows domain, refresh policy, description, configuration contract, preview action, and insert action. The panel distinguishes live tenant-safe connectors from **Contract pending** connectors so users do not see simulated API success when an endpoint has not been published.
+
+The first live connector contract is `GET /suppliers/scorecards` for Supplier scorecards. It must be previewed successfully before inserting live rows into the selected range. Other catalog entries remain governed starter tables until their ERP/MES aggregator endpoints are added.
