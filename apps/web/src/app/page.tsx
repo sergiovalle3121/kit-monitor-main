@@ -22,6 +22,9 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Sparkles,
+  FileText,
+  Wrench,
+  BrainCircuit,
   Workflow,
   Zap,
   X,
@@ -48,18 +51,77 @@ interface Program {
 }
 
 const PROGRAMS: Program[] = [
-  { domain: "planning", icon: Gauge, name: "Control Tower", tag: "Mando", value: "Readiness, OEE, andons y holds en vivo.", href: "/dashboard/mission-control" },
-  { domain: "mes", name: "MES · Piso", tag: "Ejecución", value: "Poka-yoke, backflush y andon por estación.", href: "/dashboard/operador" },
-  { domain: "erp", name: "ERP · Supply Chain", tag: "ERP", value: "Compras, materiales y finanzas integradas.", href: "/dashboard/erp" },
-  { domain: "inventory", name: "Inventario", tag: "Materiales", value: "Kitting, e-kanban y conteos cíclicos.", href: "/dashboard/inventory" },
-  { domain: "quality", name: "Calidad · MRB", tag: "Calidad", value: "Holds, cuarentena y disposición MRB.", href: "/dashboard/quality" },
-  { domain: "office", name: "Office", tag: "Productividad", value: "Docs, Sheets y Slides nativos.", href: "/dashboard/office" },
-  { domain: "engineering", icon: Box, name: "CAD · Layout", tag: "Ingeniería", value: "Layout de línea unificado 2D ⇄ 3D.", href: "/dashboard/line-engineering" },
-  { domain: "plan", icon: Sparkles, name: "AI · CIDE", tag: "Inteligencia", value: "Tu analista de datos con IA propia.", href: "/dashboard/intelligence" },
+  {
+    domain: "planning",
+    icon: Gauge,
+    name: "Control Tower",
+    tag: "Mando",
+    value: "Readiness, OEE, andons y holds en vivo.",
+    href: "/dashboard/mission-control",
+  },
+  {
+    domain: "mes",
+    name: "MES · Piso",
+    tag: "Ejecución",
+    value: "Poka-yoke, backflush y andon por estación.",
+    href: "/dashboard/operador",
+  },
+  {
+    domain: "erp",
+    name: "ERP · Supply Chain",
+    tag: "ERP",
+    value: "Compras, materiales y finanzas integradas.",
+    href: "/dashboard/erp",
+  },
+  {
+    domain: "inventory",
+    name: "Inventario",
+    tag: "Materiales",
+    value: "Kitting, e-kanban y conteos cíclicos.",
+    href: "/dashboard/inventory",
+  },
+  {
+    domain: "quality",
+    name: "Calidad · MRB",
+    tag: "Calidad",
+    value: "Holds, cuarentena y disposición MRB.",
+    href: "/dashboard/quality",
+  },
+  {
+    domain: "office",
+    name: "Office",
+    tag: "Productividad",
+    value: "Docs, Sheets y Slides nativos.",
+    href: "/dashboard/office",
+  },
+  {
+    domain: "engineering",
+    icon: Box,
+    name: "CAD · Layout",
+    tag: "Ingeniería",
+    value: "Layout de línea unificado 2D ⇄ 3D.",
+    href: "/dashboard/line-engineering",
+  },
+  {
+    domain: "plan",
+    icon: Sparkles,
+    name: "AI · CIDE",
+    tag: "Inteligencia",
+    value: "Tu analista de datos con IA propia.",
+    href: "/dashboard/intelligence",
+  },
 ];
 
 /** Píldoras de breadth en el hero — comunica el alcance del OS de un vistazo. */
-const HERO_PILLS = ["ERP", "MES", "Office", "CAD", "AI", "Calidad", "Control Tower"];
+const HERO_PILLS = [
+  "ERP",
+  "MES",
+  "Office",
+  "CAD",
+  "AI",
+  "Quality",
+  "Control Tower",
+];
 
 /**
  * Flujo de extremo a extremo: AXOS cubre toda la operación, del diseño al
@@ -74,14 +136,127 @@ const FLOW: { domain: DomainKey; label: string }[] = [
   { domain: "logistics", label: "Logística" },
 ];
 
-/** Diferenciadores reales (sin métricas inventadas ni logos de terceros). */
-const DIFFERENTIATORS: { icon: typeof Database; title: string; body: string }[] = [
-  { icon: Database, title: "Una sola base de datos", body: "Del diseño al embarque sin integraciones frágiles ni silos entre departamentos." },
-  { icon: Workflow, title: "Del plan al piso, en vivo", body: "Publica el plan y ejecútalo con MES, backflush y bloqueos por calidad en tiempo real." },
-  { icon: Fingerprint, title: "Trazabilidad nativa", body: "Serie/lote, as-built y where-used listos para auditorías de cliente y contención." },
-  { icon: Sparkles, title: "IA con contexto de tu planta", body: "CIDE entiende todos tus módulos y datos — no es un chatbot genérico pegado encima." },
+const PRODUCT_STORY: {
+  domain: DomainKey;
+  icon?: LucideIcon;
+  title: string;
+  eyebrow: string;
+  body: string;
+  bullets: string[];
+}[] = [
+  {
+    domain: "mes",
+    title: "MES",
+    eyebrow: "Ejecución",
+    body: "Convierte el plan en operación verificable: estaciones, andon, backflush y bloqueos cuando falta material o calidad libera un hold.",
+    bullets: [
+      "Operador por estación",
+      "Validación poka-yoke",
+      "Plan vs real en vivo",
+    ],
+  },
+  {
+    domain: "erp",
+    title: "ERP",
+    eyebrow: "Negocio",
+    body: "Materiales, compras, inventario y finanzas operan sobre la misma fuente de verdad que producción.",
+    bullets: [
+      "Supply chain conectado",
+      "Costos y compras",
+      "Inventario multi-planta",
+    ],
+  },
+  {
+    domain: "office",
+    icon: FileText,
+    title: "Office",
+    eyebrow: "Documentos",
+    body: "Docs, Sheets y Slides industriales para SOPs, análisis y presentaciones que viven dentro del contexto AXOS.",
+    bullets: [
+      "Smart objects conectables",
+      "Documentos de planta",
+      "Colaboración integrada",
+    ],
+  },
+  {
+    domain: "engineering",
+    icon: Wrench,
+    title: "CAD",
+    eyebrow: "Ingeniería",
+    body: "Layout de línea, escenarios y documentación técnica conectados al flujo de NPI y manufactura.",
+    bullets: ["Layout 2D/3D", "Escenarios de línea", "Dossier de ingeniería"],
+  },
+  {
+    domain: "plan",
+    icon: BrainCircuit,
+    title: "AI",
+    eyebrow: "CIDE",
+    body: "Una capa de inteligencia con contexto de tus módulos para análisis operativo, búsquedas y asistencia en decisiones.",
+    bullets: [
+      "Contexto del OS",
+      "Análisis operacional",
+      "Asistencia transversal",
+    ],
+  },
+  {
+    domain: "quality",
+    title: "Quality",
+    eyebrow: "Control",
+    body: "Holds, MRB, cuarentena, CAPA y trazabilidad conviven con producción para prevenir consumo no autorizado.",
+    bullets: [
+      "Holds y cuarentena",
+      "MRB conectado",
+      "Where-used para contención",
+    ],
+  },
 ];
 
+const FAQS = [
+  {
+    q: "¿AXOS OS reemplaza ERP y MES o se integra con ellos?",
+    a: "La visión de producto es un OS industrial con ERP, MES, calidad, Office, CAD e IA en una misma plataforma. En una adopción real puede convivir con sistemas existentes por etapas, priorizando los flujos donde una sola fuente de verdad reduce fricción.",
+  },
+  {
+    q: "¿La demo contiene datos reales de clientes?",
+    a: "No. La landing no afirma clientes, certificaciones ni métricas comerciales. El acceso demo crea una sesión temporal de solo lectura para explorar la experiencia del producto.",
+  },
+  {
+    q: "¿Cómo se controla el acceso?",
+    a: "Las cuentas creadas desde la página de login quedan pendientes hasta aprobación de un administrador. La sesión se firma y viaja en cookie HttpOnly.",
+  },
+  {
+    q: "¿Por qué incluir Office y CAD dentro de un sistema industrial?",
+    a: "Porque SOPs, análisis, presentaciones, layouts y decisiones de ingeniería son parte del mismo flujo operativo. AXOS busca que esos artefactos mantengan contexto con ERP, MES y calidad.",
+  },
+];
+
+/** Diferenciadores reales (sin métricas inventadas ni logos de terceros). */
+const DIFFERENTIATORS: {
+  icon: typeof Database;
+  title: string;
+  body: string;
+}[] = [
+  {
+    icon: Database,
+    title: "Una sola base de datos",
+    body: "Del diseño al embarque sin integraciones frágiles ni silos entre departamentos.",
+  },
+  {
+    icon: Workflow,
+    title: "Del plan al piso, en vivo",
+    body: "Publica el plan y ejecútalo con MES, backflush y bloqueos por calidad en tiempo real.",
+  },
+  {
+    icon: Fingerprint,
+    title: "Trazabilidad nativa",
+    body: "Serie/lote, as-built y where-used listos para auditorías de cliente y contención.",
+  },
+  {
+    icon: Sparkles,
+    title: "IA con contexto de tu planta",
+    body: "CIDE entiende todos tus módulos y datos — no es un chatbot genérico pegado encima.",
+  },
+];
 
 interface Feature {
   icon: React.ReactNode;
@@ -228,10 +403,10 @@ export default function Home() {
               Solutions
             </button>
             <button
-              onClick={() => scrollTo("enterprise")}
+              onClick={() => scrollTo("faq")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
-              Enterprise
+              FAQ
             </button>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -334,11 +509,92 @@ export default function Home() {
           >
             La demo crea una sesión de solo lectura por 30 minutos.
           </motion.p>
+
+          <motion.div
+            variants={itemVariants}
+            className="relative mx-auto mt-16 max-w-5xl overflow-hidden rounded-[2rem] border border-border/70 bg-card/80 p-3 text-left shadow-2xl shadow-black/10 backdrop-blur-xl dark:shadow-black/40"
+          >
+            <div className="rounded-[1.5rem] border border-border/70 bg-background/85 p-4 md:p-6">
+              <div className="mb-5 flex items-center justify-between gap-4 border-b border-border/70 pb-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">
+                    AXOS Command Surface
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">
+                    Planta Norte · pulso operativo
+                  </h2>
+                </div>
+                <div className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground sm:flex">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  Sesión demo
+                </div>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="rounded-3xl border border-border/70 bg-card p-5">
+                  <div className="mb-5 flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      Product Galaxy
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      ERP ⇄ MES ⇄ Quality
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                    {PROGRAMS.map((p) => (
+                      <div
+                        key={`hero-${p.name}`}
+                        className="rounded-2xl border border-border/70 bg-background/70 p-3"
+                      >
+                        <IconTile domain={p.domain} icon={p.icon} size={34} />
+                        <p className="mt-3 truncate text-xs font-semibold">
+                          {p.name}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {p.tag}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    ["Readiness", "Planeación liberada a piso", "bg-green-500"],
+                    [
+                      "Quality hold",
+                      "Bloqueo visible antes de consumo",
+                      "bg-amber-500",
+                    ],
+                    ["CIDE", "Análisis con contexto operacional", "bg-primary"],
+                  ].map(([title, body, dot]) => (
+                    <div
+                      key={title}
+                      className="rounded-3xl border border-border/70 bg-card p-5"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`mt-1 h-2.5 w-2.5 rounded-full ${dot}`}
+                        />
+                        <div>
+                          <h3 className="text-sm font-semibold">{title}</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {body}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </motion.div>
       </section>
 
       {/* Flujo de extremo a extremo — AXOS cubre toda la operación */}
-      <section id="flow" className="py-20 px-6 bg-white dark:bg-black/40 scroll-mt-24">
+      <section
+        id="flow"
+        className="py-20 px-6 bg-white dark:bg-black/40 scroll-mt-24"
+      >
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
@@ -348,8 +604,8 @@ export default function Home() {
               Del diseño al embarque, un solo sistema.
             </h2>
             <p className="text-gray-500 mt-3 font-light max-w-xl mx-auto">
-              Cada etapa de la operación vive en la misma plataforma — sin saltar
-              entre apps ni perder el hilo de la información.
+              Cada etapa de la operación vive en la misma plataforma — sin
+              saltar entre apps ni perder el hilo de la información.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-6">
@@ -381,8 +637,8 @@ export default function Home() {
               Un OS, todos los programas.
             </h2>
             <p className="text-gray-500 mt-3 font-light max-w-xl mx-auto">
-              Cada departamento es un programa nativo del mismo sistema — no apps
-              sueltas pegadas con integraciones.
+              Cada departamento es un programa nativo del mismo sistema — no
+              apps sueltas pegadas con integraciones.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -410,6 +666,63 @@ export default function Home() {
                   </p>
                 </div>
               </MotionLink>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* Product narrative — six core systems with concrete capabilities */}
+      <section
+        id="modules"
+        className="py-20 px-6 bg-white dark:bg-black/40 scroll-mt-24"
+      >
+        <Reveal className="max-w-6xl mx-auto">
+          <div className="mb-12 max-w-3xl">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+              ERP · MES · Office · CAD · AI · Quality
+            </span>
+            <h2 className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
+              Seis sistemas, una misma memoria operacional.
+            </h2>
+            <p className="mt-4 text-gray-500 dark:text-gray-400 font-light">
+              AXOS no vende módulos aislados: cada pieza comparte contexto,
+              permisos y trazabilidad para que el trabajo fluya desde ingeniería
+              hasta embarque.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {PRODUCT_STORY.map((item) => (
+              <div
+                key={item.title}
+                className="group rounded-3xl border border-gray-100 bg-gray-50/50 p-6 transition-all hover:-translate-y-1 hover:bg-white hover:shadow-lg hover:shadow-black/[0.04] dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+              >
+                <div className="mb-6 flex items-center justify-between">
+                  <IconTile domain={item.domain} icon={item.icon} size={48} />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-gray-400">
+                    {item.eyebrow}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-semibold tracking-tight">
+                  {item.title}
+                </h3>
+                <p className="mt-3 text-sm font-light leading-relaxed text-gray-500 dark:text-gray-400">
+                  {item.body}
+                </p>
+                <ul className="mt-6 space-y-2">
+                  {item.bullets.map((bullet) => (
+                    <li
+                      key={bullet}
+                      className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"
+                    >
+                      <CheckCircle2
+                        className="h-4 w-4 text-primary"
+                        strokeWidth={1.75}
+                      />
+                      {bullet}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
           </div>
         </Reveal>
@@ -554,9 +867,18 @@ export default function Home() {
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
             {[
-              { t: "Aprobación de cuentas", d: "Los nuevos registros notifican al admin y quedan pendientes." },
-              { t: "Roles granulares", d: "Admin, Engineering, Production, Quality, Inventory, Finance." },
-              { t: "Sesiones firmadas", d: "Cookies HttpOnly + firma HMAC con expiración configurable." },
+              {
+                t: "Aprobación de cuentas",
+                d: "Los nuevos registros notifican al admin y quedan pendientes.",
+              },
+              {
+                t: "Roles granulares",
+                d: "Admin, Engineering, Production, Quality, Inventory, Finance.",
+              },
+              {
+                t: "Sesiones firmadas",
+                d: "Cookies HttpOnly + firma HMAC con expiración configurable.",
+              },
             ].map((x) => (
               <div
                 key={x.t}
@@ -575,6 +897,76 @@ export default function Home() {
           >
             Solicitar acceso <ChevronRight className="w-4 h-4" />
           </Link>
+        </Reveal>
+      </section>
+
+      {/* FAQ + final CTA */}
+      <section id="faq" className="py-20 px-6 scroll-mt-24">
+        <Reveal className="max-w-5xl mx-auto">
+          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+                FAQ
+              </span>
+              <h2 className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
+                Preguntas antes de entrar al OS.
+              </h2>
+              <p className="mt-4 text-sm font-light leading-relaxed text-gray-500 dark:text-gray-400">
+                Respuestas concretas, sin logos prestados ni claims inflados.
+              </p>
+            </div>
+            <div className="space-y-3">
+              {FAQS.map((faq) => (
+                <details
+                  key={faq.q}
+                  className="group rounded-3xl border border-gray-100 bg-white p-6 open:shadow-lg open:shadow-black/[0.04] dark:border-white/5 dark:bg-white/5"
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold">
+                    {faq.q}
+                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400 transition-transform group-open:rotate-90" />
+                  </summary>
+                  <p className="mt-4 text-sm font-light leading-relaxed text-gray-500 dark:text-gray-400">
+                    {faq.a}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-16 overflow-hidden rounded-[2rem] border border-gray-100 bg-black p-8 text-white shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-white dark:text-black md:p-12">
+            <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] opacity-50">
+                  AXOS OS
+                </p>
+                <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">
+                  Entra a una plataforma diseñada para operar la planta
+                  completa.
+                </h2>
+                <p className="mt-4 max-w-2xl text-sm font-light leading-relaxed opacity-60">
+                  Explora la demo de solo lectura o solicita acceso. El
+                  administrador valida las cuentas antes de habilitar la
+                  consola.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
+                <Link
+                  href="/login?register=1"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black transition-transform hover:scale-[1.02] active:scale-[0.98] dark:bg-black dark:text-white"
+                >
+                  Solicitar acceso <ChevronRight className="h-4 w-4" />
+                </Link>
+                <button
+                  onClick={startDemo}
+                  disabled={demoLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/10 disabled:opacity-60 dark:border-black/15 dark:hover:bg-black/5"
+                >
+                  <PlayCircle className="h-4 w-4" />
+                  Ver demo
+                </button>
+              </div>
+            </div>
+          </div>
         </Reveal>
       </section>
 
@@ -600,16 +992,29 @@ export default function Home() {
 
             {/* Producto */}
             <FooterCol title="Producto">
-              <FooterLink onClick={() => scrollTo("galaxy")}>Programas</FooterLink>
-              <FooterLink onClick={() => scrollTo("flow")}>Flujo end-to-end</FooterLink>
-              <FooterLink onClick={() => scrollTo("platform")}>Plataforma</FooterLink>
-              <FooterLink onClick={() => scrollTo("solutions")}>Soluciones</FooterLink>
+              <FooterLink onClick={() => scrollTo("galaxy")}>
+                Programas
+              </FooterLink>
+              <FooterLink onClick={() => scrollTo("flow")}>
+                Flujo end-to-end
+              </FooterLink>
+              <FooterLink onClick={() => scrollTo("platform")}>
+                Plataforma
+              </FooterLink>
+              <FooterLink onClick={() => scrollTo("modules")}>
+                Módulos
+              </FooterLink>
+              <FooterLink onClick={() => scrollTo("solutions")}>
+                Soluciones
+              </FooterLink>
             </FooterCol>
 
             {/* Empresa */}
             <FooterCol title="Empresa">
-              <FooterLink onClick={() => scrollTo("why")}>Por qué AXOS</FooterLink>
-              <FooterLink onClick={() => scrollTo("enterprise")}>Enterprise</FooterLink>
+              <FooterLink onClick={() => scrollTo("why")}>
+                Por qué AXOS
+              </FooterLink>
+              <FooterLink onClick={() => scrollTo("faq")}>FAQ</FooterLink>
             </FooterCol>
 
             {/* Acceso */}
@@ -700,8 +1105,8 @@ export default function Home() {
                 t.kind === "success"
                   ? "bg-green-50 border-green-100 text-green-700 dark:bg-green-500/10 dark:border-green-500/20 dark:text-green-300"
                   : t.kind === "error"
-                  ? "bg-red-50 border-red-100 text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300"
-                  : "bg-white border-gray-100 text-black dark:bg-[#111] dark:border-white/10 dark:text-white"
+                    ? "bg-red-50 border-red-100 text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300"
+                    : "bg-white border-gray-100 text-black dark:bg-[#111] dark:border-white/10 dark:text-white"
               }`}
             >
               {t.kind === "success" && <CheckCircle2 className="w-4 h-4" />}
@@ -716,7 +1121,13 @@ export default function Home() {
 }
 
 /** Columna del footer: título de sección + enlaces. */
-function FooterCol({ title, children }: { title: string; children: React.ReactNode }) {
+function FooterCol({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400 mb-4">
