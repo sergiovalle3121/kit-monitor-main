@@ -618,7 +618,7 @@ function ViewTab({ active, onClick, icon: Icon, label }: { active: boolean; onCl
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${active ? 'bg-white dark:bg-white/15 shadow-sm' : 'text-gray-500 hover:text-black dark:hover:text-white'}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${active ? 'bg-white dark:bg-white/15 shadow-sm' : 'text-gray-500 hover:text-foreground'}`}
     >
       <Icon className="w-3.5 h-3.5" /> {label}
     </button>

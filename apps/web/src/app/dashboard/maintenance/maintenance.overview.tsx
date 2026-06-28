@@ -205,7 +205,7 @@ export function OverviewTab({
           <div className="flex items-center gap-2 mb-4">
             <Boxes className="w-4 h-4 text-gray-400" />
             <h3 className="text-sm font-semibold">Órdenes abiertas por activo</h3>
-            <button onClick={onGoOrders} className="ml-auto text-[12px] text-gray-400 hover:text-black dark:hover:text-white inline-flex items-center gap-1">
+            <button onClick={onGoOrders} className="ml-auto text-[12px] text-gray-400 hover:text-foreground inline-flex items-center gap-1">
               Ver órdenes <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

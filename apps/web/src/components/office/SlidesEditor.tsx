@@ -2054,8 +2054,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           {!readOnly && (
           <>
           <div className="flex gap-2">
-            <button onClick={addSlide} title="Nueva" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"><Plus className="w-5 h-5" /></button>
-            <button onClick={dupSlide} title="Duplicar" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"><Copy className="w-5 h-5" /></button>
+            <button onClick={addSlide} title="Nueva" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-foreground transition-colors"><Plus className="w-5 h-5" /></button>
+            <button onClick={dupSlide} title="Duplicar" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-foreground transition-colors"><Copy className="w-5 h-5" /></button>
           </div>
           <button onClick={addSection} title="Agregar sección en la diapositiva actual" className="w-full text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 border border-dashed border-gray-300 dark:border-white/20 rounded-lg py-1 flex items-center justify-center gap-1"><FolderPlus className="w-3.5 h-3.5" /> Sección</button>
           </>

@@ -84,7 +84,7 @@ export function EventCard({
                   onPickReference(event.referenceType!, event.referenceId);
                 }}
                 className={`text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500 inline-flex items-center gap-1 ${
-                  onPickReference && event.referenceId ? 'cursor-pointer hover:text-black dark:hover:text-white' : ''
+                  onPickReference && event.referenceId ? 'cursor-pointer hover:text-foreground' : ''
                 }`}
                 title={onPickReference && event.referenceId ? 'Ver historial de esta entidad' : undefined}
               >

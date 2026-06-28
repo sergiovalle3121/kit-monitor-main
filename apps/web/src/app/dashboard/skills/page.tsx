@@ -723,7 +723,7 @@ function Segmented({
             key={o.value}
             onClick={() => onChange(o.value)}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
-              active ? 'text-white' : 'text-gray-500 hover:text-black dark:hover:text-white'
+              active ? 'text-white' : 'text-gray-500 hover:text-foreground'
             }`}
             style={active ? { background: VIOLET } : undefined}
             aria-pressed={active}

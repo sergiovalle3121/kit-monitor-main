@@ -149,7 +149,7 @@ export default function MaterialDetailPage() {
   return (
     <div className="min-h-screen text-foreground font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
-        <Link href="/dashboard/materials" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-black dark:hover:text-white mb-6">
+        <Link href="/dashboard/materials" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-foreground mb-6">
           <ChevronLeft className="w-4 h-4" /> Maestro de materiales
         </Link>
 
