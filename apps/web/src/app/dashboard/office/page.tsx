@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
   Copy, Pencil, RotateCcw, Check, X, Clock, Users, Search, ArrowDownUp, Upload,
+  Factory, BarChart3, Rocket, ShieldCheck,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -52,6 +53,7 @@ export default function OfficeHubPage() {
   const { data, isLoading, forbidden, mutate } = useApi<OfficeDoc[]>(`/office-documents?type=${tab}${trash ? '&trash=1' : ''}`);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [gallery, setGallery] = useState(false);
@@ -88,9 +90,48 @@ export default function OfficeHubPage() {
 
   // Importar .pptx (round-trip Fase 2): se parsea en el cliente y se crea la
   // presentación con el contenido resultante.
+
+  async function createIndustrialReport(kind: 'line' | 'quality' | 'executive' | 'launch') {
+    setBusy(true); setErr(null); setNotice(null);
+    try {
+      const gen = await import('@/lib/office/deckGen');
+      const deck = kind === 'line' ? gen.buildLineReviewDeck({
+        overall: 'Operación estable',
+        kpis: { activeLines: 6, wip: 1280, openAlerts: 3, materialRisk: 2, inventory: '92%' },
+        lines: [{ name: 'Línea A', model: 'AX-100', status: 'En meta' }, { name: 'Línea B', model: 'AX-200', status: 'Material risk', bottleneck: true }],
+        shortages: [{ partNumber: 'PN-4402', description: 'Harness crítico', severity: 'Alta' }, { partNumber: 'PN-1180', description: 'Bracket', severity: 'Media' }],
+        trend: [{ label: 'Lun', value: 82 }, { label: 'Mar', value: 86 }, { label: 'Mié', value: 84 }, { label: 'Jue', value: 88 }],
+        alerts: [{ title: 'Material en riesgo Línea B', severity: 'Alta', status: 'Abierta' }, { title: 'Downtime célula final', severity: 'Media', status: 'En contención' }],
+      }) : kind === 'quality' ? gen.buildQualityDeck({
+        period: 'Semana actual',
+        kpis: { fpy: '96.2%', yieldPct: '98.1%', fails: 14, openNcr: 5, critical: 1, affected: 42 },
+        pareto: [{ label: 'Soldadura', count: 9 }, { label: 'Torque', count: 6 }, { label: 'Cosmético', count: 4 }],
+        trend: [{ label: 'S1', count: 7 }, { label: 'S2', count: 5 }, { label: 'S3', count: 9 }, { label: 'S4', count: 4 }],
+        byModel: [{ label: 'AX-100', count: 8 }, { label: 'AX-200', count: 5 }, { label: 'AX-300', count: 3 }],
+        openNcrs: [{ ncrNumber: 'NCR-1042', partNumber: 'PN-4402', model: 'AX-200', severity: 'Alta', affected: 18 }],
+      }) : kind === 'executive' ? gen.buildExecutiveOpsDeck({
+        period: 'Q2 FY26',
+        summary: { revenue: '$18.4M', margin: '23.8%', oee: '86%', onTime: '94%', cash: '$6.2M', backlog: '$11.7M' },
+        operations: [{ label: 'Ene', value: 81, target: 85 }, { label: 'Feb', value: 84, target: 85 }, { label: 'Mar', value: 86, target: 85 }],
+        risks: [{ item: 'Capacidad SMT', owner: 'Ops', impact: 'OTD', mitigation: 'Turno adicional' }],
+        actions: [{ action: 'Cerrar plan de capacidad', owner: 'Laura', due: '2026-07-05', status: 'On track' }],
+      }) : gen.buildLaunchReadinessDeck({
+        program: 'AX-Next', phase: 'Gate 4 · Run@Rate',
+        readiness: { overall: '82%', ppap: '75%', tooling: '90%', capacity: '80%', quality: '88%', supply: '77%' },
+        milestones: [{ name: 'PPAP submission', date: '2026-07-12', status: 'At risk' }, { name: 'SOP', date: '2026-08-01', status: 'Planned' }],
+        risks: [{ risk: 'Proveedor crítico sin inventario buffer', severity: 'High', owner: 'SCM', recovery: 'Dual source' }],
+        openItems: [{ item: 'Run@Rate evidence package', owner: 'NPI', due: '2026-07-10', status: 'Open' }],
+      });
+      const titles: Record<typeof kind, string> = { line: 'Daily Production Meeting', quality: 'Quality Review', executive: 'Executive Operations Review', launch: 'Launch Readiness Review' };
+      await createFrom(deck, titles[kind]);
+    } catch {
+      setErr('No se pudo generar el reporte industrial.');
+    } finally { setBusy(false); }
+  }
+
   async function onImportPptx(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
-    setErr(null); setBusy(true);
+    setErr(null); setNotice(null); setBusy(true);
     let deck: any;
     try {
       const buf = await f.arrayBuffer();
@@ -101,6 +142,11 @@ export default function OfficeHubPage() {
       setBusy(false); return;
     }
     setBusy(false);
+    const issues = deck?.pptxCompatibility?.issues;
+    if (Array.isArray(issues) && issues.length) {
+      const top = issues.slice(0, 3).map((x: any) => x.message).join(' ');
+      setNotice(`Importado con ${issues.length} aviso(s) de compatibilidad. ${top}`);
+    }
     await createFrom(deck, f.name.replace(/\.pptx$/i, '') || 'Importada');
   }
 
@@ -170,6 +216,16 @@ export default function OfficeHubPage() {
           </button>
         </div>
 
+
+        {!trash && tab === 'slides' && (
+          <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+            <IndustrialReportCard icon={Factory} title="Daily Production Meeting" body="Línea, WIP, alertas, riesgo de material y tendencia operativa." onClick={() => createIndustrialReport('line')} disabled={!canWrite || busy} />
+            <IndustrialReportCard icon={ShieldCheck} title="Quality Review" body="FPY, NCR, Pareto, tendencias y NCR abiertas." onClick={() => createIndustrialReport('quality')} disabled={!canWrite || busy} />
+            <IndustrialReportCard icon={BarChart3} title="Executive Ops Review" body="Scorecard ejecutivo, riesgos y action register." onClick={() => createIndustrialReport('executive')} disabled={!canWrite || busy} />
+            <IndustrialReportCard icon={Rocket} title="Launch Readiness" body="Readiness, PPAP, tooling, riesgos y open items a SOP." onClick={() => createIndustrialReport('launch')} disabled={!canWrite || busy} />
+          </section>
+        )}
+
         {trash && canWrite && docs.length > 0 && (
           <div className="flex justify-end mb-4">
             <button onClick={emptyTrash} className="flex items-center gap-2 bg-red-500/10 text-red-500 text-sm font-semibold px-4 py-2 rounded-full hover:bg-red-500/20 transition-colors">
@@ -199,6 +255,11 @@ export default function OfficeHubPage() {
         {err && (
           <div className="flex gap-2 items-start p-3 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 text-sm mb-4">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {err}
+          </div>
+        )}
+        {notice && (
+          <div className="flex gap-2 items-start p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 text-sm mb-4">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {notice}
           </div>
         )}
 
@@ -267,6 +328,21 @@ export default function OfficeHubPage() {
 function IconBtn({ title, onClick, className, children }: { title: string; onClick: () => void; className?: string; children: React.ReactNode }) {
   return (
     <button title={title} onClick={onClick} className={`p-1.5 rounded-full transition-all ${className ?? ''}`}>{children}</button>
+  );
+}
+
+function IndustrialReportCard({ icon: Icon, title, body, onClick, disabled }: { icon: typeof Factory; title: string; body: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button disabled={disabled} onClick={onClick} className={`${glass} group text-left rounded-2xl p-4 border border-black/5 dark:border-white/10 hover:border-amber-400/50 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:hover:translate-y-0`}>
+      <span className="flex items-start gap-3">
+        <span className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center flex-shrink-0"><Icon className="w-5 h-5" /></span>
+        <span>
+          <span className="block text-sm font-bold text-gray-900 dark:text-gray-100">{title}</span>
+          <span className="block mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{body}</span>
+          <span className="block mt-2 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-300">Generar desde AXOS demo data →</span>
+        </span>
+      </span>
+    </button>
   );
 }
 

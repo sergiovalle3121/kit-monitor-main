@@ -4,20 +4,24 @@ import React from 'react';
 import { X, Clock, Hash, MousePointerClick, PlayCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { OBJ_ANIM_OPTIONS, OBJ_ANIM_START, ANIM_KIND_LABEL, type AnimKind } from './slideAssets';
 
-export interface AnimItem { idx: number; label: string; type: string; anim: string; order: number; dur: number; delay: number; start: string; kind: AnimKind }
+export interface AnimItem { idx: number; label: string; type: string; anim: string; order: number; dur: number; delay: number; start: string; repeat: number; kind: AnimKind }
 
 const KIND_BADGE: Record<AnimKind, string> = {
   entrance: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   emphasis: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   exit: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+  motion: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
   none: 'bg-black/10 dark:bg-white/10 text-gray-400',
 };
+
+const repeatLabel = (repeat?: number) => !repeat ? '∞' : `${repeat}×`;
+const timelineWidth = (dur: number, delay: number, repeat: number) => Math.min(100, Math.max(10, ((delay + dur * (repeat || 1)) / 3600) * 100));
 
 /** Panel/línea de tiempo de animación de la diapositiva actual. */
 export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPreview, onClose }: {
   items: AnimItem[];
   activeIdx: number;
-  onChange: (idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay' | 'animStart', value: number | string) => void;
+  onChange: (idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay' | 'animStart' | 'animRepeat', value: number | string) => void;
   onSelect: (idx: number) => void;
   onPreview: () => void;
   onClose: () => void;
@@ -43,6 +47,7 @@ export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPr
               <div className="flex items-center gap-2 mb-1.5">
                 <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${animated ? 'bg-blue-500 text-white' : 'bg-black/10 dark:bg-white/10 text-gray-400'}`}>{animated ? it.order : '–'}</span>
                 <span className="text-xs font-medium truncate flex-1">{it.label}</span>
+                {animated && <span className="text-[9px] font-bold text-gray-400" title="Repetición">{repeatLabel(it.repeat)}</span>}
                 {animated ? <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${KIND_BADGE[it.kind]}`}>{ANIM_KIND_LABEL[it.kind]}</span> : <span className="text-[10px] text-gray-400">{it.type}</span>}
               </div>
               <select value={it.anim} onClick={(e) => e.stopPropagation()} onChange={(e) => onChange(it.idx, 'anim', e.target.value)}
@@ -58,6 +63,9 @@ export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPr
                     {OBJ_ANIM_START.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </label>
+                <div className="mb-1.5 h-2 rounded-full bg-black/[0.06] dark:bg-white/[0.08] overflow-hidden" title={`Timeline: retraso ${it.delay}ms · duración ${it.dur}ms · repetición ${repeatLabel(it.repeat)}`}>
+                  <div className="h-full rounded-full bg-blue-500/70" style={{ marginLeft: `${Math.min(70, Math.max(0, (it.delay / 3000) * 100))}%`, width: `${timelineWidth(it.dur, it.delay, it.repeat)}%` }} />
+                </div>
                 <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                   <label className="flex items-center gap-1 text-[10px] text-gray-500 flex-1" title="Orden">
                     <Hash className="w-3 h-3" />
@@ -77,6 +85,10 @@ export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPr
                     <input type="number" min={0} step={100} value={it.delay} onChange={(e) => onChange(it.idx, 'animDelay', Number(e.target.value))}
                       className="w-12 h-6 text-xs rounded-md bg-black/[0.04] dark:bg-white/[0.06] px-1 outline-none" />
                   </label>
+                  <select value={String(it.repeat)} onChange={(e) => onChange(it.idx, 'animRepeat', Number(e.target.value))} title="Repetir"
+                    className="h-6 text-[11px] rounded-md bg-black/[0.04] dark:bg-white/[0.06] px-1 outline-none">
+                    <option value="1">1×</option><option value="2">2×</option><option value="3">3×</option><option value="0">∞</option>
+                  </select>
                 </div>
                 </>
               )}
