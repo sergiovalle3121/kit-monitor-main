@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { DashboardTopBar } from '@/components/DashboardTopBar';
-import { DashboardDock } from '@/components/DashboardDock';
-import { DashboardWayfinding } from '@/components/DashboardWayfinding';
-import { useRouteChrome } from '@/lib/routeChrome';
+import React from "react";
+import { DashboardTopBar } from "@/components/DashboardTopBar";
+import { DashboardDock } from "@/components/DashboardDock";
+import { DashboardCommandRail } from "@/components/DashboardCommandRail";
+import { DashboardWayfinding } from "@/components/DashboardWayfinding";
+import { useRouteChrome } from "@/lib/routeChrome";
 
 /**
  * Chrome compartida del dashboard: monta la barra superior + el dock UNA vez
@@ -21,7 +22,7 @@ import { useRouteChrome } from '@/lib/routeChrome';
  * así que ocultamos el dock para no dejarlo en el DOM bajo el overlay.
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { bare, hideDock } = useRouteChrome();
+  const { bare, hideDock, hideCommandRail } = useRouteChrome();
 
   if (bare) return <>{children}</>;
 
@@ -34,7 +35,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         Saltar al contenido
       </a>
       <DashboardTopBar />
-      <div id="dashboard-content" tabIndex={-1} className="pt-20 focus:outline-none">
+      {!hideCommandRail && <DashboardCommandRail />}
+      <div
+        id="dashboard-content"
+        tabIndex={-1}
+        className="pt-20 focus:outline-none lg:pl-80"
+      >
         <DashboardWayfinding />
         {children}
       </div>
