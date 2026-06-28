@@ -1,6 +1,6 @@
 # AXOS OS — Shell Taxonomy
 
-> **Fuente única de verdad** sobre *qué cromo* viste cada ruta de AXOS. AXOS es
+> **Fuente única de verdad** sobre _qué cromo_ viste cada ruta de AXOS. AXOS es
 > un sistema operativo industrial, no un admin template: distintas tareas piden
 > distintos shells. No todas las rutas deben usar el mismo chrome.
 >
@@ -22,20 +22,20 @@ excepciones declaradas.
 
 ```ts
 type ChromeMode =
-  | 'standard'        // listado / CRUD / operación administrativa
-  | 'command-center'  // torre de control: hero + KPIs + cola de atención
-  | 'workbench'       // herramienta full-screen (Office, CAD, editores)
-  | 'kiosk'           // piso de producción (terminal MES, táctil)
-  | 'landing';        // público (landing / login / marketing)
+  | "standard" // listado / CRUD / operación administrativa
+  | "command-center" // torre de control: hero + KPIs + cola de atención
+  | "workbench" // herramienta full-screen (Office, CAD, editores)
+  | "kiosk" // piso de producción (terminal MES, táctil)
+  | "landing"; // público (landing / login / marketing)
 ```
 
-| Modo | Topbar global | Wayfinding | Dock inferior | Widgets flotantes | Viewport |
-| --- | --- | --- | --- | --- | --- |
-| `standard` | ✅ | ✅ miga + back único | ✅ | ✅ | contenido `max-w` |
-| `command-center` | ✅ | ✅ | ✅ | ✅ | hero ancho + grid |
-| `workbench` | propio del tool | salida propia | ❌ oculto | ❌ ocultos | full viewport |
-| `kiosk` | propio industrial | ❌ | ❌ oculto | ❌ ocultos | full viewport táctil |
-| `landing` | propio público | ❌ | ❌ | ❌ | full, editorial |
+| Modo             | Topbar global     | Wayfinding           | Dock inferior | Widgets flotantes | Viewport             |
+| ---------------- | ----------------- | -------------------- | ------------- | ----------------- | -------------------- |
+| `standard`       | ✅                | ✅ miga + back único | ✅            | ✅                | contenido `max-w`    |
+| `command-center` | ✅                | ✅                   | ✅            | ✅                | hero ancho + grid    |
+| `workbench`      | propio del tool   | salida propia        | ❌ oculto     | ❌ ocultos        | full viewport        |
+| `kiosk`          | propio industrial | ❌                   | ❌ oculto     | ❌ ocultos        | full viewport táctil |
+| `landing`        | propio público    | ❌                   | ❌            | ❌                | full, editorial      |
 
 ---
 
@@ -108,9 +108,9 @@ Documents, AI/CIDE workspace, Visual Aids editor, editores de Intelligence.
   workbench **no** monta su propio toggle sol/luna de app. Sí puede tener ajustes
   de dominio que NO son tema de app y deben conservarse: presets de **escena 3D**
   (CAD `Layout3DEditor`: fondo/niebla/sol), **tema del deck** y **blackout del
-  presentador** (Office `SlidesEditor`), `focusMode`/`presentMode`. *(La
+  presentador** (Office `SlidesEditor`), `focusMode`/`presentMode`. _(La
   inspección de PR 2 confirmó que hoy no existe ningún toggle de tema de app
-  contradictorio.)*
+  contradictorio.)_
 
 ---
 
@@ -165,6 +165,7 @@ useRouteChrome(): {
   inDashboard: boolean;        // bajo /dashboard
   bare: boolean;               // sin NINGÚN cromo global (kiosk o ruta bare)
   hideDock: boolean;           // ocultar dock (bare o workbench)
+  hideCommandRail: boolean;    // ocultar command rail desktop (bare o workbench)
   hideFloatingWidgets: boolean;// ocultar ChatWidget + Cide (fuera de dashboard,
                                //   bare/kiosk, o cualquier workbench)
 }
@@ -183,8 +184,9 @@ useRouteChrome(): {
 - El **modo Kiosko** es imperativo (lo activa el Operator Terminal vía
   `operatorChrome`) y se combina aquí: una ruta kiosk siempre gana a su
   clasificación por pathname.
-- **Consumidores actuales:** `DashboardShell` (`bare`, `hideDock`),
-  `ChatWidget` y `Cide` (`hideFloatingWidgets`). Ningún componente vuelve a leer
+- **Consumidores actuales:** `DashboardShell` (`bare`, `hideDock`,
+  `hideCommandRail`), `ChatWidget` y `Cide` (`hideFloatingWidgets`). Ningún
+  componente vuelve a leer
   `pathname.startsWith(...)` ni el kiosk store por su cuenta.
 
 **Para clasificar una ruta nueva:**
@@ -192,8 +194,8 @@ useRouteChrome(): {
 1. ¿Es un editor full-screen? → añade su prefijo a `WORKBENCH_PREFIXES` y monta
    un frame tipo `OfficeShell`.
 2. ¿Es una torre de control? → trátala como `command-center` (hero + KPIs + cola
-   de atención). *(La distinción Command Center hoy es semántica/visual; comparte
-   el cromo de `standard`.)*
+   de atención). _(La distinción Command Center hoy es semántica/visual; comparte
+   el cromo de `standard`.)_
 3. ¿Es piso de producción? → usa el store de Kiosko.
 4. ¿Monta su propio layout sin cromo? → `BARE_PREFIXES`.
 5. En cualquier otro caso → `standard` (default seguro).
@@ -203,27 +205,47 @@ useRouteChrome(): {
 ## 7. Checklist por tipo de shell
 
 **Standard**
+
 - [ ] ¿Una sola flecha de regreso (la del wayfinding), sin back local?
 - [ ] ¿PageHeader consistente + acciones arriba?
 - [ ] ¿Filtros bajo el header, ancho según densidad?
 - [ ] ¿El dock no tapa acciones?
 
 **Command Center**
+
 - [ ] ¿Hero editorial (no PageHeader CRUD)?
 - [ ] ¿KPIs + cola de atención + cards que navegan?
 - [ ] ¿Menos CRUD inline?
 
 **Workbench**
+
 - [ ] ¿Full viewport, sin sensación de pantalla-en-pantalla?
 - [ ] ¿Dock + flotantes ocultos (declarado `workbench`)?
 - [ ] ¿Header propio con salida única + status bar + fullscreen/focus?
 - [ ] ¿Un solo tema (sin toggle local)?
 
 **Kiosk**
+
 - [ ] ¿Cromo global oculto, action bar segura?
 - [ ] ¿Un solo tema global (sin doble sol/luna)?
 - [ ] ¿Modo guantes / táctil, cero capas sobre acciones críticas?
 
 **Landing**
+
 - [ ] ¿Storytelling + jerarquía + motion sobrio?
 - [ ] ¿Secciones de producto, sin saturación ni claims falsos?
+
+## Desktop command rail (2026-06-28)
+
+El shell estándar y command-center monta un **command rail desktop colapsable**
+(`DashboardCommandRail`) a partir del mismo catálogo `AREAS` y el mismo gate
+role-aware usado por hub, wayfinding y dock. No es un shell paralelo: vive en
+`DashboardShell`, respeta `useRouteChrome` y se oculta en rutas `bare`,
+`workbench` y `kiosk`.
+
+- Desktop (`lg+`): navegación lateral por secciones/dominios; el contenido deja
+  colchón izquierdo desde `DashboardShell`.
+- Mobile/tablet: el rail no se renderiza visualmente (`lg:flex`) y se conserva
+  el `DashboardDock` inferior (`lg:hidden`).
+- Workbench/kiosk: `hideCommandRail` y `hideDock` evitan navegación global sobre
+  lienzos/editoriales o terminales de piso.
