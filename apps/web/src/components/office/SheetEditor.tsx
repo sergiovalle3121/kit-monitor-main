@@ -35,6 +35,7 @@ import { solve, type SolverVar } from './sheets/solver';
 import { SheetSolver, type SolverPayload } from './SheetSolver';
 import { consolidateByPosition, consolidateByCategory } from './sheets/consolidate';
 import { SheetConsolidate, type ConsolidatePayload } from './SheetConsolidate';
+import { SheetWorkbenchInspector, type SheetWorkbenchInspectorTab } from './SheetWorkbenchInspector';
 import { setTableRegistry, type TableDef } from './sheets/tableRefs';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
@@ -42,7 +43,8 @@ import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, ty
 import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, connectorProtectionFor, createAxosConnectorInstance, suggestedChartsForConnector, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
 import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
-import { analyzeWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
+import { analyzeWorkbookHealth, deriveFormulaBarState, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
+import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
@@ -133,6 +135,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showDataTable, setShowDataTable] = useState(false);
   const [showSolver, setShowSolver] = useState(false);
   const [showConsolidate, setShowConsolidate] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<SheetWorkbenchInspectorTab>('workbook');
   const [selectionText, setSelectionText] = useState('A1');
   const [formulaText, setFormulaText] = useState('');
   const [editMode, setEditMode] = useState<'Listo' | 'Editando'>('Listo');
@@ -200,8 +203,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const refresh = () => {
       try {
         const range = selectionRange();
-        setSelectionText(range.includes(':') ? range : `${range}:${range}`);
-        const sheet = sheetsRef.current[activeIndex()] ?? sheetsRef.current[0];
+        const sheetIndex = activeIndex();
+        const sheet = sheetsRef.current[sheetIndex] ?? sheetsRef.current[0];
+        const stats = deriveSheetSelectionStats(sheet, range, commentsRef.current.filter((c) => c.sheetIndex === sheetIndex));
+        setSelectionText(deriveFormulaBarState({ names: namesRef.current, sheetIndex, range, selection: stats, editing: editMode === 'Editando' }).nameBoxLabel);
         const first = range.split(':')[0];
         const rng = parseRange(first);
         const cd = rng ? (sheet?.celldata ?? []).find((x: any) => x.r === rng.r1 && x.c === rng.c1) : null;
@@ -212,7 +217,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     refresh();
     const t = window.setInterval(refresh, 700);
     return () => window.clearInterval(t);
-  }, []);
+  }, [editMode]);
 
   const workbookPayload = useCallback(() => ({
     sheets: sheetsRef.current,
@@ -303,13 +308,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
   function selectionStats() {
     const sheet = sheetsRef.current[activeIndex()] ?? sheetsRef.current[0];
-    const rng = parseRange(selectionRange());
-    if (!sheet || !rng) return { count: 0, nums: 0, sum: 0, avg: 0, min: null as number | null, max: null as number | null };
-    const cells = (sheet.celldata ?? []).filter((cd: any) => cd.r >= rng.r1 && cd.r <= rng.r2 && cd.c >= rng.c1 && cd.c <= rng.c2);
-    const values = cells.map((cd: any) => rawOf(cd)).filter((v: any) => v !== '' && v != null);
-    const nums = values.map((v: any) => Number(v)).filter((n: number) => Number.isFinite(n));
-    const sum = nums.reduce((a: number, b: number) => a + b, 0);
-    return { count: values.length, nums: nums.length, sum, avg: nums.length ? sum / nums.length : 0, min: nums.length ? Math.min(...nums) : null, max: nums.length ? Math.max(...nums) : null };
+    return deriveSheetSelectionStats(sheet, selectionRange(), commentsRef.current.filter((c) => c.sheetIndex === activeIndex()));
   }
   function commitFormulaBar() {
     const cell = selectionRange().split(':')[0];
@@ -1188,6 +1187,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           aria-label="Name box"
         />
         <div className="h-6 w-px bg-black/10 dark:bg-white/10" />
+        {(() => { const fb = deriveFormulaBarState({ names: namesRef.current, sheetIndex: activeIndex(), range: selectionRange(), selection: selectionStats(), editing: editMode === 'Editando' }); return <span title={fb.helper} className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${fb.mode === 'Protected' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200' : fb.mode === 'Formula' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200' : fb.mode === 'Invalid' ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-200' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>{fb.mode}</span>; })()}
         <span className="text-xs font-bold text-emerald-600">fx</span>
         <input
           value={formulaText}
@@ -1202,7 +1202,29 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         />
       </div>
 
-      <div
+      <div className="flex h-9 items-center gap-2 overflow-x-auto border-b border-black/5 bg-white px-3 text-[11px] text-gray-500 dark:border-white/10 dark:bg-[#0e0e0e] dark:text-gray-400">
+        {(() => {
+          const h = deriveWorkbookHealth(workbookPayload());
+          const x = scanXlsxCompatibility(workbookPayload());
+          const s = selectionStats();
+          const chip = 'inline-flex shrink-0 items-center gap-1 rounded-full border border-black/10 px-2 py-0.5 font-semibold dark:border-white/10';
+          return (
+            <>
+              <span className={`${chip} text-emerald-600 dark:text-emerald-300`}>Ready {h.score}/100</span>
+              <span className={chip}>Selección {s.range}</span>
+              <span className={chip}>Fórmulas {h.formulas}</span>
+              <span className={chip}>Charts {h.charts} · Pivots {h.pivots}</span>
+              <span className={chip}>Comentarios {h.comments}</span>
+              <span className={chip}>Protección {h.protectedRanges}</span>
+              <span className={chip}>XLSX {x.score}/100 · revisar {x.reviewCount}</span>
+              <span className={chip}>AXOS {h.connectors} · stale {h.staleAxosConnectors}</span>
+            </>
+          );
+        })()}
+      </div>
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div
         ref={gridRef}
         className="flex-1 min-h-0 bg-white relative overflow-hidden"
         onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }); }}
@@ -1212,6 +1234,35 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} hooks={wbHooks} />
         </div>
         {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} activeSheetIndex={activeIndex()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
+        </div>
+        <SheetWorkbenchInspector
+          tab={inspectorTab}
+          onTab={setInspectorTab}
+          health={deriveWorkbookHealth(workbookPayload())}
+          compatibility={scanXlsxCompatibility(workbookPayload())}
+          selection={selectionStats()}
+          sheets={sheetsRef.current}
+          activeSheetIndex={activeIndex()}
+          charts={chartsRef.current}
+          pivots={pivotsRef.current}
+          comments={commentsRef.current}
+          connectors={connectorsRef.current}
+          names={namesRef.current}
+          readOnly={readOnly}
+          onOpenValidation={() => setTool('validation')}
+          onOpenConditional={() => setTool('condformat')}
+          onOpenNames={() => setShowNames(true)}
+          onOpenPivot={() => setShowPivot(true)}
+          onOpenChart={() => setDataMode('spark')}
+          onOpenScenarios={() => setShowScenarios(true)}
+          onOpenGoalSeek={() => setShowGoalSeek(true)}
+          onOpenSolver={() => setShowSolver(true)}
+          onAddComment={addSheetComment}
+          onProtectSelection={protectSelectionRange}
+          onProtectSheet={() => protectSheet(true)}
+          onRefreshConnectors={refreshAxosConnectors}
+          onInsertConnector={insertAxosConnector}
+        />
       </div>
 
       {contextMenu && !readOnly && (
@@ -1231,7 +1282,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         <div className="flex items-center gap-3 overflow-hidden">
           <span className="font-semibold text-emerald-600">{editMode}</span>
           <span>{selectionText}</span>
-          {(() => { const s = selectionStats(); return <span className="truncate">Conteo {s.count} · Núm {s.nums} · Suma {s.sum.toLocaleString()} · Prom {s.avg.toLocaleString()} · Min {s.min ?? '—'} · Max {s.max ?? '—'}</span>; })()}
+          {(() => { const s = selectionStats(); return <span className="truncate">Conteo {s.count} · Núm {s.nums} · Suma {s.sum.toLocaleString()} · Prom {s.average.toLocaleString()} · Min {s.min ?? '—'} · Max {s.max ?? '—'}</span>; })()}
           <span className="hidden lg:inline-flex rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 uppercase tracking-wide">{(() => { const p = currentWorkbookStats(); return `${p.label} · ${p.cells.toLocaleString()} celdas · ${(p.approxJsonBytes / 1024).toFixed(0)} KB`; })()}</span>
         </div>
         <div className="flex items-center gap-2">

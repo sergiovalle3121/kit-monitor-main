@@ -199,3 +199,17 @@ The focused AXOS Sheets QA runner now includes the existing pure specs for the p
 ## Fase 7 expansion — Connector freshness policies
 
 AXOS connector instances now have a pure freshness model derived from connector refresh policy. Scheduled-ready connectors become due after one hour and stale after 24 hours, while manual connectors become due after 24 hours and stale after seven days. Workbook Health consumes these reports to distinguish due refreshes, stale data, and invalid connector metadata before industrial workbooks are published or used for decisions.
+
+## Delivered slice — AXOS Sheets Workbench v2
+
+AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
+
+The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+## Follow-up slice — Workbench readiness rail and inspector hardening
+
+The Workbench v2 UI now separates the inspector into its own typed component and adds a persistent readiness rail below the formula bar. The rail surfaces workbook health, selected range, formula/chart/pivot counts, comments, protection, XLSX score, and AXOS connector freshness without opening dialogs, while the inspector keeps the deeper launchers and lists for workbook governance, analysis tools, comments, protection, compatibility, and ERP/MES connector insertion.
+
+## Follow-up slice — Formula bar state and defined names
+
+The formula bar now resolves the Name Box against workbook defined names and exposes an explicit state badge for Ready, Editing, Formula, Protected, and Invalid selections. This brings the first row of the Sheets workbench closer to Excel behavior while keeping direct cell editing delegated to Fortune-Sheet.
