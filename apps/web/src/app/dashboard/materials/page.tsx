@@ -165,7 +165,7 @@ export default function MaterialsPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-28">
-      <main className="max-w-5xl mx-auto px-6 pt-10">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader
           domain="engineering"
           title="Maestro de Materiales · MM"

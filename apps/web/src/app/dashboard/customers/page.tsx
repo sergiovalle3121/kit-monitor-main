@@ -24,7 +24,7 @@ export default function CustomersPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <main className="max-w-5xl mx-auto px-6 pt-10">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader domain="finance" title="Clientes 360" subtitle="Vista ejecutiva cross-departamental por cliente" icon={Building2} />
 
         {!forbidden && !isLoading && rows.length > 0 && (
