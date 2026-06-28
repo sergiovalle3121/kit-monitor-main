@@ -205,3 +205,15 @@ AXOS connector instances now have a pure freshness model derived from connector 
 AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
 The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+## Implementation slice — Workbook approval/signoff foundation
+
+AXOS Sheets now persists a lightweight workbook-level approval object in the saved workbook payload under `approval`. The frontend supports the states `draft`, `in_review`, `approved`, and `rejected`, plus `requestedBy`, `requestedAt`, `approvedBy`, `approvedAt`, `rejectedBy`, `rejectedAt`, and `notes` fields. Workbook Health displays the current signoff badge and can send a workbook to local `in_review` state, but it intentionally labels the flow as a foundation only: approval and rejection must come from a tenant-scoped backend endpoint before they are treated as real controlled evidence.
+
+Backend contract to implement next:
+
+- `GET /office/documents/:id/sheets/approval` returns `{ status, requestedBy, requestedAt, approvedBy, approvedAt, rejectedBy, rejectedAt, notes }` for sheet documents only.
+- `POST /office/documents/:id/sheets/approval/request-review` accepts `{ notes?: string }`, sets `status = 'in_review'`, records the authenticated actor as `requestedBy`, and writes an audit event.
+- `POST /office/documents/:id/sheets/approval/approve` accepts `{ notes?: string }`, requires reviewer permission, sets `status = 'approved'`, records `approvedBy`, locks the approved revision, and writes an audit event.
+- `POST /office/documents/:id/sheets/approval/reject` accepts `{ notes: string }`, requires reviewer permission, sets `status = 'rejected'`, records `rejectedBy`, and writes an audit event.
+- All endpoints must enforce tenant scope, reject non-sheet documents, use TypeORM migrations for any schema changes, and integrate with the existing Office audit/event-ledger pattern rather than creating a parallel approval subsystem.
