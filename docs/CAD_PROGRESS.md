@@ -16,6 +16,19 @@ en `apps/api` solo si son estrictamente necesarios.
 - Cero `console.*` nuevos · sin `localStorage`/`sessionStorage` que rompa SSR ·
   respeta `THEMES` y design tokens.
 
+## PR
+- **#743** (draft) — rama `claude/axos-cad-factory-scale-yd546i` → `main`.
+- Sincronizada con `main` (merge de `origin/main`; conflicto único en el bloque
+  de imports de `Layout3DEditor.tsx` resuelto conservando los imports nuevos de
+  `main` —collisions/flow/safety— y los míos —world-scale/PlantMinimap/ScaleBar).
+- **Nota CI (limitación del entorno):** en este sandbox sólo el evento
+  `opened` del PR disparó GitHub Actions (verde en un commit temprano,
+  `1039e3e`). Los `git push` por el proxy no emiten `synchronize` y el
+  `reopen` tampoco dispara Actions, así que los commits posteriores **no**
+  re-ejecutan CI automáticamente. Cada commit se validó con las puertas
+  locales (build/lint/typecheck/specs, todas verdes). Pedir al revisor que
+  re-lance CI sobre el head actual (o se ejecutará en el próximo evento real).
+
 ---
 
 ## EPIC 0 — Lienzo a pantalla completa y a escala de fábrica · EN CURSO
