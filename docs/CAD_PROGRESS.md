@@ -41,11 +41,17 @@ falta de herramientas de encuadre, no el contenedor DOM.
   - Modo foco: oculta ambos paneles laterales para maximizar el lienzo (el
     `ResizeObserver` ya redimensiona el canvas).
   - Toolbar + atajos `F` / `Shift+F` / `\` + comando `fit_view` + ayuda.
+- **`feat(cad): plant overview minimap`**
+  - Nuevo `apps/web/src/lib/cad/minimap.ts` (puro, con tests): escala del
+    minimapa, mapeo target↔mundo↔píxel, clamp a la huella.
+  - Nuevo `PlantMinimap.tsx` — overlay SVG (mismo patrón de polling con rAF que
+    `Minimap.tsx`, sin re-render del editor): huella + estaciones + equipos +
+    objetivo de cámara; clic para centrar la vista conservando el zoom.
+  - Toolbar: toggle de minimapa (📍). Pensado para navegar plantas grandes.
 
 ### Pendiente en EPIC 0
 - Reglas (rulers) en bordes con unidades reales y grid adaptativo enganchado a
   `adaptiveGridStepM` (hoy el grid usa `footprint.gridSize`).
-- Integrar `Minimap.tsx` al lienzo 3D para navegar plantas grandes.
 - Pan con barra espaciadora + arrastre (OrbitControls ya da rueda/órbita).
 
 ## EPIC 1–8 — pendientes
