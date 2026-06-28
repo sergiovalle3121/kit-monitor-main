@@ -9,6 +9,7 @@ import {
   ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
   Copy, Pencil, RotateCcw, Check, X, Clock, Users, Search, ArrowDownUp, Upload,
   Star, Pin, Tags, LayoutGrid, List, Filter, Sparkles, ShieldCheck, FileLock2, CircleDot, Archive,
+  ClipboardCheck, GraduationCap, CalendarClock,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -24,8 +25,10 @@ type DocType = 'doc' | 'sheet' | 'slides';
 type LifecycleState = 'draft' | 'in_review' | 'approved' | 'effective' | 'obsolete';
 type LibraryScope = 'all' | 'owned' | 'shared' | 'favorites' | 'pinned' | 'recent' | LifecycleState;
 type ViewMode = 'grid' | 'list';
-interface OfficeDoc { id: string; type: DocType; title: string; updatedAt?: string; createdBy?: string | null; lifecycleState?: LifecycleState; locked?: boolean }
+interface OfficeDoc { id: string; type: DocType; title: string; updatedAt?: string; createdBy?: string | null; lifecycleState?: LifecycleState; locked?: boolean; space?: string | null; folderPath?: string | null; collection?: string | null; tags?: string[] | null; favorite?: boolean; pinned?: boolean; nextReviewAt?: string | null; reviewIntervalDays?: number | null; reviewOwner?: string | null }
 interface LibraryMeta { favorite?: boolean; pinned?: boolean; tags?: string[] }
+interface WorkQueueItem { id: string; documentId?: string; dueAt?: string | null; reviewerEmail?: string; assigneeEmail?: string; document?: OfficeDoc | null }
+interface WorkQueue { reviewerTasks: WorkQueueItem[]; trainingAssignments: WorkQueueItem[]; ownedInReview: OfficeDoc[]; duePeriodicReviews?: OfficeDoc[]; counts: { reviewerTasks: number; trainingAssignments: number; ownedInReview: number; duePeriodicReviews?: number; total: number } }
 
 const LIBRARY_META_KEY = 'axos.office.libraryMeta.v1';
 
@@ -95,12 +98,19 @@ export default function OfficeHubPage() {
   const [scope, setScope] = useState<LibraryScope>('all');
   const [view, setView] = useState<ViewMode>('grid');
   const [activeTag, setActiveTag] = useState('');
+  const [activeSpace, setActiveSpace] = useState('');
+  const [activeFolder, setActiveFolder] = useState('');
   const [libraryMeta, setLibraryMeta] = useState<Record<string, LibraryMeta>>({});
+  const [workQueue, setWorkQueue] = useState<WorkQueue | null>(null);
+  const [now] = useState(() => Date.now());
   const meta = TABS.find((t) => t.id === tab)!;
   const rawDocs = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const isShared = (d: OfficeDoc) => Boolean(!isAdmin && d.createdBy && user?.email && d.createdBy !== user.email);
   const isOwned = (d: OfficeDoc) => Boolean(!d.createdBy || !user?.email || d.createdBy === user.email || isAdmin);
-  const allTags = useMemo(() => Array.from(new Set(Object.values(libraryMeta).flatMap((m) => m.tags ?? []))).sort((a, b) => a.localeCompare(b)), [libraryMeta]);
+  const metaFor = (d: OfficeDoc): LibraryMeta => ({ favorite: Boolean(d.favorite || libraryMeta[d.id]?.favorite), pinned: Boolean(d.pinned || libraryMeta[d.id]?.pinned), tags: (d.tags?.length ? d.tags : libraryMeta[d.id]?.tags) ?? [] });
+  const allTags = useMemo(() => Array.from(new Set(rawDocs.flatMap((d) => (d.tags?.length ? d.tags : libraryMeta[d.id]?.tags) ?? []))).sort((a, b) => a.localeCompare(b)), [rawDocs, libraryMeta]);
+  const allSpaces = useMemo(() => Array.from(new Set(rawDocs.map((d) => d.space).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [rawDocs]);
+  const allFolders = useMemo(() => Array.from(new Set(rawDocs.map((d) => d.folderPath).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)), [rawDocs]);
   const lifecycleSummary = useMemo(() => rawDocs.reduce<Record<LifecycleState, number>>((acc, doc) => {
     const state = doc.lifecycleState ?? 'draft';
     acc[state] = (acc[state] ?? 0) + 1;
@@ -108,12 +118,14 @@ export default function OfficeHubPage() {
   }, { draft: 0, in_review: 0, approved: 0, effective: 0, obsolete: 0 }), [rawDocs]);
   const docs = rawDocs
     .filter((d) => {
-      const local = libraryMeta[d.id] ?? {};
-      const haystack = [d.title, d.createdBy, ...(local.tags ?? [])].join(' ').toLowerCase();
+      const local = metaFor(d);
+      const haystack = [d.title, d.createdBy, d.space, d.folderPath, d.collection, ...(local.tags ?? [])].join(' ').toLowerCase();
       const matchesQuery = !q.trim() || haystack.includes(q.trim().toLowerCase());
       const matchesTag = !activeTag || (local.tags ?? []).includes(activeTag);
+      const matchesSpace = !activeSpace || d.space === activeSpace;
+      const matchesFolder = !activeFolder || d.folderPath === activeFolder;
       const updatedAt = new Date(d.updatedAt || 0).getTime();
-      const recentCutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+      const recentCutoff = now - 14 * 24 * 60 * 60 * 1000;
       const matchesScope = scope === 'all'
         || (scope === 'owned' && isOwned(d))
         || (scope === 'shared' && isShared(d))
@@ -121,7 +133,7 @@ export default function OfficeHubPage() {
         || (scope === 'pinned' && local.pinned)
         || (scope === 'recent' && updatedAt >= recentCutoff)
         || (['draft', 'in_review', 'approved', 'effective', 'obsolete'].includes(scope) && (d.lifecycleState ?? 'draft') === scope);
-      return matchesQuery && matchesTag && matchesScope;
+      return matchesQuery && matchesTag && matchesSpace && matchesFolder && matchesScope;
     })
     .sort((a, b) => {
       const aMeta = libraryMeta[a.id] ?? {};
@@ -148,27 +160,44 @@ export default function OfficeHubPage() {
     window.localStorage.setItem(LIBRARY_META_KEY, JSON.stringify(libraryMeta));
   }, [libraryMeta]);
 
-  function updateLocalMeta(id: string, next: (meta: LibraryMeta) => LibraryMeta) {
-    setLibraryMeta((current) => {
-      const updated = next(current[id] ?? {});
-      return { ...current, [id]: updated };
+  useEffect(() => {
+    let alive = true;
+    apiFetch(`${API_BASE}/office-documents/work-queue`)
+      .then(async (response) => {
+        if (!alive || !response.ok) return;
+        setWorkQueue(await response.json());
+      })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
+
+  async function updateLibraryMeta(id: string, next: (meta: LibraryMeta) => LibraryMeta) {
+    const doc = rawDocs.find((item) => item.id === id);
+    const updated = next(doc ? metaFor(doc) : (libraryMeta[id] ?? {}));
+    setLibraryMeta((current) => ({ ...current, [id]: updated }));
+    await apiFetch(`${API_BASE}/office-documents/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ favorite: !!updated.favorite, pinned: !!updated.pinned, tags: updated.tags ?? [] }),
     });
+    mutate();
   }
 
   function toggleFavorite(id: string) {
-    updateLocalMeta(id, (current) => ({ ...current, favorite: !current.favorite }));
+    void updateLibraryMeta(id, (current) => ({ ...current, favorite: !current.favorite }));
   }
 
   function togglePinned(id: string) {
-    updateLocalMeta(id, (current) => ({ ...current, pinned: !current.pinned }));
+    void updateLibraryMeta(id, (current) => ({ ...current, pinned: !current.pinned }));
   }
 
   function editTags(id: string) {
-    const current = (libraryMeta[id]?.tags ?? []).join(', ');
+    const doc = rawDocs.find((item) => item.id === id);
+    const current = ((doc ? metaFor(doc).tags : libraryMeta[id]?.tags) ?? []).join(', ');
     const value = window.prompt('Tags separados por coma (ej. SOP, SMT, Calidad)', current);
     if (value === null) return;
     const tags = Array.from(new Set(value.split(',').map((tag) => tag.trim()).filter(Boolean))).slice(0, 8);
-    updateLocalMeta(id, (m) => ({ ...m, tags }));
+    void updateLibraryMeta(id, (m) => ({ ...m, tags }));
     if (activeTag && !tags.includes(activeTag)) setActiveTag('');
   }
 
@@ -253,6 +282,24 @@ export default function OfficeHubPage() {
           <p className="text-gray-500 dark:text-gray-400 text-sm">Documentos, hojas de cálculo y presentaciones — todo dentro de Axos.</p>
         </header>
 
+        {workQueue && workQueue.counts.total > 0 && (
+          <section className={`${glass} mb-6 rounded-3xl p-4`}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-bold"><ClipboardCheck className="h-4 w-4 text-indigo-500" /> Work queue documental</div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Tareas activas de revisión, entrenamiento y documentos tuyos esperando aprobación.</p>
+              </div>
+              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">{workQueue.counts.total} pendiente(s)</span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <QueueCard icon={ClipboardCheck} label="Mis reviews" count={workQueue.counts.reviewerTasks} items={workQueue.reviewerTasks.map((task) => ({ id: task.id, href: task.document ? `/dashboard/office/${task.document.id}` : '#', title: task.document?.title ?? 'Documento', helper: task.dueAt ? `Vence ${new Date(task.dueAt).toLocaleDateString()}` : 'Sin fecha de vencimiento' }))} />
+              <QueueCard icon={GraduationCap} label="Mi training" count={workQueue.counts.trainingAssignments} items={workQueue.trainingAssignments.map((task) => ({ id: task.id, href: task.document ? `/dashboard/office/${task.document.id}` : '#', title: task.document?.title ?? 'Documento', helper: task.dueAt ? `Vence ${new Date(task.dueAt).toLocaleDateString()}` : 'Sin fecha de vencimiento' }))} />
+              <QueueCard icon={ShieldCheck} label="Mis docs en revisión" count={workQueue.counts.ownedInReview} items={workQueue.ownedInReview.map((doc) => ({ id: doc.id, href: `/dashboard/office/${doc.id}`, title: doc.title, helper: doc.updatedAt ? relTime(doc.updatedAt) : 'En revisión' }))} />
+              <QueueCard icon={CalendarClock} label="Revisión periódica" count={workQueue.counts.duePeriodicReviews ?? 0} items={(workQueue.duePeriodicReviews ?? []).map((doc) => ({ id: doc.id, href: `/dashboard/office/${doc.id}`, title: doc.title, helper: doc.nextReviewAt ? `Vence ${new Date(doc.nextReviewAt).toLocaleDateString()}` : 'Revisión requerida' }))} />
+            </div>
+          </section>
+        )}
+
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <div className={`${glass} inline-flex p-1 rounded-2xl gap-1`}>
             {TABS.map((t) => (
@@ -290,7 +337,7 @@ export default function OfficeHubPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-sm font-bold"><Sparkles className="w-4 h-4 text-blue-500" /> Biblioteca documental</div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visibleScope.helper}. Metadatos de workspace locales: favoritos, fijados y tags.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visibleScope.helper}. Metadatos server-backed: favoritos, fijados, tags, espacios y carpetas.</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <Filter className="w-3.5 h-3.5" /> {docs.length} de {rawDocs.length}
@@ -316,6 +363,23 @@ export default function OfficeHubPage() {
               );
             })}
           </div>
+
+          {(allSpaces.length > 0 || allFolders.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-black/5 dark:border-white/10">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400"><Archive className="w-3.5 h-3.5" /> Spaces</span>
+              <button onClick={() => { setActiveSpace(''); setActiveFolder(''); }} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeSpace === '' && activeFolder === '' ? 'bg-indigo-500 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'}`}>Todos</button>
+              {allSpaces.map((spaceName) => (
+                <button key={spaceName} onClick={() => setActiveSpace((current) => current === spaceName ? '' : spaceName)} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeSpace === spaceName ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500 hover:text-black dark:bg-white/5 dark:hover:text-white'}`}>
+                  {spaceName}
+                </button>
+              ))}
+              {allFolders.slice(0, 8).map((folderName) => (
+                <button key={folderName} onClick={() => setActiveFolder((current) => current === folderName ? '' : folderName)} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeFolder === folderName ? 'bg-slate-900 text-white dark:bg-white dark:text-black' : 'bg-gray-100 text-gray-500 hover:text-black dark:bg-white/5 dark:hover:text-white'}`}>
+                  /{folderName}
+                </button>
+              ))}
+            </div>
+          )}
           {allTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-black/5 dark:border-white/10">
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400"><Tags className="w-3.5 h-3.5" /> Tags</span>
@@ -370,7 +434,7 @@ export default function OfficeHubPage() {
         ) : view === 'list' ? (
           <div className={`${glass} rounded-3xl overflow-hidden`}>
             {docs.map((d) => (
-              <DocumentRow key={d.id} doc={d} meta={meta} trash={trash} canWrite={canWrite} isShared={isShared(d)} local={libraryMeta[d.id] ?? {}}
+              <DocumentRow key={d.id} doc={d} meta={meta} trash={trash} canWrite={canWrite} isShared={isShared(d)} local={metaFor(d)}
                 editingId={editingId} draft={draft} setDraft={setDraft} setEditingId={setEditingId} saveRename={saveRename}
                 toggleFavorite={toggleFavorite} togglePinned={togglePinned} editTags={editTags}
                 restore={restore} destroy={destroy} duplicate={duplicate} toTrash={toTrash} />
@@ -395,14 +459,15 @@ export default function OfficeHubPage() {
                       {isShared(d) && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-500" title={`Compartido por ${d.createdBy}`}><Users className="w-3 h-3" /> Compartido</span>
                       )}
-                      {libraryMeta[d.id]?.pinned && <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600"><Pin className="w-3 h-3" /> Fijado</span>}
+                      {metaFor(d).pinned && <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600"><Pin className="w-3 h-3" /> Fijado</span>}
                       <LifecycleBadge state={d.lifecycleState ?? 'draft'} locked={d.locked} />
                     </div>
                     <p className="font-bold truncate">{d.title}</p>
                     <p className="flex items-center gap-1 text-[11px] text-gray-400"><Clock className="w-3 h-3" /> {relTime(d.updatedAt)}</p>
-                    {(libraryMeta[d.id]?.tags ?? []).length > 0 && (
+                    {(d.space || d.folderPath) && <p className="mt-1 truncate text-[11px] font-medium text-gray-400">{d.space || 'General'}{d.folderPath ? ` / ${d.folderPath}` : ''}</p>}
+                    {(metaFor(d).tags ?? []).length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-3">
-                        {(libraryMeta[d.id]?.tags ?? []).map((tag) => <span key={tag} className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-[10px] font-semibold text-gray-500">{tag}</span>)}
+                        {(metaFor(d).tags ?? []).map((tag) => <span key={tag} className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-[10px] font-semibold text-gray-500">{tag}</span>)}
                       </div>
                     )}
                   </Link>
@@ -417,8 +482,8 @@ export default function OfficeHubPage() {
                       </>
                     ) : (
                       <>
-                        <IconBtn title={libraryMeta[d.id]?.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(d.id)} className={`${libraryMeta[d.id]?.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
-                        <IconBtn title={libraryMeta[d.id]?.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(d.id)} className={`${libraryMeta[d.id]?.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
+                        <IconBtn title={metaFor(d).favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(d.id)} className={`${metaFor(d).favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
+                        <IconBtn title={metaFor(d).pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(d.id)} className={`${metaFor(d).pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Editar tags" onClick={() => editTags(d.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
                         {!d.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
                         <IconBtn title="Duplicar" onClick={() => duplicate(d.id)} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
@@ -445,6 +510,39 @@ export default function OfficeHubPage() {
 function IconBtn({ title, onClick, className, children }: { title: string; onClick: () => void; className?: string; children: React.ReactNode }) {
   return (
     <button title={title} onClick={onClick} className={`p-1.5 rounded-full transition-all ${className ?? ''}`}>{children}</button>
+  );
+}
+
+function QueueCard({
+  icon: Icon,
+  label,
+  count,
+  items,
+}: {
+  icon: typeof FileText;
+  label: string;
+  count: number;
+  items: { id: string; href: string; title: string; helper: string }[];
+}) {
+  return (
+    <div className="rounded-2xl border border-black/5 bg-white/60 p-3 dark:border-white/10 dark:bg-white/5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold"><Icon className="h-4 w-4 text-indigo-500" /> {label}</span>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-600 dark:bg-white/10 dark:text-gray-300">{count}</span>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-400">Sin pendientes.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {items.slice(0, 3).map((item) => (
+            <Link key={item.id} href={item.href} className="block rounded-xl bg-white px-2.5 py-2 text-xs transition hover:bg-gray-50 dark:bg-black/20 dark:hover:bg-white/10">
+              <span className="block truncate font-semibold text-gray-800 dark:text-gray-100">{item.title}</span>
+              <span className="mt-0.5 block truncate text-[11px] text-gray-400">{item.helper}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -512,6 +610,7 @@ function DocumentRow({
               <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
                 <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {relTime(doc.updatedAt)}</span>
                 {doc.createdBy && <span>{doc.createdBy}</span>}
+                {(doc.space || doc.folderPath) && <span>{doc.space || 'General'}{doc.folderPath ? ` / ${doc.folderPath}` : ''}</span>}
                 {(local.tags ?? []).map((tag) => <span key={tag} className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-500 dark:bg-white/5">{tag}</span>)}
               </div>
             </Link>

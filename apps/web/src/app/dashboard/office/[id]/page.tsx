@@ -20,6 +20,13 @@ import { DocAuditTimeline } from '@/components/office/DocAuditTimeline';
 import { DocSmartRefsPanel } from '@/components/office/DocSmartRefsPanel';
 import { DocReviewSummary } from '@/components/office/DocReviewSummary';
 import { DocCompatibilityPanel } from '@/components/office/DocCompatibilityPanel';
+import { DocReleaseChecklist } from '@/components/office/DocReleaseChecklist';
+import { DocDistributionLedger } from '@/components/office/DocDistributionLedger';
+import { DocSignaturesPanel } from '@/components/office/DocSignaturesPanel';
+import { DocTrainingPanel } from '@/components/office/DocTrainingPanel';
+import { DocReviewRoutePanel } from '@/components/office/DocReviewRoutePanel';
+import { DocImpactPanel } from '@/components/office/DocImpactPanel';
+import { DocEvidencePackagePanel } from '@/components/office/DocEvidencePackagePanel';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const AUTOSAVE_MS = 800;
@@ -177,7 +184,7 @@ export default function OfficeEditorPage() {
     : doc.type === 'slides'
       ? <SlideActions content={content} title={title} />
       : doc.type === 'doc'
-        ? <DocActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
+        ? <DocActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} docId={id} />
         : null;
   const isOwner = isAdmin || (!!doc.createdBy && doc.createdBy === user?.email);
   const actions = (
@@ -195,9 +202,15 @@ export default function OfficeEditorPage() {
         }}
       />
       {typeActions}
-      {doc.type === 'doc' && <DocReviewSummary content={content} />}
+      {doc.type === 'doc' && <DocReleaseChecklist content={content} docId={id} />}
       {doc.type === 'doc' && <DocCompatibilityPanel content={content} />}
       {doc.type === 'doc' && <DocSmartRefsPanel content={content} />}
+      {doc.type === 'doc' && <DocImpactPanel content={content} currentDocId={id} />}
+      {doc.type === 'doc' && <DocEvidencePackagePanel docId={id} title={title} />}
+      <DocReviewRoutePanel docId={id} isOwner={isOwner} />
+      <DocTrainingPanel docId={id} isOwner={isOwner} />
+      <DocSignaturesPanel docId={id} canSign={canWrite} />
+      <DocDistributionLedger docId={id} />
       <DocAuditTimeline docId={id} />
       {isOwner && canWrite && <ShareButton docId={id} initialShares={doc.sharedWith ?? []} />}
       <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} currentContent={content} />
