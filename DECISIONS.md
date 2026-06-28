@@ -2899,4 +2899,24 @@ datos), estilo Palantir; (2) ampliar el catálogo de acciones human-in-the-loop.
 **Verificación:** `build API` ✓, **API tests 1137/1137** (+3: validación de las 2 acciones),
 `lint web` 0 errores, `build web` ✓. Sin migraciones.
 
+## 132. CIDE — briefing proactivo programado (push a admins)
+
+**Contexto.** Cerrar el círculo proactivo: que CIDE no solo muestre el Centinela al abrir, sino
+que **avise** a los admins cada mañana cuando hay algo que atender, sin que nadie lo pida.
+
+**Decisión (aditiva, sin migración).** Reutiliza el `DecisionBrief` diario (ya generado por
+`BriefsService` a las 3AM, multi-tenant y determinista) y le añade el **push**.
+- **Nuevo `AiBriefingTask` (módulo AI):** `@Cron` diario (default 7AM; `CIDE_BRIEF_PUSH_CRON`
+  para ajustar, `CIDE_BRIEF_PUSH_ENABLED=false` para apagar). Para cada tenant lee el último
+  brief (`BriefsService.listForTenant`, tenant-safe); si tiene alertas, notifica a los admins de
+  ESE tenant (`UsersService.listByPermission('ADMIN_ACCESS')` filtrado por tenant, con helper
+  `sameTenant` para el default) vía `NotificationsService.create` (severidad según criticidad,
+  href a `/dashboard/intelligence`, **dedupeKey** por tenant/día/admin → idempotente).
+- **Sin acoplar módulos:** los servicios cruzados (semantic/users/notifications) se resuelven con
+  `ModuleRef` (strict:false), como el resto de CIDE. Falla suave (try/catch) para no tumbar el cron.
+
+**Verificación:** `build API` ✓, `tsc` ✓, **API tests 1143/1143** (+4: `sameTenant` y `run` —
+empuja solo a admins del tenant con alertas; no empuja sin alertas), `lint web` 0 (sin cambios web).
+Sin migraciones.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
