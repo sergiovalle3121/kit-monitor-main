@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { axosRefText } from './axosRefs';
 /**
  * Word interop for the document editor.
  *  · exportDocx: TipTap JSON → .docx via the `docx` library (MIT).
@@ -248,6 +249,10 @@ export function buildDocx(docx: any, json: any, title: string): any {
         out.push(new TextRun({ text: n.attrs?.latex || '', italics: true }));
       } else if (n.type === 'crossRef') {
         out.push(new TextRun(n.attrs?.label || n.attrs?.target || ''));
+      } else if (n.type === 'axosRef') {
+        out.push(new TextRun({ text: axosRefText(n.attrs?.entity, n.attrs?.refId, n.attrs?.label), bold: true, color: '1D4ED8' }));
+      } else if (n.type === 'docField') {
+        out.push(new TextRun({ text: n.attrs?.value || n.attrs?.label || n.attrs?.key || '', bold: true }));
       } else if (n.type === 'citation') {
         out.push(new TextRun(n.attrs?.inText || ''));
       } else if (n.type === 'image') {

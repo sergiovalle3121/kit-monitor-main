@@ -29,8 +29,8 @@ export type DashboardArea = {
 // areas are reordered + grouped (re-IA, not removal).
 export const AREAS: DashboardArea[] = [
   // ── Diseño · NPI ──
-  { name: "Modelos · NPI", desc: "Maestro de productos", href: "/dashboard/models", icon: Boxes, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
-  { name: "NPI · Gates", desc: "Fases, readiness y liberación", href: "/dashboard/npi", icon: Icons.Rocket, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
+  { name: "NPI Launch Center", desc: "Lanzamiento: readiness, gates, riesgos y liberación a MP", href: "/dashboard/npi", icon: Icons.Rocket, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
+  { name: "Product Master", desc: "Maestro canónico de productos/modelos", href: "/dashboard/models", icon: Boxes, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
   { name: "Maestro de Materiales", desc: "Partes, AVL y alternantes (MM)", href: "/dashboard/materials", icon: Icons.Package, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor", "buyer"], section: "Diseño · NPI" },
   { name: "BOM Multinivel", desc: "Estructuras N niveles + explosión", href: "/dashboard/bom", icon: Icons.Network, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
   { name: "Ruteo de Manufactura", desc: "Operaciones, tiempos y consumo", href: "/dashboard/routing", icon: Icons.Workflow, domain: "engineering", roles: ["industrial_engineer", "engineering", "production_supervisor"], section: "Diseño · NPI" },

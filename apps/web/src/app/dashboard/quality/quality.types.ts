@@ -440,3 +440,199 @@ export interface QuarantineTransfer {
   hold?: { id: number } | null;
   createdAt: string;
 }
+
+// Floor Quality / MRB KPIs — apps/api/src/modules/floor-quality/floor-quality.controller.ts
+export interface FloorQualityKpis {
+  openHolds: number;
+  scrapQty: number;
+  avgDispositionDays: number | null;
+  overdue: number;
+}
+
+// RMA KPIs — apps/api/src/modules/rma/rma.service.ts
+export interface RmaKpis {
+  total: number;
+  open: number;
+  investigating: number;
+  closed: number;
+  avgCloseDays: number | null;
+  byDisposition: Record<string, number>;
+}
+
+// Genealogy KPIs — apps/api/src/modules/genealogy/genealogy.service.ts
+export interface GenealogyKpis {
+  indexedLinks: number;
+  serialsCovered: number;
+  lotsTracked: number;
+  reelsTracked: number;
+  shipmentLinks: number;
+  linksMissingLot: number;
+}
+
+// Quality command center — apps/api/src/modules/quality-analytics/quality-analytics.service.ts
+export interface QualityCommandCenterLane {
+  key: string;
+  title: string;
+  metric: number | null;
+  metricLabel: string;
+  risk: string;
+  actions: string[];
+  route: string;
+}
+
+export interface QualityCommandCenterItem {
+  key: string;
+  tone: "danger" | "warning" | "neutral";
+  title: string;
+  body: string;
+  route: string;
+  cta: string;
+}
+
+export interface QualityCommandCenterDrilldown {
+  key: string;
+  type: "supplier" | "line" | "containment" | "customer" | "capa" | "ctq";
+  tone: "danger" | "warning" | "neutral";
+  title: string;
+  metric: number | null;
+  metricLabel: string;
+  detail: string;
+  route: string;
+  actions: string[];
+  blockers: string[];
+}
+
+export interface QualityCommandCenterBattleCard {
+  key: string;
+  title: string;
+  metric: number;
+  metricLabel: string;
+  detail: string;
+  route: string;
+  priority: "now" | "today" | "watch";
+  actions: string[];
+  blockers: string[];
+}
+
+export interface QualityCommandCenterActionPlan {
+  key: string;
+  title: string;
+  intent: "create_hold" | "send_to_mrb" | "supplier_scar" | "recall_scope" | "customer_8d";
+  route: string;
+  endpoint: string | null;
+  method: "GET" | "POST" | "PATCH";
+  permission: string | null;
+  sourceNcrId: number | null;
+  payloadTemplate: Record<string, string | number | null>;
+  prechecks: string[];
+  auditTrail: string[];
+}
+
+export interface QualityCommandCenterAging {
+  slaPolicies: Array<{
+    key: string;
+    label: string;
+    sourceType: string;
+    severity: string;
+    dueDays: number;
+  }>;
+  buckets: Array<{
+    label: string;
+    minDays: number;
+    maxDays: number | null;
+    count: number;
+    critical: number;
+    units: number;
+  }>;
+  staleNcrs: Array<{
+    id: number;
+    ncrNumber: string;
+    partNumber: string;
+    daysOpen: number;
+    severity: string;
+    status: string;
+    owner: string | null;
+    route: string;
+  }>;
+  ownerEscalations: Array<{
+    owner: string;
+    count: number;
+    maxDaysOpen: number;
+    critical: number;
+    route: string;
+  }>;
+  slaBreaches: Array<{
+    id: number;
+    ncrNumber: string;
+    partNumber: string;
+    daysOpen: number;
+    dueDays: number;
+    daysLate: number;
+    severity: string;
+    sourceType: string;
+    owner: string | null;
+    route: string;
+  }>;
+}
+
+export interface QualityCommandCenterSummary {
+  generatedAt: string;
+  analytics: QualityAnalytics;
+  lanes: QualityCommandCenterLane[];
+  attention: QualityCommandCenterItem[];
+  drilldowns: {
+    supplierRisks: QualityCommandCenterDrilldown[];
+    lineRisks: QualityCommandCenterDrilldown[];
+    containmentCandidates: QualityCommandCenterDrilldown[];
+    customerImpacts: QualityCommandCenterDrilldown[];
+    capaWatch: QualityCommandCenterDrilldown[];
+  };
+  battleRhythm: {
+    productionBlockers: QualityCommandCenterBattleCard[];
+    shipmentBlockers: QualityCommandCenterBattleCard[];
+    supplierContainment: QualityCommandCenterBattleCard[];
+    releaseCandidates: QualityCommandCenterBattleCard[];
+    ownerLoad: QualityCommandCenterBattleCard[];
+  };
+  actionPlan: {
+    holdCandidates: QualityCommandCenterActionPlan[];
+    mrbCandidates: QualityCommandCenterActionPlan[];
+    scarCandidates: QualityCommandCenterActionPlan[];
+    recallCandidates: QualityCommandCenterActionPlan[];
+    customer8dCandidates: QualityCommandCenterActionPlan[];
+  };
+  aging: QualityCommandCenterAging;
+  containment: {
+    lots: string[];
+    serials: string[];
+    workOrders: string[];
+    customers: string[];
+    highRiskNcrs: Array<{
+      id: number;
+      ncrNumber: string;
+      partNumber: string;
+      severity: string;
+      quantityAffected: number;
+      scope: string | null;
+      owner: string | null;
+    }>;
+  };
+  mrb: {
+    affectedUnits: number;
+    dispositionedUnits: number;
+    pendingUnits: number;
+    floorKpis: FloorQualityKpis | null;
+    playbook: Array<{ label: string; body: string }>;
+  };
+  customer: {
+    rma: RmaKpis | null;
+    genealogy: GenealogyKpis | null;
+    traceabilityCoveragePct: number | null;
+  };
+  ctq: {
+    active: number;
+    critical: number;
+    variable: number;
+    withSpecWindow: number;
+  };
+}

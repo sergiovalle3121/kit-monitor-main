@@ -7,7 +7,7 @@ const DEMO_BLOCKED_PREFIXES = [
   "/dashboard/settings/users",
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const session = await decodeSession(token);
   const path = request.nextUrl.pathname;

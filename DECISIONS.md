@@ -2521,4 +2521,402 @@ llaman `applySlicers` y **re-montan** la rejilla (mismo patrón que el autofiltr
 **Verificación:** el motor sigue verde (`slicer.spec.ts` 11/11). UI verificada con `lint web` 0 y
 `build web` ✓ (no hay runtime de rejilla en specs). Sin regresiones.
 
+## 116. CIDE — encender el motor en producción (Ollama en Railway) + health check
+
+**Contexto.** Todo el stack de CIDE (servicio NestJS, provider compatible-OpenAI, loop
+agéntico de herramientas con RBAC, metering, guardrails, chat + panel admin) ya estaba
+completo en código, pero **nunca había un motor de inferencia real al que el backend
+desplegado pudiera llegar**: `CIDE_BASE_URL` apuntaba a `localhost:11434` (Ollama local),
+que en Railway no existe. En producción CIDE caía a modo demo (`AI_MOCK`) o devolvía
+"motor no disponible". El "paso" que faltaba era **levantar el cerebro y cablearlo**.
+
+**Decisión.** El usuario eligió mantener la soberanía de datos: **Ollama self-hosted como
+servicio aparte en Railway**, dejando el código y la config listos para encender.
+
+- **Infra (`infra/cide/`):** nuevo `Dockerfile` + `entrypoint.sh` + `railway.json` que
+  despliegan Ollama como servicio propio. El entrypoint **bindea `0.0.0.0`** (clave: el
+  default `127.0.0.1` es inalcanzable desde otros servicios en la red privada de Railway)
+  y **descarga el modelo en el arranque** (idempotente; `ollama pull` no es necesario a
+  mano). Volumen en `/root/.ollama` para persistir pesos. El API apunta a la URL **privada**
+  `http://<servicio>.railway.internal:11434/v1` + `AI_MOCK=0`.
+- **Backend, endurecimiento (aditivo):**
+  - `CIDE_TIMEOUT_MS` configurable (default 120 s) — la inferencia en CPU es lenta.
+  - `CIDE_DEFAULT_MODEL` / `CIDE_ESCALATION_MODEL` por env (validados contra el catálogo),
+    para elegir modelo sin tocar código.
+  - Nuevo tier **`qwen2.5:1.5b`** (Apache-2.0) para CPU ágil; el catálogo sigue 100 %
+    permisivo (sin Qwen-3B/72B, que no son Apache-2.0).
+  - `CideProvider.ping()` (GET `/models`) + `AiService.engineHealth()` + endpoint admin
+    `GET /api/ai/health`: reporta alcanzabilidad, modelos cargados y si el modelo activo
+    está presente. Nunca lanza 5xx — un motor caído se reporta como dato.
+- **Web (aditivo):** proxy `/api/ai/health` y, en `/dashboard/admin/ai`, una píldora de
+  estado ("motor en línea / sin modelo / inaccesible") con botón **"Probar conexión"**, para
+  verificar el cableado de un vistazo.
+
+**Cómo encender (resumen).** Desplegar `infra/cide` como servicio Railway → setear en el
+API `CIDE_BASE_URL=...railway.internal:11434/v1` y `AI_MOCK=0` → abrir el panel admin y
+"Probar conexión" hasta ver verde. CPU funciona pero lento; para producción fluida,
+mover el motor a GPU (vLLM/TGI) — el código es idéntico, solo cambia la URL.
+
+**Verificación:** `build API` ✓, `tsc` ✓, `lint web` 0, `build web` ✓. Cambios aditivos:
+ningún endpoint ni comportamiento existente se modifica; sin migraciones (no toca el esquema).
+
+## 117. CIDE — tier GPU (vLLM) drop-in + catálogo de modelos extensible por env
+
+**Contexto.** §116 encendió CIDE en producción sobre CPU (Ollama en Railway), pero la
+inferencia en CPU es lenta (decenas de seg/turno). El siguiente paso es un motor **GPU**
+para respuestas fluidas, sin reescribir nada.
+
+**Decisión (aditiva).** vLLM como tier GPU, manteniendo el mismo contrato compatible-OpenAI
+para que el cambio sea **solo `CIDE_BASE_URL`** (cero código):
+
+- **Infra:** nuevo `infra/cide/docker-compose.gpu.yml` con `vllm/vllm-openai`, reservas de
+  GPU NVIDIA, `ipc: host` y volumen de caché HF. **Truco drop-in:** `--served-model-name`
+  aliasa los pesos HF al mismo tag del catálogo (p. ej. `qwen2.5:7b`), así el backend sigue
+  pidiendo el mismo id. Parametrizado por env (`CIDE_HF_MODEL`, `CIDE_MODEL`,
+  `CIDE_MAX_MODEL_LEN`); `--api-key` y `--tensor-parallel-size` documentados como opt-in.
+- **Catálogo extensible (`ai-pricing.ts`):** `CIDE_EXTRA_MODELS` (coma-separado) registra
+  served-model-names arbitrarios (vLLM/TGI o ids HF crudos) — aparecen en el selector admin
+  y pasan validación de DTO **sin tocar código**. Self-hosted ⇒ precio $0 como los built-ins.
+  El catálogo base sigue 100 % permisivo; se advierte que Qwen2.5-3B/72B no son Apache-2.0.
+- **Docs:** `infra/cide/README.md` (guía GPU + RunPod/Lambda/Vast, reglas de VRAM, registro
+  de modelos) y `.env.example`.
+
+**Cómo cambiar a GPU.** Levantar `docker-compose.gpu.yml` en un host GPU → en el API
+`CIDE_BASE_URL=http://<host-gpu>:8000/v1` (+ `CIDE_API_KEY` si se habilitó `--api-key`) →
+"Probar conexión" en el panel admin. Para servir un id HF crudo, añadir `CIDE_EXTRA_MODELS`
++ `CIDE_DEFAULT_MODEL`.
+
+**Verificación:** `build API` ✓, `tsc` ✓, `lint web` 0, `build web` ✓. Sin migraciones; ningún
+endpoint ni comportamiento existente cambia.
+
+## 118. CIDE — streaming de respuestas, auto-escalación de modelo y tests del loop
+
+**Contexto.** Con el motor encendible (§116) y el tier GPU (§117), CIDE ya respondía;
+faltaba madurez de producto: respuestas que aparecen de golpe tras segundos, un solo
+modelo para todo, y el loop agéntico sin pruebas. Tres mejoras, todas aditivas.
+
+**A — Auto-escalación de modelo (`ai-escalation.ts`).** Función pura `shouldEscalate()`
++ `chooseModel()`: las consultas analíticas (causa, tendencia, comparación, recomendación,
+o prompts largos) usan el `escalationModel`; las consultas factuales cortas se quedan en el
+default. **Off por defecto**, gated por `CIDE_AUTO_ESCALATE=1` (el modelo de escalación debe
+estar servido por el motor; en CPU con un solo modelo daría 404). Un `model` explícito por
+request siempre gana. Integrado en `prepare()`; se devuelve `escalated` en la respuesta.
+
+**B — Streaming (SSE).** `CideProvider.chatStream()` lee la respuesta como Server-Sent
+Events y reensambla con `StreamAssembler` (clase pura: concatena content, junta fragmentos
+de tool-calls por `index`, captura usage del chunk final). `runCide()` admite un sink
+opcional `{onDelta,onTool}` reutilizando el MISMO loop agéntico. Nuevo `AiService.chatStream()`
+(refactor: `prepare()` + `persistTurn()` compartidos con `chat()`, sin duplicar guardrails/
+RBAC/persistencia) y endpoint `POST /api/ai/chat/stream` que emite eventos `meta`/`tool`/
+`delta`/`done`/`error` (controller con `@Res()`, headers anti-buffering). Proxy Next
+`/api/ai/chat/stream` (+ `backendUserStream`) que canaliza el cuerpo SSE sin bufferizar.
+`Cide.tsx` consume el stream y va llenando la burbuja del asistente token a token. El endpoint
+bloqueante `POST /ai/chat` se mantiene intacto (lo usan los helpers de chat).
+
+**C — Tests del loop.** `ai.service.spec.ts` ejercita `runCide()` contra un **motor falso**
+(tool→resultado→respuesta final; ruta de streaming con fan-out de deltas/tools; mapeo de
+caída del motor a `ServiceUnavailableException`), `ai-escalation.spec.ts` cubre la heurística,
+y `cide-stream.spec.ts` el ensamblador SSE. **+17 tests.**
+
+**Verificación:** `build API` ✓, **API tests 1078/1078** ✓, `lint web` 0 errores,
+`build web` ✓ (rutas `/api/ai/chat/stream` y `/api/ai/health` registradas). Sin migraciones;
+ningún endpoint ni comportamiento existente cambia.
+
+## 119. CIDE — control del chat: detener generación, borrar conversaciones y badge de modelo
+
+**Contexto.** Con el streaming en vivo (§118), faltaban controles básicos de UX que el
+streaming habilita: poder **detener** una respuesta larga, **borrar** conversaciones del
+historial y **ver qué modelo** respondió (incluido si hubo escalación). Todo aditivo.
+
+**Decisión.**
+- **Borrar conversación.** `AiService.deleteConversation()` (owner, o admin para cualquiera)
+  borra el hilo y sus mensajes; endpoint `DELETE /api/ai/conversations/:id` + proxy Next
+  (`backendUserFetch` ahora acepta DELETE/PATCH). En el historial de `Cide.tsx`, botón
+  papelera por fila; si borras el hilo activo, arranca uno nuevo.
+- **Detener generación.** `Cide.tsx` aborta el fetch del stream con `AbortController`; el
+  botón Enviar se convierte en **Detener** mientras genera, conservando lo ya transmitido.
+- **Badge de modelo.** Bajo cada respuesta se muestra el modelo usado y, si aplicó
+  auto-escalación, una etiqueta «escalado» (el evento `meta`/`done` ya traía `escalated`).
+
+**Verificación:** `build API` ✓, **AI tests 21/21** (+4 de borrado: not-found, forbidden,
+owner, admin), `lint web` 0 errores, `build web` ✓. Sin migraciones; nada existente cambia.
+
+## 120. CIDE — renombrar y reaprovechar conversaciones (renombrar · copiar · regenerar)
+
+**Contexto.** Tras borrar/detener (§119), faltaba completar la gestión de conversaciones y
+facilitar reaprovechar respuestas. Todo aditivo, sin migraciones (la columna `title` ya existe).
+
+**Decisión.**
+- **Renombrar.** `AiService.renameConversation()` (owner; admin cualquiera) recorta y limita el
+  título a 200 chars (vacío → «Nueva conversación»). `PATCH /api/ai/conversations/:id`
+  (`RenameConversationDto`) + proxy Next. En el historial de `Cide.tsx`, botón lápiz → edición
+  inline (Enter confirma, Esc cancela) con actualización optimista.
+- **Copiar respuesta.** Botón de copiar al portapapeles en cada respuesta del asistente, con
+  check transitorio.
+- **Regenerar.** `runStream()` extraído de `send()`; nuevo `regenerate()` reaprovecha el último
+  mensaje del usuario, descarta la respuesta previa y vuelve a transmitir.
+
+**Verificación:** `build API` ✓, **AI tests 25/25** (+4 de renombrar: not-found, forbidden,
+owner con recorte/límite, fallback de título vacío), `lint web` 0 errores, `build web` ✓.
+Sin migraciones; ningún endpoint ni comportamiento existente cambia.
+
+## 121. CIDE — persistir el modelo/escalación por mensaje (badge fiel al recargar)
+
+**Contexto.** El badge de modelo y la marca «escalado» (§119/§120) se mostraban solo en vivo:
+al reabrir una conversación se perdían, porque `ai_message` no los guardaba. Brecha de fidelidad.
+
+**Decisión.** Persistirlos por mensaje (primera **migración** del trabajo de CIDE; aditiva).
+- **Esquema:** `ai_message` gana `model` (varchar 64, nullable) y `escalated` (boolean, nullable).
+  Migración idempotente `AddAiMessageModel20260627140000` (glob las recoge sola; sin índice).
+- **Persistencia:** `persistTurn()` guarda `model`/`escalated` en el turno del asistente; en modo
+  demo (`mock`) se guarda `model=null` (no hubo motor real).
+- **Lectura/UI:** `getConversation` ya devuelve el mensaje completo; `Cide.tsx` mapea `model`/
+  `escalated` al recargar, así el badge reaparece idéntico.
+
+**Verificación:** `build API` ✓, **AI tests 27/27** (+2: persistTurn guarda modelo/escalación;
+demo no atribuye modelo), `lint web` 0 errores, `build web` ✓. Migración 100% aditiva (columnas
+nullable); ningún comportamiento existente cambia.
+
+## 122. CIDE — prompts de inicio contextuales por módulo
+
+**Contexto.** El chat es accesible desde toda página del dashboard, pero ofrecía siempre las
+mismas 4 sugerencias genéricas. Adaptarlas al módulo donde está el usuario mejora la
+relevancia y el descubrimiento, **sin costo de inferencia** (es solo un mapeo).
+
+**Decisión (solo `apps/web`, aditiva).** Nuevo `lib/chat/cideSuggestions.ts` con
+`suggestionsFor(pathname)`: extrae el primer segmento tras `/dashboard/` y devuelve 3 preguntas
+hechas a la medida del módulo (inventory, mrp, planning, production, quality, maintenance,
+shipping, suppliers, finance, crm, genealogy, control-tower, etc. — todas respondibles por las
+herramientas de CIDE); fuera del dashboard o en un módulo no mapeado cae a las genéricas.
+`Cide.tsx` reemplaza la constante estática por `suggestionsFor(pathname)`.
+
+**Nota de pruebas.** `apps/web` no tiene runner de tests unitarios (CI solo corre `lint` +
+`build` para el front); `suggestionsFor` es una función pura cubierta por el type-check del
+build y el lint. No se añadió spec no ejecutable.
+
+**Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
+existente cambia.
+
+## 123. CIDE — cobertura total: que la IA entienda todos los módulos de Axos OS
+
+**Contexto.** CIDE ya razonaba sobre producción, inventario, MRP, compras, finanzas, ventas,
+calidad (holds/CAPA), proveedores, BOM, Event Ledger y métricas. Pero quedaban módulos
+operativos sin herramientas, así que la IA "no veía" partes del negocio. El objetivo de esta
+fase: que CIDE **entienda todo Axos OS**.
+
+**Decisión.** Añadir **11 herramientas read-only**, cada una gateada por el permiso real de
+lectura del módulo (mismo principio: la IA nunca lee lo que el usuario no podría leer en la UI)
+y auto-escopada por tenant (ALS), resolviendo los servicios vía `ModuleRef` (todos singleton):
+- **Mantenimiento:** `maintenance_orders`, `maintenance_assets`, `maintenance_pm_plans`
+  (`maintenance:read`).
+- **EHS/Seguridad:** `safety_incidents` (`reports:read`).
+- **Calidad:** `fai_records` (FAI, `quality:report`), `rma_cases` (devoluciones, `quality:read`).
+- **Logística:** `list_shipments` (`materials:read`).
+- **Herramentales:** `list_tools` (`maintenance:read`).
+- **Finanzas:** `list_fixed_assets` (activos fijos, `finance:read`).
+- **Trazabilidad:** `genealogy_links` (genealogía as-built, `production:report`).
+- **Ingeniería:** `visual_aids` (ayudas visuales / instrucciones, abierto a usuario autenticado,
+  como su endpoint).
+
+El system prompt se actualizó para enumerar explícitamente todos los dominios cubiertos, y
+`cideSuggestions` ganó prompts contextuales para EHS, herramentales, RMA y activos fijos.
+
+**Verificación:** `build API` ✓, **API tests 1101/1101** ✓ (sin regresiones; servicios singleton
+confirmados, no request-scoped), `lint web` 0 errores, `build web` ✓. Solo lectura; sin
+migraciones; ningún endpoint ni comportamiento existente cambia.
+
+## 124. CIDE — "Ponme al día": briefing ejecutivo de un clic
+
+**Contexto.** Con CIDE entendiendo ya todos los módulos (§123), un caso de alto valor para un
+dueño/gerente es un resumen accionable de "cómo está la planta ahora" sin escribir la pregunta.
+
+**Decisión (solo `apps/web`, aditiva).** Botón **"Ponme al día"** destacado en el estado inicial
+del chat que envía un `BRIEFING_PROMPT` curado por el flujo de streaming normal: CIDE encadena
+sus herramientas (KPIs en alerta, novedades 24 h, calidad —holds/CAPA/FAI—, mantenimiento
+vencido, embarques del día) y responde con secciones breves + "Acciones sugeridas" (máx 3,
+priorizadas), siempre fundamentado en datos reales. Sin backend nuevo: reusa `POST
+/ai/chat/stream` y todo el toolset RBAC. El prompt vive en `lib/chat/cideSuggestions.ts`.
+
+**Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
+existente cambia.
+
+## 125. CIDE — toggle de auto-escalación por tenant en el panel admin
+
+**Contexto.** La auto-escalación de modelo (§118) era solo por env (`CIDE_AUTO_ESCALATE`),
+global a todo el proceso. Un admin no podía activarla/desactivarla por organización ni verla
+en la UI.
+
+**Decisión (aditiva).** Hacerla configurable por tenant, conservando el default de proceso.
+- **Esquema:** `ai_tenant_config.auto_escalate` (boolean, nullable). `null` = heredar el env;
+  true/false = override del tenant. Migración idempotente `AddAiAutoEscalate20260627150000`.
+- **Backend:** `ConfigDto.autoEscalate`; `setConfig` lo persiste; `publicConfig` expone el valor
+  **efectivo** (`cfg.autoEscalate ?? AUTO_ESCALATE`) y `autoEscalateSource` ('tenant'|'default');
+  `prepare()` pasa `cfg.autoEscalate ?? undefined` a `chooseModel` (override gana; null hereda).
+- **UI admin:** toggle "Escalado automático de modelo" en `/dashboard/admin/ai`, con nota de
+  herencia cuando viene del entorno.
+
+**Verificación:** `build API` ✓, **API tests 1108/1108** (+2: setConfig persiste el override y
+reporta source; default cuando no hay override), `lint web` 0 errores, `build web` ✓. Migración
+100% aditiva (columna nullable); nada existente cambia.
+
+## 126. CIDE — acciones con confirmación humana (el salto Palantir, human-in-the-loop)
+
+**Contexto.** Hasta aquí CIDE era estrictamente **read-only** (§22/§23: "la ejecución es acción
+humana"). El siguiente salto de producto —pasar de un panel que *informa* a un cerebro que
+*opera* AXOS OS— requiere que CIDE pueda **accionar**. Se hace con autorización explícita del
+usuario y revirtiendo de forma controlada esa postura read-only, **sin** dar a la IA poder de
+ejecución autónomo.
+
+**Decisión.** Patrón **human-in-the-loop**: la IA **propone**, el humano **confirma**, el backend
+**ejecuta** con el RBAC del usuario.
+- **Registro de acciones (`ai-actions.ts`, puro):** catálogo acotado de acciones permitidas.
+  Arranca con **una**: `create_maintenance_order` (permiso `maintenance:write`). Cada acción trae
+  validación + normalización de params y un resumen legible.
+- **Propuesta (tool `propose_action`):** la IA puede *proponer* (no ejecutar). El tool valida
+  permiso + params y devuelve una **tarjeta de confirmación** (`action_proposal`); nunca muta.
+- **Ejecución (`AiActionsService` + `POST /ai/actions/execute`):** único punto de escritura;
+  re-chequea permiso y **re-valida** params (no confía en el cliente), despacha al servicio del
+  módulo (que ya registra su evento en el **Event Ledger** → auditable). Proxy Next dedicado.
+- **UI:** la tarjeta de propuesta en el chat muestra el resumen y botones **Confirmar/Descartar**;
+  al confirmar ejecuta y muestra el folio resultante. El system prompt instruye a proponer solo
+  cuando el usuario lo pida explícitamente.
+
+**Seguridad.** La IA jamás ejecuta sola; toda acción pasa por (1) confirmación humana explícita,
+(2) RBAC del usuario re-verificado en el backend, (3) re-validación de params y (4) traza en el
+Event Ledger. El catálogo es deliberadamente mínimo para validar el patrón antes de ampliarlo.
+
+**Verificación:** `build API` ✓, **API tests 1118/1118** (+10: validación del registro y
+`AiActionsService` —permiso denegado, acción desconocida, params inválidos, éxito—), `lint web`
+0 errores, `build web` ✓. Sin migraciones; los módulos de lectura no cambian.
+
+## 127. CIDE — ampliar el catálogo de acciones (calidad, compras, producción, EHS)
+
+**Contexto.** §126 validó el patrón human-in-the-loop con una sola acción
+(`create_maintenance_order`). Con el patrón probado, se amplía el catálogo a las acciones de
+mayor valor operativo, reusando exactamente la misma infraestructura (propose_action → tarjeta
+de confirmación → `POST /ai/actions/execute` con RBAC re-verificado y traza en el ledger).
+
+**Decisión.** Cuatro acciones nuevas en `ACTIONS`, cada una con su permiso real y su ejecutor:
+- `release_quality_hold` (`QUALITY_APPROVE`) → `QualityService.releaseHold(holdId, actor)`.
+- `create_purchase_requisition` (`materials:write`) → `ErpMmService.createRequisition` (cierra
+  el lazo MRP→compra; `createdBy` = el usuario).
+- `create_production_plan` (`MANAGE_PLANS`) → `PlansService.create` (model, line 1–7, quantity,
+  shift T1/T2/T3, …).
+- `assign_ehs_incident_owner` (`reports:read`, como su endpoint) → `EhsService.update` fijando
+  `capaOwner`/`capaDueDate`.
+El `run()` del servicio ahora recibe el `reqUser` para inyectar el actor donde se requiere
+(liberación de hold, createdBy de la requisición). La descripción de `propose_action` enumera
+las 5 acciones y sus params. La UI no cambió: la tarjeta de propuesta ya es agnóstica a la acción.
+
+**Verificación:** `build API` ✓, **API tests 1125/1125** (+7: validación de las 4 acciones y
+execute de requisición/forbid EHS), `lint web` 0 errores. Mismas garantías de §126 (confirmación
+humana + RBAC + re-validación + ledger). Sin migraciones.
+
+## 128. CIDE "Centinela" — inteligencia proactiva (de reactivo a "te aviso yo")
+
+**Contexto.** Hasta aquí CIDE respondía cuando le preguntabas. El salto: que **proponga la
+agenda** — al abrirlo, muestra priorizado y filtrado por permisos "qué necesita tu atención
+ahora" cruzando todos los dominios, cada hallazgo a un clic de análisis profundo (y de ahí, de
+una acción §126/§127). Esto convierte a CIDE de panel reactivo en monitor proactivo.
+
+**Decisión (aditiva, sin migración).**
+- **Núcleo determinista (`ai-insights.ts`, puro):** mappers que convierten la salida de las
+  herramientas read-only en `Insight { area, severity, title, detail, suggestedQuestion }`:
+  KPIs en alerta (uno por alerta), mantenimiento vencido, retenciones de calidad activas,
+  incidentes EHS abiertos. `buildSituationReport` combina y ordena por severidad. **No usa el
+  LLM**, así que funciona aunque el motor no esté arriba.
+- **Servicio (`AiInsightsService`):** corre `kpi_alerts`, `maintenance_orders`, `quality_holds`
+  y `safety_incidents` vía `AiToolsService.execute` bajo el RBAC del usuario (fuentes sin
+  permiso se omiten), y arma el reporte. Endpoint `GET /api/ai/insights` + proxy Next.
+- **UI:** nueva vista **"Centinela"** (icono escudo) en el widget de CIDE: lista priorizada con
+  puntos de severidad; cada hallazgo tiene "Analizar con CIDE →" que salta al chat con la
+  pregunta de profundización.
+
+**Verificación:** `build API` ✓, **API tests 1131/1131** (+6: mappers y `buildSituationReport`,
+incl. tolerancia a shapes/RBAC y orden por severidad), `lint web` 0 errores, `build web` ✓
+(ruta `/api/ai/insights` registrada). RBAC: nunca surfacea lo que el usuario no podría ver.
+
+## 129. CIDE — copiloto estilo ChatGPT: alcance amplio, respuestas ricas y Markdown
+
+**Contexto.** El usuario quiere usar CIDE como usa ChatGPT. El diseño previo lo limitaba a
+analista de datos que **rechazaba** todo lo demás, con respuestas muy cortas y texto plano. Se
+amplía a un copiloto de trabajo completo sin perder el grounding de datos. (No se reentrenan
+pesos —el modelo es open-weight self-hosted—; el salto es de prompt, presupuesto y formato.)
+
+**Decisión.**
+- **System prompt reescrito:** CIDE es ahora un copiloto con DOS capacidades que combina: (1)
+  analista de datos (usa herramientas para todo lo de la operación) y (2) asistente general
+  (explicar, redactar/mejorar textos, traducir, resumir, calcular, idear, fórmulas/Excel,
+  programación básica, dudas de uso). Se elimina el rechazo general; solo declina lo dañino/
+  ilegal. **Regla de oro intacta:** para datos concretos de la empresa, solo lo que devuelven
+  las herramientas (nunca inventar cifras/nombres); el conocimiento general sí puede responderse.
+- **Respuestas ricas:** `AI_MAX_OUTPUT_TOKENS` default 700 → **1500**; longitud adaptativa
+  (concisa para lo simple, completa cuando amerite); historial de contexto 20 → **40** mensajes.
+- **Markdown:** el prompt pide formato Markdown; nuevo `MarkdownLite.tsx` (sin dependencias,
+  XSS-safe por construcción) renderiza negritas, listas, encabezados, código y enlaces en las
+  respuestas del asistente del chat.
+
+**Verificación:** `build API` ✓, `tsc` ✓, **AI tests 52/52**, `lint web` 0 errores, `build web` ✓.
+Sin migraciones; los flujos de datos/acciones no cambian.
+
+## 130. CIDE — "enséñale tu empresa": conocimiento propio por organización
+
+**Contexto.** §129 amplió a CIDE a copiloto general, pero no "sabía" lo específico de la empresa
+(políticas, definiciones, abreviaturas, objetivos). No se pueden reentrenar pesos (modelo
+open-weight self-hosted); la vía práctica es **inyectar conocimiento curado** en su contexto.
+
+**Decisión (aditiva).** Un panel donde el admin escribe el conocimiento de la organización y
+CIDE lo usa como contexto autoritativo.
+- **Esquema:** `ai_tenant_config.knowledge` (text, nullable). Migración idempotente
+  `AddAiKnowledge20260628010000`.
+- **Backend:** `ConfigDto.knowledge` (máx 8000); `setConfig` lo persiste (trim; vacío → null);
+  `publicConfig` lo expone; `buildSystem(reqUser, knowledge)` inyecta un bloque "CONOCIMIENTO DE
+  LA EMPRESA" cuando hay texto, instruyendo a priorizarlo sobre el conocimiento general (sin
+  romper la regla de oro: los datos concretos siguen viniendo de las herramientas).
+- **UI admin:** sección "Conocimiento de la empresa" en `/dashboard/admin/ai` con textarea
+  (contador 0/8000) y guardado.
+
+**Verificación:** `build API` ✓, `tsc` ✓, **AI tests 55/55** (+3: inyección en el prompt y
+persistencia/limpieza de `knowledge`), `lint web` 0 errores, `build web` ✓. Total API 1134.
+Migración 100% aditiva (columna nullable).
+
+## 131. CIDE — evidencia clicable (provenance) + más acciones
+
+**Contexto.** Dos pulidos: (1) dar **trazabilidad** a las respuestas (de dónde salieron los
+datos), estilo Palantir; (2) ampliar el catálogo de acciones human-in-the-loop.
+
+**Decisión (aditiva).**
+- **Evidencia clicable (#1, web):** nuevo `lib/chat/toolSources.ts` mapea cada herramienta de
+  grounding a su módulo (`toolSource`/`sourcesFor`). En el chat, bajo cada respuesta, los chips
+  de herramientas se reemplazan por **"Fuentes: …"** con enlaces al módulo consultado (Inventario,
+  Calidad, Mantenimiento, Finanzas, etc.). Determinista; tools sin página no enlazan.
+- **Más acciones (#3, backend):** dos acciones nuevas en el patrón ya validado (propose→confirm→
+  execute con RBAC + ledger): `set_maintenance_order_status` (`maintenance:write` →
+  `MaintenanceService.updateOrder` con status OPEN/IN_PROGRESS/COMPLETED/CANCELLED) y
+  `create_safety_incident` (`reports:read` → `EhsService.create`, folio INC-). `propose_action`
+  ahora documenta 7 acciones.
+
+**Verificación:** `build API` ✓, **API tests 1137/1137** (+3: validación de las 2 acciones),
+`lint web` 0 errores, `build web` ✓. Sin migraciones.
+
+## 132. CIDE — briefing proactivo programado (push a admins)
+
+**Contexto.** Cerrar el círculo proactivo: que CIDE no solo muestre el Centinela al abrir, sino
+que **avise** a los admins cada mañana cuando hay algo que atender, sin que nadie lo pida.
+
+**Decisión (aditiva, sin migración).** Reutiliza el `DecisionBrief` diario (ya generado por
+`BriefsService` a las 3AM, multi-tenant y determinista) y le añade el **push**.
+- **Nuevo `AiBriefingTask` (módulo AI):** `@Cron` diario (default 7AM; `CIDE_BRIEF_PUSH_CRON`
+  para ajustar, `CIDE_BRIEF_PUSH_ENABLED=false` para apagar). Para cada tenant lee el último
+  brief (`BriefsService.listForTenant`, tenant-safe); si tiene alertas, notifica a los admins de
+  ESE tenant (`UsersService.listByPermission('ADMIN_ACCESS')` filtrado por tenant, con helper
+  `sameTenant` para el default) vía `NotificationsService.create` (severidad según criticidad,
+  href a `/dashboard/intelligence`, **dedupeKey** por tenant/día/admin → idempotente).
+- **Sin acoplar módulos:** los servicios cruzados (semantic/users/notifications) se resuelven con
+  `ModuleRef` (strict:false), como el resto de CIDE. Falla suave (try/catch) para no tumbar el cron.
+
+**Verificación:** `build API` ✓, `tsc` ✓, **API tests 1143/1143** (+4: `sameTenant` y `run` —
+empuja solo a admins del tenant con alertas; no empuja sin alertas), `lint web` 0 (sin cambios web).
+Sin migraciones.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

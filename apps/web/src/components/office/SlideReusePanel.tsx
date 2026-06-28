@@ -28,7 +28,10 @@ function Thumb({ slide, ratio }: { slide: any; ratio?: string }) {
     return () => { active = false; };
   }, [slide, ratio]);
   return src
-    ? <img src={src} alt="" className="w-full h-full object-contain" />
+    ? (
+      // eslint-disable-next-line @next/next/no-img-element -- Fabric renders slide thumbnails as data URLs; next/image optimization is not useful here.
+      <img src={src} alt="" className="w-full h-full object-contain" />
+    )
     : <div className="w-full h-full animate-pulse bg-black/5 dark:bg-white/5" />;
 }
 

@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell,
 } from "recharts";
 import {
-  ChevronLeft, Loader2, Lock, Ruler, Plus, Crosshair, Inbox, Gauge,
+  Loader2, Lock, Ruler, Plus, Crosshair, Inbox, Gauge,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -69,7 +69,7 @@ export default function MeasurementsPage() {
 
   // Default to the first characteristic once they load.
   useEffect(() => {
-    if (!selected && chars.length) setSelected(chars[0].id);
+    if (!selected && chars.length) queueMicrotask(() => setSelected(chars[0].id));
   }, [chars, selected]);
 
   const char = chars.find((c) => c.id === selected) || null;
@@ -108,9 +108,6 @@ export default function MeasurementsPage() {
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
       <main className="max-w-6xl mx-auto px-6 pt-10">
-        <Link href="/dashboard/quality" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
-          <ChevronLeft className="w-4 h-4" /> Calidad · NCR
-        </Link>
         <PageHeader
           domain="quality"
           title="Mediciones CTQ"

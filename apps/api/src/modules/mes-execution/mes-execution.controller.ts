@@ -15,11 +15,14 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { MesExecutionService } from './mes-execution.service';
 import {
+  AcknowledgeFollowUpDto,
   AssignStationDto,
   ConfirmAdvanceDto,
   DispositionIncidentDto,
+  EscalateFollowUpDto,
   OpenExecutionDto,
   RaiseAndonDto,
+  ReplayOfflineQueueDto,
   ReportIncidentDto,
 } from './dto/mes.dto';
 
@@ -129,6 +132,33 @@ export class MesExecutionController {
     @Request() req: AuthRequest,
   ) {
     return this.service.raiseAndon(id, dto, this.actor(req));
+  }
+
+  @Post('offline/replay')
+  @RequirePermissions('production:write')
+  replayOfflineQueue(
+    @Body() dto: ReplayOfflineQueueDto,
+    @Request() req: AuthRequest,
+  ) {
+    return this.service.replayOfflineQueue(dto, this.actor(req));
+  }
+
+  @Post('follow-ups/ack')
+  @RequirePermissions('production:write')
+  acknowledgeFollowUp(
+    @Body() dto: AcknowledgeFollowUpDto,
+    @Request() req: AuthRequest,
+  ) {
+    return this.service.acknowledgeFollowUp(dto, this.actor(req));
+  }
+
+  @Post('follow-ups/escalate')
+  @RequirePermissions('production:write')
+  escalateFollowUp(
+    @Body() dto: EscalateFollowUpDto,
+    @Request() req: AuthRequest,
+  ) {
+    return this.service.escalateFollowUp(dto, this.actor(req));
   }
 
   @Post('andon/:id/ack')

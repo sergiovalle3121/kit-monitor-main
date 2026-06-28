@@ -18,17 +18,20 @@
   :root {
     /* === Paleta semántica (canales HSL → usar con hsl(var(--token))) ======
        CLARO: sobrio estilo banca — blancos, gris pizarra, acento índigo. */
-    --background: 220 33% 99%;
-    --foreground: 222 47% 11%;
+    /* Confort de lectura prolongada: fondo off-white calmado (menos glare que el
+       blanco puro) y texto slate algo más suave que el casi-negro. Las tarjetas
+       siguen casi blancas, así "flotan" con suavidad sobre el fondo. */
+    --background: 220 24% 96.5%;
+    --foreground: 222 40% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222 40% 15%;
     --surface: 0 0% 100%;
-    --surface-foreground: 222 47% 11%;
+    --surface-foreground: 222 40% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --muted: 220 16% 96%;
-    --muted-foreground: 220 9% 43%;
-    --border: 220 13% 91%;
+    --popover-foreground: 222 40% 15%;
+    --muted: 220 16% 93%;
+    --muted-foreground: 220 10% 40%;
+    --border: 220 13% 89%;
     --input: 220 13% 91%;
 
     /* Acento de marca (índigo) — IDÉNTICO en claro y oscuro. Nada de cyan. */
@@ -70,6 +73,21 @@
     --accent-glow: rgba(99, 102, 241, 0.18);
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* === Tipografía premium ================================================
+       Stack de sistema refinado (sin descarga): nativo, nítido y rápido.
+       Reemplaza el Arial genérico para una sensación "software caro". */
+    --font-sans:
+      ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji",
+      sans-serif;
+
+    /* === Elevación NEUTRA (materialidad, no glow) =========================
+       Tres niveles tokenizados; sombra de negro a baja opacidad, jamás teñida
+       de color. Reposo → elevado → flotante (dock/menús/paleta/modal). */
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.05);
+    --shadow-lg: 0 18px 40px -16px rgba(15, 23, 42, 0.22), 0 4px 12px -4px rgba(15, 23, 42, 0.08);
 
     /* Apple White Premium (compat) */
     --apple-bg: #f5f5f7;
@@ -123,6 +141,11 @@
     --apple-text-secondary: #9aa6b8;
     --apple-border: rgba(255, 255, 255, 0.1);
     --apple-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+
+    /* Elevación neutra en oscuro: negro más profundo, misma intención. */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.28);
+    --shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.42), 0 2px 6px -2px rgba(0, 0, 0, 0.32);
+    --shadow-lg: 0 20px 44px -16px rgba(0, 0, 0, 0.6), 0 4px 12px -4px rgba(0, 0, 0, 0.4);
   }
 
   * {
@@ -142,8 +165,11 @@
     min-height: 100%;
     background: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
@@ -260,28 +286,28 @@
 /* La variante oscura sigue la clase `.dark` (toggle del ThemeContext), igual
    que todas las utilidades dark: de la app. */
 .glass {
-  background: rgba(255, 255, 255, 0.66);
-  -webkit-backdrop-filter: blur(22px) saturate(135%);
-  backdrop-filter: blur(22px) saturate(135%);
-  /* Borde sutil neutro (no blanco duro) + highlight superior tenue. */
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  /* Halo difuso muy suave, apenas tintado con el acento — descansa la vista. */
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: blur(22px) saturate(130%);
+  /* Borde hairline neutro (no blanco duro) + highlight superior tenue. */
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  /* Sombra NEUTRA y suave (materialidad, no glow índigo) — descansa la vista. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 10px 30px -14px rgba(79, 70, 229, 0.12),
-    0 2px 8px rgba(80, 70, 120, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 10px 28px -16px rgba(15, 23, 42, 0.16),
+    0 2px 6px -2px rgba(15, 23, 42, 0.05);
   transition:
     box-shadow 0.35s var(--ease-out-expo),
     transform 0.35s var(--ease-out-expo);
 }
 
 .dark .glass {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);
-  /* Halo índigo más tenue (0.12 vs 0.18): conserva el brillo, menos neón. */
+  /* Sombra neutra profunda: conserva la elevación, cero tinte de color. */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 16px 40px -16px rgba(99, 102, 241, 0.12),
+    0 18px 40px -18px rgba(0, 0, 0, 0.55),
     0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
@@ -312,17 +338,17 @@
    fuente de verdad). Usado por <AuroraBackground/> (fixed -z-10); sigue `.dark`. */
 .aurora-bg {
   background:
-    radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.16), transparent 60%),
-    radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.14), transparent 55%),
-    radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.12), transparent 55%),
+    radial-gradient(1100px 620px at 12% -8%, rgba(99, 102, 241, 0.07), transparent 62%),
+    radial-gradient(1000px 560px at 100% 0%, rgba(79, 70, 229, 0.05), transparent 58%),
+    radial-gradient(900px 600px at 50% 120%, rgba(99, 102, 241, 0.04), transparent 58%),
     hsl(var(--background));
 }
 
 .dark .aurora-bg {
   background:
-    radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.07), transparent 60%),
-    radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.07), transparent 55%),
-    radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.07), transparent 55%),
+    radial-gradient(1100px 620px at 12% -8%, rgba(99, 102, 241, 0.05), transparent 62%),
+    radial-gradient(1000px 560px at 100% 0%, rgba(79, 70, 229, 0.04), transparent 58%),
+    radial-gradient(900px 600px at 50% 120%, rgba(99, 102, 241, 0.03), transparent 58%),
     hsl(var(--background));
 }
 

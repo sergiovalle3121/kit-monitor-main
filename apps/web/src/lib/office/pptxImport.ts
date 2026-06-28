@@ -18,6 +18,7 @@ import { buildTableGroup, type TableSpec } from '@/components/office/slides/tabl
 import { buildChartGroup, type ChartSpec, type ChartType } from '@/components/office/slides/chart';
 import { POLY_SHAPES, PATH_SHAPES, starPoints } from '@/components/office/slides/shapes';
 import { slideHeight } from '@/components/office/slideAssets';
+import { analyzePptxCompatibility } from './pptxCompatibility';
 
 const EMU_PER_PX = 9525; // 914400 EMU/in ÷ 96 px/in
 const px = (v: any): number => (Number(v) || 0) / EMU_PER_PX;
@@ -89,6 +90,7 @@ type ThemeMap = Record<string, string>;
 /** Contexto de importación de una diapositiva: tema, mapeo de colores y
  *  geometría de marcadores heredada del layout/patrón. */
 interface ImportCtx { zip: any; rels: Record<string, string>; theme: ThemeMap; clrMap: Record<string, string>; ph: Map<string, Xfrm>; bg?: string }
+interface ImportedComment { text: string; author?: string; createdAt?: number }
 
 const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
 function hexToRgb(h: string): { r: number; g: number; b: number } | null {
@@ -457,7 +459,22 @@ async function loadSlideContext(zip: any, rels: Record<string, string>): Promise
   return ctx;
 }
 
-async function importSlide(zip: any, path: string): Promise<{ objects: any[]; background?: string; note: string }> {
+function readPptComments(doc: Document): ImportedComment[] {
+  const out: ImportedComment[] = [];
+  for (const cm of tags(doc, 'cm')) {
+    const tx = firstTag(cm, 'text')?.textContent?.trim() || firstTag(cm, 't')?.textContent?.trim() || '';
+    if (!tx) continue;
+    const dt = attr(cm, 'dt');
+    out.push({ text: tx, createdAt: dt ? Date.parse(dt) || undefined : undefined });
+  }
+  for (const tc of tags(doc, 'threadedComment')) {
+    const tx = firstTag(tc, 'text')?.textContent?.trim() || firstTag(tc, 't')?.textContent?.trim() || '';
+    if (tx) out.push({ text: tx, createdAt: Date.now() });
+  }
+  return out;
+}
+
+async function importSlide(zip: any, path: string): Promise<{ objects: any[]; background?: string; note: string; comments: ImportedComment[] }> {
   const doc = parseXml(await zip.file(path).async('string'));
   const rels = await loadRels(zip, path);
   const ctx = await loadSlideContext(zip, rels);
@@ -496,7 +513,12 @@ async function importSlide(zip: any, path: string): Promise<{ objects: any[]; ba
       note = bodies.join('\n').trim();
     } catch { /* ignore */ }
   }
-  return { objects, background, note };
+  const comments: ImportedComment[] = [];
+  for (const rel of Object.values(rels).filter((t) => /\/comments\/comment\d+\.xml$|\/threadedComments\//.test(t))) {
+    const f = zip.file(rel); if (!f) continue;
+    try { comments.push(...readPptComments(parseXml(await f.async('string')))); } catch { /* ignore */ }
+  }
+  return { objects, background, note, comments };
 }
 
 // Grupo (<p:grpSp>): transforma los hijos a coordenadas absolutas.
@@ -540,6 +562,7 @@ function textOverlay(t: any): any {
 
 /** Punto de entrada: bytes .pptx → deck JSON de AXOS (versión 2). */
 export async function importPptx(buf: ArrayBuffer): Promise<any> {
+  const report = await analyzePptxCompatibility(buf);
   const JSZip = (await import('jszip')).default;
   const zip = await JSZip.loadAsync(buf);
 
@@ -560,13 +583,19 @@ export async function importPptx(buf: ArrayBuffer): Promise<any> {
       .sort((a, b) => (Number(a.match(/(\d+)\.xml$/)?.[1]) || 0) - (Number(b.match(/(\d+)\.xml$/)?.[1]) || 0));
   }
 
-  const slides: any[] = []; const notes: string[] = [];
+  const slides: any[] = []; const notes: string[] = []; const comments: any[] = [];
   for (const path of order) {
     if (!zip.file(path)) continue;
     try {
-      const { objects, background, note } = await importSlide(zip, path);
+      const { objects, background, note, comments: slideComments } = await importSlide(zip, path);
       slides.push({ version: '7', objects, background: background || '#ffffff' });
       notes.push(note);
+      const slideIndex = slides.length - 1;
+      slideComments.forEach((c, idx) => comments.push({
+        id: `pptx-${slideIndex}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+        slide: slideIndex, text: c.text, author: c.author || 'PowerPoint',
+        createdAt: c.createdAt || Date.now(), resolved: false,
+      }));
     } catch {
       slides.push({ version: '7', objects: [], background: '#ffffff' }); notes.push('');
     }
@@ -588,5 +617,7 @@ export async function importPptx(buf: ArrayBuffer): Promise<any> {
     transDurs: slides.map(() => 500), advanceAfters: slides.map(() => 0),
     loop: false, theme: 'light', footer: '', showNumbers: false,
     sections: slides.map(() => null),
+    comments,
+    pptxCompatibility: report,
   };
 }

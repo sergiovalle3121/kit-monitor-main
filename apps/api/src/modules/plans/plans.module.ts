@@ -11,6 +11,7 @@ import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { QualityModule } from '../quality/quality.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -27,7 +28,11 @@ import { GovernanceModule } from '../governance/governance.module';
     GovernanceModule,
   ],
   controllers: [PlansController],
-  providers: [PlansService],
+  providers: [
+    PlansService,
+    provideTenantScopedRepository(Plan),
+    provideTenantScopedRepository(LineCapacity),
+  ],
   exports: [PlansService],
 })
 export class PlansModule {}

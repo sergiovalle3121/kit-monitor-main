@@ -2,17 +2,21 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
-  ChevronLeft, Loader2, Lock, Save, CheckCircle2, Archive, RotateCcw, Boxes,
+  Loader2, Lock, Save, CheckCircle2, Archive, RotateCcw, Boxes,
   Layers, Plus, Trash2, Pencil, Check, X, ShieldCheck, Inbox, Megaphone, ArrowRight,
+  Rocket,
 } from 'lucide-react';
 import { IconTile } from '@/components/ui/IconTile';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { NpiProject, PHASE_LABEL } from '../../npi/_lib/npi';
+import { ProjectStatusPill } from '../../npi/_lib/pills';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -40,7 +44,7 @@ const STATUS_META: Record<Status, { label: string; color: string }> = {
 };
 
 const field =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 transition-all';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all';
 
 export default function ModelDetailPage() {
   const params = useParams();
@@ -101,10 +105,6 @@ export default function ModelDetailPage() {
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
-        <Link href="/dashboard/models" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-black dark:hover:text-white mb-5">
-          <ChevronLeft className="w-4 h-4" /> Modelos
-        </Link>
-
         {/* Header */}
         <header className="mb-8 flex items-center gap-4">
           <IconTile domain="engineering" size={52} icon={Boxes} />
@@ -135,6 +135,14 @@ export default function ModelDetailPage() {
         {/* Edit form — keyed so it re-initializes from the loaded model. */}
         <ModelEditCard key={model.id} model={model} onSaved={mutate} />
 
+        {/* Launch / NPI — el modelo es el maestro; el launch lo ejecuta. */}
+        <NpiSection
+          modelNumber={model.modelNumber}
+          revision={model.revision}
+          customer={model.customer}
+          programId={model.programId}
+        />
+
         {/* BOM — reuses the `bom` module against this model's number. */}
         <BomSection modelNumber={model.modelNumber} productName={model.name} />
 
@@ -142,6 +150,128 @@ export default function ModelDetailPage() {
         <PlansSection modelNumber={model.modelNumber} />
       </main>
     </div>
+  );
+}
+
+/* ──────────────────────────── Launch / NPI ──────────────────────────── */
+
+/**
+ * Bridge from the product master to the NPI Launch Center. Finds an existing
+ * launch for this model (read-only) and links straight to it; otherwise offers
+ * to create one in a single click. Idempotent by model+revision on the backend.
+ */
+function NpiSection({
+  modelNumber,
+  revision,
+  customer,
+  programId,
+}: {
+  modelNumber: string;
+  revision: string;
+  customer?: string | null;
+  programId?: string | null;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const { canWrite } = usePermissions();
+  const { data, isLoading, mutate } = useApi<NpiProject[]>(
+    `/npi/projects?model=${encodeURIComponent(modelNumber)}`,
+  );
+  const [busy, setBusy] = useState(false);
+
+  const projects = Array.isArray(data) ? data : [];
+  // Prefer a launch for this exact revision; otherwise the most recent one.
+  const launch =
+    projects.find((p) => p.revision === revision) ?? projects[0] ?? null;
+
+  async function createLaunch() {
+    setBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/npi/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modelNumber,
+          revision: revision || '1.0',
+          customer: customer || undefined,
+          programId: programId || undefined,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(d?.message || 'No se pudo crear el launch.', 'NPI');
+        return;
+      }
+      toast.success('Launch NPI listo.', 'NPI');
+      mutate();
+      if (d.id) router.push(`/dashboard/npi/${d.id}`);
+    } catch {
+      toast.error('Error de red.', 'NPI');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className={`${glass} rounded-2xl p-5 mb-6`}>
+      <div className="flex items-center gap-2 mb-4">
+        <Rocket className="w-4 h-4 text-gray-400" />
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
+          Launch / NPI
+        </h2>
+        <Link
+          href="/dashboard/npi"
+          className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:text-violet-700"
+        >
+          Ver Launch Center <ArrowRight className="w-3 h-3" />
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+        </div>
+      ) : launch ? (
+        <Link
+          href={`/dashboard/npi/${launch.id}`}
+          className="flex items-center gap-3 rounded-xl px-3 py-3 bg-black/[0.02] dark:bg-white/[0.03] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold">Launch activo</span>
+              <ProjectStatusPill status={launch.status} />
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              rev {launch.revision} · Fase{' '}
+              {PHASE_LABEL[launch.currentPhase] ?? launch.currentPhase}
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+        </Link>
+      ) : (
+        <div className="text-center py-6">
+          <Rocket className="w-7 h-7 mx-auto mb-2 text-gray-400" />
+          <p className="text-sm text-gray-400 mb-4">
+            Este modelo aún no tiene un launch NPI. Créalo para orquestar gates,
+            readiness y liberación a producción.
+          </p>
+          {canWrite && (
+            <button
+              onClick={createLaunch}
+              disabled={busy}
+              className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2.5 rounded-full disabled:opacity-60"
+            >
+              {busy ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}{' '}
+              Crear proyecto NPI
+            </button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

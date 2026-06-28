@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { setWorkbenchChrome } from '@/lib/operatorChrome';
 import { ASSET_CATEGORIES, assetMeta, type AssetArchetype } from './asset-catalog';
 import { parseDxf, type DxfModel } from './dxf';
 import { dxfPointToFootprint, dxfToWalls } from './dxf-walls';
@@ -752,6 +753,15 @@ export default function Layout3DEditor({
   useEffect(() => { osnapRef.current = osnap; }, [osnap]);
   useEffect(() => { toolRef.current = tool; }, [tool]);
   useEffect(() => { themeRef.current = theme; }, [theme]);
+
+  // Workbench full-screen: el CAD (`fixed inset-0`) se monta DENTRO de una ruta
+  // standard (pestaña CAD de line-engineering). Mientras está abierto se declara
+  // workbench para que el shell oculte el dock y los widgets flotantes (que si no
+  // quedan ENCIMA del lienzo). Se restablece al cerrarse/desmontarse.
+  useEffect(() => {
+    setWorkbenchChrome(open);
+    return () => setWorkbenchChrome(false);
+  }, [open]);
 
   // ---- sun position (azimuth/elevation) → directional light + shadows ----
   const applySun = useCallback(() => {
@@ -3087,7 +3097,6 @@ export default function Layout3DEditor({
   }, [open, data]);
 
   if (!open || typeof document === 'undefined') return null;
-
 
   const paletteResults = searchCadPalette(paletteQuery).slice(0, 9);
   const tray = (data?.stations ?? []).filter((s) => !placedIds.has(s.id));
