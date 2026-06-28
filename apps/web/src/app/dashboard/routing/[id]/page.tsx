@@ -251,7 +251,7 @@ function OperationCard({ routingId, op, materials, onChange }: { routingId: stri
 
   if (editing) {
     return (
-      <div className={`${glass} rounded-2xl p-4 ring-1 ring-violet-500/30`}>
+      <div className={`${glass} rounded-2xl p-4 ring-1 ring-primary/30`}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <label className="block col-span-2"><span className="block text-[11px] text-gray-500 mb-1">Nombre</span><input className={field} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
           <label className="block"><span className="block text-[11px] text-gray-500 mb-1">Secuencia</span><input className={field} type="number" value={f.sequence} onChange={(e) => setF({ ...f, sequence: e.target.value })} /></label>
@@ -275,7 +275,7 @@ function OperationCard({ routingId, op, materials, onChange }: { routingId: stri
         <button onClick={() => setOpen((s) => !s)} className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10">
           {open ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
         </button>
-        <span className="font-mono text-sm text-violet-500 font-semibold w-10">{op.sequence}</span>
+        <span className="font-mono text-sm text-primary font-semibold w-10">{op.sequence}</span>
         <div className="min-w-0 flex-1">
           <div className="font-semibold truncate">{op.name}</div>
           <div className="text-xs text-gray-400 flex items-center gap-3 flex-wrap">
@@ -284,7 +284,7 @@ function OperationCard({ routingId, op, materials, onChange }: { routingId: stri
             {op.materials.length > 0 && <span className="inline-flex items-center gap-1"><Package2 className="w-3 h-3" />{op.materials.length} mat.</span>}
           </div>
         </div>
-        <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-gray-400 hover:text-violet-500 hover:bg-violet-500/10"><Pencil className="w-4 h-4" /></button>
+        <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/10"><Pencil className="w-4 h-4" /></button>
         <button onClick={removeOp} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
       </div>
 

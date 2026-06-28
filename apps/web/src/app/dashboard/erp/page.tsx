@@ -97,8 +97,8 @@ const MODULES = [
     code: 'SD01–03',
     desc: 'Pedidos · Despacho · Facturación',
     icon: ShoppingCart,
-    color: 'text-violet-500',
-    tint: 'bg-violet-50 dark:bg-violet-500/10',
+    color: 'text-primary',
+    tint: 'bg-primary dark:bg-primary/10',
   },
 ];
 
@@ -153,7 +153,7 @@ export default function ErpHubPage() {
             <span className="font-mono">Ctrl+K</span>.
           </p>
           <form onSubmit={run} className={`${glass} rounded-3xl p-4 flex items-center gap-3`}>
-            <Terminal className="w-6 h-6 text-violet-500 flex-shrink-0" />
+            <Terminal className="w-6 h-6 text-primary flex-shrink-0" />
             <input
               value={cmd}
               onChange={(e) => setCmd(e.target.value)}
@@ -163,7 +163,7 @@ export default function ErpHubPage() {
             />
             <button
               type="submit"
-              className="flex items-center gap-1.5 bg-violet-500 text-white text-sm font-bold px-5 py-2.5 rounded-full hover:bg-violet-600 active:scale-95 transition-all"
+              className="flex items-center gap-1.5 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-full hover:bg-primary active:scale-95 transition-all"
             >
               Ir <ArrowRight className="w-4 h-4" />
             </button>

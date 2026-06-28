@@ -228,7 +228,7 @@ export default function PlanningPage() {
           subtitle="Muro de publicación · planeación publica, el almacén prepara el kit"
           right={
             <>
-              <Link href="/dashboard/operador" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-800 transition-colors">
+              <Link href="/dashboard/operador" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary transition-colors">
                 <Factory className="w-4 h-4" /> Piso (MES)
               </Link>
               <Link href="/dashboard/almacen" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors">
@@ -359,14 +359,14 @@ export default function PlanningPage() {
                           data-testid="plan-publish"
                           onClick={() => publish(plan)}
                           disabled={busy === plan.id}
-                          className="flex items-center justify-center gap-2 bg-violet-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-violet-700 active:scale-95 transition-all disabled:opacity-60"
+                          className="flex items-center justify-center gap-2 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-primary active:scale-95 transition-all disabled:opacity-60"
                         >
                           {busy === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                           Publicar
                         </button>
                         <button
                           onClick={() => loadPreview(plan.id)}
-                          className="flex items-center justify-center gap-2 text-violet-600 dark:text-violet-300 text-sm font-semibold px-4 py-2 rounded-full border border-violet-200 dark:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+                          className="flex items-center justify-center gap-2 text-primary dark:text-primary text-sm font-semibold px-4 py-2 rounded-full border border-primary dark:border-primary/30 hover:bg-primary dark:hover:bg-primary/10 transition-colors"
                         >
                           <Boxes className="w-4 h-4" />
                           {previews[plan.id] ? 'Ocultar' : 'Materiales'}
@@ -384,7 +384,7 @@ export default function PlanningPage() {
                         </button>
                         <button
                           onClick={() => loadPickList(plan.id)}
-                          className="flex items-center justify-center gap-2 text-violet-600 dark:text-violet-300 text-sm font-semibold px-4 py-2 rounded-full border border-violet-200 dark:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+                          className="flex items-center justify-center gap-2 text-primary dark:text-primary text-sm font-semibold px-4 py-2 rounded-full border border-primary dark:border-primary/30 hover:bg-primary dark:hover:bg-primary/10 transition-colors"
                         >
                           <Boxes className="w-4 h-4" />
                           {pick ? 'Ocultar' : 'Pick list'}
@@ -444,7 +444,7 @@ export default function PlanningPage() {
                         {previews[plan.id].hasBom ? (
                           <>
                             <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                              <Boxes className="w-4 h-4 text-violet-500" />
+                              <Boxes className="w-4 h-4 text-primary" />
                               Materiales del BOM · {previews[plan.id].lineCount} · requerimiento para {plan.quantity} u
                             </div>
                             <div className="space-y-1.5">

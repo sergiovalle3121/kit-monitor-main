@@ -41,7 +41,7 @@ export default function RhPage() {
       ]}
       tools={[
         { title: 'Plantilla', desc: 'Maestro de colaboradores y headcount', href: '/dashboard/rh/plantilla', icon: Users, color: 'text-pink-500', tint: 'bg-pink-50 dark:bg-pink-500/10' },
-        { title: 'Analítica de fuerza laboral', desc: 'Rotación, ausentismo y riesgo de staffing', href: '/dashboard/rh/analitica', icon: Activity, color: 'text-violet-500', tint: 'bg-violet-50 dark:bg-violet-500/10' },
+        { title: 'Analítica de fuerza laboral', desc: 'Rotación, ausentismo y riesgo de staffing', href: '/dashboard/rh/analitica', icon: Activity, color: 'text-primary', tint: 'bg-primary dark:bg-primary/10' },
         { title: 'Reclutamiento', desc: 'Vacantes, pipeline y time-to-fill', href: '/dashboard/rh/reclutamiento', icon: UserPlus, color: 'text-emerald-500', tint: 'bg-emerald-50 dark:bg-emerald-500/10' },
         { title: 'Desempeño y 9-box', desc: 'Evaluaciones, talento y sucesión', href: '/dashboard/rh/desempeno', icon: Target, color: 'text-blue-500', tint: 'bg-blue-50 dark:bg-blue-500/10' },
         { title: 'Skills y certificaciones', desc: 'Matriz de habilidades y recertificación', href: '/dashboard/skills', icon: GraduationCap, color: 'text-amber-500', tint: 'bg-amber-50 dark:bg-amber-500/10' },

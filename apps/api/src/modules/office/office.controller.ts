@@ -1,19 +1,34 @@
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
 import { OfficeService } from './office.service';
+import { OfficeSheetConnectorsService } from './office-sheet-connectors.service';
 import type { OfficeDocumentLifecycleState, OfficeDocType, OfficeShare } from './entities/office-document.entity';
 import type { OfficeCommentAnchorType } from './entities/office-comment.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../../common/types/jwt.types';
 import { CreateOfficeCommentDto, ListOfficeCommentsQueryDto, ReplyOfficeCommentDto, UpdateOfficeCommentDto } from './dto/office-comment.dto';
 
-interface AuthReq { user: AuthenticatedUser }
+interface AuthReq {
+  user: AuthenticatedUser;
+}
 
 @UseGuards(JwtAuthGuard)
 @Controller('office-documents')
 export class OfficeController {
-  constructor(private readonly service: OfficeService) {}
+  constructor(
+    private readonly service: OfficeService,
+    private readonly sheetConnectors: OfficeSheetConnectorsService,
+  ) {}
 
   @Get()
   list(
@@ -28,13 +43,26 @@ export class OfficeController {
     return this.service.list(type, req.user, trash === '1' || trash === 'true', { q, lifecycle, locked, owner });
   }
 
+  @Get('sheets/connectors/:type')
+  refreshSheetConnector(
+    @Request() req: AuthReq,
+    @Param('type') type: string,
+    @Query() query: Record<string, unknown>,
+  ) {
+    return this.sheetConnectors.refresh(type, query, req.user);
+  }
+
   @Get(':id')
   get(@Request() req: AuthReq, @Param('id') id: string) {
     return this.service.get(id, req.user);
   }
 
   @Post()
-  create(@Request() req: AuthReq, @Body() dto: { type: OfficeDocType; title?: string; content?: any; model?: string }) {
+  create(
+    @Request() req: AuthReq,
+    @Body()
+    dto: { type: OfficeDocType; title?: string; content?: any; model?: string },
+  ) {
     return this.service.create(dto, req.user);
   }
 
@@ -72,7 +100,13 @@ export class OfficeController {
   update(
     @Request() req: AuthReq,
     @Param('id') id: string,
-    @Body() dto: { title?: string; content?: any; model?: string | null; sharedWith?: OfficeShare[] },
+    @Body()
+    dto: {
+      title?: string;
+      content?: any;
+      model?: string | null;
+      sharedWith?: OfficeShare[];
+    },
   ) {
     return this.service.update(id, dto, req.user);
   }
@@ -148,12 +182,20 @@ export class OfficeController {
   }
 
   @Post(':id/versions')
-  snapshot(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { label?: string }) {
+  snapshot(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { label?: string },
+  ) {
     return this.service.snapshotNow(id, req.user, dto?.label);
   }
 
   @Post(':id/versions/:versionId/restore')
-  restoreVersion(@Request() req: AuthReq, @Param('id') id: string, @Param('versionId') versionId: string) {
+  restoreVersion(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+  ) {
     return this.service.restoreVersion(id, versionId, req.user);
   }
 
