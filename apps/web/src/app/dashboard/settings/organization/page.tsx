@@ -96,7 +96,7 @@ export default function OrganizationPage() {
 
         {/* Proyectos */}
         <Section
-          icon={<Briefcase className="w-5 h-5 text-violet-500" />}
+          icon={<Briefcase className="w-5 h-5 text-primary" />}
           title="Proyectos"
           items={programs.data ?? []}
           loading={programs.isLoading}

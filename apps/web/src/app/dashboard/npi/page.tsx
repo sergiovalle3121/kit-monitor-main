@@ -621,7 +621,7 @@ function LaunchCard({
       <div className="flex items-center gap-2 border-t border-black/5 dark:border-white/5 pt-2.5">
         <Link
           href={`/dashboard/npi/${p.id}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-300 hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-primary dark:text-primary hover:underline"
         >
           Abrir launch <ArrowRight className="w-3 h-3" />
         </Link>
@@ -666,7 +666,7 @@ function ReadinessLookup() {
   return (
     <div className={`${glass} rounded-2xl p-4 mb-6`}>
       <div className="flex items-center gap-2 mb-3">
-        <Gauge className="w-4 h-4 text-violet-500" />
+        <Gauge className="w-4 h-4 text-primary" />
         <h3 className="font-semibold text-sm">Consulta de readiness</h3>
         <span className="text-[11px] text-gray-400">
           Go / no-go en vivo para cualquier modelo+revisión

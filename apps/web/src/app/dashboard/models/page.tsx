@@ -261,7 +261,7 @@ export default function ModelsPage() {
                 <div className="flex items-center gap-3 border-t border-black/5 dark:border-white/5 pt-2.5">
                   <Link
                     href={`/dashboard/models/${m.id}`}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-300 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary dark:text-primary hover:underline"
                   >
                     Abrir modelo <ArrowRight className="w-3 h-3" />
                   </Link>

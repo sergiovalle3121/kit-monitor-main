@@ -143,7 +143,7 @@ export default function BomEditorPage() {
 
 function TabBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Network; label: string }) {
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-violet-500 text-foreground' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>
+    <button onClick={onClick} className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-primary text-foreground' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>
       <Icon className="w-4 h-4" /> {label}
     </button>
   );
@@ -257,7 +257,7 @@ function StructureTab({ node, materials, nodeByMaterial, onChange }: {
                       <span className="font-mono text-xs text-gray-500">{l.material?.partNumber ?? l.materialId}</span>
                       {isAssembly && (
                         subBomId
-                          ? <Link href={`/dashboard/bom/${subBomId}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-violet-500 hover:underline"><Factory className="w-3 h-3" /> sub-ensamble</Link>
+                          ? <Link href={`/dashboard/bom/${subBomId}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"><Factory className="w-3 h-3" /> sub-ensamble</Link>
                           : <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-500" title="Es ensamble pero aún no tiene BOM"><Factory className="w-3 h-3" /> sub (sin BOM)</span>
                       )}
                       {l.phantom && <span className="text-[10px] text-gray-400">phantom</span>}
@@ -269,7 +269,7 @@ function StructureTab({ node, materials, nodeByMaterial, onChange }: {
                   <span className="hidden md:block text-sm tabular-nums text-gray-500">{l.scrapPct ? `${l.scrapPct}%` : '—'}</span>
                   <span className="hidden md:block text-[11px] text-gray-400">{l.itemCategory}</span>
                   <div className="flex items-center gap-1 justify-end">
-                    <button onClick={() => setEditId(l.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-violet-500 hover:bg-violet-500/10"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setEditId(l.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/10"><Pencil className="w-3.5 h-3.5" /></button>
                     <button onClick={() => removeLine(l.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
@@ -298,7 +298,7 @@ function LineEditRow({ nodeId, line, onDone, onCancel }: { nodeId: string; line:
     } catch { toast.error('Error de red.', 'BOM'); } finally { setBusy(false); }
   }
   return (
-    <div className="grid grid-cols-2 md:grid-cols-[64px_1fr_80px_80px_120px] gap-2 px-4 py-3 items-center bg-violet-500/5">
+    <div className="grid grid-cols-2 md:grid-cols-[64px_1fr_80px_80px_120px] gap-2 px-4 py-3 items-center bg-primary/5">
       <input className={field} value={f.findNumber} onChange={(e) => setF({ ...f, findNumber: e.target.value })} />
       <input className={field} value={f.refDes} onChange={(e) => setF({ ...f, refDes: e.target.value })} placeholder="RefDes" />
       <input className={field} type="number" step="any" value={f.quantity} onChange={(e) => setF({ ...f, quantity: e.target.value })} />
@@ -386,7 +386,7 @@ function TreeRow({ node, path, expanded, toggle }: { node: ExplodedNode; path: s
             {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
           </button>
         ) : <span className="w-5 inline-block" />}
-        {node.isAssembly ? <Factory className="w-3.5 h-3.5 text-violet-500 shrink-0" /> : <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-white/20 shrink-0" />}
+        {node.isAssembly ? <Factory className="w-3.5 h-3.5 text-primary shrink-0" /> : <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-white/20 shrink-0" />}
         <span className="font-mono text-xs text-gray-500 shrink-0">{node.findNumber ?? ''}</span>
         <span className="font-mono text-xs text-gray-500 shrink-0">{node.partNumber}</span>
         <span className="truncate text-sm flex-1">{node.description}{node.cyclic && <span className="text-amber-500 text-xs ml-2">↻ ciclo</span>}</span>

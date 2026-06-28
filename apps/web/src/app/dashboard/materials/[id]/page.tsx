@@ -200,7 +200,7 @@ function TabBtn({ active, onClick, icon: Icon, label }: { active: boolean; onCli
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-violet-500 text-foreground' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+      className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-primary text-foreground' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
     >
       <Icon className="w-4 h-4" /> {label}
     </button>

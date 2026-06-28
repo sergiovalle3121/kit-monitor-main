@@ -246,7 +246,7 @@ function ContactsTab({ contacts, onAdd, onChanged }: { contacts: Contact[]; onAd
                 {c.buyingRole && <span className="px-2 py-0.5 rounded-full" style={{ background: `${VIOLET}14`, color: VIOLET }}>{ROLE_LABEL[c.buyingRole] || c.buyingRole}</span>}
               </div>
               <div className="mt-3 space-y-1 text-[12px] text-gray-500">
-                {c.email && <a href={`mailto:${c.email}`} className="flex items-center gap-2 hover:text-violet-500"><Mail className="w-3.5 h-3.5" />{c.email}</a>}
+                {c.email && <a href={`mailto:${c.email}`} className="flex items-center gap-2 hover:text-primary"><Mail className="w-3.5 h-3.5" />{c.email}</a>}
                 {(c.phone || c.mobile) && <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5" />{c.phone || c.mobile}</div>}
               </div>
             </div>

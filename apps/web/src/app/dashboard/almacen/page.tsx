@@ -142,7 +142,7 @@ export default function AlmacenPage() {
                 <Radio className={`w-3.5 h-3.5 ${pulse ? 'animate-ping' : ''}`} />
                 {socketStatus === 'connected' ? 'En vivo' : 'Conectando…'}
               </span>
-              <Link href="/dashboard/planning" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-violet-500 hover:text-violet-700 transition-colors">
+              <Link href="/dashboard/planning" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary transition-colors">
                 <LineChart className="w-4 h-4" /> Planeación
               </Link>
             </>
