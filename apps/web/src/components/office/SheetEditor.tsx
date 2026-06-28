@@ -38,9 +38,10 @@ import { SheetConsolidate, type ConsolidatePayload } from './SheetConsolidate';
 import { setTableRegistry, type TableDef } from './sheets/tableRefs';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, type SignatureState } from '@/lib/office/workbookPerformance';
 import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, connectorProtectionFor, createAxosConnectorInstance, suggestedChartsForConnector, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
-import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
+import { commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
 import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
 import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
@@ -48,6 +49,8 @@ import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivo
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
 // carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
 const SheetCharts = dynamic(
   () => import('./SheetCharts').then((m) => m.SheetCharts),
   { ssr: false },
@@ -101,7 +104,7 @@ function isCellProtected(sheet: any, r: number, c: number): boolean {
 installFormulaEngine();
 
 /** Excel-like spreadsheet (Fortune-sheet, MIT) — formulas, formats, charts, validation, conditional formatting. */
-export function SheetEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
+export function SheetEditor({ value, onChange, readOnly, fileActions, docId }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode; docId?: string }) {
   const toast = useToast();
   const initSheets = sheetsOf(value)?.length ? (sheetsOf(value) as any[]) : [DEFAULT_SHEET];
   const [liveData, setLiveData] = useState<any[]>(initSheets); // only swapped on a forced remount
@@ -118,6 +121,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [scenarios, setScenarios] = useState<Scenario[]>(scenariosRef.current);
   const tablesRef = useRef<StoredTable[]>(tablesOf(value));
   const commentsRef = useRef<SheetCommentThread[]>(commentsOf(value));
+  const [comments, setComments] = useState<SheetCommentThread[]>(commentsRef.current);
+  const commentsBackendAvailableRef = useRef(false);
   const connectorsRef = useRef<AxosConnectorInstance[]>(connectorsOf(value));
   const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
@@ -145,6 +150,69 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const emitSignatureRef = useRef<SignatureState>({});
+
+
+  function assignedFromText(text: string): string | undefined {
+    const m = text.match(/@([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
+    return m ? m[1].toLowerCase() : undefined;
+  }
+  function sheetCommentFromApi(c: any): SheetCommentThread {
+    const sheetIndex = typeof c.slideIndex === 'number' ? c.slideIndex : 0;
+    return {
+      id: String(c.id),
+      parentId: c.parentId || undefined,
+      sheetIndex,
+      anchorType: c.anchorType || (c.rangeRef && String(c.rangeRef).includes(':') ? 'range' : 'cell'),
+      range: String(c.rangeRef || 'A1'),
+      text: String(c.text || ''),
+      author: c.authorEmail || undefined,
+      assignedTo: c.assignedTo || undefined,
+      anchorLabel: c.anchorLabel || undefined,
+      createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+      resolved: !!c.resolved,
+      resolvedAt: c.resolvedAt ? new Date(c.resolvedAt).toISOString() : undefined,
+    } as SheetCommentThread;
+  }
+  function syncComments(next: SheetCommentThread[], shouldEmit = true) {
+    commentsRef.current = next;
+    setComments([...next]);
+    setTick((t) => t + 1);
+    if (shouldEmit) emit();
+  }
+  function anchorTypeForSelection(range = selectionRange()): SheetCommentThread['anchorType'] {
+    if (tablesRef.current.some((t) => t.sheetIndex === activeIndex() && t.range === range)) return 'table';
+    if (pivotsRef.current.some((p) => (p.config as any)?.sourceRange === range || (p.config as any)?.targetRange === range)) return 'pivot';
+    if (chartsRef.current.some((c: any) => c.sheetIndex === activeIndex() && c.range === range)) return 'chart';
+    return range.includes(':') ? 'range' : 'cell';
+  }
+  function addLocalReply(parentId: string, text: string, saved?: Partial<SheetCommentThread>) {
+    const parent = commentsRef.current.find((c) => c.id === parentId);
+    if (!parent) return;
+    const reply = createSheetCommentThread({ sheetIndex: parent.sheetIndex, range: parent.range, text, author: 'AXOS' }) as SheetCommentThread;
+    reply.id = `scr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    reply.parentId = parentId;
+    reply.anchorType = parent.anchorType;
+    reply.assignedTo = assignedFromText(text);
+    syncComments([...(commentsRef.current), { ...reply, ...saved }]);
+  }
+
+
+  useEffect(() => {
+    if (!docId) return;
+    let alive = true;
+    apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => {
+        if (!alive || !Array.isArray(rows)) return;
+        const sheetRows = rows.filter((c: any) => ['sheet', 'cell', 'range', 'table', 'pivot', 'chart'].includes(String(c.anchorType || '')));
+        if (!sheetRows.length) return;
+        commentsBackendAvailableRef.current = true;
+        syncComments(sheetRows.map(sheetCommentFromApi), false);
+      })
+      .catch(() => { commentsBackendAvailableRef.current = false; });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId]);
 
   // Atajos de teclado estilo Excel/Sheets. Ctrl/⌘+P imprimir y Ctrl/⌘+F buscar (los de
   // antes) + deshacer/rehacer y portapapeles CABLEADOS AL MOTOR de Fortune-Sheet.
@@ -433,51 +501,73 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
 
   function selectedCommentThreads(includeResolved = false) {
-    return commentsForSelection(commentsRef.current, activeIndex(), selectionRange(), includeResolved);
+    return commentsForSelection(commentsRef.current.filter((c) => !c.parentId), activeIndex(), selectionRange(), includeResolved);
   }
-  function addSheetComment() {
-    const text = window.prompt('Comentario para la celda/rango seleccionado:');
+  async function addSheetComment(textArg?: string) {
+    const text = textArg ?? window.prompt('Comentario para la celda/rango seleccionado:');
     if (!text?.trim()) return;
-    const comment = createSheetCommentThread({ sheetIndex: activeIndex(), range: selectionRange(), text, author: 'AXOS' });
-    commentsRef.current = [...commentsRef.current, comment];
-    emit();
-    toast.success(`Comentario agregado en ${comment.range}.`);
+    const range = selectionRange();
+    const anchorType = anchorTypeForSelection(range);
+    const local = createSheetCommentThread({ sheetIndex: activeIndex(), range, text, author: 'AXOS' }) as SheetCommentThread;
+    local.anchorType = anchorType;
+    local.assignedTo = assignedFromText(text);
+    local.anchorLabel = `${sheetNames()[local.sheetIndex] || 'Hoja'} · ${range}`;
+    syncComments([local, ...commentsRef.current]);
+    toast.success(`Comentario agregado en ${local.anchorLabel}.`);
+    if (!docId) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anchorType, slideIndex: local.sheetIndex, rangeRef: range, anchorLabel: local.anchorLabel, assignedTo: local.assignedTo, text }),
+      });
+      if (!r.ok) return;
+      commentsBackendAvailableRef.current = true;
+      const saved = sheetCommentFromApi(await r.json());
+      syncComments(commentsRef.current.map((x) => (x.id === local.id ? saved : x)));
+    } catch { /* local fallback stays in workbook payload */ }
   }
   function showSheetComments() {
-    const mine = commentsRef.current.filter((c) => c.sheetIndex === activeIndex() && !c.resolved);
+    const mine = commentsRef.current.filter((c) => !c.parentId && c.sheetIndex === activeIndex() && !c.resolved);
     if (!mine.length) { toast.info('No hay comentarios abiertos en esta hoja.'); return; }
     window.alert(mine.map((c, i) => `${i + 1}. ${formatSheetCommentSummary(c)}`).join('\n'));
   }
-  function replySelectionComment() {
-    const [first] = selectedCommentThreads();
+  async function replySelectionComment(parentIdArg?: string, textArg?: string) {
+    const [first] = parentIdArg ? commentsRef.current.filter((c) => c.id === parentIdArg) : selectedCommentThreads();
     if (!first) { toast.info(`No hay comentarios abiertos exactamente en ${selectionRange()}.`); return; }
-    const text = window.prompt('Respuesta al comentario seleccionado:');
+    const text = textArg ?? window.prompt('Respuesta al comentario seleccionado:');
     if (!text?.trim()) return;
-    commentsRef.current = addSheetCommentReply(commentsRef.current, first.id, text, 'AXOS');
-    emit();
-    toast.success(`Respuesta agregada en ${first.range}.`);
+    addLocalReply(first.id, text);
+    if (!docId) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentId: first.id, anchorType: first.anchorType || 'range', slideIndex: first.sheetIndex, rangeRef: first.range, anchorLabel: first.anchorLabel, assignedTo: assignedFromText(text), text }),
+      });
+      if (!r.ok) return;
+      commentsBackendAvailableRef.current = true;
+      const saved = sheetCommentFromApi(await r.json());
+      syncComments(commentsRef.current.map((x) => (x.parentId === first.id && x.text === text ? saved : x)));
+    } catch { /* keep local */ }
   }
-  function resolveSelectionComments() {
-    const threads = selectedCommentThreads();
-    if (!threads.length) { toast.info(`No hay comentarios abiertos exactamente en ${selectionRange()}.`); return; }
-    for (const thread of threads) commentsRef.current = resolveSheetComment(commentsRef.current, thread.id);
-    emit();
-    toast.success(`Comentarios resueltos en ${selectionRange()}.`);
+  function resolveSelectionComments(idArg?: string, resolved = true) {
+    const threads = idArg ? commentsRef.current.filter((c) => c.id === idArg) : selectedCommentThreads(true).filter((c) => resolved ? !c.resolved : c.resolved);
+    if (!threads.length) { toast.info(`No hay comentarios para actualizar en ${selectionRange()}.`); return; }
+    let next = commentsRef.current;
+    for (const thread of threads) next = resolved ? resolveSheetComment(next, thread.id) : reopenSheetComment(next, thread.id);
+    syncComments(next);
+    if (docId) threads.forEach((thread) => void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${thread.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resolved }),
+    }).catch(() => undefined));
   }
-  function reopenSelectionComments() {
-    const threads = selectedCommentThreads(true).filter((c) => c.resolved);
-    if (!threads.length) { toast.info(`No hay comentarios resueltos exactamente en ${selectionRange()}.`); return; }
-    for (const thread of threads) commentsRef.current = reopenSheetComment(commentsRef.current, thread.id);
-    emit();
-    toast.success(`Comentarios reabiertos en ${selectionRange()}.`);
-  }
-  function deleteSelectionComments() {
-    const threads = selectedCommentThreads(true);
+  function reopenSelectionComments() { resolveSelectionComments(undefined, false); }
+  function deleteSelectionComments(idArg?: string) {
+    const threads = idArg ? commentsRef.current.filter((c) => c.id === idArg) : selectedCommentThreads(true);
     if (!threads.length) { toast.info(`No hay comentarios exactamente en ${selectionRange()}.`); return; }
-    if (!window.confirm(`Eliminar ${threads.length} comentario(s) de ${selectionRange()}?`)) return;
-    for (const thread of threads) commentsRef.current = deleteSheetComment(commentsRef.current, thread.id);
-    emit();
-    toast.success(`Comentarios eliminados en ${selectionRange()}.`);
+    if (!idArg && !window.confirm(`Eliminar ${threads.length} comentario(s) de ${selectionRange()}?`)) return;
+    let next = commentsRef.current;
+    for (const thread of threads) next = deleteSheetComment(next, thread.id).filter((c) => c.parentId !== thread.id);
+    syncComments(next);
+    if (docId) threads.forEach((thread) => void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${thread.id}`, { method: 'DELETE' }).catch(() => undefined));
   }
   function protectSheet(lock: boolean) {
     const sheets = clone(sheetsRef.current);
@@ -1220,7 +1310,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           activeSheetIndex={activeIndex()}
           charts={chartsRef.current}
           pivots={pivotsRef.current}
-          comments={commentsRef.current}
+          comments={comments}
           connectors={connectorsRef.current}
           names={namesRef.current}
           readOnly={readOnly}
@@ -1233,6 +1323,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           onOpenGoalSeek={() => setShowGoalSeek(true)}
           onOpenSolver={() => setShowSolver(true)}
           onAddComment={addSheetComment}
+          onReplyComment={replySelectionComment}
+          onResolveComment={resolveSelectionComments}
+          onDeleteComment={deleteSelectionComments}
           onProtectSelection={protectSelectionRange}
           onProtectSheet={() => protectSheet(true)}
           onRefreshConnectors={refreshAxosConnectors}
@@ -1368,13 +1461,25 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 function SheetWorkbenchInspector({
   tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, readOnly,
   onOpenValidation, onOpenConditional, onOpenNames, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
-  onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector,
+  onAddComment, onReplyComment, onResolveComment, onDeleteComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector,
 }: any) {
+  const [commentFilter, setCommentFilter] = useState<'open' | 'assigned' | 'resolved' | 'all'>('open');
+  const [commentDraft, setCommentDraft] = useState('');
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
   const tabs = [
     ['workbook', 'Workbook'], ['cell', 'Cell'], ['data', 'Data'], ['charts', 'Charts'], ['pivot', 'Pivot'], ['comments', 'Comments'], ['protection', 'Protection'], ['xlsx', 'XLSX'], ['axos', 'AXOS'],
   ];
   const activeSheet = sheets[activeSheetIndex] ?? sheets[0] ?? {};
-  const openComments = comments.filter((c: any) => !c.resolved);
+  const commentRoots = comments.filter((c: any) => !c.parentId);
+  const openComments = commentRoots.filter((c: any) => !c.resolved);
+  const selectionComments = commentRoots.filter((c: any) => c.sheetIndex === activeSheetIndex && c.range === selection.range && !c.resolved);
+  const visibleComments = commentRoots.filter((c: any) => {
+    if (commentFilter === 'open') return !c.resolved;
+    if (commentFilter === 'assigned') return !!c.assignedTo && !c.resolved;
+    if (commentFilter === 'resolved') return !!c.resolved;
+    return true;
+  });
+  const repliesOf = (id: string) => comments.filter((c: any) => c.parentId === id);
   const protectedRanges = sheets.flatMap((s: any, i: number) => [
     ...(s?.axosProtection?.sheetLocked ? [{ sheet: s.name || `Hoja ${i + 1}`, range: 'Hoja completa', locked: true }] : []),
     ...(Array.isArray(s?.axosProtection?.ranges) ? s.axosProtection.ranges.map((r: any) => ({ ...r, sheet: s.name || `Hoja ${i + 1}` })) : []),
@@ -1417,8 +1522,15 @@ function SheetWorkbenchInspector({
           {pivots.map((p: any) => <div key={p.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{p.sheetName}</b><br />Rows {(p.config?.rows ?? []).join(', ') || '—'} · Values {(p.config?.values ?? []).length}</div>)}{!pivots.length && <Empty text="Sin definiciones de pivot guardadas." />}
         </Panel>}
         {tab === 'comments' && <Panel title="Comments">
-          <button disabled={readOnly} className={tool} onClick={onAddComment}>Agregar comentario a {selection.range}</button>
-          {openComments.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{sheets[c.sheetIndex]?.name || 'Hoja'}</b> · {c.range}<br />{c.text || c.messages?.[0]?.text || 'Comentario'}</div>)}{!openComments.length && <Empty text="No hay comentarios abiertos." />}
+          <div className="rounded-xl border border-black/10 bg-white p-2 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="mb-2 flex flex-wrap items-center gap-1">
+              {(['open', 'assigned', 'resolved', 'all'] as const).map((f) => <button key={f} onClick={() => setCommentFilter(f)} className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${commentFilter === f ? 'bg-blue-500 text-white' : 'bg-black/[0.04] dark:bg-white/[0.06]'}`}>{f === 'open' ? 'Abiertos' : f === 'assigned' ? 'Asignados' : f === 'resolved' ? 'Resueltos' : 'Todo'}</button>)}
+            </div>
+            <textarea disabled={readOnly} value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} rows={2} placeholder={`Comentario en ${selection.range} · usa @email para asignar`} className="w-full rounded-lg bg-black/[0.04] px-2 py-1 text-xs outline-none focus:ring-2 ring-blue-500/30 disabled:opacity-40 dark:bg-white/[0.06]" />
+            <button disabled={readOnly || !commentDraft.trim()} className="mt-2 w-full rounded-lg bg-gray-900 px-2 py-1.5 text-xs font-semibold text-white disabled:opacity-40 dark:bg-white dark:text-gray-900" onClick={() => { onAddComment(commentDraft); setCommentDraft(''); }}>Agregar a {selection.range}</button>
+            <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-gray-500"><span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-600">{selectionComments.length} en selección</span><span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-600">{openComments.length} abiertos</span></div>
+          </div>
+          {visibleComments.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><div className="flex items-start justify-between gap-2"><div><b>{sheets[c.sheetIndex]?.name || 'Hoja'}</b> · <span className="font-mono">{c.range}</span><br /><span className="text-[10px] uppercase tracking-wide text-gray-400">{c.anchorType || (String(c.range).includes(':') ? 'range' : 'cell')}{c.assignedTo ? ` · asignado ${c.assignedTo}` : ''}</span></div><span className={`rounded-full px-2 py-0.5 text-[10px] ${c.resolved ? 'bg-emerald-500/10 text-emerald-600' : 'bg-blue-500/10 text-blue-600'}`}>{c.resolved ? 'resuelto' : 'abierto'}</span></div><p className="mt-1 whitespace-pre-wrap text-xs">{c.text || 'Comentario'}</p>{repliesOf(c.id).map((r: any) => <div key={r.id} className="mt-1 rounded-lg border-l-2 border-black/10 bg-black/[0.02] px-2 py-1 text-[11px] dark:border-white/10 dark:bg-white/[0.03]">{r.text}</div>)}{!readOnly && !c.resolved && <div className="mt-2 flex gap-1"><input value={replyDraft[c.id] || ''} onChange={(e) => setReplyDraft((d) => ({ ...d, [c.id]: e.target.value }))} placeholder="Responder…" className="min-w-0 flex-1 rounded-lg bg-black/[0.04] px-2 py-1 text-xs outline-none dark:bg-white/[0.06]" /><button disabled={!(replyDraft[c.id] || '').trim()} onClick={() => { onReplyComment(c.id, replyDraft[c.id]); setReplyDraft((d) => ({ ...d, [c.id]: '' })); }} className="rounded-lg bg-blue-500 px-2 text-xs font-semibold text-white disabled:opacity-40">Enviar</button></div>} {!readOnly && <div className="mt-2 flex gap-1"><button onClick={() => onResolveComment(c.id, !c.resolved)} className="rounded-lg bg-black/[0.04] px-2 py-1 text-[10px] font-semibold dark:bg-white/[0.06]">{c.resolved ? 'Reabrir' : 'Resolver'}</button><button onClick={() => onDeleteComment(c.id)} className="rounded-lg bg-red-500/10 px-2 py-1 text-[10px] font-semibold text-red-500">Eliminar</button></div>}</div>)}{!visibleComments.length && <Empty text="No hay comentarios para este filtro." />}
         </Panel>}
         {tab === 'protection' && <Panel title="Protection">
           <button disabled={readOnly} className={tool} onClick={onProtectSelection}>Bloquear rango seleccionado</button>

@@ -2,15 +2,23 @@ export interface SheetCommentReply {
   id: string;
   text: string;
   author?: string;
+  assignedTo?: string;
+  anchorLabel?: string;
   createdAt: string;
 }
 
+export type SheetCommentAnchorType = 'sheet' | 'cell' | 'range' | 'table' | 'pivot' | 'chart';
+
 export interface SheetCommentThread {
   id: string;
+  parentId?: string;
   sheetIndex: number;
+  anchorType?: SheetCommentAnchorType;
   range: string;
   text: string;
   author?: string;
+  assignedTo?: string;
+  anchorLabel?: string;
   createdAt: string;
   resolved?: boolean;
   resolvedAt?: string;
