@@ -145,7 +145,7 @@ export function TCodePalette() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Escribe un T-Code (ej: MB52) o descripción (ej: ver stock)..."
-            className="flex-1 bg-transparent outline-none text-lg text-gray-900 dark:text-white placeholder-gray-400"
+            className="flex-1 bg-transparent outline-none text-lg text-foreground placeholder-gray-400"
           />
           <kbd className="hidden sm:inline-block px-2 py-1 text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 rounded">
             ESC para cerrar
@@ -206,7 +206,7 @@ export function TCodePalette() {
                 {item.code}
               </div>
               <div className="flex-1 text-left">
-                <div className="font-medium text-gray-900 dark:text-white">
+                <div className="font-medium text-foreground">
                   {item.description}
                 </div>
                 <div className="text-sm text-gray-500">{item.category}</div>

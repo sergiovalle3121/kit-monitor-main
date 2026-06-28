@@ -4535,7 +4535,7 @@ function ThreadMessageRow({
           </span>
           <span className="text-[10px] text-gray-400">{timeOf(m.createdAt)}</span>
         </div>
-        <div className="break-words text-sm leading-relaxed text-gray-800 dark:text-gray-100">
+        <div className="break-words text-sm leading-relaxed text-foreground">
           {m.deletedAt ? (
             <span className="italic text-gray-400">Mensaje eliminado</span>
           ) : gifUrl ? (

@@ -49,7 +49,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
   function addCol() { setSpec((s) => ({ ...s, series: [...s.series, { name: `Serie ${s.series.length + 1}`, data: s.labels.map(() => 0) }] })); }
   function removeCol() { setSpec((s) => (s.series.length <= 1 ? s : { ...s, series: s.series.slice(0, -1) })); }
 
-  const cell = 'w-full h-8 px-2 text-sm rounded-md bg-black/[0.03] dark:bg-white/[0.05] border border-transparent focus:border-blue-500/50 outline-none text-gray-800 dark:text-gray-100';
+  const cell = 'w-full h-8 px-2 text-sm rounded-md bg-black/[0.03] dark:bg-white/[0.05] border border-transparent focus:border-blue-500/50 outline-none text-foreground';
 
   const pieNote = useMemo(() => (spec.type === 'pie' || spec.type === 'doughnut' || spec.type === 'pareto' || spec.type === 'waterfall' || spec.type === 'gauge') && spec.series.length > 1, [spec.type, spec.series.length]);
 

@@ -67,7 +67,7 @@ export function DocStyleGallery({ editor }: { editor: Editor }) {
       key: 'h1', label: 'Encabezado 1',
       apply: () => (c() as any).setHeading({ level: 1 }).updateAttributes('heading', { styleName: '' }).run(),
       active: () => editor.isActive('heading', { level: 1 }) && !editor.getAttributes('heading').styleName,
-      preview: <span className="text-xl font-bold text-gray-900 dark:text-gray-100">Encabezado 1</span>,
+      preview: <span className="text-xl font-bold text-foreground">Encabezado 1</span>,
     },
     {
       key: 'h2', label: 'Encabezado 2',
