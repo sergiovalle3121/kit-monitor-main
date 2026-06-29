@@ -24,7 +24,8 @@ ok(report.findings.some((f) => f.code === 'open-comments'), 'detecta comentarios
 ok(report.findings.some((f) => f.code === 'stale-connectors'), 'detecta conectores stale');
 ok(formatWorkbookHealthReport(report).includes('Salud del workbook'), 'formatea reporte');
 
-eq(analyzeWorkbookHealth({ sheets: [] }).score, 100, 'sin hallazgos score 100');
+eq(analyzeWorkbookHealth({ sheets: [], approval: { status: 'approved', approvedBy: 'QA' } }).score, 100, 'aprobado sin hallazgos score 100');
+ok(analyzeWorkbookHealth({ sheets: [], approval: { status: 'rejected', notes: 'Falta soporte' } }).findings.some((f) => f.code === 'approval-rejected'), 'detecta rechazo de aprobación');
 
 const total = passed + fails.length;
 if (fails.length) { console.error(`❌ ${passed}/${total}`); for (const f of fails) console.error('  - ' + f); process.exit(1); }

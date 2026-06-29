@@ -2,6 +2,7 @@
 import { summarizeConnectorFreshness } from './axosConnectors';
 import { auditWorkbookFormulas } from './formulaAudit';
 import { buildFormulaDependencyGraph, buildFormulaRecalculationPlan } from './formulaDependencies';
+import { normalizeWorkbookApproval } from './workbookApproval';
 import { estimateWorkbookStats, workbookPerformanceLabel } from './workbookPerformance';
 
 export type WorkbookHealthSeverity = 'info' | 'warning' | 'critical';
@@ -30,7 +31,6 @@ export function analyzeWorkbookHealth(content: any, now = new Date()): WorkbookH
   const openComments = governance.openComments;
   if (openComments) findings.push({ severity: 'info', code: 'open-comments', message: `${openComments} comentario(s) abiertos antes de publicar.` });
 
-
   if (governance.assignedComments) findings.push({ severity: 'info', code: 'assigned-comments', message: `${governance.assignedComments} comentario(s) tienen responsable asignado.` });
   if (governance.pendingApprovals) findings.push({ severity: 'warning', code: 'pending-approvals', message: `${governance.pendingApprovals} aprobación(es) pendientes antes de liberar o exportar.` });
   if (governance.rejectedApprovals) findings.push({ severity: 'critical', code: 'rejected-approvals', message: `${governance.rejectedApprovals} aprobación(es) rechazadas requieren acción.` });
@@ -39,6 +39,10 @@ export function analyzeWorkbookHealth(content: any, now = new Date()): WorkbookH
   if (summary.protectedSheets || summary.protectedRanges) findings.push({ severity: 'info', code: 'protected-areas', message: `${summary.protectedSheets} hoja(s) y ${summary.protectedRanges} rango(s) protegidos.` });
   if (governance.exportWarnings) findings.push({ severity: 'warning', code: 'export-warnings', message: `${governance.exportWarnings} advertencia(s) de exportación requieren revisión.` });
   if (governance.sharingStatus !== 'private' || governance.sharedPrincipals) findings.push({ severity: 'info', code: 'sharing-status', message: `Compartición: ${governance.sharingStatus}${governance.sharedPrincipals ? ` · ${governance.sharedPrincipals} colaborador(es)` : ''}.` });
+  const approval = normalizeWorkbookApproval(content?.approval);
+  if (approval.status === 'draft') findings.push({ severity: 'info', code: 'approval-draft', message: 'Workbook en draft: envíalo a revisión antes de usarlo como evidencia controlada.' });
+  if (approval.status === 'in_review') findings.push({ severity: 'info', code: 'approval-in-review', message: `Workbook en revisión${approval.requestedBy ? ` solicitado por ${approval.requestedBy}` : ''}.` });
+  if (approval.status === 'rejected') findings.push({ severity: 'warning', code: 'approval-rejected', message: `Workbook rechazado${approval.notes ? `: ${approval.notes}` : '; revisa notas antes de publicar.'}` });
 
   const connectors = Array.isArray(content?.connectors) ? content.connectors : [];
   const freshness = summarizeConnectorFreshness(connectors, now);
@@ -61,7 +65,7 @@ export interface SheetRangeRef { r1: number; c1: number; r2: number; c2: number 
 export interface SheetSelectionStats { range: string; count: number; nums: number; sum: number; average: number; min: number | null; max: number | null; formulas: number; comments: number; protected: boolean; invalid: number }
 export interface SheetSummary { sheets: number; usedCells: number; formulas: number; charts: number; pivots: number; validations: number; comments: number; protectedRanges: number; protectedSheets: number; unprotectedFormulas: number; namedRanges: number; filters: number; connectors: number; failedQueries: number }
 export interface WorkbookGovernanceSummary { openComments: number; resolvedComments: number; assignedComments: number; pendingApprovals: number; rejectedApprovals: number; approvedApprovals: number; exportWarnings: number; sharingStatus: string; sharedPrincipals: number }
-export interface DerivedWorkbookHealth extends SheetSummary, WorkbookGovernanceSummary { unsupportedXlsxFeatures: number; importWarnings: number; staleAxosConnectors: number; score: number; findings: WorkbookHealthFinding[] }
+export interface DerivedWorkbookHealth extends SheetSummary, WorkbookGovernanceSummary { unsupportedXlsxFeatures: number; importWarnings: number; staleAxosConnectors: number; approvalStatus: ReturnType<typeof normalizeWorkbookApproval>['status']; score: number; findings: WorkbookHealthFinding[] }
 
 function sheetsOf(content: any): any[] { return Array.isArray(content) ? content : (Array.isArray(content?.sheets) ? content.sheets : []); }
 function colNameLocal(n: number): string { let s = ''; n += 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - m) / 26); } return s; }
@@ -138,5 +142,6 @@ export function deriveWorkbookHealth(content: any, now = new Date()): DerivedWor
   const governance = governanceOf(content);
   const connectors = Array.isArray(content?.connectors) ? content.connectors : [];
   const freshness = summarizeConnectorFreshness(connectors, now);
-  return { ...summary, ...governance, unsupportedXlsxFeatures: Array.isArray(content?.unsupportedXlsxFeatures) ? content.unsupportedXlsxFeatures.length : 0, importWarnings: Array.isArray(content?.importWarnings) ? content.importWarnings.length : 0, staleAxosConnectors: freshness.stale + freshness.invalid, score: report.score, findings: report.findings };
+  const approval = normalizeWorkbookApproval(content?.approval);
+  return { ...summary, ...governance, unsupportedXlsxFeatures: Array.isArray(content?.unsupportedXlsxFeatures) ? content.unsupportedXlsxFeatures.length : 0, importWarnings: Array.isArray(content?.importWarnings) ? content.importWarnings.length : 0, staleAxosConnectors: freshness.stale + freshness.invalid, approvalStatus: approval.status, score: report.score, findings: report.findings };
 }
