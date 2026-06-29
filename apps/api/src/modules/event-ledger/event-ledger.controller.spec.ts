@@ -43,12 +43,16 @@ describe('EventLedgerController', () => {
       domain: 'production',
       referenceType: 'work_order',
       referenceId: 'WO-123',
+      line: 'LINE-1',
+      program: 'EVT',
       page: '2',
     });
     expect(service.queryEvents).toHaveBeenCalledWith({
       domain: 'production',
       referenceType: 'work_order',
       referenceId: 'WO-123',
+      line: 'LINE-1',
+      program: 'EVT',
       page: '2',
     });
     expect(res.items).toEqual([{ id: 'e1' }]);
