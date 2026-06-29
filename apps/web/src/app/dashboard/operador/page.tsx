@@ -1376,12 +1376,22 @@ function AndonForm({
   const [stopPickerOpen, setStopPickerOpen] = useState(false);
   const [stopReason, setStopReason] = useState<DowntimeReasonCode | "">("");
   const [stopNote, setStopNote] = useState("");
+  const [stopArmedSignature, setStopArmedSignature] = useState<string | null>(
+    null,
+  );
   const toast = useToast();
+  const stopReasonLabel =
+    DOWNTIME_REASON_OPTIONS.find((reason) => reason.code === stopReason)
+      ?.label ?? null;
+  const stopConfirmationSignature = `${stopReason}:${stopNote.trim()}`;
+  const stopArmed =
+    stopReason !== "" && stopArmedSignature === stopConfirmationSignature;
   const stopSummary = buildOperatorConfirmationSummary({
     action: "line-stop",
     workOrder: board.execution.workOrder,
     stepName: board.currentStep?.name,
     operator,
+    downtimeReasonLabel: stopReasonLabel,
   });
 
   async function call(type: string, downtimeReason?: DowntimeReasonCode) {
@@ -1390,6 +1400,10 @@ function AndonForm({
         "Selecciona una razón de paro antes de detener la línea.",
         "Andon",
       );
+      return;
+    }
+    if (type === "stop" && !stopArmed) {
+      setStopArmedSignature(stopConfirmationSignature);
       return;
     }
     const reasonLabel =
@@ -1443,6 +1457,7 @@ function AndonForm({
 
   function selectAndon(type: string) {
     if (type === "stop") {
+      setStopArmedSignature(null);
       setStopPickerOpen(true);
       return;
     }
@@ -1473,7 +1488,7 @@ function AndonForm({
       {stopPickerOpen && (
         <div className="mt-5 rounded-3xl border border-rose-500/20 bg-rose-500/10 p-4">
           <div className="mb-3">
-            <ConfirmationReview summary={stopSummary} armed />
+            <ConfirmationReview summary={stopSummary} armed={stopArmed} />
           </div>
           <div className="mb-3">
             <div className="text-sm font-black text-rose-600">
@@ -1487,7 +1502,10 @@ function AndonForm({
             {DOWNTIME_REASON_OPTIONS.map((reason) => (
               <button
                 key={reason.code}
-                onClick={() => setStopReason(reason.code)}
+                onClick={() => {
+                  setStopReason(reason.code);
+                  setStopArmedSignature(null);
+                }}
                 className={`rounded-2xl px-3 py-3 text-left transition-all ${
                   stopReason === reason.code
                     ? "bg-rose-500 text-white"
@@ -1509,7 +1527,10 @@ function AndonForm({
           </div>
           <textarea
             value={stopNote}
-            onChange={(event) => setStopNote(event.target.value)}
+            onChange={(event) => {
+              setStopNote(event.target.value);
+              setStopArmedSignature(null);
+            }}
             placeholder="Nota opcional para supervisor / mantenimiento"
             rows={2}
             className="mt-3 w-full rounded-2xl bg-white/80 px-4 py-3 text-sm outline-none dark:bg-white/10"
@@ -1524,7 +1545,7 @@ function AndonForm({
             ) : (
               <ShieldAlert className="h-5 w-5" />
             )}
-            Detener línea
+            {stopArmed ? "Detener línea" : "Revisar paro de línea"}
           </button>
         </div>
       )}

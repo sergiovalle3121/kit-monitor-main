@@ -44,6 +44,7 @@ export function buildOperatorConfirmationSummary({
   quantity,
   scrap,
   operator,
+  downtimeReasonLabel,
 }: {
   action: OperatorCriticalAction;
   workOrder: string;
@@ -51,6 +52,7 @@ export function buildOperatorConfirmationSummary({
   quantity?: number;
   scrap?: number;
   operator?: string | null;
+  downtimeReasonLabel?: string | null;
 }): OperatorConfirmationSummary {
   if (action === "line-stop") {
     return {
@@ -62,6 +64,9 @@ export function buildOperatorConfirmationSummary({
         `WO ${workOrder}`,
         stepName ? `Estación ${stepName}` : "Estación actual",
         operator ? `Operador ${operator}` : "Operador no identificado",
+        downtimeReasonLabel
+          ? `Razón ${downtimeReasonLabel}`
+          : "Razón pendiente",
       ],
       tone: "rose",
     };

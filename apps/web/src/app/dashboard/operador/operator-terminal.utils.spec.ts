@@ -73,6 +73,7 @@ const stopSummary = buildOperatorConfirmationSummary({
   workOrder: "WO-88",
   stepName: null,
   operator: "Ana",
+  downtimeReasonLabel: "Falta material",
 });
 assert.equal(stopSummary.tone, "rose");
 assert.equal(stopSummary.primaryLabel, "Detener línea y levantar Andon");
@@ -81,6 +82,7 @@ assert.deepEqual(stopSummary.details, [
   "WO WO-88",
   "Estación actual",
   "Operador Ana",
+  "Razón Falta material",
 ]);
 
 console.log(
