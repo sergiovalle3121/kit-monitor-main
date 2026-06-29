@@ -8,6 +8,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Boxes,
+  CheckCircle2,
   ChevronLeft,
   Download,
   Inbox,
@@ -61,6 +62,24 @@ interface ShipmentLite {
   customerName: string | null;
   destination: string | null;
 }
+interface PackingReadiness {
+  totals: {
+    totalSerials: number;
+    readyForPacking: number;
+    available: number;
+    packed: number;
+    awaitingTest: number;
+    blocked: number;
+  };
+  availableSerials: string[];
+  units: Array<{
+    serialNumber: string;
+    workOrder: string | null;
+    model: string | null;
+    status: "AVAILABLE" | "PACKED" | "AWAITING_TEST" | "BLOCKED";
+    packedIn: { sscc: string | null; shipmentFolio: string | null } | null;
+  }>;
+}
 
 const TYPE_LABEL: Record<HandlingUnit["type"], string> = { PALLET: "Tarima", CARTON: "Caja", BOX: "Bulto" };
 const STATUS_META: Record<HandlingUnit["status"], { label: string; color: string }> = {
@@ -80,11 +99,15 @@ async function call(path: string, method: string, body?: unknown) {
 export default function PackingPage() {
   const { data, isLoading, forbidden, mutate } = useApi<HandlingUnit[]>("/packing/handling-units");
   const { data: shipmentsData } = useApi<ShipmentLite[]>("/outbound/shipments");
+  const [q, setQ] = useState("");
+  const [shipmentFilter, setShipmentFilter] = useState("");
+  const readinessPath = shipmentFilter
+    ? `/packing/readiness?shipmentId=${encodeURIComponent(shipmentFilter)}`
+    : "/packing/readiness";
+  const { data: readiness, isLoading: readinessLoading, mutate: mutateReadiness } = useApi<PackingReadiness>(readinessPath);
   const units = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const shipments = useMemo(() => (Array.isArray(shipmentsData) ? shipmentsData : []), [shipmentsData]);
 
-  const [q, setQ] = useState("");
-  const [shipmentFilter, setShipmentFilter] = useState("");
   const [form, setForm] = useState<HandlingUnit | "new" | null>(null);
   const [label, setLabel] = useState<{ hu: HandlingUnit; zpl: string } | null>(null);
 
@@ -96,6 +119,11 @@ export default function PackingPage() {
       return true;
     });
   }, [units, q, shipmentFilter]);
+
+  const refreshPacking = () => {
+    void mutate();
+    void mutateReadiness();
+  };
 
   if (forbidden) {
     return (
@@ -132,6 +160,8 @@ export default function PackingPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 pt-8 pb-28">
+        <ReadinessPanel readiness={readiness} isLoading={readinessLoading} onRefresh={refreshPacking} />
+
         <div className="flex flex-wrap items-center gap-2 mb-5">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar SSCC, folio, parte…" className="pk-input flex-1 min-w-[200px]" />
           <select value={shipmentFilter} onChange={(e) => setShipmentFilter(e.target.value)} className="pk-input w-auto">
@@ -159,7 +189,7 @@ export default function PackingPage() {
         ) : (
           <div className="space-y-2.5">
             {rows.map((h) => (
-              <HuRow key={h.id} hu={h} onEdit={() => setForm(h)} onLabel={() => openLabel(h, setLabel)} onChanged={mutate} />
+              <HuRow key={h.id} hu={h} onEdit={() => setForm(h)} onLabel={() => openLabel(h, setLabel)} onChanged={refreshPacking} />
             ))}
           </div>
         )}
@@ -169,8 +199,9 @@ export default function PackingPage() {
         <HuFormModal
           initial={form === "new" ? null : form}
           shipments={shipments}
+          readiness={readiness}
           onClose={() => setForm(null)}
-          onSaved={mutate}
+          onSaved={refreshPacking}
         />
       )}
       {label && <LabelModal hu={label.hu} zpl={label.zpl} onClose={() => setLabel(null)} />}
@@ -194,11 +225,85 @@ async function openLabel(hu: HandlingUnit, setLabel: (v: { hu: HandlingUnit; zpl
   }
 }
 
+function ReadinessPanel({
+  readiness,
+  isLoading,
+  onRefresh,
+}: {
+  readiness?: PackingReadiness;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
+  const totals = readiness?.totals;
+  const sample = readiness?.availableSerials.slice(0, 8) ?? [];
+
+  return (
+    <section className={`${glass} rounded-2xl p-4 mb-5`}>
+      <div className="flex items-start gap-3">
+        <span className="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0" style={{ background: `${GREEN}1f` }}>
+          <CheckCircle2 className="w-5 h-5" style={{ color: GREEN }} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Readiness de empaque por serial PASS</h2>
+              <p className="text-[12px] text-gray-400">
+                Fuente: test-flow. Solo los seriales en READY_FOR_PACKAGING pueden empacarse como evidencia serializada.
+              </p>
+            </div>
+            <button onClick={onRefresh} title="Actualizar readiness" className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-4">
+            <ReadinessKpi label="Disponibles" value={totals?.available ?? 0} color={GREEN} />
+            <ReadinessKpi label="Ya empacadas" value={totals?.packed ?? 0} color={ACCENT} />
+            <ReadinessKpi label="Pend. prueba" value={totals?.awaitingTest ?? 0} color={AMBER} />
+            <ReadinessKpi label="Bloqueadas" value={totals?.blocked ?? 0} color="#ef4444" />
+            <ReadinessKpi label="Seriales" value={totals?.totalSerials ?? 0} color={GRAY} />
+          </div>
+
+          {sample.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {sample.map((serial) => (
+                <span key={serial} className="font-mono text-[11px] px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+                  {serial}
+                </span>
+              ))}
+              {(readiness?.availableSerials.length ?? 0) > sample.length && (
+                <span className="text-[11px] px-2 py-1 rounded-lg bg-black/5 dark:bg-white/10 text-gray-400">
+                  +{(readiness?.availableSerials.length ?? 0) - sample.length}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="mt-3 text-[12px] text-gray-400">
+              Sin seriales liberados para empaque. Captura PASS en pruebas o revisa unidades en disposicion.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReadinessKpi({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="rounded-xl border border-black/5 dark:border-white/10 px-3 py-2">
+      <div className="text-lg font-semibold leading-tight" style={{ color }}>{value.toLocaleString()}</div>
+      <div className="text-[11px] text-gray-400 truncate">{label}</div>
+    </div>
+  );
+}
+
 function HuRow({ hu, onEdit, onLabel, onChanged }: { hu: HandlingUnit; onEdit: () => void; onLabel: () => void; onChanged: () => void }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState<string | null>(null);
-  const summary = (hu.contents ?? []).map((c) => `${c.partNumber}×${c.quantity}`).join(" · ");
+  const summary = (hu.contents ?? [])
+    .map((c) => `${c.partNumber}x${c.quantity}${c.serials?.length ? ` / ${c.serials.length} seriales` : ""}`)
+    .join(" · ");
 
   async function regen() {
     setBusy("regen");
@@ -254,7 +359,19 @@ function HuRow({ hu, onEdit, onLabel, onChanged }: { hu: HandlingUnit; onEdit: (
   );
 }
 
-function HuFormModal({ initial, shipments, onClose, onSaved }: { initial: HandlingUnit | null; shipments: ShipmentLite[]; onClose: () => void; onSaved: () => void }) {
+function HuFormModal({
+  initial,
+  shipments,
+  readiness,
+  onClose,
+  onSaved,
+}: {
+  initial: HandlingUnit | null;
+  shipments: ShipmentLite[];
+  readiness?: PackingReadiness;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const toast = useToast();
   const editing = !!initial;
   const [busy, setBusy] = useState(false);
@@ -276,8 +393,27 @@ function HuFormModal({ initial, shipments, onClose, onSaved }: { initial: Handli
     }
   }
 
+  function parseSerials(value: string) {
+    return value
+      .split(/[\s,;]+/)
+      .map((serial) => serial.trim())
+      .filter(Boolean);
+  }
+
   async function submit() {
-    const contents = lines.map((l) => ({ partNumber: l.partNumber.trim(), quantity: Number(l.quantity) || 0 })).filter((l) => l.partNumber && l.quantity > 0);
+    const contents = lines
+      .map((l) => {
+        const serials = (l.serials ?? [])
+          .map((serial) => serial.trim())
+          .filter(Boolean);
+        const quantity = Number(l.quantity) || serials.length;
+        return {
+          partNumber: l.partNumber.trim(),
+          quantity,
+          ...(serials.length ? { serials } : {}),
+        };
+      })
+      .filter((l) => l.partNumber && l.quantity > 0);
     const s = shipments.find((x) => x.id === shipmentId);
     const body = {
       shipmentId: shipmentId || undefined,
@@ -342,12 +478,24 @@ function HuFormModal({ initial, shipments, onClose, onSaved }: { initial: Handli
             <span className="text-[12px] font-medium text-gray-500">Contenido</span>
             <button onClick={() => setLines([...lines, { partNumber: "", quantity: 0 }])} className="text-[12px] inline-flex items-center gap-1" style={{ color: ACCENT }}><Plus className="w-3.5 h-3.5" /> Línea</button>
           </div>
+          {readiness?.availableSerials.length ? (
+            <div className="mb-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-700 dark:text-emerald-300">
+              {readiness.availableSerials.length.toLocaleString()} seriales PASS disponibles. Puedes pegar seriales separados por coma, espacio o salto de linea.
+            </div>
+          ) : null}
           <div className="space-y-2">
             {lines.map((l, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="grid grid-cols-[minmax(0,1fr)_6rem_auto] gap-2 rounded-xl border border-black/5 dark:border-white/10 p-2">
                 <input value={l.partNumber} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, partNumber: e.target.value } : x))} placeholder="Número de parte" className="pk-input flex-1" />
                 <input type="number" min={0} value={l.quantity || ""} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, quantity: Number(e.target.value) } : x))} placeholder="Cant." className="pk-input w-24" />
                 <button onClick={() => setLines(lines.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500"><X className="w-4 h-4" /></button>
+                <textarea
+                  value={(l.serials ?? []).join("\n")}
+                  onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, serials: parseSerials(e.target.value) } : x))}
+                  placeholder="Seriales PASS opcionales"
+                  rows={2}
+                  className="pk-input col-span-3 resize-none font-mono text-[12px]"
+                />
               </div>
             ))}
           </div>
