@@ -28,6 +28,7 @@ const specs = [
   'src/lib/office/pivotGovernance.spec.ts',
   'src/components/office/sheets/templateCharts.spec.ts',
   'src/components/office/sheets/templatePivots.spec.ts',
+  'src/components/office/sheets/templateMrpControlRoom.spec.ts',
   'src/components/office/sheets/pivot.spec.ts',
   'src/components/office/sheets/slicer.spec.ts',
   'src/components/office/sheets/scenarios.spec.ts',

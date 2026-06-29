@@ -5,7 +5,7 @@ import { TEMPLATES } from '@/lib/office/templates';
 let passed = 0; const fails: string[] = [];
 const ok = (c: boolean, m: string) => { if (c) passed++; else fails.push(m); };
 
-const expected = ['bom-costing', 'oee-calculator', 'inventory-abc', 'supplier-scorecard'];
+const expected = ['bom-costing', 'oee-calculator', 'inventory-abc', 'supplier-scorecard', 'mrp-shortages-control-room'];
 (async () => {
   for (const id of expected) {
     const t = TEMPLATES.sheet.find((x) => x.id === id)!;
