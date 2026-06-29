@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Upload, Loader2, CheckCircle2, AlertTriangle, FileUp, Database, Plug,
-  ArrowRight, ArrowLeft, Package, Network, Workflow, X, Check,
+  ArrowRight, ArrowLeft, Box, Package, Network, Workflow, X, Check,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { glass } from '@/lib/glass';
@@ -13,7 +13,7 @@ import { useToast } from '@/contexts/ToastContext';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
-type Target = 'MATERIAL' | 'BOM' | 'ROUTING';
+type Target = 'MODEL' | 'MATERIAL' | 'BOM' | 'ROUTING';
 type Source = 'CSV' | 'EXCEL' | 'SQL_STAGING' | 'IDOC_API';
 type Step = 'setup' | 'map' | 'preview' | 'done';
 
@@ -23,6 +23,7 @@ interface Preview { target: Target; fields: FieldSpec[]; summary: { total: numbe
 interface Report { target: Target; source: string; summary: { total: number; valid: number; errors: number }; result: { created: number; updated: number; skipped: number; rowErrors: { rowIndex: number; message: string }[] }; }
 
 const TARGET_META: Record<Target, { label: string; icon: typeof Package; desc: string }> = {
+  MODEL: { label: 'Modelos de Producto', icon: Box, desc: 'Modelo canónico (pm_product_models)' },
   MATERIAL: { label: 'Maestro de Materiales', icon: Package, desc: 'Partes / SKU (mm_material)' },
   BOM: { label: 'BOM Multinivel', icon: Network, desc: 'Padre · componente · cantidad' },
   ROUTING: { label: 'Ruteo', icon: Workflow, desc: 'Ensamble · operación · tiempos' },
@@ -154,7 +155,7 @@ export default function ImportPage() {
     <div className="min-h-screen text-foreground font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-10">
         <PageHeader domain="erp" title="Importar Datos · Migración" icon={Upload}
-          subtitle="Trae Material Master, BOM y Routing desde CSV/Excel, staging SQL o un feed IDoc/API. Subir → mapear → previsualizar → confirmar." />
+          subtitle="Trae Product Models, Material Master, BOM y Routing desde CSV/Excel, staging SQL o un feed IDoc/API. Subir → mapear → previsualizar → confirmar." />
 
         <Stepper step={step} />
 
@@ -249,7 +250,7 @@ function SetupStep({ target, setTarget, source, setSource, busy, fileRef, onFile
     <div className="space-y-5">
       <div className={`${glass} rounded-2xl p-5`}>
         <h3 className="font-semibold mb-3">¿Qué quieres importar?</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {(Object.keys(TARGET_META) as Target[]).map((t) => {
             const m = TARGET_META[t]; const Icon = m.icon; const active = target === t;
             return (

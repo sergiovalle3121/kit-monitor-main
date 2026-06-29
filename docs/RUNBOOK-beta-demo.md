@@ -17,6 +17,10 @@
 
 ## Guion (10 pasos)
 
+> **Carga masiva opcional:** `/dashboard/import` puede sembrar el mismo carril
+> con CSV/Excel o staging SQL para **Product Models**, Material Master, BOM y
+> Routing. El flujo siempre valida, previsualiza y confirma antes de escribir.
+
 ### 1. Producto / Modelo — `/dashboard/models`
 - Click **"Nuevo modelo"** → nombre (p. ej. `Demo Board A`), opcional número/cliente → crear.
 - Abre el modelo y **actívalo** (DRAFT → ACTIVE).

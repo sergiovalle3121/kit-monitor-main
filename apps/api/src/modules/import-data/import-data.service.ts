@@ -3,6 +3,7 @@ import { MaterialMasterService } from '../material-master/material-master.servic
 import { MmMaterial } from '../material-master/entities/mm-material.entity';
 import { BomTreeService } from '../bom-tree/bom-tree.service';
 import { RoutingService } from '../routing/routing.service';
+import { ProductModelsService } from '../product-models/product-models.service';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
@@ -50,6 +51,7 @@ export class ImportDataService {
     private readonly materials: MaterialMasterService,
     private readonly bom: BomTreeService,
     private readonly routing: RoutingService,
+    private readonly productModels: ProductModelsService,
     private readonly tenantCtx: TenantContextService,
     @Inject(EXTERNAL_FEED_ADAPTER) private readonly feed: ExternalFeedAdapter,
     @Optional() private readonly ledger?: EventLedgerService,
@@ -99,7 +101,9 @@ export class ImportDataService {
     const valid = validated.filter((v) => v.valid);
 
     let result: ImportReport['result'];
-    if (dto.target === 'MATERIAL') {
+    if (dto.target === 'MODEL') {
+      result = await this.commitModels(valid, rowErrors);
+    } else if (dto.target === 'MATERIAL') {
       result = await this.commitMaterials(valid, rowErrors);
     } else if (dto.target === 'BOM') {
       result = await this.commitBom(valid, !!dto.createMissingMaterials, rowErrors);
@@ -109,6 +113,44 @@ export class ImportDataService {
 
     await this.recordLedger(dto.target, dto.source, summary, result);
     return { target: dto.target, source: dto.source, summary, result };
+  }
+
+  // ── Product Models ─────────────────────────────────────────────────────────
+  private async commitModels(
+    rows: ValidatedRow[],
+    rowErrors: Array<{ rowIndex: number; message: string }>,
+  ): Promise<ImportReport['result']> {
+    let created = 0;
+    let updated = 0;
+    for (const v of rows) {
+      const d = v.data;
+      try {
+        const existing = await this.productModels.findByNumber(d.modelNumber);
+        if (existing) {
+          await this.productModels.update(existing.id, {
+            name: d.name,
+            customer: d.customer,
+            revision: d.revision,
+            description: d.description,
+            programId: d.programId,
+          });
+          updated++;
+        } else {
+          await this.productModels.create({
+            modelNumber: d.modelNumber,
+            name: d.name,
+            customer: d.customer,
+            revision: d.revision,
+            description: d.description,
+            programId: d.programId,
+          });
+          created++;
+        }
+      } catch (err) {
+        rowErrors.push({ rowIndex: v.rowIndex, message: (err as Error).message });
+      }
+    }
+    return { created, updated, skipped: 0, rowErrors };
   }
 
   // ── Material ────────────────────────────────────────────────────────────────
