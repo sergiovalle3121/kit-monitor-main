@@ -1,4 +1,8 @@
 # Bulk sweep screenshots are large and fully regenerable — keep them out of git.
 screenshots/
 .cache/
-# Keep visual-findings.json and curated before/after evidence under report/.
+# visual-findings.json is a regenerable run artifact (rewritten on every sweep) —
+# the human-readable summary lives in docs/UX-POLISH-REPORT.md. Keep it untracked
+# so re-running the sweep never dirties the tree. Curated before/after evidence
+# lives under report/ and report2/ (committed).
+visual-findings.json
