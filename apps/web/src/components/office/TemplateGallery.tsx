@@ -1,13 +1,29 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Loader2, FileText, Table, Presentation, FilePlus2 } from 'lucide-react';
 import { TEMPLATES, TEMPLATE_CATEGORIES, type DocType, type TemplateDef } from '@/lib/office/templates';
+import { summarizeSheetTemplateBuild, type SheetTemplateReadinessLevel, type SheetTemplateReadinessSummary } from '@/lib/office/templateReadiness';
 
 const ICON: Record<DocType, typeof FileText> = { doc: FileText, sheet: Table, slides: Presentation };
 const FALLBACK_ACCENT: Record<DocType, string> = { doc: '#2563eb', sheet: '#10b981', slides: '#f59e0b' };
+
+function readinessTone(level: SheetTemplateReadinessLevel): string {
+  if (level === 'governed') return 'border-emerald-500/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200';
+  if (level === 'connected') return 'border-sky-500/30 bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-200';
+  if (level === 'analysis') return 'border-indigo-500/30 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200';
+  if (level === 'starter') return 'border-amber-500/30 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200';
+  return 'border-slate-300 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300';
+}
+
+function readinessTitle(description: string, readiness?: SheetTemplateReadinessSummary | null): string {
+  if (!readiness) return description;
+  const badges = readiness.badges.length ? ` · ${readiness.badges.join(', ')}` : '';
+  const warnings = readiness.warnings.length ? ` · Review ${readiness.warnings.length}` : '';
+  return `${description} · ${readiness.label} ${readiness.score}/100${badges}${warnings}`;
+}
 
 export function TemplateGallery({
   type, onPick, onClose,
@@ -19,6 +35,10 @@ export function TemplateGallery({
   const [busy, setBusy] = useState<string | null>(null);
   const list = TEMPLATES[type];
   const Icon = ICON[type];
+  const readinessById = useMemo(() => {
+    if (type !== 'sheet') return new Map<string, SheetTemplateReadinessSummary>();
+    return new Map(list.map((template) => [template.id, summarizeSheetTemplateBuild(template)]));
+  }, [list, type]);
 
   async function pick(t: TemplateDef) {
     if (busy) return;
@@ -42,12 +62,13 @@ export function TemplateGallery({
   const card = (t: TemplateDef) => {
     const accent = t.accent || FALLBACK_ACCENT[type];
     const isBlank = t.id === 'blank';
+    const readiness = type === 'sheet' ? readinessById.get(t.id) : null;
     return (
       <button
         key={t.id}
         onClick={() => pick(t)}
         disabled={!!busy}
-        title={t.description}
+        title={readinessTitle(t.description, readiness)}
         className="group text-left rounded-2xl border border-black/5 dark:border-white/10 hover:border-black/20 dark:hover:border-white/30 p-3 transition-all hover:shadow-md disabled:opacity-60"
       >
         <div
@@ -63,6 +84,23 @@ export function TemplateGallery({
         </div>
         <p className="font-semibold text-sm truncate">{t.title}</p>
         <p className="text-[11px] text-gray-400 line-clamp-2">{t.description}</p>
+        {readiness && !isBlank && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${readinessTone(readiness.level)}`}>
+              {readiness.label} {readiness.score}
+            </span>
+            {readiness.badges.slice(0, 2).map((badge) => (
+              <span key={badge} className="inline-flex rounded-full border border-black/10 bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300">
+                {badge}
+              </span>
+            ))}
+            {readiness.warnings.length > 0 && (
+              <span className="inline-flex rounded-full border border-amber-500/30 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+                Review {readiness.warnings.length}
+              </span>
+            )}
+          </div>
+        )}
       </button>
     );
   };
