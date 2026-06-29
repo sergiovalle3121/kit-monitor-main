@@ -2101,9 +2101,10 @@ export default function Layout3DEditor({
     }
     const flowRefs = generated.connectors.flatMap((connector, idx) => idx === 0 ? [connector.fromRef, connector.toRef] : [connector.toRef]);
     const flowNodes = [...new Set(flowRefs)]
-      .map((ref) => {
+      .map((ref): CadFlowNode | null => {
         const id = idByRef.get(ref);
-        const item = id ? assetsRef.current.get(id) : null;
+        if (!id) return null;
+        const item = assetsRef.current.get(id);
         return item ? { id, label: item.label ?? item.id, x: item.x + item.w / 2, y: item.y + item.h / 2 } : null;
       })
       .filter((node): node is CadFlowNode => !!node);
