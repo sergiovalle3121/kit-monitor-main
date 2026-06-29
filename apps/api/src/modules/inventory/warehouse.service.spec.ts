@@ -14,7 +14,7 @@ import { DEFAULT_PULL_SLA_MINUTES } from './pull.util';
 describe('WarehouseService', () => {
   let service: WarehouseService;
   let taskRepo: { count: jest.Mock; create: jest.Mock; save: jest.Mock; findOne: jest.Mock };
-  let inventory: { recordTransaction: jest.Mock };
+  let inventory: { recordTransaction: jest.Mock; findAllPositions: jest.Mock };
   let audit: { recordAction: jest.Mock };
 
   const user = { email: 'mat@axos.test' } as never;
@@ -27,7 +27,10 @@ describe('WarehouseService', () => {
       save: jest.fn(async (x) => ({ id: 1, ...x })),
       findOne: jest.fn(),
     };
-    inventory = { recordTransaction: jest.fn().mockResolvedValue({}) };
+    inventory = {
+      recordTransaction: jest.fn().mockResolvedValue({}),
+      findAllPositions: jest.fn().mockResolvedValue([]),
+    };
     audit = { recordAction: jest.fn().mockResolvedValue(undefined) };
     service = new WarehouseService(
       taskRepo as never,
@@ -50,6 +53,127 @@ describe('WarehouseService', () => {
       expect(audit.recordAction).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'WAREHOUSE_TASK_CREATED' }),
       );
+    });
+  });
+
+  describe('getLocationVisibility', () => {
+    it('agrupa posiciones por locacion y cruza pulls abiertos hacia/desde esa locacion', async () => {
+      inventory.findAllPositions.mockResolvedValue([
+        {
+          warehouseId: 'WH-RM',
+          warehouse: { id: 'WH-RM', name: 'Raw Material', code: 'RM' },
+          location: 'A-01',
+          partNumber: 'P1',
+          programId: 'AX-100',
+          lotNumber: 'L1',
+          onHand: 10,
+          allocated: 2,
+          inTransit: 1,
+          holdStatus: 'available',
+        },
+        {
+          warehouseId: 'WH-RM',
+          warehouse: { id: 'WH-RM', name: 'Raw Material', code: 'RM' },
+          location: 'A-01',
+          partNumber: 'P2',
+          programId: 'AX-100',
+          lotNumber: 'L2',
+          onHand: 5,
+          allocated: 0,
+          inTransit: 0,
+          holdStatus: 'quarantine',
+        },
+      ]);
+      jest.spyOn(service, 'findAllTasks').mockResolvedValue([
+        {
+          status: WarehouseTaskStatus.PENDING,
+          partNumber: 'P1',
+          quantity: 3,
+          fromWarehouseId: 'WH-RM',
+          fromLocation: 'A-01',
+          toWarehouseId: 'WH-RM',
+          toLocation: 'LINE-01',
+          project: 'AX-100',
+        },
+        {
+          status: WarehouseTaskStatus.IN_PROGRESS,
+          partNumber: 'P3',
+          quantity: 4,
+          fromWarehouseId: 'LINE',
+          fromLocation: 'LINE-01',
+          toWarehouseId: 'WH-RM',
+          toLocation: 'A-01',
+          project: 'AX-100',
+        },
+        {
+          status: WarehouseTaskStatus.COMPLETED,
+          partNumber: 'P4',
+          quantity: 99,
+          fromWarehouseId: 'WH-RM',
+          fromLocation: 'A-01',
+        },
+      ] as never);
+
+      const rows = await service.getLocationVisibility({}, user);
+      const loc = rows.find((r) => r.warehouseId === 'WH-RM' && r.location === 'A-01');
+
+      expect(loc).toEqual(
+        expect.objectContaining({
+          warehouseName: 'Raw Material',
+          warehouseCode: 'RM',
+          partCount: 3,
+          lotCount: 2,
+          onHand: 15,
+          allocated: 2,
+          available: 13,
+          inTransit: 1,
+          holdQty: 5,
+          quarantineQty: 5,
+          qualityBlockQty: 5,
+          openOutboundPulls: 1,
+          openInboundPulls: 1,
+          outboundQty: 3,
+          inboundQty: 4,
+          signal: 'blocked',
+        }),
+      );
+      expect(loc?.programIds).toEqual(['AX-100']);
+      expect(loc?.statuses).toEqual(
+        expect.arrayContaining([
+          { status: 'available', positions: 1, onHand: 10 },
+          { status: 'quarantine', positions: 1, onHand: 5 },
+        ]),
+      );
+      expect(loc?.topParts.map((p) => p.partNumber)).toEqual(['P1', 'P2']);
+    });
+
+    it('mantiene pulls de entrada cuando se filtra por almacen', async () => {
+      inventory.findAllPositions.mockResolvedValue([]);
+      const findAllTasks = jest.spyOn(service, 'findAllTasks').mockResolvedValue([
+        {
+          status: WarehouseTaskStatus.PENDING,
+          partNumber: 'P9',
+          quantity: 6,
+          fromWarehouseId: 'WH-SUPER',
+          fromLocation: 'LINE-01',
+          toWarehouseId: 'WH-RM',
+          toLocation: 'A-02',
+          project: 'AX-100',
+        },
+      ] as never);
+
+      const rows = await service.getLocationVisibility({ warehouseId: 'WH-RM' }, user);
+
+      expect(findAllTasks).toHaveBeenCalledWith({ status: undefined }, user);
+      expect(rows).toEqual([
+        expect.objectContaining({
+          warehouseId: 'WH-RM',
+          location: 'A-02',
+          openInboundPulls: 1,
+          inboundQty: 6,
+          signal: 'busy',
+        }),
+      ]);
     });
   });
 

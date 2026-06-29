@@ -20,6 +20,38 @@ import {
   pullSemaphore,
   DEFAULT_PULL_SLA_MINUTES,
 } from './pull.util';
+import { InventoryPosition } from './entities/inventory-position.entity';
+
+export interface WarehouseLocationVisibility {
+  warehouseId: string;
+  warehouseName: string;
+  warehouseCode?: string;
+  location: string;
+  programIds: string[];
+  partCount: number;
+  lotCount: number;
+  onHand: number;
+  allocated: number;
+  available: number;
+  inTransit: number;
+  holdQty: number;
+  quarantineQty: number;
+  qualityBlockQty: number;
+  openOutboundPulls: number;
+  openInboundPulls: number;
+  outboundQty: number;
+  inboundQty: number;
+  signal: 'available' | 'busy' | 'blocked' | 'empty';
+  statuses: Array<{ status: string; positions: number; onHand: number }>;
+  topParts: Array<{
+    partNumber: string;
+    onHand: number;
+    available: number;
+    holdStatus: string;
+    programId?: string | null;
+    lotNumber?: string | null;
+  }>;
+}
 
 @Injectable()
 export class WarehouseService {
@@ -78,6 +110,198 @@ export class WarehouseService {
     if (filters.urgent === 'true' || filters.urgent === true) qb.andWhere('task.urgent = :u', { u: true });
     qb.orderBy('task.createdAt', 'DESC');
     return qb.getMany();
+  }
+
+  async getLocationVisibility(filters: any, user: User): Promise<WarehouseLocationVisibility[]> {
+    const safeFilters = filters ?? {};
+    const { warehouseId, location, holdStatus, partNumber, programId, ...taskFilters } = safeFilters;
+    const positions = await this.inventory.findAllPositions(user, {
+      warehouseId,
+      partNumber,
+      programId,
+    });
+    const openTasks = (await this.findAllTasks({ ...taskFilters, status: undefined }, user)).filter(
+      (t) => t.status === WarehouseTaskStatus.PENDING || t.status === WarehouseTaskStatus.IN_PROGRESS,
+    );
+
+    const locationNeedle = String(location ?? '').trim().toLowerCase();
+    const holdFilter = String(holdStatus ?? '').trim().toLowerCase();
+    const partNeedle = String(partNumber ?? '').trim().toLowerCase();
+    const warehouseFilter = String(warehouseId ?? '').trim();
+    const programFilter = String(programId ?? '').trim();
+
+    const map = new Map<
+      string,
+      {
+        warehouseId: string;
+        warehouseName: string;
+        warehouseCode?: string;
+        location: string;
+        programIds: Set<string>;
+        parts: Set<string>;
+        lots: Set<string>;
+        onHand: number;
+        allocated: number;
+        inTransit: number;
+        holdQty: number;
+        quarantineQty: number;
+        qualityBlockQty: number;
+        openOutboundPulls: number;
+        openInboundPulls: number;
+        outboundQty: number;
+        inboundQty: number;
+        statuses: Map<string, { positions: number; onHand: number }>;
+        topParts: Map<
+          string,
+          { partNumber: string; onHand: number; available: number; holdStatus: string; programId?: string | null; lotNumber?: string | null }
+        >;
+      }
+    >();
+
+    const keyFor = (warehouseId: string, location: string) => `${warehouseId}::${location || 'BULK'}`;
+    const ensure = (warehouseId: string, location: string, seed?: InventoryPosition) => {
+      const loc = location || 'BULK';
+      const key = keyFor(warehouseId, loc);
+      if (!map.has(key)) {
+        map.set(key, {
+          warehouseId,
+          warehouseName: seed?.warehouse?.name ?? warehouseId,
+          warehouseCode: seed?.warehouse?.code,
+          location: loc,
+          programIds: new Set<string>(),
+          parts: new Set<string>(),
+          lots: new Set<string>(),
+          onHand: 0,
+          allocated: 0,
+          inTransit: 0,
+          holdQty: 0,
+          quarantineQty: 0,
+          qualityBlockQty: 0,
+          openOutboundPulls: 0,
+          openInboundPulls: 0,
+          outboundQty: 0,
+          inboundQty: 0,
+          statuses: new Map<string, { positions: number; onHand: number }>(),
+          topParts: new Map<
+            string,
+            { partNumber: string; onHand: number; available: number; holdStatus: string; programId?: string | null; lotNumber?: string | null }
+          >(),
+        });
+      }
+      return map.get(key)!;
+    };
+
+    for (const pos of positions) {
+      if (locationNeedle && !String(pos.location ?? '').toLowerCase().includes(locationNeedle)) continue;
+      if (holdFilter && String(pos.holdStatus ?? '').toLowerCase() !== holdFilter) continue;
+      const bucket = ensure(pos.warehouseId, pos.location, pos);
+      bucket.parts.add(pos.partNumber);
+      if (pos.programId) bucket.programIds.add(pos.programId);
+      if (pos.lotNumber) bucket.lots.add(pos.lotNumber);
+      bucket.onHand += pos.onHand ?? 0;
+      bucket.allocated += pos.allocated ?? 0;
+      bucket.inTransit += pos.inTransit ?? 0;
+
+      const holdStatus = pos.holdStatus ?? 'available';
+      if (holdStatus !== 'available') bucket.holdQty += pos.onHand ?? 0;
+      if (holdStatus === 'quarantine') bucket.quarantineQty += pos.onHand ?? 0;
+      if (['hold', 'quarantine', 'expired', 'pending_iqc', 'pending_oqc'].includes(holdStatus)) {
+        bucket.qualityBlockQty += pos.onHand ?? 0;
+      }
+
+      const status = bucket.statuses.get(holdStatus) ?? { positions: 0, onHand: 0 };
+      status.positions += 1;
+      status.onHand += pos.onHand ?? 0;
+      bucket.statuses.set(holdStatus, status);
+
+      const partKey = `${pos.partNumber}::${pos.programId ?? ''}::${pos.lotNumber ?? ''}::${holdStatus}`;
+      const existing = bucket.topParts.get(partKey) ?? {
+        partNumber: pos.partNumber,
+        onHand: 0,
+        available: 0,
+        holdStatus,
+        programId: pos.programId,
+        lotNumber: pos.lotNumber,
+      };
+      existing.onHand += pos.onHand ?? 0;
+      existing.available += (pos.onHand ?? 0) - (pos.allocated ?? 0);
+      bucket.topParts.set(partKey, existing);
+    }
+
+    const taskMatchesFilters = (task: WarehouseTask): boolean => {
+      if (partNeedle && !String(task.partNumber ?? '').toLowerCase().includes(partNeedle)) return false;
+      if (programFilter && task.project !== programFilter) return false;
+      return true;
+    };
+
+    for (const task of openTasks) {
+      if (!taskMatchesFilters(task)) continue;
+      if (task.fromWarehouseId && (!warehouseFilter || task.fromWarehouseId === warehouseFilter)) {
+        if (!locationNeedle || String(task.fromLocation ?? '').toLowerCase().includes(locationNeedle)) {
+          const out = ensure(task.fromWarehouseId, task.fromLocation);
+          out.openOutboundPulls += 1;
+          out.outboundQty += task.quantity ?? 0;
+          out.parts.add(task.partNumber);
+          if (task.project) out.programIds.add(task.project);
+        }
+      }
+      if (task.toWarehouseId && (!warehouseFilter || task.toWarehouseId === warehouseFilter)) {
+        if (!locationNeedle || String(task.toLocation ?? '').toLowerCase().includes(locationNeedle)) {
+          const inbound = ensure(task.toWarehouseId, task.toLocation);
+          inbound.openInboundPulls += 1;
+          inbound.inboundQty += task.quantity ?? 0;
+          inbound.parts.add(task.partNumber);
+          if (task.project) inbound.programIds.add(task.project);
+        }
+      }
+    }
+
+    return Array.from(map.values())
+      .map((b) => {
+        const available = b.onHand - b.allocated;
+        const signal: WarehouseLocationVisibility['signal'] =
+          b.qualityBlockQty > 0
+            ? 'blocked'
+            : b.openOutboundPulls + b.openInboundPulls > 0
+              ? 'busy'
+              : b.onHand > 0 || b.inTransit > 0
+                ? 'available'
+                : 'empty';
+        return {
+          warehouseId: b.warehouseId,
+          warehouseName: b.warehouseName,
+          warehouseCode: b.warehouseCode,
+          location: b.location,
+          programIds: Array.from(b.programIds).sort(),
+          partCount: b.parts.size,
+          lotCount: b.lots.size,
+          onHand: Number(b.onHand.toFixed(3)),
+          allocated: Number(b.allocated.toFixed(3)),
+          available: Number(available.toFixed(3)),
+          inTransit: Number(b.inTransit.toFixed(3)),
+          holdQty: Number(b.holdQty.toFixed(3)),
+          quarantineQty: Number(b.quarantineQty.toFixed(3)),
+          qualityBlockQty: Number(b.qualityBlockQty.toFixed(3)),
+          openOutboundPulls: b.openOutboundPulls,
+          openInboundPulls: b.openInboundPulls,
+          outboundQty: Number(b.outboundQty.toFixed(3)),
+          inboundQty: Number(b.inboundQty.toFixed(3)),
+          signal,
+          statuses: Array.from(b.statuses.entries())
+            .map(([status, value]) => ({ status, ...value, onHand: Number(value.onHand.toFixed(3)) }))
+            .sort((a, c) => c.onHand - a.onHand),
+          topParts: Array.from(b.topParts.values())
+            .sort((a, c) => c.onHand - a.onHand)
+            .slice(0, 5),
+        };
+      })
+      .sort((a, b) => {
+        const signalRank = { blocked: 0, busy: 1, available: 2, empty: 3 } as const;
+        const bySignal = signalRank[a.signal] - signalRank[b.signal];
+        if (bySignal !== 0) return bySignal;
+        const byWarehouse = a.warehouseName.localeCompare(b.warehouseName);
+        return byWarehouse !== 0 ? byWarehouse : a.location.localeCompare(b.location);
+      });
   }
 
   async createTask(dto: Partial<WarehouseTask>, user: User): Promise<WarehouseTask> {

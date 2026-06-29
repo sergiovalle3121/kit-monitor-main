@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Lock, ClipboardList, Undo2, LineChart as LineChartIcon } from 'lucide-react';
+import { Lock, ClipboardList, Undo2, LineChart as LineChartIcon, Layers3 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { BLUE } from './_components/shared';
 import type { Pull } from './_components/shared';
 import PullMonitor from './_components/PullMonitor';
 import ReturnsPanel from './_components/ReturnsPanel';
+import LocationsPanel from './_components/LocationsPanel';
 import dynamic from 'next/dynamic';
 
 // recharts es pesado y solo se usa en la pestaña "analytics": carga diferida.
@@ -16,10 +17,11 @@ const AnalyticsPanel = dynamic(() => import('./_components/AnalyticsPanel'), {
   loading: () => null,
 });
 
-type Tab = 'monitor' | 'returns' | 'analytics';
+type Tab = 'monitor' | 'locations' | 'returns' | 'analytics';
 
 const TABS: { key: Tab; label: string; icon: typeof ClipboardList }[] = [
   { key: 'monitor', label: 'Pull Monitor', icon: ClipboardList },
+  { key: 'locations', label: 'Locaciones', icon: Layers3 },
   { key: 'returns', label: 'Devoluciones', icon: Undo2 },
   { key: 'analytics', label: 'Analítica', icon: LineChartIcon },
 ];
@@ -64,6 +66,7 @@ export default function WarehousePage() {
       </div>
 
       {tab === 'monitor' && <PullMonitor />}
+      {tab === 'locations' && <LocationsPanel />}
       {tab === 'returns' && <ReturnsPanel />}
       {tab === 'analytics' && <AnalyticsPanel />}
     </div>
