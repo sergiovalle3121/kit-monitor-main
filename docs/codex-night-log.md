@@ -186,3 +186,11 @@
 - Restoring a local snapshot pushes the current layout onto the existing undo stack before applying the snapshot, so recovery remains reversible.
 - Backend versions/scenarios remain unchanged; local snapshots are explicitly session-only and do not add persistence or API calls.
 - Pending: auto-create local snapshots before high-risk DXF conversions/import-object operations once editable DXF object mapping lands.
+
+## 2026-06-29 - DXF footprint label export
+
+- Reused the existing `exportCadLayoutDxf` path that the `Layout3DEditor.tsx` DXF modal already calls.
+- Extended `exportCadDxf` so non-text primitives with `text` export a centered DXF `TEXT` label after valid geometry.
+- Added deterministic layer color definitions in `layout-export-adapter.ts` for Layout, Equipment, Flow, Aisles, Measurements, Safety, and Text.
+- Added smoke coverage for primitive labels, layout box labels, layer colors, and updated entity counts.
+- Pending: add export preflight warnings for empty selection, hidden-layer exports, and unlabeled critical footprints.
