@@ -1,8 +1,17 @@
 'use client';
 
 import React from 'react';
-import { X, Clock, Hash, MousePointerClick, PlayCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Clock, Hash, MousePointerClick, PlayCircle, ChevronUp, ChevronDown, AlertTriangle, CheckCircle2, Eraser, RefreshCcw, Sparkles } from 'lucide-react';
 import { OBJ_ANIM_OPTIONS, OBJ_ANIM_START, ANIM_KIND_LABEL, type AnimKind } from './slideAssets';
+import {
+  ANIMATION_TIMELINE_PRESETS,
+  buildAnimationClearChanges,
+  buildAnimationPresetChanges,
+  buildAnimationReindexChanges,
+  buildAnimationTimelineSummary,
+  formatAnimationRuntime,
+  type AnimationTimelineChange,
+} from './slides/animationTimeline';
 
 export interface AnimItem { idx: number; label: string; type: string; anim: string; order: number; dur: number; delay: number; start: string; repeat: number; kind: AnimKind }
 
@@ -26,8 +35,20 @@ export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPr
   onPreview: () => void;
   onClose: () => void;
 }) {
+  const [presetId, setPresetId] = React.useState(ANIMATION_TIMELINE_PRESETS[0]?.id ?? '');
+  const summary = React.useMemo(() => buildAnimationTimelineSummary(items), [items]);
   const sorted = [...items].sort((a, b) => (a.anim === 'none' ? 1 : 0) - (b.anim === 'none' ? 1 : 0) || a.order - b.order || a.idx - b.idx);
-  const hasAnimated = items.some((it) => it.anim && it.anim !== 'none');
+  const hasAnimated = summary.animatedCount > 0;
+  const readinessClass = summary.readiness === 'ready'
+    ? 'border-emerald-300/60 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+    : summary.readiness === 'review'
+      ? 'border-amber-300/60 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+      : 'border-black/10 bg-black/[0.03] text-gray-500 dark:border-white/10 dark:bg-white/[0.05] dark:text-gray-400';
+
+  function applyChanges(changes: AnimationTimelineChange[]) {
+    for (const change of changes) onChange(change.idx, change.key, change.value);
+  }
+
   return (
     <div className="w-72 flex-shrink-0 flex flex-col rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#141414] overflow-hidden">
       <div className="flex items-center justify-between px-3 h-11 border-b border-black/5 dark:border-white/10 flex-shrink-0">
@@ -36,6 +57,62 @@ export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPr
           <button onClick={onPreview} disabled={!hasAnimated} title="Vista previa: reproduce las animaciones de esta diapositiva" className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 hover:bg-blue-500/25 disabled:opacity-40 disabled:cursor-not-allowed"><PlayCircle className="w-3.5 h-3.5" /> Vista previa</button>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500"><X className="w-4 h-4" /></button>
         </div>
+      </div>
+      <div className="border-b border-black/5 dark:border-white/10 p-2 space-y-2">
+        <div className={`rounded-xl border px-2.5 py-2 ${readinessClass}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide">
+              {summary.readiness === 'ready' ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+              {summary.readiness === 'ready' ? 'Timeline ready' : summary.readiness === 'review' ? 'Review timeline' : 'No timeline'}
+            </span>
+            <span className="text-[11px] font-semibold">{formatAnimationRuntime(summary.totalRuntimeMs)}</span>
+          </div>
+          <div className="mt-1 grid grid-cols-4 gap-1 text-center text-[10px]">
+            <MiniMetric label="Anim" value={summary.animatedCount} />
+            <MiniMetric label="Click" value={summary.onClickCount} />
+            <MiniMetric label="Loop" value={summary.infiniteRepeatCount} />
+            <MiniMetric label="Warn" value={summary.issues.filter((issue) => issue.severity === 'warning').length} />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <select value={presetId} onChange={(e) => setPresetId(e.target.value)}
+              className="min-w-0 flex-1 h-8 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-2 text-[11px] font-semibold outline-none">
+              {ANIMATION_TIMELINE_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+            </select>
+            <button onClick={() => applyChanges(buildAnimationPresetChanges(items, presetId))} disabled={!items.length} title={ANIMATION_TIMELINE_PRESETS.find((preset) => preset.id === presetId)?.description}
+              className="inline-flex h-8 items-center gap-1 rounded-lg bg-blue-500 px-2 text-[11px] font-bold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40">
+              <Sparkles className="h-3.5 w-3.5" /> Aplicar
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button onClick={() => applyChanges(buildAnimationReindexChanges(items))} disabled={!summary.needsReindex}
+              className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-black/10 text-[11px] font-semibold text-gray-600 hover:bg-black/[0.04] disabled:opacity-40 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+              title="Reordena las animaciones de la diapositiva como 0, 1, 2...">
+              <RefreshCcw className="h-3.5 w-3.5" /> Reindex
+            </button>
+            <button onClick={() => applyChanges(buildAnimationClearChanges(items))} disabled={!hasAnimated}
+              className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-black/10 text-[11px] font-semibold text-gray-600 hover:bg-black/[0.04] disabled:opacity-40 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+              title="Quita las animaciones de todos los objetos de esta diapositiva">
+              <Eraser className="h-3.5 w-3.5" /> Clear
+            </button>
+          </div>
+        </div>
+
+        {summary.issues.length > 0 && (
+          <div className="space-y-1">
+            {summary.issues.slice(0, 2).map((issue) => (
+              <p key={issue.code} className={`rounded-lg px-2 py-1 text-[10px] leading-snug ${
+                issue.severity === 'warning'
+                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+                  : 'bg-black/[0.03] text-gray-500 dark:bg-white/[0.05] dark:text-gray-400'
+              }`}>
+                <b>{issue.title}</b>{issue.count ? ` (${issue.count})` : ''}: {issue.detail}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {!items.length && <p className="text-xs text-gray-400 px-2 py-4 text-center">No hay objetos en esta diapositiva.</p>}
@@ -97,5 +174,14 @@ export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPr
         })}
       </div>
     </div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="rounded-lg bg-white/55 px-1 py-1 dark:bg-black/20">
+      <b className="block text-xs leading-none">{value}</b>
+      <span className="text-[9px] opacity-70">{label}</span>
+    </span>
   );
 }
