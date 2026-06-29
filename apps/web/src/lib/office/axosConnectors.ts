@@ -33,6 +33,12 @@ export interface AxosConnectorInstance {
   params?: Record<string, string>;
   lastRefreshedAt: string;
   readOnly: true;
+  lastStatus?: 'ok' | 'fallback' | 'failed' | 'contract-pending';
+  lastError?: string;
+  rowCount?: number;
+  source?: string;
+  asOf?: string;
+  warnings?: string[];
 }
 
 export interface ConnectorTableBuild {
@@ -40,6 +46,14 @@ export interface ConnectorTableBuild {
   range: string;
   nRows: number;
   nCols: number;
+}
+
+export interface AxosConnectorDataset {
+  columns: string[];
+  rows: (string | number)[][];
+  asOf?: string;
+  source?: string;
+  warnings?: string[];
 }
 
 function cellValueForConnector(value: string | number, bold = false) {
@@ -199,7 +213,13 @@ export function buildAxosConnectorTableFromRows(headers: string[], rows: (string
   };
 }
 
-export function createAxosConnectorInstance(type: AxosConnectorType, sheetIndex: number, range: string, now = new Date()): AxosConnectorInstance {
+export function createAxosConnectorInstance(
+  type: AxosConnectorType,
+  sheetIndex: number,
+  range: string,
+  now = new Date(),
+  metadata: Partial<Pick<AxosConnectorInstance, 'params' | 'lastStatus' | 'lastError' | 'rowCount' | 'source' | 'asOf' | 'warnings'>> = {},
+): AxosConnectorInstance {
   const def = AXOS_CONNECTOR_BY_TYPE[type];
   if (!def) throw new Error(`Conector AXOS no soportado: ${type}`);
   return {
@@ -208,9 +228,15 @@ export function createAxosConnectorInstance(type: AxosConnectorType, sheetIndex:
     label: def.label,
     sheetIndex,
     range,
-    params: {},
+    params: metadata.params ?? {},
     lastRefreshedAt: now.toISOString(),
     readOnly: true,
+    lastStatus: metadata.lastStatus ?? (def.contractStatus === 'contract-pending' ? 'contract-pending' : 'ok'),
+    ...(metadata.lastError ? { lastError: metadata.lastError } : {}),
+    rowCount: metadata.rowCount ?? def.rows.length,
+    source: metadata.source ?? (def.contractStatus === 'contract-pending' ? 'starter-table' : 'api-ready'),
+    ...(metadata.asOf ? { asOf: metadata.asOf } : {}),
+    warnings: metadata.warnings ?? [],
   };
 }
 
@@ -259,15 +285,66 @@ export function originFromConnectorRange(range: string): { r: number; c: number 
   return parsed ? { r: parsed.r1, c: parsed.c1 } : null;
 }
 
-export function refreshedAxosConnectorInstance(instance: AxosConnectorInstance, now = new Date()): AxosConnectorInstance {
-  return { ...instance, lastRefreshedAt: now.toISOString() };
+export function refreshedAxosConnectorInstance(
+  instance: AxosConnectorInstance,
+  now = new Date(),
+  metadata: Partial<Pick<AxosConnectorInstance, 'range' | 'lastStatus' | 'lastError' | 'rowCount' | 'source' | 'asOf' | 'warnings'>> = {},
+): AxosConnectorInstance {
+  const next: AxosConnectorInstance = {
+    ...instance,
+    ...metadata,
+    lastRefreshedAt: now.toISOString(),
+    warnings: metadata.warnings ?? instance.warnings ?? [],
+  };
+  if (!metadata.lastError) delete next.lastError;
+  return next;
 }
 
 export function buildAxosConnectorRefresh(instance: AxosConnectorInstance, now = new Date()): { instance: AxosConnectorInstance; table: ConnectorTableBuild } | null {
   const origin = originFromConnectorRange(instance.range);
   if (!origin) return null;
   const table = buildAxosConnectorTable(instance.type, origin);
-  return { table, instance: { ...refreshedAxosConnectorInstance(instance, now), range: table.range } };
+  const def = AXOS_CONNECTOR_BY_TYPE[instance.type];
+  return {
+    table,
+    instance: refreshedAxosConnectorInstance(instance, now, {
+      range: table.range,
+      lastStatus: def?.contractStatus === 'contract-pending' ? 'contract-pending' : 'ok',
+      rowCount: table.nRows - 1,
+      source: def?.contractStatus === 'contract-pending' ? 'starter-table' : 'local-registry',
+      warnings: def?.contractStatus === 'contract-pending' ? ['Endpoint ERP/MES pendiente; tabla starter gobernada.'] : [],
+    }),
+  };
+}
+
+export function buildAxosConnectorRefreshFromDataset(
+  instance: AxosConnectorInstance,
+  dataset: AxosConnectorDataset,
+  now = new Date(),
+): { instance: AxosConnectorInstance; table: ConnectorTableBuild } | null {
+  const origin = originFromConnectorRange(instance.range);
+  if (!origin) return null;
+  const headers = dataset.columns.length ? dataset.columns : AXOS_CONNECTOR_BY_TYPE[instance.type]?.headers ?? [];
+  const table = buildAxosConnectorTableFromRows(headers, dataset.rows, origin);
+  return {
+    table,
+    instance: refreshedAxosConnectorInstance(instance, now, {
+      range: table.range,
+      lastStatus: 'ok',
+      rowCount: dataset.rows.length,
+      source: dataset.source ?? 'api',
+      asOf: dataset.asOf,
+      warnings: dataset.warnings ?? [],
+    }),
+  };
+}
+
+export function markAxosConnectorRefreshFailed(instance: AxosConnectorInstance, error: string, now = new Date()): AxosConnectorInstance {
+  return refreshedAxosConnectorInstance(instance, now, {
+    lastStatus: 'failed',
+    lastError: error,
+    warnings: [error],
+  });
 }
 
 

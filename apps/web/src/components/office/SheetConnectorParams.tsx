@@ -77,7 +77,7 @@ export function SheetConnectorParams({ type, onApply, onClose }: {
             </div>
           )}
           <div className="flex gap-2 pt-1">
-            <button onClick={apply} className="flex-1 text-sm font-semibold px-3 py-2 rounded-lg bg-black dark:bg-white text-white dark:text-black hover:opacity-90">Insertar tabla gobernada</button>
+            <button onClick={apply} className="flex-1 text-sm font-semibold px-3 py-2 rounded-lg bg-black dark:bg-white text-white dark:text-black hover:opacity-90">Preview con parámetros</button>
             <button onClick={onClose} className="text-sm font-semibold px-3 py-2 rounded-lg border border-gray-300 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
           </div>
         </div>
