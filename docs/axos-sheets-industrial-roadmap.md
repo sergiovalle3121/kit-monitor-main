@@ -205,3 +205,7 @@ AXOS connector instances now have a pure freshness model derived from connector 
 AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
 The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+## Delivered slice — Print/export layout foundation
+
+AXOS Sheets now persists a lightweight print/export layout model in workbook content (`printLayout`) without introducing a heavy PDF engine. The model captures orientation, paper size, print area, fit-to-width, fit-to-page, and gridline visibility, and the existing print preview uses these settings to generate browser-printable HTML. The export menu also preflights dashboard-only elements and warns when slicers/timelines or AXOS chart metadata will not become native interactive controls in XLSX/CSV exports.

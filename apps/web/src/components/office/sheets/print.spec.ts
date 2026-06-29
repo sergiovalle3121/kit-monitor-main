@@ -11,14 +11,15 @@ const sheet: any = { celldata: [
   cell(1, 0, 'x'), cell(9, 3, 'fuera'),
 ] };
 
-const html = buildPrintHtml(sheet, { range: 'A1:B2', title: 'Informe', orientation: 'landscape', header: 'Cab' });
+const html = buildPrintHtml(sheet, { range: 'A1:B2', title: 'Informe', orientation: 'landscape', paperSize: 'Letter', header: 'Cab', fitToPage: true });
 ok(html.includes('&lt;b&gt;Hi&lt;/b&gt;'), 'escapa HTML de las celdas');
 ok(html.includes('<h1>Informe</h1>'), 'incluye título');
 ok(html.includes('Cab'), 'incluye encabezado');
-ok(html.includes('landscape'), 'orientación horizontal');
+ok(html.includes('Letter landscape'), 'papel carta con orientación horizontal');
 ok(html.includes('background:#ff0000'), 'aplica color de fondo');
 ok(html.includes('>5<'), 'incluye valor numérico');
 ok(html.includes('text-align:right'), 'números alineados a la derecha');
+ok(html.includes('width:100%'), 'ajuste a página activa ancho completo');
 ok(!html.includes('fuera'), 'excluye celdas fuera del rango');
 
 // Sin rango → usa el área usada (incluye D10 "fuera").

@@ -1384,9 +1384,24 @@ export function resolveNamedRange(input: string, names: NamedRange[], fallbackSh
 }
 
 // ── Impresión / diseño de impresión ───────────────────────────────────────────
+export type SheetPrintOrientation = 'portrait' | 'landscape';
+export type SheetPrintPaperSize = 'A4' | 'Letter' | 'Legal' | 'Tabloid';
+export interface SheetPrintLayout {
+  orientation: SheetPrintOrientation; paperSize: SheetPrintPaperSize; printArea?: string;
+  fitToWidth: boolean; fitToPage: boolean; showGridlines: boolean;
+}
 export interface PrintOpts {
   range?: string; title?: string; header?: string; footer?: string;
-  orientation?: 'portrait' | 'landscape'; gridlines?: boolean; fitToWidth?: boolean;
+  orientation?: SheetPrintOrientation; paperSize?: SheetPrintPaperSize; gridlines?: boolean; fitToWidth?: boolean; fitToPage?: boolean;
+}
+export const DEFAULT_SHEET_PRINT_LAYOUT: SheetPrintLayout = { orientation: 'portrait', paperSize: 'A4', fitToWidth: false, fitToPage: false, showGridlines: true };
+export function normalizeSheetPrintLayout(input: Partial<SheetPrintLayout> | null | undefined): SheetPrintLayout {
+  const paperSize = ['A4', 'Letter', 'Legal', 'Tabloid'].includes(String(input?.paperSize)) ? input!.paperSize! : 'A4';
+  const printArea = input?.printArea && parseRange(input.printArea) ? input.printArea.toUpperCase() : undefined;
+  return { orientation: input?.orientation === 'landscape' ? 'landscape' : 'portrait', paperSize, printArea, fitToWidth: !!input?.fitToWidth, fitToPage: !!input?.fitToPage, showGridlines: input?.showGridlines !== false };
+}
+export function printOptsFromLayout(layout: SheetPrintLayout, extras: Omit<PrintOpts, 'orientation' | 'paperSize' | 'gridlines' | 'fitToWidth' | 'fitToPage'> = {}): PrintOpts {
+  return { ...extras, range: extras.range ?? layout.printArea, orientation: layout.orientation, paperSize: layout.paperSize, gridlines: layout.showGridlines, fitToWidth: layout.fitToWidth, fitToPage: layout.fitToPage };
 }
 const escHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 
@@ -1422,13 +1437,13 @@ export function buildPrintHtml(sheet: any, opts: PrintOpts = {}): string {
   const border = gl ? '1px solid #cbd5e1' : 'none';
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(opts.title || 'Impresión')}</title>
 <style>
-@page { size: A4 ${opts.orientation === 'landscape' ? 'landscape' : 'portrait'}; margin: 14mm; }
+@page { size: ${opts.paperSize || 'A4'} ${opts.orientation === 'landscape' ? 'landscape' : 'portrait'}; margin: 14mm; }
 * { box-sizing: border-box; }
 body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; color: #111; margin: 0; }
 h1 { font-size: 18px; margin: 0 0 8px; }
 .hf { color: #64748b; font-size: 11px; padding: 4px 0; }
 .footer { border-top: 1px solid #e2e8f0; margin-top: 8px; }
-table { border-collapse: collapse; ${opts.fitToWidth ? 'width:100%;' : ''} font-size: 12px; }
+table { border-collapse: collapse; ${(opts.fitToWidth || opts.fitToPage) ? 'width:100%;' : ''} font-size: 12px; }
 td { border: ${border}; padding: 3px 6px; white-space: nowrap; vertical-align: top; }
 </style></head><body>${headerHtml}${titleHtml}<table>${body}</table>${footerHtml}</body></html>`;
 }
