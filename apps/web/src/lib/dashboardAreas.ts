@@ -149,3 +149,70 @@ export const SECTION_ORDER = [
   "Diseño · NPI", "Planeación", "Materiales", "Producción",
   "Calidad", "Logística", "Finanzas · ERP", "Control e inteligencia", "Administración",
 ];
+
+/**
+ * Áreas visibles para un rol (admin/owner ven todo). Fuente ÚNICA del filtrado
+ * por rol que comparten el rail, el panel de navegación móvil, el dock y los
+ * accesos rápidos del hub — para que nunca diverjan.
+ */
+export function visibleAreas(role: string, seesAll: boolean): DashboardArea[] {
+  return AREAS.filter((a) => seesAll || a.roles.includes(role));
+}
+
+/** Áreas visibles agrupadas por sección, en el orden del flujo (SECTION_ORDER). */
+export function navSections(
+  role: string,
+  seesAll: boolean,
+): { section: string; areas: DashboardArea[] }[] {
+  const visible = visibleAreas(role, seesAll);
+  return SECTION_ORDER.map((section) => ({
+    section,
+    areas: visible.filter((a) => a.section === section),
+  })).filter((group) => group.areas.length > 0);
+}
+
+/**
+ * Accesos rápidos contextuales (role-aware) para el hub: los destinos más
+ * operativos que el usuario puede ver, en orden de prioridad y limitados para
+ * mantener el home aireado. Si la lista de prioridad no alcanza el límite, se
+ * completa con las primeras áreas visibles del flujo.
+ */
+const QUICK_ACCESS_PRIORITY = [
+  "/dashboard/production-plan",
+  "/dashboard/planning",
+  "/dashboard/almacen",
+  "/dashboard/production",
+  "/dashboard/quality",
+  "/dashboard/inventory",
+  "/dashboard/materials",
+  "/dashboard/intelligence",
+  "/dashboard/mrp",
+  "/dashboard/control-tower",
+];
+
+export function quickAccessAreas(
+  role: string,
+  seesAll: boolean,
+  limit = 6,
+): DashboardArea[] {
+  const visible = visibleAreas(role, seesAll);
+  const byHref = new Map(visible.map((a) => [a.href, a]));
+  const picked: DashboardArea[] = [];
+  const seen = new Set<string>();
+  for (const href of QUICK_ACCESS_PRIORITY) {
+    const area = byHref.get(href);
+    if (area && !seen.has(href)) {
+      picked.push(area);
+      seen.add(href);
+    }
+    if (picked.length >= limit) return picked;
+  }
+  for (const area of visible) {
+    if (!seen.has(area.href)) {
+      picked.push(area);
+      seen.add(area.href);
+    }
+    if (picked.length >= limit) break;
+  }
+  return picked;
+}

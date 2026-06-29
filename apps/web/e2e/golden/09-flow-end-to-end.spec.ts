@@ -58,18 +58,20 @@ test.describe('Golden path · flujo end-to-end (conecta el camino real)', () => 
       }),
     );
 
-    // ── 1) LOGIN MASTER → hub personalizado con las áreas del flujo ──────────
+    // ── 1) LOGIN MASTER → hub + navegación rail-primario con las áreas del flujo ─
     await page.goto('/dashboard');
     await expect(page.getByRole('heading', { name: /Hola, Master\./ })).toBeVisible();
-    // El Master ve las áreas que vamos a recorrer (Diseño · NPI, Materiales, Producción).
-    await expect(page.getByRole('button', { name: /Modelos · NPI/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Surtido a línea' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Operador MES' })).toBeVisible();
+    // El Master ve las áreas que vamos a recorrer en el Command rail (la única
+    // fuente de navegación; el home ya no duplica la rejilla de módulos).
+    const rail = page.locator('aside[aria-label="Navegación principal por dominios"]');
+    await expect(rail.getByRole('link', { name: 'Product Master', exact: true })).toBeVisible();
+    await expect(rail.getByRole('link', { name: 'Surtido a línea', exact: true })).toBeVisible();
+    await expect(rail.getByRole('link', { name: 'Operador MES', exact: true })).toBeVisible();
 
-    // 1→2: entramos a Modelos DESDE el hub (no por URL: probamos que el hub conecta).
-    await page.getByRole('button', { name: /Modelos · NPI/ }).click();
+    // 1→2: entramos a Modelos DESDE el rail (no por URL: probamos que la navegación conecta).
+    await rail.getByRole('link', { name: 'Product Master', exact: true }).click();
     await expect(page).toHaveURL(/\/dashboard\/models$/);
-    await expect(page.getByRole('heading', { name: /Modelos · NPI/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Modelos · Product Master/ })).toBeVisible();
 
     // ── 2) CREAR MODELO ──────────────────────────────────────────────────────
     await page.getByRole('button', { name: 'Nuevo modelo' }).click();

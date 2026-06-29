@@ -50,10 +50,13 @@ test.describe('Golden path · Login Master → hub', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole('heading', { name: /Hola, Master\./ })).toBeVisible();
 
-    // Owner sees the full operational hub (every section/area).
-    await expect(page.getByRole('heading', { name: /Diseño · NPI/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Modelos · NPI/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Calidad', exact: true })).toBeVisible();
+    // Navegación rail-primario: el Command rail (desktop) es la única fuente de
+    // navegación; el owner ve TODAS las secciones/áreas del flujo desde el rail
+    // (el home ya no duplica la rejilla de módulos).
+    const rail = page.locator('aside[aria-label="Navegación principal por dominios"]');
+    await expect(rail.getByRole('heading', { name: 'Diseño · NPI' })).toBeVisible();
+    await expect(rail.getByRole('link', { name: 'Product Master', exact: true })).toBeVisible();
+    await expect(rail.getByRole('link', { name: 'Calidad', exact: true })).toBeVisible();
 
     // Not read-only: an admin-only route is reachable (non-admins get bounced
     // to /dashboard?blocked=admin by the middleware).
