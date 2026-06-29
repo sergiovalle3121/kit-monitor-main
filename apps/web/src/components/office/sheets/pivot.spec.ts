@@ -125,6 +125,48 @@ eq(fieldValues(sheet, RANGE, 'Region'), ['Norte', 'Sur'], 'fieldValues Region');
   eq(nums(rowByLabel(res, 'Total general')), [450, 500, 950], 'total general por mes + gran total');
 }
 
+
+// ── 11) Diagnósticos de campos inválidos ────────────────────────────────────
+{
+  const cfg: PivotConfig = {
+    range: RANGE,
+    sheetIndex: 0,
+    rows: ['Region', 'Planta fantasma'],
+    cols: ['Mes inexistente'],
+    values: [{ field: 'Ventas', agg: 'sum' }, { field: 'Costo fantasma', agg: 'max' }],
+    filters: [{ field: 'Filtro fantasma', include: ['x'] }],
+    showColTotals: true,
+    showRowTotals: false,
+  };
+  const res = buildPivot(sheet, cfg);
+  ok(res.warnings.some((w) => w.includes('Campo inválido en filas: Planta fantasma')), 'diagnostica campo inválido en filas');
+  ok(res.warnings.some((w) => w.includes('Campo inválido en columnas: Mes inexistente')), 'diagnostica campo inválido en columnas');
+  ok(res.warnings.some((w) => w.includes('Campo inválido en valores: Costo fantasma')), 'diagnostica campo inválido en valores');
+  ok(res.warnings.some((w) => w.includes('Campo inválido en filtros: Filtro fantasma')), 'diagnostica campo inválido en filtros');
+  eq(nums(rowByLabel(res, 'Norte')), [420], 'campos inválidos no bloquean valores válidos');
+}
+
+// ── 12) Datos vacíos y filtros sin resultados ───────────────────────────────
+{
+  const emptySheet = { name: 'Empty', celldata: HEADERS.map((h, c) => ({ r: 0, c, v: { v: h, m: h, ct: { fa: 'General', t: 's' } } })) };
+  const emptyRes = buildPivot(emptySheet, { range: 'A1:E1', sheetIndex: 0, rows: ['Region'], cols: ['Mes'], values: [{ field: 'Ventas', agg: 'sum' }], showColTotals: true, showRowTotals: true });
+  ok(emptyRes.warnings.includes('El rango no contiene filas de datos.'), 'diagnostica rango sin datos');
+  ok(emptyRes.nRows >= 1 && emptyRes.nCols >= 1, 'datos vacíos conservan estructura de cabecera');
+
+  const filtered = buildPivot(sheet, { range: RANGE, sheetIndex: 0, rows: ['Region'], cols: [], values: [{ field: 'Ventas', agg: 'sum' }], filters: [{ field: 'Region', include: ['Centro'] }], showColTotals: true, showRowTotals: false });
+  ok(filtered.warnings.includes('Los filtros no dejaron filas de datos.'), 'diagnostica filtros sin resultados');
+  ok(!rowByLabel(filtered, 'Total general'), 'sin resultados no inventa total general');
+}
+
+// ── 13) Agregaciones min/max/count en múltiples valores ─────────────────────
+{
+  const cfg: PivotConfig = { range: RANGE, sheetIndex: 0, rows: ['Region'], cols: [], values: [{ field: 'Ventas', agg: 'min' }, { field: 'Ventas', agg: 'max' }, { field: 'Unidades', agg: 'count' }], showColTotals: true, showRowTotals: false };
+  const res = buildPivot(sheet, cfg);
+  eq(nums(rowByLabel(res, 'Norte')), [100, 200, 3], 'Norte [min,max,count]');
+  eq(nums(rowByLabel(res, 'Sur')), [80, 300, 3], 'Sur [min,max,count]');
+  eq(nums(rowByLabel(res, 'Total general')), [80, 300, 6], 'Total general [min,max,count]');
+}
+
 // ── Resumen ──────────────────────────────────────────────────────────────────
 console.log(`\nPIVOT SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} aserciones fallaron`); }

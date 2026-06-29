@@ -403,18 +403,34 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
   if (!read) return { matrix: [], nRows: 0, nCols: 0, warnings: ['Rango inválido. Ej.: A1:D100'] };
   const { headers, rows } = read;
   const idxOf = (name: string) => headers.indexOf(name);
-  const values = cfg.values.length ? cfg.values : [{ field: headers[headers.length - 1] ?? '', agg: 'count' as AggFn }];
+  const warnMissing = (zone: string, fields: string[]) => {
+    for (const field of fields) if (idxOf(field) < 0) warnings.push(`Campo inválido en ${zone}: ${field}`);
+  };
+  warnMissing('filas', cfg.rows);
+  warnMissing('columnas', cfg.cols);
+
+  const requestedValues = cfg.values.length ? cfg.values : [{ field: headers[headers.length - 1] ?? '', agg: 'count' as AggFn }];
+  warnMissing('valores', requestedValues.map((v) => v.field));
+  const values = requestedValues.filter((v) => idxOf(v.field) >= 0);
   const rowFields = cfg.rows.filter((f) => idxOf(f) >= 0);
   const colFields = cfg.cols.filter((f) => idxOf(f) >= 0);
+  if (!headers.length) warnings.push('El rango no contiene cabeceras.');
   if (!rows.length) warnings.push('El rango no contiene filas de datos.');
+  if (!values.length) {
+    warnings.push('No hay campos de valores válidos para construir la tabla dinámica.');
+    return { matrix: [], nRows: 0, nCols: 0, warnings };
+  }
 
   // Filtros por valor.
   let recs = rows;
   for (const f of cfg.filters ?? []) {
-    const ci = idxOf(f.field); if (ci < 0 || !f.include?.length) continue;
+    const ci = idxOf(f.field);
+    if (ci < 0) { warnings.push(`Campo inválido en filtros: ${f.field}`); continue; }
+    if (!f.include?.length) { warnings.push(`Filtro sin valores incluidos: ${f.field}`); continue; }
     const inc = new Set(f.include.map(String));
     recs = recs.filter((row) => inc.has(String(row[ci] ?? '')));
   }
+  if (rows.length && !recs.length) warnings.push('Los filtros no dejaron filas de datos.');
 
   const rowKeyOf = (rec: any[]) => rowFields.map((f) => String(rec[idxOf(f)] ?? ''));
   const colKeyOf = (rec: any[]) => colFields.map((f) => String(rec[idxOf(f)] ?? ''));
