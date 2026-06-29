@@ -7,7 +7,19 @@
  */
 import { Group, Rect, Circle, Line, Polygon, FabricText } from 'fabric';
 
-export type SmartKind = 'process' | 'cycle' | 'hierarchy' | 'list' | 'pyramid' | 'matrix' | 'target' | 'stepUp';
+export type SmartKind =
+  | 'process'
+  | 'cycle'
+  | 'hierarchy'
+  | 'list'
+  | 'pyramid'
+  | 'matrix'
+  | 'target'
+  | 'stepUp'
+  | 'timeline'
+  | 'funnel'
+  | 'sipoc'
+  | 'swimlane';
 export interface SmartSpec { kind: SmartKind; items: string[] }
 
 export const SMART_PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#7c3aed', '#ec4899', '#14b8a6', '#f97316'];
@@ -21,6 +33,10 @@ export const SMART_KINDS: { value: SmartKind; label: string; hint: string }[] = 
   { value: 'matrix', label: 'Matriz', hint: 'Cuadrantes 2×2' },
   { value: 'target', label: 'Diana', hint: 'Anillos concéntricos' },
   { value: 'stepUp', label: 'Escalera', hint: 'Pasos ascendentes' },
+  { value: 'timeline', label: 'Timeline', hint: 'Hitos de lanzamiento' },
+  { value: 'funnel', label: 'Funnel', hint: 'Reduccion progresiva' },
+  { value: 'sipoc', label: 'SIPOC', hint: 'Supplier/Input/Process/Output/Customer' },
+  { value: 'swimlane', label: 'Swimlane', hint: 'Flujo por responsables' },
 ];
 
 export function defaultSmartSpec(): SmartSpec {
@@ -55,6 +71,10 @@ export function buildSmartArt(spec: SmartSpec, opts: Opts = {}): any {
     case 'matrix': matrix(items, kids, ctx); break;
     case 'target': target(items, kids, ctx); break;
     case 'stepUp': stepUp(items, kids, ctx); break;
+    case 'timeline': timeline(items, kids, ctx); break;
+    case 'funnel': funnel(items, kids, ctx); break;
+    case 'sipoc': sipoc(items, kids, ctx); break;
+    case 'swimlane': swimlane(items, kids, ctx); break;
   }
 
   const g = new Group(kids, { subTargetCheck: false } as any);
@@ -192,6 +212,92 @@ function stepUp(items: string[], kids: any[], c: any) {
     const h = (H * (i + 1)) / n, top = H - h, x = i * sw;
     kids.push(new Rect({ left: x, top, width: sw - 6, height: h, fill: pal[i % pal.length], rx: 8, ry: 8 }));
     kids.push(text(it, x + (sw - 6) / 2, top + h / 2, sw - 16, sizeFor(it, sw), '#ffffff', font, true));
+  });
+}
+
+function timeline(items: string[], kids: any[], c: any) {
+  const { W, H, font, pal, tc } = c;
+  const n = Math.max(1, items.length);
+  const y = H / 2;
+  const margin = 54;
+  kids.push(new Line([margin, y, W - margin, y], { stroke: '#cbd5e1', strokeWidth: 4 }));
+  items.forEach((it, i) => {
+    const x = n === 1 ? W / 2 : margin + ((W - margin * 2) * i) / (n - 1);
+    const topLabel = i % 2 === 0;
+    kids.push(new Circle({ left: x, top: y, radius: 20, fill: pal[i % pal.length], stroke: '#ffffff', strokeWidth: 4, originX: 'center', originY: 'center' }));
+    kids.push(new FabricText(String(i + 1), { left: x, top: y, fontSize: 15, fill: '#ffffff', fontFamily: font, fontWeight: 'bold', originX: 'center', originY: 'center' }));
+    kids.push(new Line([x, y + (topLabel ? -24 : 24), x, y + (topLabel ? -64 : 64)], { stroke: '#cbd5e1', strokeWidth: 2 }));
+    kids.push(text(it, x, y + (topLabel ? -82 : 82), Math.max(92, (W - margin * 2) / Math.max(1, n)), sizeFor(it, 120), tc, font, true));
+  });
+}
+
+function funnel(items: string[], kids: any[], c: any) {
+  const { W, H, font, pal } = c;
+  const n = Math.max(1, items.length);
+  const levelH = H / n;
+  const cx = W / 2;
+  items.forEach((it, i) => {
+    const topW = W * (1 - i / (n + 1));
+    const botW = W * (1 - (i + 1) / (n + 1));
+    const yTop = i * levelH;
+    const yBot = (i + 1) * levelH;
+    kids.push(new Polygon([
+      { x: cx - topW / 2, y: yTop },
+      { x: cx + topW / 2, y: yTop },
+      { x: cx + botW / 2, y: yBot },
+      { x: cx - botW / 2, y: yBot },
+    ], { fill: pal[i % pal.length], stroke: '#ffffff', strokeWidth: 2 } as any));
+    kids.push(text(it, cx, yTop + levelH / 2, Math.max(120, botW - 16), Math.min(20, Math.max(13, levelH * 0.34)), '#ffffff', font, true));
+  });
+}
+
+function sipoc(items: string[], kids: any[], c: any) {
+  const { W, H, font, pal } = c;
+  const labels = ['Supplier', 'Input', 'Process', 'Output', 'Customer'];
+  const data = labels.map((label, i) => items[i] || label);
+  const gap = 10;
+  const cw = (W - gap * (data.length - 1)) / data.length;
+  data.forEach((it, i) => {
+    const x = i * (cw + gap);
+    kids.push(new Rect({ left: x, top: 0, width: cw, height: H, fill: '#ffffff', stroke: '#cbd5e1', strokeWidth: 1.5, rx: 14, ry: 14 }));
+    kids.push(new Rect({ left: x, top: 0, width: cw, height: 54, fill: pal[i % pal.length], rx: 14, ry: 14 }));
+    kids.push(text(labels[i], x + cw / 2, 27, cw - 12, 15, '#ffffff', font, true));
+    kids.push(text(it, x + cw / 2, H / 2 + 18, cw - 16, sizeFor(it, cw), '#1f2937', font, true));
+    if (i < data.length - 1) {
+      const ax = x + cw + gap / 2;
+      kids.push(new Polygon([{ x: ax - 7, y: H / 2 - 9 }, { x: ax + 7, y: H / 2 }, { x: ax - 7, y: H / 2 + 9 }], { fill: '#94a3b8' } as any));
+    }
+  });
+}
+
+function swimlane(items: string[], kids: any[], c: any) {
+  const { W, H, font, pal } = c;
+  const parsed = items.map((it, i) => {
+    const parts = String(it).split(':');
+    return parts.length > 1
+      ? { lane: parts[0].trim() || `Lane ${i + 1}`, task: parts.slice(1).join(':').trim() || `Task ${i + 1}` }
+      : { lane: ['Plan', 'Make', 'Check'][i % 3], task: String(it) };
+  });
+  const lanes = Array.from(new Set(parsed.map((it) => it.lane))).slice(0, 4);
+  const laneH = H / Math.max(1, lanes.length);
+  const labelW = Math.min(150, W * 0.2);
+  lanes.forEach((lane, laneIndex) => {
+    const y = laneIndex * laneH;
+    kids.push(new Rect({ left: 0, top: y, width: W, height: laneH, fill: laneIndex % 2 ? '#f8fafc' : '#ffffff', stroke: '#e5e7eb', strokeWidth: 1 }));
+    kids.push(new Rect({ left: 0, top: y, width: labelW, height: laneH, fill: '#f1f5f9', stroke: '#e5e7eb', strokeWidth: 1 }));
+    kids.push(text(lane, labelW / 2, y + laneH / 2, labelW - 16, 15, '#334155', font, true));
+    const tasks = parsed.filter((it) => it.lane === lane);
+    const slotW = (W - labelW - 24) / Math.max(1, tasks.length);
+    tasks.forEach((it, taskIndex) => {
+      const x = labelW + 12 + taskIndex * slotW;
+      const boxW = Math.max(92, slotW - 14);
+      kids.push(new Rect({ left: x, top: y + laneH * 0.22, width: boxW, height: laneH * 0.56, fill: pal[(laneIndex + taskIndex) % pal.length], rx: 12, ry: 12 }));
+      kids.push(text(it.task, x + boxW / 2, y + laneH / 2, boxW - 16, sizeFor(it.task, boxW), '#ffffff', font, true));
+      if (taskIndex < tasks.length - 1) {
+        const ax = x + boxW + 7;
+        kids.push(new Polygon([{ x: ax - 7, y: y + laneH / 2 - 8 }, { x: ax + 7, y: y + laneH / 2 }, { x: ax - 7, y: y + laneH / 2 + 8 }], { fill: '#94a3b8' } as any));
+      }
+    });
   });
 }
 
