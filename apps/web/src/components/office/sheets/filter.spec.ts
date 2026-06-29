@@ -73,6 +73,27 @@ eq(matchesCriterion('Norte', 'endsWith', 'no'), false, 'endsWith negativo');
   eq(res.matched, 2, 'Region = N* → 2 filas (Norte)');
 }
 
+// Top/Bottom N numerico (mantiene el orden original de las filas filtradas).
+{
+  const res = buildFilter(sheet, { range: 'A1:B5', hasHeader: true, criteria: [{ colRel: 1, op: 'top', value: '2' }] })!;
+  eq(res.matched, 2, 'Top 2 Ventas -> 2 filas');
+  eq([valAt(res.celldata, 1, 1), valAt(res.celldata, 2, 1)], [200, 300], 'Top 2 conserva orden original (200, 300)');
+}
+{
+  const res = buildFilter(sheet, { range: 'A1:B5', hasHeader: true, criteria: [{ colRel: 1, op: 'bottom', value: '1' }] })!;
+  eq(res.matched, 1, 'Bottom 1 Ventas -> 1 fila');
+  eq(valAt(res.celldata, 1, 1), 50, 'Bottom 1 = 50');
+}
+{
+  const res = buildFilter(sheet, { range: 'A1:B5', hasHeader: true, conjunction: 'OR', criteria: [{ colRel: 0, op: '=', value: 'Norte' }, { colRel: 1, op: 'top', value: '1' }] })!;
+  eq(res.matched, 3, 'Region=Norte OR Top 1 Ventas -> 3 filas');
+  eq([valAt(res.celldata, 1, 1), valAt(res.celldata, 2, 1), valAt(res.celldata, 3, 1)], [100, 50, 300], 'OR combina criterio normal y Top N');
+}
+{
+  const res = buildFilter(sheet, { range: 'A1:B5', hasHeader: true, criteria: [{ colRel: 1, op: 'top', value: 'abc' }] })!;
+  eq(res.matched, 0, 'Top N invalido no devuelve filas');
+}
+
 console.log(`\nFILTER SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de autofiltro pasan.');

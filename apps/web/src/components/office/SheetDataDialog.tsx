@@ -20,7 +20,10 @@ const FILTER_OPS: { v: string; label: string }[] = [
   { v: 'contains', label: 'Contiene' }, { v: 'notcontains', label: 'No contiene' },
   { v: 'beginsWith', label: 'Empieza por' }, { v: 'endsWith', label: 'Termina en' },
   { v: 'empty', label: 'Vacío' }, { v: 'notempty', label: 'No vacío' },
+  { v: 'top', label: 'Top N numerico' }, { v: 'bottom', label: 'Bottom N numerico' },
 ];
+const VALUELESS_FILTERS = new Set(['empty', 'notempty']);
+const RANK_FILTERS = new Set(['top', 'bottom']);
 
 /** Diálogo para operaciones de datos: ordenar (multinivel), quitar duplicados,
  *  texto en columnas, subtotales, minigráficos y notas de celda. */
@@ -74,6 +77,14 @@ export function SheetDataDialog({
     }
     else onApply('note', { cell: range, sheetIndex, text });
   }
+  const changeFilterOp = (value: string) => {
+    setFilterOp(value);
+    if (RANK_FILTERS.has(value) && !filterValue.trim()) setFilterValue('10');
+  };
+  const changeFilterOp2 = (value: string) => {
+    setFilterOp2(value);
+    if (RANK_FILTERS.has(value) && !filterValue2.trim()) setFilterValue2('10');
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -205,14 +216,14 @@ export function SheetDataDialog({
                 <input type="number" min={1} value={filterCol} onChange={(e) => setFilterCol(Math.max(1, Number(e.target.value)))} className={field} />
               </label>
               <label className="flex-1 text-xs text-gray-500">Condición
-                <select value={filterOp} onChange={(e) => setFilterOp(e.target.value)} className={field}>
+                <select value={filterOp} onChange={(e) => changeFilterOp(e.target.value)} className={field}>
                   {FILTER_OPS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
                 </select>
               </label>
             </div>
-            {filterOp !== 'empty' && filterOp !== 'notempty' && (
-              <label className="block text-xs text-gray-500">Valor
-                <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} className={field} placeholder="comodines * y ? admitidos" />
+            {!VALUELESS_FILTERS.has(filterOp) && (
+              <label className="block text-xs text-gray-500">{RANK_FILTERS.has(filterOp) ? 'N filas' : 'Valor'}
+                <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} className={field} placeholder={RANK_FILTERS.has(filterOp) ? '10' : 'comodines * y ? admitidos'} />
               </label>
             )}
             <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -220,18 +231,18 @@ export function SheetDataDialog({
               <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="filterConj" checked={filterConj === 'OR'} onChange={() => setFilterConj('OR')} /> O (cualquiera)</label>
             </div>
             <label className="flex-1 block text-xs text-gray-500">Segunda condición (opcional)
-              <select value={filterOp2} onChange={(e) => setFilterOp2(e.target.value)} className={field}>
+              <select value={filterOp2} onChange={(e) => changeFilterOp2(e.target.value)} className={field}>
                 <option value="">— ninguna —</option>
                 {FILTER_OPS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
               </select>
             </label>
-            {filterOp2 && filterOp2 !== 'empty' && filterOp2 !== 'notempty' && (
-              <label className="block text-xs text-gray-500">Valor 2
-                <input value={filterValue2} onChange={(e) => setFilterValue2(e.target.value)} className={field} placeholder="comodines * y ? admitidos" />
+            {filterOp2 && !VALUELESS_FILTERS.has(filterOp2) && (
+              <label className="block text-xs text-gray-500">{RANK_FILTERS.has(filterOp2) ? 'N filas 2' : 'Valor 2'}
+                <input value={filterValue2} onChange={(e) => setFilterValue2(e.target.value)} className={field} placeholder={RANK_FILTERS.has(filterOp2) ? '10' : 'comodines * y ? admitidos'} />
               </label>
             )}
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} /> La primera fila es encabezado</label>
-            <p className="text-[11px] text-gray-400">Autofiltro personalizado: una o dos condiciones sobre la misma columna, unidas por Y/O. Crea una hoja nueva con las filas que cumplen el criterio (no modifica el origen).</p>
+            <p className="text-[11px] text-gray-400">Autofiltro personalizado: una o dos condiciones sobre la misma columna, unidas por Y/O. Top/Bottom N solo evalua valores numericos. Crea una hoja nueva con las filas que cumplen el criterio (no modifica el origen).</p>
           </>
         )}
         {mode === 'note' && (
