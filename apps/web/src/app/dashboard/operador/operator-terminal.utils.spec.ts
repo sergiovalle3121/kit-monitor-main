@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 // @ts-expect-error Node strip-types executes the colocated .ts module directly.
-import { buildOperatorConfirmationSummary, classifyScan, deriveProductionMetrics } from "./operator-terminal.utils.ts";
+import { buildOperatorActionSignature, buildOperatorConfirmationSummary, classifyScan, deriveProductionMetrics } from "./operator-terminal.utils.ts";
 
 const cases = [
   ["WO-000123", "wo", "000123", true],
@@ -82,6 +82,46 @@ assert.deepEqual(stopSummary.details, [
   "Estación actual",
   "Operador Ana",
 ]);
+
+assert.equal(
+  buildOperatorActionSignature({
+    action: "confirm-advance",
+    workOrder: " wo-77 ",
+    stepId: "ICT-01",
+    quantity: 3.8,
+    scrap: 1,
+    serial: " sn-abc ",
+  }),
+  "confirm-advance:WO-77:ICT-01:3:1:SN-ABC::",
+);
+
+const stopSignature = buildOperatorActionSignature({
+  action: "line-stop",
+  workOrder: "WO-88",
+  stepId: 7,
+  downtimeReason: "quality_hold",
+  note: "esperando calidad",
+});
+assert.notEqual(
+  stopSignature,
+  buildOperatorActionSignature({
+    action: "line-stop",
+    workOrder: "WO-88",
+    stepId: 7,
+    downtimeReason: "material_shortage",
+    note: "esperando calidad",
+  }),
+);
+assert.notEqual(
+  stopSignature,
+  buildOperatorActionSignature({
+    action: "line-stop",
+    workOrder: "WO-88",
+    stepId: 7,
+    downtimeReason: "quality_hold",
+    note: "esperando supervisor",
+  }),
+);
 
 console.log(
   `operator-terminal.utils: ${cases.length} scanner cases and production metrics passed`,

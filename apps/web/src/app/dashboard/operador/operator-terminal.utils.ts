@@ -29,12 +29,51 @@ export interface OfflineAction {
 
 export type OperatorCriticalAction = "confirm-advance" | "line-stop";
 
+export interface OperatorActionSignatureInput {
+  action: OperatorCriticalAction;
+  workOrder: string;
+  stepId?: number | string | null;
+  quantity?: number;
+  scrap?: number;
+  serial?: string | null;
+  downtimeReason?: string | null;
+  note?: string | null;
+}
+
 export interface OperatorConfirmationSummary {
   title: string;
   primaryLabel: string;
   consequence: string;
   details: string[];
   tone: "emerald" | "rose";
+}
+
+function normalizeSignatureValue(value: unknown): string {
+  if (typeof value === "number") return String(Math.max(0, Math.floor(value)));
+  if (typeof value === "string") return value.trim().toUpperCase();
+  return "";
+}
+
+export function buildOperatorActionSignature({
+  action,
+  workOrder,
+  stepId,
+  quantity,
+  scrap,
+  serial,
+  downtimeReason,
+  note,
+}: OperatorActionSignatureInput): string {
+  return [
+    action,
+    normalizeSignatureValue(workOrder),
+    normalizeSignatureValue(stepId),
+    normalizeSignatureValue(quantity),
+    normalizeSignatureValue(scrap),
+    normalizeSignatureValue(serial),
+    normalizeSignatureValue(downtimeReason),
+    normalizeSignatureValue(note),
+  ].join(":");
 }
 
 export function buildOperatorConfirmationSummary({
