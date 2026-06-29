@@ -1,47 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpenCheck,
   ExternalLink,
   Image as ImageIcon,
+  Loader2,
   Maximize2,
   Minimize2,
   PlaySquare,
 } from "lucide-react";
+import { apiFetch } from "@/lib/apiFetch";
+import {
+  isProtectedVisualAidUrl,
+  resolveAidUrl,
+  visualAidMode,
+  type VisualAid,
+  type VisualAidMode,
+} from "./work-instruction-panel.utils";
 
-export interface VisualAid {
-  kind: "image" | "pdf" | "office" | "video" | "cad";
-  id: string;
-  title?: string;
-  fileUrl?: string;
-  documentUrl?: string;
-  version?: string;
-  revision?: string;
-  updatedAt?: string;
-}
+export type { VisualAid } from "./work-instruction-panel.utils";
 
-function resolveAidUrl(aid: VisualAid | null, apiBase: string) {
-  if (!aid) return null;
-  const url = aid.fileUrl || aid.documentUrl || null;
-  if (!url) return null;
-  return url.startsWith("http") ? url : `${apiBase}${url}`;
-}
+function useRenderableAidUrl(sourceHref: string | null) {
+  const [href, setHref] = useState<string | null>(() =>
+    sourceHref && isProtectedVisualAidUrl(sourceHref) ? null : sourceHref,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
-function visualAidMode(aid: VisualAid | null, href: string | null) {
-  const url = href?.toLowerCase() ?? "";
-  if (!aid) return "empty" as const;
-  if (aid.kind === "video" || /\.(mp4|webm|mov)(\?|$)/.test(url))
-    return "video" as const;
-  if (aid.kind === "image" || /\.(png|jpe?g|gif|webp|svg)(\?|$)/.test(url))
-    return "image" as const;
-  if (aid.kind === "pdf" || /\.pdf(\?|$)/.test(url)) return "pdf" as const;
-  if (
-    aid.kind === "cad" ||
-    /\.(step|stp|iges|igs|dxf|dwg|stl|obj)(\?|$)/.test(url)
-  )
-    return "cad" as const;
-  return "office" as const;
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    setHref(sourceHref);
+    setLoading(false);
+    setError(false);
+
+    if (!sourceHref || !isProtectedVisualAidUrl(sourceHref)) {
+      return () => undefined;
+    }
+
+    setHref(null);
+    setLoading(true);
+
+    apiFetch(sourceHref)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("visual-aid-fetch");
+        const blob = await response.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setHref(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [sourceHref]);
+
+  return { href, loading, error };
 }
 
 export function WorkInstructionPanel({
@@ -56,9 +79,12 @@ export function WorkInstructionPanel({
   apiBase: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const href = resolveAidUrl(aid, apiBase);
-  const mode = visualAidMode(aid, href);
+  const sourceHref = resolveAidUrl(aid, apiBase);
+  const { href, loading, error } = useRenderableAidUrl(sourceHref);
+  const mode = visualAidMode(aid, href ?? sourceHref);
   const version = aid?.version || aid?.revision || "versión vigente";
+  const backupHref =
+    href ?? (sourceHref && !isProtectedVisualAidUrl(sourceHref) ? sourceHref : null);
   const container = expanded
     ? "fixed inset-4 z-[60] rounded-[2rem] bg-slate-950/95 p-4 shadow-2xl"
     : "";
@@ -78,16 +104,28 @@ export function WorkInstructionPanel({
         <span className="ml-auto text-[11px] font-semibold text-gray-500 dark:text-gray-400">
           {stepName}
         </span>
-        {href && (
+        {backupHref ? (
           <a
-            href={href}
+            href={backupHref}
             target="_blank"
             rel="noreferrer"
             className="min-h-10 rounded-2xl bg-white/10 px-3 text-xs font-black flex items-center gap-1.5 hover:bg-white/15 transition-colors"
           >
             <ExternalLink className="w-4 h-4" /> Respaldo
           </a>
-        )}
+        ) : sourceHref ? (
+          <button
+            disabled
+            className="min-h-10 rounded-2xl bg-white/10 px-3 text-xs font-black flex items-center gap-1.5 opacity-60"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <ExternalLink className="w-4 h-4" />
+            )}
+            Respaldo
+          </button>
+        ) : null}
         <button
           onClick={() => setExpanded((value) => !value)}
           className="min-h-10 rounded-2xl bg-white/10 px-3 text-xs font-black flex items-center gap-1.5 hover:bg-white/15 active:scale-95 transition-all"
@@ -108,7 +146,14 @@ export function WorkInstructionPanel({
             : "space-y-3"
         }
       >
-        <EmbeddedAid aid={aid} href={href} mode={mode} expanded={expanded} />
+        <EmbeddedAid
+          aid={aid}
+          href={href}
+          mode={mode}
+          expanded={expanded}
+          loading={loading}
+          error={error}
+        />
         <div
           className={`${expanded ? "overflow-y-auto rounded-3xl bg-white/5 p-4" : ""}`}
         >
@@ -140,15 +185,46 @@ function EmbeddedAid({
   href,
   mode,
   expanded,
+  loading,
+  error,
 }: {
   aid: VisualAid | null;
   href: string | null;
-  mode: ReturnType<typeof visualAidMode>;
+  mode: VisualAidMode;
   expanded: boolean;
+  loading: boolean;
+  error: boolean;
 }) {
   const frameClass = expanded
     ? "h-full min-h-[480px]"
     : "aspect-video max-h-[420px]";
+  if (loading) {
+    return (
+      <div
+        className={`${frameClass} rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-gray-500 text-sm`}
+      >
+        <div className="flex flex-col items-center gap-2 text-center">
+          <Loader2 className="w-7 h-7 animate-spin text-amber-400" />
+          Cargando ayuda visual controlada
+        </div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div
+        className={`${frameClass} rounded-2xl bg-rose-500/10 grid place-items-center p-6 text-center text-rose-700 dark:text-rose-200`}
+      >
+        <div className="max-w-sm space-y-2">
+          <ImageIcon className="mx-auto w-7 h-7" />
+          <div className="text-sm font-black">No se pudo cargar la ayuda visual</div>
+          <p className="text-xs opacity-80">
+            Verifica tu sesiÃ³n o pide a ingenierÃ­a confirmar que el archivo sigue vigente.
+          </p>
+        </div>
+      </div>
+    );
+  }
   if (!aid || !href) {
     return (
       <div
