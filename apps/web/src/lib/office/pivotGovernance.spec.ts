@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { analyzeStoredPivots, formatPivotRefreshReport, refreshStoredPivots, type StoredPivotDefinition } from './pivotGovernance';
+import { analyzePivotDraft, analyzeStoredPivots, formatPivotRefreshReport, refreshStoredPivots, type StoredPivotDefinition } from './pivotGovernance';
 
 let passed = 0; const fails: string[] = [];
 const ok = (c: boolean, m: string) => { if (c) passed++; else fails.push(m); };
@@ -39,6 +39,27 @@ ok(refreshed.sheets[1].celldata.some((c: any) => c.v?.v === 'L1'), 'refresh rees
 ok(sheets[1].celldata[0].v.v === 'old', 'refresh no muta input original');
 ok(formatPivotRefreshReport(refreshed.report).includes('1 actualizada'), 'formatea resumen humano');
 ok(formatPivotRefreshReport({ updated: 0, skipped: 0, findings: [] }) === 'No hay tablas dinámicas guardadas.', 'resumen vacío');
+
+const draftReady = analyzePivotDraft(sheets, pivots[0].config, { maxRows: 3, maxCols: 2 });
+ok(draftReady.status === 'ready', 'draft preview listo para config valida');
+ok(draftReady.canCreate, 'draft valido permite crear');
+ok(draftReady.preview.rows.length === 3, 'draft preview limita filas');
+ok(draftReady.preview.truncatedColumns, 'draft preview reporta columnas truncadas');
+ok(draftReady.summary.includes('Preview listo'), 'draft listo resume dimensiones');
+
+const draftMissing = analyzePivotDraft(sheets, { ...pivots[0].config, rows: ['Linea', 'Fantasma'] });
+ok(draftMissing.status === 'invalid-source', 'draft con campo faltante invalida fuente');
+ok(!draftMissing.canCreate, 'draft con campo faltante bloquea crear');
+ok(draftMissing.missingFields.some((field) => field.field === 'Fantasma' && field.zone === 'rows'), 'draft lista campo faltante');
+
+const draftNeedsFields = analyzePivotDraft(sheets, { ...pivots[0].config, rows: [], cols: [], values: [] });
+ok(draftNeedsFields.status === 'needs-fields', 'draft sin layout pide campos');
+ok(!draftNeedsFields.canCreate, 'draft sin layout bloquea crear');
+
+const draftFilteredOut = analyzePivotDraft(sheets, { ...pivots[0].config, filters: [{ field: 'Linea', include: ['L9'] }] });
+ok(draftFilteredOut.status === 'warnings', 'draft con filtro sin filas reporta advertencia');
+ok(draftFilteredOut.canCreate, 'draft con solo encabezados permite crear con aviso');
+ok(draftFilteredOut.warnings.some((warning) => warning.includes('filtros')), 'draft conserva warning de filtros vacios');
 
 const total = passed + fails.length;
 if (fails.length) { console.error(`❌ ${passed}/${total}`); for (const f of fails) console.error('  - ' + f); process.exit(1); }

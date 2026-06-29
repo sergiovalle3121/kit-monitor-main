@@ -8,6 +8,7 @@ import {
   pivotFields, fieldValues, usedRange, AGG_LABEL,
   type AggFn, type PivotConfig, type PivotValueField,
 } from '@/lib/office/sheetOps';
+import { analyzePivotDraft } from '@/lib/office/pivotGovernance';
 
 type Zone = 'rows' | 'cols' | 'values' | 'filters';
 interface FilterField { field: string; include: string[] }
@@ -90,14 +91,17 @@ export function SheetPivot({
     else if (zone === 'values') setValues((p) => swap(p, (x) => x.field));
   };
 
+  const draftConfig = useMemo<PivotConfig>(() => ({
+    range, sheetIndex: srcIndex, rows, cols, values,
+    filters: filters.filter((f) => f.include.length), showSubtotals: showSub,
+    showRowTotals: showRowTot, showColTotals: showColTot,
+  }), [range, srcIndex, rows, cols, values, filters, showSub, showRowTot, showColTot]);
+  const draft = useMemo(() => analyzePivotDraft(sheets, draftConfig), [sheets, draftConfig]);
+
   function build(): PivotConfig {
-    return {
-      range, sheetIndex: srcIndex, rows, cols, values,
-      filters: filters.filter((f) => f.include.length), showSubtotals: showSub,
-      showRowTotals: showRowTot, showColTotals: showColTot,
-    };
+    return draftConfig;
   }
-  const canApply = (rows.length || cols.length) && values.length;
+  const canApply = draft.canCreate;
 
   const zoneItems = (z: Zone): string[] =>
     z === 'rows' ? rows : z === 'cols' ? cols : z === 'values' ? values.map((v) => v.field) : filters.map((f) => f.field);
@@ -106,7 +110,7 @@ export function SheetPivot({
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl max-h-[90vh] rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl flex flex-col overflow-hidden">
+        className="w-full max-w-5xl max-h-[90vh] rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
           <Table2 className="w-5 h-5 text-emerald-500" />
           <h2 className="text-lg font-bold">Tabla dinámica</h2>
@@ -233,10 +237,54 @@ export function SheetPivot({
               </label>
             )}
           </div>
+
+          <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-gray-50/80 dark:bg-white/[0.04] p-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Preview y diagnostico</div>
+                <p className="mt-1 text-xs text-gray-500">{draft.summary}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${pivotStatusClass(draft.status)}`}>{draft.status}</span>
+                <span className="rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 text-[10px] font-semibold">{draft.resultRows} x {draft.resultCols}</span>
+              </div>
+            </div>
+            {draft.warnings.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {draft.warnings.slice(0, 4).map((warning) => (
+                  <div key={warning} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-200">{warning}</div>
+                ))}
+              </div>
+            )}
+            {draft.preview.rows.length > 0 ? (
+              <div className="mt-3 overflow-hidden rounded-xl border border-black/10 bg-white dark:border-white/10 dark:bg-black/20">
+                <div className="max-h-56 overflow-auto">
+                  <table className="min-w-full table-fixed text-left text-[11px]">
+                    <tbody>
+                      {draft.preview.rows.map((row, r) => (
+                        <tr key={r} className={r === 0 ? 'bg-gray-100 font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-200' : 'border-t border-black/5 dark:border-white/10'}>
+                          {row.map((cellValue, c) => (
+                            <td key={`${r}_${c}`} className="max-w-[150px] truncate px-2.5 py-1.5">{cellValue || '-'}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {(draft.preview.truncatedRows || draft.preview.truncatedColumns) && (
+                  <div className="border-t border-black/5 px-2.5 py-1.5 text-[10px] text-gray-500 dark:border-white/10">
+                    Preview limitado para mantener el builder ligero; la tabla completa se genera al crear.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-xl border border-dashed border-black/10 p-3 text-[11px] text-gray-500 dark:border-white/10">Configura campos validos para ver el preview antes de insertar.</div>
+            )}
+          </div>
         </div>
 
         <div className="flex-shrink-0 flex items-center gap-2 px-5 h-16 border-t border-black/5 dark:border-white/10">
-          <p className="text-[11px] text-gray-400 flex-1">{canApply ? 'Listo para generar.' : 'Añade al menos un campo a Filas/Columnas y uno a Valores.'}</p>
+          <p className="text-[11px] text-gray-400 flex-1">{draft.summary}</p>
           <button onClick={onClose} className="h-10 px-4 rounded-xl text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
           <button disabled={!canApply} onClick={() => onApply(build(), { mode: target, cell })}
             className="h-10 px-5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold hover:opacity-90 disabled:opacity-40">
@@ -246,6 +294,13 @@ export function SheetPivot({
       </motion.div>
     </motion.div>
   );
+}
+
+function pivotStatusClass(status: ReturnType<typeof analyzePivotDraft>['status']): string {
+  if (status === 'ready') return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-200';
+  if (status === 'warnings') return 'bg-amber-500/15 text-amber-700 dark:text-amber-200';
+  if (status === 'needs-fields') return 'bg-gray-500/15 text-gray-600 dark:text-gray-300';
+  return 'bg-red-500/15 text-red-700 dark:text-red-200';
 }
 
 function FilterValues({ all, selected, onChange }: { all: string[]; selected: string[]; onChange: (s: string[]) => void }) {
