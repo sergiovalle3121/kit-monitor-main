@@ -9,10 +9,11 @@ existing implementation instead of creating parallel editors or helper-only work
 
 ## Open PR Collision Check
 
-`gh pr list --repo Sergiovalle3121/axos-os --state open --limit 100` showed no
-open Slides PR touching `SlidesEditor.tsx`, `SlideStatusBar.tsx`,
-`SlideInspectorPanel.tsx`, `slideAssets.ts`, `components/office/slides/**`, or
-PPTX helpers at the start of this run.
+`gh pr list --repo Sergiovalle3121/axos-os --state open --limit 100` showed
+Slides PR #831 (`codex/night-slides-reuse-search-correction`) touching
+`SlideOutline.tsx`, `SlideSorter.tsx`, `SlideReusePanel.tsx`, and
+`components/office/slides/slideNavigation*` / `slideReuse*`. This run avoided
+those files and focused on deck quality/readability health instead.
 
 ## Capability Matrix
 
@@ -23,6 +24,7 @@ PPTX helpers at the start of this run.
 | Fabric slide canvas | Yes | `SlidesEditor.tsx` | strong | Large-deck render performance still relies on full JSON sync in several flows | Memoize health/thumbnails and debounce expensive scans | `SlidesEditor.tsx`, `slides/deckHealth.ts` | medium |
 | Status bar | Yes | `SlideStatusBar.tsx`, `SlideInspectorPanel.tsx`, `slides/deckHealth.ts` | usable | Needs jump-to-issue actions and export report | Add issue navigation from health metrics | `SlideStatusBar.tsx`, `SlideInspectorPanel.tsx` | low |
 | Deck health / release readiness | Yes | `SlideInspectorPanel.tsx`, `SlideStatusBar.tsx`, `slides/deckHealth.ts` | usable | No jump/fix workflow for every issue yet | Build dedicated issue list inside existing inspector | `SlideInspectorPanel.tsx`, `slides/deckHealth.ts` | low |
+| Accessibility / presentation quality | Yes | `slides/presentationQuality.ts`, `slides/deckHealth.ts`, `SlideInspectorPanel.tsx`, `SlideStatusBar.tsx` | usable | Detects title, notes, contrast, small text, dense slides, alt text, and off-canvas issues; no auto-fix/jump workflow yet | Add jump-to-issue and safe quick fixes for alt text/title/contrast | `slides/presentationQuality.ts`, `SlideInspectorPanel.tsx`, `SlideStatusBar.tsx`, `SlidesEditor.tsx` | low |
 | Slide sections | Yes | `slides/sections.ts`, `SlideSorter.tsx`, `SlidesEditor.tsx` | usable | Sections are visible but not collapsible in thumbnail rail | Add collapsible sections/reorder affordances | `SlidesEditor.tsx`, `SlideSorter.tsx`, `slides/sections.ts` | medium |
 | Slide sorter | Yes | `SlideSorter.tsx`, `SlidesEditor.tsx` | usable | Drag reorder exists; bulk actions are limited | Add bulk delete/move-to-section with confirmation | `SlideSorter.tsx` | low |
 | Outline view | Yes | `SlideOutline.tsx`, `SlidesEditor.tsx` | usable | Edits titles only; no find/filter integration | Add outline search and section grouping | `SlideOutline.tsx` | low |
@@ -69,5 +71,6 @@ PPTX helpers at the start of this run.
 - `apps/web/src/components/office/SlideReusePanel.tsx`
 - `apps/web/src/components/office/slideAssets.ts`
 - `apps/web/src/components/office/slides/**`
+- `apps/web/src/components/office/slides/presentationQuality.ts`
 - `apps/web/src/lib/office/**`
 - `apps/api/src/modules/office/**`

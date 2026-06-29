@@ -63,6 +63,7 @@ export function SlideInspectorPanel({
 }) {
   const disabled = readOnly || !selection;
   const readinessActions = health.readinessIssues;
+  const quality = health.presentationQuality;
   return (
     <aside className="w-72 flex-shrink-0 rounded-2xl border border-black/10 dark:border-white/10 bg-white/85 dark:bg-[#111]/85 backdrop-blur overflow-hidden flex flex-col min-h-0">
       <div className="h-11 px-3 flex items-center justify-between border-b border-black/5 dark:border-white/10">
@@ -103,6 +104,15 @@ export function SlideInspectorPanel({
             }`}>
               Export readiness: {health.exportSummary}
             </p>
+            <p className={`mt-2 rounded-lg px-2 py-1.5 text-[11px] font-semibold ${
+              quality.score >= 85
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                : quality.score >= 65
+                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+                  : 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'
+            }`}>
+              Presentation quality: {quality.score}% - {quality.issueCount} issue(s)
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <Metric label="Slides" value={health.slideCount} />
@@ -116,6 +126,10 @@ export function SlideInspectorPanel({
             <Metric label="Vacias" value={health.emptySlides} tone={health.emptySlides ? 'amber' : 'green'} />
             <Metric label="Off-canvas" value={health.offCanvasObjects} tone={health.offCanvasObjects ? 'rose' : 'green'} />
             <Metric label="Alt text" value={health.imagesMissingAltText} tone={health.imagesMissingAltText ? 'amber' : 'green'} />
+            <Metric label="Quality" value={quality.score} tone={quality.score >= 85 ? 'green' : quality.score >= 65 ? 'amber' : 'rose'} />
+            <Metric label="Contrast" value={quality.lowContrastTextObjects} tone={quality.lowContrastTextObjects ? 'rose' : 'green'} />
+            <Metric label="Small text" value={quality.smallTextObjects} tone={quality.smallTextObjects ? 'amber' : 'green'} />
+            <Metric label="Dense" value={quality.denseTextSlides} tone={quality.denseTextSlides ? 'amber' : 'green'} />
             <Metric label="AXOS pending" value={health.smartObjectsContractPending} tone={health.smartObjectsContractPending ? 'amber' : 'green'} />
             <Metric label="Ocultos/bloq." value={health.hiddenObjects + health.lockedObjects} tone={health.hiddenObjects + health.lockedObjects ? 'amber' : 'green'} />
           </div>
@@ -128,6 +142,36 @@ export function SlideInspectorPanel({
           </div>
           {health.pptxIssues > 0 && <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-300"><AlertTriangle className="w-3 h-3 mt-0.5" /> Revisa la compatibilidad PPTX antes de exportar o compartir.</p>}
         </Section>
+
+        {quality.issueCount > 0 && (
+          <Section title="Presentation quality" icon={<Activity className="w-3.5 h-3.5" />}>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <Metric label="Low contrast" value={quality.lowContrastTextObjects} tone={quality.lowContrastTextObjects ? 'rose' : 'green'} />
+              <Metric label="Small text" value={quality.smallTextObjects} tone={quality.smallTextObjects ? 'amber' : 'green'} />
+              <Metric label="Dense slides" value={quality.denseTextSlides} tone={quality.denseTextSlides ? 'amber' : 'green'} />
+              <Metric label="Alt text" value={quality.imagesMissingAltText} tone={quality.imagesMissingAltText ? 'amber' : 'green'} />
+            </div>
+            <div className="mt-2 space-y-1.5">
+              {(quality.currentSlideIssues.length ? quality.currentSlideIssues : quality.issues).slice(0, 4).map((item) => (
+                <p
+                  key={`${item.code}-${item.slide}-${item.objectIndex ?? 'slide'}`}
+                  className={`rounded-lg px-2 py-1.5 text-[11px] ${
+                    item.severity === 'danger'
+                      ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'
+                      : item.severity === 'warning'
+                        ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+                        : 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
+                  }`}
+                >
+                  Slide {item.slide + 1}: <b>{item.title}</b> - {item.detail}
+                </p>
+              ))}
+              {quality.currentSlideIssues.length === 0 && quality.issues.length > 4 && (
+                <p className="text-[11px] text-gray-400">+{quality.issues.length - 4} additional presentation quality issue(s).</p>
+              )}
+            </div>
+          </Section>
+        )}
 
         {health.pptxIssues > 0 && (
           <Section title="PPTX review" icon={<AlertTriangle className="w-3.5 h-3.5" />}>
