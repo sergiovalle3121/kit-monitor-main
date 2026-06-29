@@ -383,10 +383,16 @@ export class ErpPpService {
   }
 
   // ── Planned orders ──────────────────────────────────────────────────────────
-  listPlannedOrders(filters?: { status?: string; mrpRunId?: number }) {
+  listPlannedOrders(filters?: {
+    status?: string;
+    mrpRunId?: number;
+    materialId?: string;
+  }) {
     const where: Record<string, unknown> = {};
     if (filters?.status) where.status = filters.status;
     if (filters?.mrpRunId) where.mrpRunId = filters.mrpRunId;
+    if (filters?.materialId?.trim())
+      where.partNumber = filters.materialId.trim();
     return this.plannedRepo.find({
       where,
       order: { createdAt: 'DESC' },

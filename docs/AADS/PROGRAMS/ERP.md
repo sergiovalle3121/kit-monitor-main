@@ -35,7 +35,7 @@ The ERP Core is the transactional backbone of AXOS OS: it moves material, money,
 - **Probable files:** `apps/api/src/modules/mrp`, `packages/contracts`
 - **Acceptance criteria:** Request with `materialId` returns only that item's planned orders; omitting it preserves current behavior.
 - **Checks:** `git diff --check`; if code: `npm run build`, relevant tests
-- **Status:** PENDING
+- **Status:** IN REVIEW — PR adds `materialId` filtering to `/erp/pp/planned-orders` and wires it into the PP planned-order tab.
 
 #### ERP-003 — Net requirements detail drawer
 - **Epic:** MRP
