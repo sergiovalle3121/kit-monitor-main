@@ -217,3 +217,20 @@
 - Added deterministic layer color definitions in `layout-export-adapter.ts` for Layout, Equipment, Flow, Aisles, Measurements, Safety, and Text.
 - Added smoke coverage for primitive labels, layout box labels, layer colors, and updated entity counts.
 - Pending: add export preflight warnings for empty selection, hidden-layer exports, and unlabeled critical footprints.
+## 2026-06-29 - Validation center clearance wiring
+
+- Inspected the existing CAD workbench, command engine, validation report, collisions, safety zones, flow optimization, DXF, layers, symbols, measurements, snapshots, route chrome, and design docs.
+- Confirmed no open CAD PRs were present in `gh pr list` during the run.
+- Reused `buildCadValidationReport` instead of adding a second validation path in `Layout3DEditor.tsx`.
+- The design-check modal now shows a CAD validation summary and actionable clearance warning rows.
+- Release readiness and the bottom status bar now include CAD validation severity and clearance counts.
+- Added coverage for clearance warnings in `validation-report.spec.ts`.
+- Added `docs/cad/AXOS_CAD_CAPABILITY_AUDIT.md` and `docs/cad/AXOS_CAD_TREE_STATUS.md`.
+- Pending: add viewport issue badges and zoom-to-issue behavior from the same shared validation report.
+## 2026-06-29 — Editable CAD layout templates
+
+- Added pure CAD layout templates for EMS mini factory, SMT line, warehouse racks, and packing/shipping cell.
+- Wired templates into the existing `Layout3DEditor` equipment rail as "Plantillas CAD".
+- Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
+- Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
+- Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
