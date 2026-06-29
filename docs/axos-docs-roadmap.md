@@ -131,3 +131,16 @@ AXOS Docs now adds a dedicated review-summary panel beside the editor actions. T
 ## Implementation slice — Export compatibility preflight
 
 AXOS Docs now includes a compatibility preflight panel that scans the TipTap document model before export/release. It reports unsupported DOCX nodes or marks, missing image sources, long-table PDF risks, inline comments, and pending redlines, producing a simple export score with critical/warning/info counts. This moves Phase 6/7 closer to Word-grade reliability by warning users when a document needs visual validation before DOCX, PDF, or HTML distribution.
+
+## Implementation slice — Track changes foundation metadata
+
+AXOS Docs now has a bounded Track Changes foundation in the existing TipTap Docs editor rather than a new backend subsystem. Suggested insertions, deletions, and formatting changes are represented as inline TipTap marks with author and timestamp metadata. Formatting suggestions additionally carry `property`, `before`, and `after` fields so future import/export and audit work can describe which formatting intent was proposed without inventing a parallel review model.
+
+The Review ribbon and review sidebar now expose basic accept/reject flows for all three change kinds. Insertions are accepted by removing the mark and rejected by deleting the proposed text. Deletions are accepted by deleting the marked text and rejected by removing the mark. Formatting suggestions are accepted or rejected by clearing the metadata mark only; this slice does not attempt to reverse arbitrary style mutations.
+
+Known limits for this foundation:
+
+- No new backend tables or audit events were added in this slice; persistence remains the existing document JSON save path.
+- Automatic tracking is intentionally narrow: typed text in suggestion mode is captured as an insertion, while deletions and formatting suggestions are explicit reviewer actions.
+- Formatting changes are metadata anchors, not a full ProseMirror step-diff engine. Reconstructing exact prior formatting for rejection is deferred to a later audited backend/revision slice.
+- Paste, IME composition, table structural edits, image changes, and DOCX round-trip fidelity for formatting suggestions remain best-effort/future work.
