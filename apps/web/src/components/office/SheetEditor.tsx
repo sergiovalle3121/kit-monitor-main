@@ -43,6 +43,7 @@ import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTab
 import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
 import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
+import { normalizeWorkbookApproval, requestWorkbookReview, WORKBOOK_APPROVAL_LABELS, type WorkbookApprovalSignoff } from '@/lib/office/workbookApproval';
 import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
 import { apiFetch } from '@/lib/apiFetch';
@@ -108,6 +109,9 @@ async function fetchLiveAxosConnectorPreview(type: AxosConnectorType): Promise<A
 function printLayoutOf(v: any): SheetPrintLayout {
   return normalizeSheetPrintLayout(v?.printLayout);
 }
+function approvalOf(v: any): WorkbookApprovalSignoff {
+  return normalizeWorkbookApproval(v?.approval);
+}
 type StoredTable = { name: string; sheetIndex: number; range: string };
 function tablesOf(v: any): StoredTable[] {
   return v && Array.isArray(v.tables) ? v.tables : [];
@@ -151,6 +155,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const tablesRef = useRef<StoredTable[]>(tablesOf(value));
   const commentsRef = useRef<SheetCommentThread[]>(commentsOf(value));
   const connectorsRef = useRef<AxosConnectorInstance[]>(connectorsOf(value));
+  const approvalRef = useRef<WorkbookApprovalSignoff>(approvalOf(value));
+  const [approval, setApproval] = useState<WorkbookApprovalSignoff>(approvalRef.current);
   const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
@@ -258,6 +264,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     comments: commentsRef.current,
     connectors: connectorsRef.current,
     printLayout: printLayoutRef.current,
+    approval: approvalRef.current,
   }), []);
 
   const emit = useCallback(() => {
@@ -400,6 +407,18 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       ...protection,
       ranges: [...ranges.filter((r: any) => r.connectorId !== instance.id && !(r.connectorType === instance.type && r.range === instance.range)), next],
     };
+  }
+
+  function sendWorkbookForReview() {
+    if (readOnly) return;
+    if (approvalRef.current.status === 'in_review' || approvalRef.current.status === 'approved') return;
+    const notes = window.prompt('Notas para revisión (opcional). Esta acción sólo guarda metadata local hasta que exista el endpoint backend:', approvalRef.current.notes ?? '');
+    if (notes === null) return;
+    const next = requestWorkbookReview(approvalRef.current, 'AXOS user', notes);
+    approvalRef.current = next;
+    setApproval(next);
+    emit();
+    toast.info('Workbook marcado como in_review localmente. No es una aprobación real hasta que el backend firme el cambio.');
   }
 
   function insertAxosConnector(type: AxosConnectorType, liveRows?: (string | number)[][]) {
@@ -1264,6 +1283,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           comments={commentsRef.current}
           connectors={connectorsRef.current}
           names={namesRef.current}
+          approval={approval}
           readOnly={readOnly}
           onOpenValidation={() => setTool('validation')}
           onOpenConditional={() => setTool('condformat')}
@@ -1281,6 +1301,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           onProtectSheet={() => protectSheet(true)}
           onRefreshConnectors={refreshAxosConnectors}
           onInsertConnector={insertAxosConnector}
+          onSendForReview={sendWorkbookForReview}
         />
       </div>
 
@@ -1413,9 +1434,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 }
 
 function SheetWorkbenchInspector({
-  tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, readOnly,
+  tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, approval, readOnly,
   onOpenValidation, onOpenConditional, onOpenNames, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
-  onInsertSlicer, onInsertTimeline, onShowSlicers, onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector,
+  onInsertSlicer, onInsertTimeline, onShowSlicers, onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector, onSendForReview,
 }: any) {
   const tabs = [
     ['workbook', 'Workbook'], ['cell', 'Cell'], ['data', 'Data'], ['charts', 'Charts'], ['pivot', 'Pivot'], ['comments', 'Comments'], ['protection', 'Protection'], ['xlsx', 'XLSX'], ['axos', 'AXOS'],
@@ -1461,6 +1482,7 @@ function SheetWorkbenchInspector({
     onInsertConnector(type);
   }
 
+  const approvalTone = approval.status === 'approved' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200' : approval.status === 'rejected' ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200' : approval.status === 'in_review' ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200' : 'border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300';
   return (
     <aside className="hidden xl:flex w-[340px] shrink-0 flex-col border-l border-black/10 dark:border-white/10 bg-gray-50/80 dark:bg-[#101010]">
       <div className="border-b border-black/10 dark:border-white/10 p-3">
@@ -1475,7 +1497,14 @@ function SheetWorkbenchInspector({
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3 text-xs text-gray-600 dark:text-gray-300">
         {tab === 'workbook' && <Panel title="Workbook Health">
+          <div className={`mb-3 rounded-2xl border px-3 py-2 ${approvalTone}`}>
+            <div className="flex items-center justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-wider">Signoff</span><span className="rounded-full border border-current/20 px-2 py-0.5 text-[10px] font-semibold">{WORKBOOK_APPROVAL_LABELS[approval.status as keyof typeof WORKBOOK_APPROVAL_LABELS]}</span></div>
+            <div className="mt-1 text-[11px]">{approval.status === 'approved' ? `Aprobado por ${approval.approvedBy ?? 'backend pendiente'}` : approval.status === 'in_review' ? `Solicitado por ${approval.requestedBy ?? 'AXOS user'}${approval.requestedAt ? ` · ${new Date(approval.requestedAt).toLocaleString()}` : ''}` : approval.status === 'rejected' ? `Rechazado${approval.notes ? ` · ${approval.notes}` : ''}` : 'Sin firma. Usa Send for review para iniciar revisión local.'}</div>
+            {approval.status !== 'approved' && approval.status !== 'in_review' && <button disabled={readOnly} onClick={onSendForReview} className="mt-2 rounded-lg bg-gray-900 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-40 dark:bg-white dark:text-gray-900">Send for review</button>}
+            <div className="mt-1 text-[10px] opacity-75">Foundation UI: no firma aprobación real sin endpoint backend.</div>
+          </div>
           <Metric label="Hojas" value={health.sheets} /><Metric label="Celdas usadas" value={health.usedCells} /><Metric label="Fórmulas" value={health.formulas} /><Metric label="Fórmulas sin proteger" value={health.unprotectedFormulas} /><Metric label="Charts" value={health.charts} /><Metric label="Pivots" value={health.pivots} /><Metric label="Validaciones" value={health.validations} /><Metric label="Comentarios abiertos/resueltos" value={`${health.openComments}/${health.resolvedComments}`} /><Metric label="Comentarios asignados" value={health.assignedComments} /><Metric label="Hojas protegidas" value={health.protectedSheets} /><Metric label="Rangos protegidos" value={health.protectedRanges} /><Metric label="Consultas stale/fallidas" value={`${health.staleAxosConnectors}/${health.failedQueries}`} /><Metric label="Aprobaciones pend/rech/aprob" value={`${health.pendingApprovals}/${health.rejectedApprovals}/${health.approvedApprovals}`} /><Metric label="Export warnings" value={health.exportWarnings} /><Metric label="Sharing" value={`${health.sharingStatus} · ${health.sharedPrincipals}`} /><Metric label="Nombres definidos" value={health.namedRanges} /><Metric label="Warnings import/XLSX" value={health.importWarnings + health.unsupportedXlsxFeatures} />
+
           <div className="mt-3 space-y-2">{health.findings.slice(0, 5).map((f: any) => <div key={f.code} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{f.severity}</b> · {f.message}</div>)}{!health.findings.length && <div className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]">Sin hallazgos relevantes para compartir/exportar.</div>}</div>
         </Panel>}
         {tab === 'cell' && <Panel title="Selección / celda">
