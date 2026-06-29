@@ -54,6 +54,21 @@ describe('EventLedgerController', () => {
     expect(res.items).toEqual([{ id: 'e1' }]);
   });
 
+  it('queryEnvelope wraps the same ledger query in the shared response envelope', async () => {
+    const res = await controller.queryEnvelope({
+      domain: 'materials',
+      action: 'KIT_READY',
+    });
+    expect(service.queryEvents).toHaveBeenCalledWith({
+      domain: 'materials',
+      action: 'KIT_READY',
+    });
+    expect(res.success).toBe(true);
+    expect(res.data.items).toEqual([{ id: 'e1' }]);
+    expect(res.meta).toEqual({ envelope: 'api-response-v1' });
+    expect(Date.parse(res.timestamp)).not.toBeNaN();
+  });
+
   it('getByReference uppercases the reference type', async () => {
     const res = await controller.getByReference('kit', 'K-1');
     expect(service.getEventsByReference).toHaveBeenCalledWith('KIT', 'K-1');
