@@ -32,7 +32,11 @@ import {
   type ScanResult,
   type ScanState,
 } from "./operator-terminal.utils";
-import { ANDON_TYPES } from "./andon-types";
+import {
+  ANDON_TYPES,
+  DOWNTIME_REASON_OPTIONS,
+  type DowntimeReasonCode,
+} from "./andon-types";
 import { IncidentDispositionPanel } from "./incident-disposition-panel";
 import { IndustrialTopBar } from "./industrial-top-bar";
 import { MaterialConsumptionPanel } from "./material-consumption-panel";
@@ -1369,7 +1373,9 @@ function AndonForm({
   onDone: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
-  const [stopArmed, setStopArmed] = useState(false);
+  const [stopPickerOpen, setStopPickerOpen] = useState(false);
+  const [stopReason, setStopReason] = useState<DowntimeReasonCode | "">("");
+  const [stopNote, setStopNote] = useState("");
   const toast = useToast();
   const stopSummary = buildOperatorConfirmationSummary({
     action: "line-stop",
@@ -1378,11 +1384,27 @@ function AndonForm({
     operator,
   });
 
-  async function call(type: string) {
+  async function call(type: string, downtimeReason?: DowntimeReasonCode) {
+    if (type === "stop" && !downtimeReason) {
+      toast.error(
+        "Selecciona una razón de paro antes de detener la línea.",
+        "Andon",
+      );
+      return;
+    }
+    const reasonLabel =
+      DOWNTIME_REASON_OPTIONS.find((reason) => reason.code === downtimeReason)
+        ?.label ?? null;
     const payload = {
       type,
       stepId: board.currentStep?.stepId,
       raisedBy: operator,
+      ...(downtimeReason
+        ? {
+            downtimeReason,
+            note: stopNote.trim() || reasonLabel || undefined,
+          }
+        : {}),
     };
     setBusy(type);
     try {
@@ -1408,7 +1430,9 @@ function AndonForm({
     } catch {
       onQueueAction({
         type: "andon",
-        label: `Andon ${type} · ${board.execution.workOrder}`,
+        label: `Andon ${type}${reasonLabel ? ` · ${reasonLabel}` : ""} · ${
+          board.execution.workOrder
+        }`,
         payload,
       });
       toast.error("Sin conexión: Andon guardado en cola local.", "Andon");
@@ -1416,6 +1440,15 @@ function AndonForm({
       setBusy(null);
     }
   }
+
+  function selectAndon(type: string) {
+    if (type === "stop") {
+      setStopPickerOpen(true);
+      return;
+    }
+    void call(type);
+  }
+
   return (
     <div>
       <SheetHeader title="Andon" subtitle="Llama a soporte a tu estación" />
@@ -1423,13 +1456,7 @@ function AndonForm({
         {ANDON_TYPES.map((a) => (
           <button
             key={a.id}
-            onClick={() => {
-              if (a.id === "stop") {
-                setStopArmed(true);
-                return;
-              }
-              void call(a.id);
-            }}
+            onClick={() => selectAndon(a.id)}
             disabled={!!busy}
             className={`${glass} rounded-3xl p-5 flex flex-col items-center gap-2 active:scale-95 transition-all disabled:opacity-50`}
             style={{ color: a.color }}
@@ -1442,33 +1469,65 @@ function AndonForm({
             <span className="font-bold text-sm">{a.label}</span>
           </button>
         ))}
-        {stopArmed && (
-          <div className="col-span-2 space-y-3">
+      </div>
+      {stopPickerOpen && (
+        <div className="mt-5 rounded-3xl border border-rose-500/20 bg-rose-500/10 p-4">
+          <div className="mb-3">
             <ConfirmationReview summary={stopSummary} armed />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                onClick={() => setStopArmed(false)}
-                disabled={!!busy}
-                className="rounded-2xl bg-gray-100 px-4 py-4 text-sm font-black text-gray-700 hover:bg-gray-200 active:scale-[0.98] transition-all disabled:opacity-50 dark:bg-white/10 dark:text-gray-100 dark:hover:bg-white/15"
-              >
-                Cancelar paro
-              </button>
-              <button
-                onClick={() => void call("stop")}
-                disabled={!!busy}
-                className="rounded-2xl bg-rose-500 px-4 py-4 text-sm font-black text-white hover:bg-rose-600 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {busy === "stop" ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <AlertTriangle className="w-5 h-5" />
-                )}
-                {stopSummary.primaryLabel}
-              </button>
+          </div>
+          <div className="mb-3">
+            <div className="text-sm font-black text-rose-600">
+              Razón de paro
+            </div>
+            <div className="text-xs text-gray-500">
+              Se registra contra la WO activa.
             </div>
           </div>
-        )}
-      </div>
+          <div className="grid grid-cols-1 gap-2">
+            {DOWNTIME_REASON_OPTIONS.map((reason) => (
+              <button
+                key={reason.code}
+                onClick={() => setStopReason(reason.code)}
+                className={`rounded-2xl px-3 py-3 text-left transition-all ${
+                  stopReason === reason.code
+                    ? "bg-rose-500 text-white"
+                    : "bg-white/70 text-gray-700 hover:bg-white dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+                }`}
+              >
+                <span className="block text-sm font-black">{reason.label}</span>
+                <span
+                  className={`block text-[11px] ${
+                    stopReason === reason.code
+                      ? "text-white/80"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {reason.description}
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={stopNote}
+            onChange={(event) => setStopNote(event.target.value)}
+            placeholder="Nota opcional para supervisor / mantenimiento"
+            rows={2}
+            className="mt-3 w-full rounded-2xl bg-white/80 px-4 py-3 text-sm outline-none dark:bg-white/10"
+          />
+          <button
+            onClick={() => call("stop", stopReason || undefined)}
+            disabled={busy === "stop" || !stopReason}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-500 py-4 text-base font-black text-white transition-all hover:bg-rose-600 active:scale-[0.98] disabled:opacity-40"
+          >
+            {busy === "stop" ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <ShieldAlert className="h-5 w-5" />
+            )}
+            Detener línea
+          </button>
+        </div>
+      )}
     </div>
   );
 }

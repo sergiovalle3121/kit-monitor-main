@@ -1,4 +1,5 @@
 import type { AndonType } from '../entities/andon-call.entity';
+import type { DowntimeReason } from '../entities/mes-downtime.entity';
 import type {
   IncidentSeverity,
   IncidentDisposition,
@@ -53,6 +54,7 @@ export class RaiseAndonDto {
   stepId?: number;
   note?: string;
   raisedBy?: string;
+  downtimeReason?: DowntimeReason;
 }
 
 export class AssignStationDto {
