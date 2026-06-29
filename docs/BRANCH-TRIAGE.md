@@ -269,3 +269,28 @@ build + specs) antes de mergear:
 **Tally de la sesión:** 6 PRs mergeados (#765, #789, #794, #782, #802, #806),
 3 cerrados por duplicado/superseded (#788, #753, #790). 0 violaciones de la regla
 de oro. Backend (apps/api) y RED (#762, #786) intactos para el owner/Codex.
+
+### Sesión de merges — tanda grande (frontend night-*)
+
+Codex generó un lote grande de PRs frontend (CAD/Sheets/Slides). Se mergeó el
+**conjunto disjunto** (sin conflictos entre sí), cada uno con CI verde:
+
+- **19 PRs mergeados** en total esta sesión: #765, #789, #794, #782, #802 (rebase de #753),
+  #806 (rebase de #790), #808, #795, #820, #810, #800, #813, #803, #816, #823, #799,
+  #827, #811, #830.
+- **3 cerrados** por superseded/duplicado: #788, #753, #790.
+
+**Hallazgo clave sobre el resto:** los ~13 PRs frontend que quedan **chocan** porque
+son **iteraciones que compiten** sobre el MISMO subsistema (p.ej. #804 redefine los
+atajos de teclado CAD de forma más pobre y SIN los handlers de grid/snap/validate/export
+que #808/#799/#830 ya metieron). Rebasearlos **regresaría** lo ya mergeado. No son
+features aditivas nuevas en su mayoría → deben **cerrarse como superseded** (revisión
+caso por caso), no rebasearse a ciegas.
+
+**Recomendación:** la deduplicación de los PRs que compiten la debe hacer **Codex**
+(que tiene el contexto de cuál versión es la canónica) o el owner; y conviene **pausar
+la generación** de Codex para que el merge converja — si no, la cola se rellena más
+rápido de lo que se integra a mano.
+
+**Fuera de alcance/quarantine (sin cambios):** 5 RED (#762, #786, #824, #807, #797) y
+~13 backend `apps/api` — para el owner/Codex.
