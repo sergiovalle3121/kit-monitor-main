@@ -186,3 +186,11 @@
 - Restoring a local snapshot pushes the current layout onto the existing undo stack before applying the snapshot, so recovery remains reversible.
 - Backend versions/scenarios remain unchanged; local snapshots are explicitly session-only and do not add persistence or API calls.
 - Pending: auto-create local snapshots before high-risk DXF conversions/import-object operations once editable DXF object mapping lands.
+
+## 2026-06-29 - CAD object inspector properties
+
+- Inspected the existing CAD properties panel, CAD layers/tags, DXF import tags, command registry, validation helpers, and open CAD PRs #805, #804, #801, #799, and #796 before choosing a panel-scoped object inspector slice.
+- Added `apps/web/src/lib/cad/object-properties.ts` to derive object area, bounds, center, source metadata, safety classification, lock/visibility warnings, and multi-selection summaries without creating a parallel editor model.
+- Wired the existing `Layout3DEditor` right inspector to show local notes, DXF/source metadata, safety classification, object center, multi-selection bounds, layer spread, and locked/hidden object counts.
+- Added `object-properties.spec.ts` for source metadata, safety tag parsing, single-object properties, and multi-selection summaries.
+- Pending: notes/tags/source metadata remain local-only until the layout API metadata contract is approved.

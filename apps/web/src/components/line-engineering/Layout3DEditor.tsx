@@ -59,6 +59,13 @@ import { detectCadCollisions, type CadCollisionHit } from '@/lib/cad/collisions'
 import { buildFlowSegments, scoreFlowLayout, type CadFlowNode, type CadFlowScore, type CadFlowSegment } from '@/lib/cad/flow-optimization';
 import { evaluateSafetyZones, type CadSafetyIssue, type CadSafetyZone } from '@/lib/cad/safety-zones';
 import { createCadSnapshot, diffCadSnapshots, pushCadSnapshot, restoreCadSnapshot, type CadSnapshotDiff, type CadSnapshotHistory } from '@/lib/cad/snapshots';
+import {
+  describeCadObjectProperties,
+  summarizeCadSelectionProperties,
+  type CadObjectProperties,
+  type CadPropertyObject,
+  type CadSelectionProperties,
+} from '@/lib/cad/object-properties';
 import dynamic from 'next/dynamic';
 
 // Analysis panels — the same modal components the 2D host shipped, lazy-loaded so
@@ -641,6 +648,7 @@ export default function Layout3DEditor({
   const [commandLog, setCommandLog] = useState<CadCommandHistoryItem[]>([]);
   const [selList, setSelList] = useState<SelItem[]>([]);
   const [selSnap, setSelSnap] = useState<SelSnap | null>(null);
+  const [selSummary, setSelSummary] = useState<CadSelectionProperties | null>(null);
   const [placedIds, setPlacedIds] = useState<Set<string>>(new Set());
   const [assetIds, setAssetIds] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<'stations' | 'equipment'>('stations');
@@ -664,6 +672,9 @@ export default function Layout3DEditor({
   const cadLayersRef = useRef<CadLayer[]>(DEFAULT_CAD_LAYERS);
   const layerAssignmentsRef = useRef<CadLayerAssignments>({});
   const [objectTags, setObjectTags] = useState<Record<string, string>>({});
+  const [objectNotes, setObjectNotes] = useState<Record<string, string>>({});
+  const objectTagsRef = useRef<Record<string, string>>({});
+  const objectNotesRef = useRef<Record<string, string>>({});
   const [aisleWidth, setAisleWidth] = useState(1200);
   const [hist, setHist] = useState({ undo: 0, redo: 0 }); // depths, for button enablement
   const [takeoff, setTakeoff] = useState<LocalTakeoff | null>(null); // quantities panel (null = closed)
@@ -790,6 +801,8 @@ export default function Layout3DEditor({
   useEffect(() => { layersRef.current = layers; applyLayers(); }, [layers, applyLayers]);
   useEffect(() => { cadLayersRef.current = cadLayers; }, [cadLayers]);
   useEffect(() => { layerAssignmentsRef.current = layerAssignments; }, [layerAssignments]);
+  useEffect(() => { objectTagsRef.current = objectTags; }, [objectTags]);
+  useEffect(() => { objectNotesRef.current = objectNotes; }, [objectNotes]);
 
   // close the view/layers popover when clicking outside it
   useEffect(() => {
@@ -828,6 +841,57 @@ export default function Layout3DEditor({
   }, [data]);
   useEffect(() => { applyTheme(); }, [theme, applyTheme]);
 
+  const getPlaceRef = useCallback((it: SelItem) => (it.type === 'station' ? placementsRef.current.get(it.id) : assetsRef.current.get(it.id)), []);
+  const computePropertyObject = useCallback((item: SelItem): CadPropertyObject | null => {
+    const place = getPlaceRef(item);
+    if (!place) return null;
+    const fallbackLayer: CadLayerId = item.type === 'station' ? 'layout' : 'equipment';
+    const layerId = layerAssignmentsRef.current[item.id] ?? fallbackLayer;
+    const layer = cadLayersRef.current.find((candidate) => candidate.id === layerId);
+
+    if (item.type === 'station') {
+      const station = stationsByIdRef.current.get(item.id);
+      return {
+        id: item.id,
+        type: 'station',
+        label: station?.station ?? item.id,
+        kind: station?.line,
+        x: place.x,
+        y: place.y,
+        width: place.w,
+        height: place.h,
+        rotation: place.rotation,
+        layerId,
+        layerLabel: layer?.label ?? layerId,
+        layerVisible: layer?.visible ?? true,
+        layerLocked: layer?.locked ?? false,
+        tags: objectTagsRef.current[item.id],
+        notes: objectNotesRef.current[item.id],
+      };
+    }
+
+    const asset = assetsRef.current.get(item.id);
+    if (!asset) return null;
+    const meta = assetMeta(asset.kind);
+    return {
+      id: item.id,
+      type: 'asset',
+      label: asset.label || meta.label,
+      kind: asset.kind,
+      x: place.x,
+      y: place.y,
+      width: place.w,
+      height: place.h,
+      rotation: place.rotation,
+      layerId,
+      layerLabel: layer?.label ?? layerId,
+      layerVisible: layer?.visible ?? true,
+      layerLocked: layer?.locked ?? false,
+      tags: objectTagsRef.current[item.id],
+      notes: objectNotesRef.current[item.id],
+    };
+  }, [getPlaceRef]);
+
   // Snapshot the selection's geometry into render-safe state (reads refs only
   // from event handlers, never during render — the Minimap/2D editor pattern).
   const computeSnap = useCallback((next: SelItem): SelSnap | null => {
@@ -842,13 +906,17 @@ export default function Layout3DEditor({
     const def = assetMeta(a.kind);
     return { type: 'asset', id: next.id, x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation, title: a.label || def.label, subtitle: `Equipo · ${a.kind}${a.label ? ` · ${def.label}` : ''}`, kind: a.kind, height: def.height, canDuplicate: true };
   }, []);
+  const refreshSelectionSnapshot = useCallback((next: SelItem[]) => {
+    setSelSnap(next.length === 1 ? computeSnap(next[0]) : null);
+    const objects = next.map(computePropertyObject).filter((item): item is CadPropertyObject => !!item);
+    setSelSummary(summarizeCadSelectionProperties(objects));
+  }, [computePropertyObject, computeSnap]);
   // Replace the whole selection (selSnap mirrors the single-object case).
   const select = useCallback((next: SelItem[]) => {
     selRef.current = next; setSelList(next);
-    setSelSnap(next.length === 1 ? computeSnap(next[0]) : null);
-  }, [computeSnap]);
-  const refreshSnap = useCallback(() => setSelSnap(selRef.current.length === 1 ? computeSnap(selRef.current[0]) : null), [computeSnap]);
-  const getPlaceRef = useCallback((it: SelItem) => (it.type === 'station' ? placementsRef.current.get(it.id) : assetsRef.current.get(it.id)), []);
+    refreshSelectionSnapshot(next);
+  }, [refreshSelectionSnapshot]);
+  const refreshSnap = useCallback(() => refreshSelectionSnapshot(selRef.current), [refreshSelectionSnapshot]);
 
   // ---- first-person walkthrough: drop to eye level, look by dragging, WASD ----
   const toggleWalk = useCallback(() => {
@@ -2610,7 +2678,23 @@ export default function Layout3DEditor({
   const updateSelectedTags = (value: string) => {
     const cur = selList[0]; if (!cur) return;
     if (isItemLayerLocked(cur)) { toast.error('La capa del objeto está bloqueada. Desbloquéala para editar tags.', 'Capas'); return; }
-    setObjectTags((state) => ({ ...state, [cur.id]: value }));
+    setObjectTags((state) => {
+      const next = { ...state, [cur.id]: value };
+      objectTagsRef.current = next;
+      return next;
+    });
+    refreshSnap();
+    setDirty(true);
+  };
+  const updateSelectedNotes = (value: string) => {
+    const cur = selList[0]; if (!cur) return;
+    if (isItemLayerLocked(cur)) { toast.error('La capa del objeto esta bloqueada. Desbloqueala para editar notas.', 'Capas'); return; }
+    setObjectNotes((state) => {
+      const next = { ...state, [cur.id]: value };
+      objectNotesRef.current = next;
+      return next;
+    });
+    refreshSnap();
     setDirty(true);
   };
   const assignSelectedToActiveLayer = () => {
@@ -3116,6 +3200,27 @@ export default function Layout3DEditor({
   const cadLayerCounts = cadLayers.reduce<Record<CadLayerId, number>>((acc, layer) => ({ ...acc, [layer.id]: 0 }), {} as Record<CadLayerId, number>);
   placedIds.forEach((id) => { cadLayerCounts[layerAssignments[id] ?? 'layout'] += 1; });
   assetIds.forEach((id) => { cadLayerCounts[layerAssignments[id] ?? 'equipment'] += 1; });
+  const selectedObjectProperties: CadObjectProperties | null = selSnap && selList[0] ? (() => {
+    const layerId = selectionLayer(selList[0]);
+    const layer = cadLayers.find((candidate) => candidate.id === layerId);
+    return describeCadObjectProperties({
+      id: selSnap.id,
+      type: selSnap.type,
+      label: selSnap.title,
+      kind: selSnap.kind,
+      x: selSnap.x,
+      y: selSnap.y,
+      width: selSnap.w,
+      height: selSnap.h,
+      rotation: selSnap.rotation,
+      layerId,
+      layerLabel: layer?.label ?? layerId,
+      layerVisible: layer?.visible ?? true,
+      layerLocked: layer?.locked ?? false,
+      tags: objectTags[selSnap.id],
+      notes: objectNotes[selSnap.id],
+    });
+  })() : null;
   const releaseBlockers = (report?.errors ?? 0) + collisionHits.length + safetyIssues.length;
   const releaseWarnings = (report?.warnings ?? 0) + dxfWarnings.length + (flowHealth && flowHealth.score < 80 ? 1 : 0);
   const releaseState = !report ? 'Sin validar' : releaseBlockers > 0 ? 'Bloqueado' : releaseWarnings > 0 ? 'Con avisos' : 'Listo';
@@ -3609,6 +3714,33 @@ export default function Layout3DEditor({
                   <span className="text-sm font-semibold">{selList.length} seleccionados</span>
                 </div>
                 <div className="text-[11px] text-gray-400 mb-3">Alinea, mide o mueve el grupo en bloque.</div>
+                {selSummary && (
+                  <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-[10px] uppercase tracking-wide text-cyan-200">Resumen CAD</span>
+                      <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-gray-300">{selSummary.stationCount} st · {selSummary.assetCount} eq</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <ReadField label="Bounds" value={`${Math.round(selSummary.bounds.width)} × ${Math.round(selSummary.bounds.height)}`} />
+                      <ReadField label="Area" value={fmtArea(selSummary.area, 'mm')} />
+                      <ReadField label="Capas" value={`${selSummary.layers.length}`} />
+                      <ReadField label="Protegidos" value={`${selSummary.lockedCount}`} />
+                    </div>
+                    {selSummary.layers.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {selSummary.layers.slice(0, 3).map((layer) => (
+                          <div key={layer.id} className="flex items-center justify-between gap-2 rounded-lg bg-gray-950/50 px-2 py-1 text-[10.5px] text-gray-300">
+                            <span className={layer.visible ? 'truncate' : 'truncate text-gray-500'}>{layer.label}</span>
+                            <span className={layer.locked ? 'text-amber-200' : 'text-gray-500'}>{layer.count} obj{layer.locked ? ' · lock' : ''}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {selSummary.warnings.length > 0 && (
+                      <div className="mt-2 rounded-lg border border-amber-300/15 bg-amber-400/[0.06] px-2 py-1 text-[10.5px] text-amber-100">{selSummary.warnings[0]}</div>
+                    )}
+                  </div>
+                )}
                 {selList.length === 2 && (
                   <div className="mb-3 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-2.5">
                     <div className="mb-2 text-[10px] uppercase tracking-wide text-cyan-200">Cota entre objetos</div>
@@ -3690,10 +3822,28 @@ export default function Layout3DEditor({
                       <span className="block mb-1">Tags</span>
                       <input value={objectTags[selSnap.id] ?? ''} onChange={(e) => updateSelectedTags(e.target.value)} placeholder="esd, safety, smt…" className="w-full rounded-lg border border-white/10 bg-gray-950/70 px-2 py-1.5 text-[12px] text-white placeholder:text-gray-600 outline-none" />
                     </label>
+                    <label className="block text-[11px] text-gray-400">
+                      <span className="block mb-1">Notas</span>
+                      <textarea value={objectNotes[selSnap.id] ?? ''} onChange={(e) => updateSelectedNotes(e.target.value)} rows={2} placeholder="Owner, restriccion, pendiente..." className="w-full resize-none rounded-lg border border-white/10 bg-gray-950/70 px-2 py-1.5 text-[12px] text-white placeholder:text-gray-600 outline-none" />
+                    </label>
                     <div className="grid grid-cols-2 gap-2">
                       <ReadField label="Área" value={`${Math.round((selSnap.w * selSnap.h) / 1000).toLocaleString('es-MX')}k mm²`} />
                       <ReadField label="Footprint" value={`${Math.round(selSnap.w)} × ${Math.round(selSnap.h)}`} />
                     </div>
+                    {selectedObjectProperties && (
+                      <div className="rounded-lg border border-white/10 bg-gray-950/45 p-2">
+                        <div className="mb-2 text-[10px] uppercase tracking-wide text-gray-500">Metadata CAD</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <ReadField label="Centro" value={`${Math.round(selectedObjectProperties.center.x)}, ${Math.round(selectedObjectProperties.center.y)}`} />
+                          <ReadField label="Origen" value={selectedObjectProperties.source.source === 'dxf' ? 'DXF editable' : selectedObjectProperties.source.source === 'generated' ? 'Generado' : 'Manual'} />
+                          {selectedObjectProperties.source.dxfLayer && <ReadField label="DXF layer" value={selectedObjectProperties.source.dxfLayer} />}
+                          <ReadField label="Safety" value={selectedObjectProperties.safetyClassification} />
+                        </div>
+                        {selectedObjectProperties.warnings.length > 0 && (
+                          <div className="mt-2 rounded-md border border-amber-300/15 bg-amber-400/[0.06] px-2 py-1 text-[10.5px] text-amber-100">{selectedObjectProperties.warnings[0]}</div>
+                        )}
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 gap-1.5 pt-1">
                       <button onClick={assignSelectedToActiveLayer} className="rounded-lg bg-white/[0.06] px-2 py-1.5 text-[10.5px] text-gray-200 hover:bg-white/[0.12]">Capa activa</button>
                       <button onClick={centerSelectedInFootprint} className="rounded-lg bg-white/[0.06] px-2 py-1.5 text-[10.5px] text-gray-200 hover:bg-white/[0.12]">Centrar</button>
