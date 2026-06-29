@@ -3,7 +3,6 @@
 import React from "react";
 import { DashboardTopBar } from "@/components/DashboardTopBar";
 import { DashboardDock } from "@/components/DashboardDock";
-import { DashboardCommandRail } from "@/components/DashboardCommandRail";
 import { DashboardNavSheet } from "@/components/DashboardNavSheet";
 import { DashboardWayfinding } from "@/components/DashboardWayfinding";
 import { useRouteChrome } from "@/lib/routeChrome";
@@ -36,12 +35,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         Saltar al contenido
       </a>
       <DashboardTopBar />
-      {showCommandRail && <DashboardCommandRail />}
       {showCommandRail && <DashboardNavSheet />}
       <div
         id="dashboard-content"
         tabIndex={-1}
-        className={`pt-20 focus:outline-none ${showCommandRail ? "lg:pl-[19.5rem]" : ""}`}
+        className="pt-20 focus:outline-none"
       >
         <DashboardWayfinding />
         {children}

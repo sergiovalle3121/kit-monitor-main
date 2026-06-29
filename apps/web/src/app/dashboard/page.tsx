@@ -381,8 +381,8 @@ function DashboardInner() {
               <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
                 Accesos rápidos
               </h2>
-              <span className="hidden text-xs text-muted-foreground lg:inline">
-                Todos los módulos están en la navegación lateral
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                Abre “Axos OS” (arriba) para ver todos los módulos
               </span>
             </div>
             <motion.div

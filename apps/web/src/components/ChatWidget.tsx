@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ChevronDown } from 'lucide-react';
-import { glass } from '@/lib/glass';
+import { MessageSquare, X } from 'lucide-react';
 import { useRouteChrome } from '@/lib/routeChrome';
 import { DOMAINS, ICON_STROKE } from '@/lib/design/domains';
 import { chatApi } from '@/lib/chatApi';
@@ -62,42 +61,48 @@ export function ChatWidget() {
 
   if (hidden) return null;
 
+  const attention = !open && unread > 0;
+
   return (
     <>
-      {/* Panel (dock) */}
+      {/* Panel a PANTALLA COMPLETA (no cuadro central) — misma experiencia que
+          /dashboard/chat. Se abre/cierra desde el mismo botón flotante. */}
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.96 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-            className={`${glass} fixed bottom-44 right-6 z-[110] flex h-[min(70vh,620px)] w-[min(94vw,390px)] flex-col overflow-hidden rounded-[24px] shadow-2xl`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-[120] bg-background"
             role="dialog"
             aria-label="Mensajería"
           >
-            <ChatExperience variant="dock" onClose={() => setOpen(false)} />
+            <ChatExperience variant="page" onClose={() => setOpen(false)} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Botón flotante (abre/cierra) */}
+      {/* Botón flotante (toggle). z por ENCIMA del panel para cerrar desde aquí.
+          Cambia de tono cuando hay mensajes sin leer. */}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? 'Cerrar mensajería' : 'Abrir mensajería'}
         aria-expanded={open}
-        className="fixed bottom-28 right-8 z-[111] flex h-14 w-14 items-center justify-center rounded-full text-white shadow-2xl transition-all hover:scale-105 active:scale-95"
+        className={`fixed bottom-28 right-8 z-[130] flex h-14 w-14 items-center justify-center rounded-full text-white shadow-2xl ring-1 ring-white/20 transition-all hover:scale-105 active:scale-95 ${attention ? 'animate-pulse' : ''}`}
         style={{
-          background: `linear-gradient(135deg, ${DOMAINS.messaging.from}, ${DOMAINS.messaging.to})`,
+          background: attention
+            ? 'linear-gradient(135deg, #fb7185, #e11d48)'
+            : `linear-gradient(135deg, ${DOMAINS.messaging.from}, ${DOMAINS.messaging.to})`,
         }}
       >
         {open ? (
-          <ChevronDown className="h-6 w-6" strokeWidth={ICON_STROKE} />
+          <X className="h-6 w-6" strokeWidth={ICON_STROKE} />
         ) : (
           <MessageSquare className="h-6 w-6" strokeWidth={ICON_STROKE} />
         )}
-        {!open && unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900">
+        {attention && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900">
             {unread > 99 ? '99+' : unread}
           </span>
         )}

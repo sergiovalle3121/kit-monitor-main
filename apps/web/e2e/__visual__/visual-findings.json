@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-29T18:26:40.472Z",
+  "generatedAt": "2026-06-29T19:24:50.215Z",
   "routesSwept": 96,
   "combinations": 384,
   "summary": {
@@ -32,7 +32,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/admin/approvals",
@@ -41,7 +41,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": ".tracking-\\[0\\.2em\\]"
+      "selector": ".uppercase"
     },
     {
       "route": "/dashboard/admin/numbering",
@@ -50,7 +50,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": ".leading-tight.text-\\[12px\\]"
+      "selector": ".flex-1.min-w-0.jsx-1785b315b8ad92ce > p"
     },
     {
       "route": "/dashboard/admin/numbering",
@@ -68,7 +68,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/backflush",
@@ -77,7 +77,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/bom",
@@ -86,7 +86,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/cancellation-requests",
@@ -95,7 +95,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/chat",
@@ -113,7 +113,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".text-\\[12px\\].text-gray-400.leading-tight"
+      "selector": "p"
     },
     {
       "route": "/dashboard/control-tower",
@@ -149,7 +149,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/cycle-counts",
@@ -158,7 +158,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/ehs",
@@ -167,7 +167,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (14 nodes)",
-      "selector": "header > .flex-1.min-w-0 > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/engineering",
@@ -176,7 +176,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "header > .flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/erp",
@@ -212,7 +212,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": ".md\\:inline.text-gray-400.text-xs"
+      "selector": ".md\\:inline.text-gray-400.hidden"
     },
     {
       "route": "/dashboard/erp/sd",
@@ -230,7 +230,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-      "selector": ".leading-tight.text-\\[12px\\]"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/expenses",
@@ -248,7 +248,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/finance/cost-intelligence",
@@ -257,7 +257,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (19 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/finance/cost-rollup",
@@ -266,7 +266,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-      "selector": ".flex-1.min-w-0 > .text-gray-500.dark\\:text-gray-400"
+      "selector": ".flex-1.min-w-0 > .text-gray-500.dark\\:text-gray-400.text-sm"
     },
     {
       "route": "/dashboard/fixed-assets",
@@ -275,7 +275,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-      "selector": ".text-\\[12px\\].leading-tight"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/fixed-assets",
@@ -293,7 +293,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/forecast",
@@ -320,7 +320,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-      "selector": "header > div > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/improvement",
@@ -329,7 +329,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/improvement",
@@ -347,7 +347,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".flex-1.min-w-0.jsx-a482e8652690edce > p"
     },
     {
       "route": "/dashboard/inbound",
@@ -365,7 +365,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/inventory",
@@ -374,7 +374,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div > .dark\\:text-gray-400"
+      "selector": "header > .flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/lab",
@@ -383,7 +383,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/legal",
@@ -392,7 +392,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-      "selector": "header > .flex-1 > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/line-engineering",
@@ -436,8 +436,8 @@
       "theme": "light",
       "type": "axe:color-contrast",
       "severity": "high",
-      "detail": "Elements must meet minimum color contrast ratio thresholds (14 nodes)",
-      "selector": "header > div > p"
+      "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/materials",
@@ -446,7 +446,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/metrics",
@@ -455,7 +455,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/mission-control",
@@ -464,7 +464,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-      "selector": ".gap-4 > div > .tracking-wide.text-gray-500.dark\\:text-gray-400"
+      "selector": ".gap-4.items-center.flex > div > .uppercase.font-medium.tracking-wide"
     },
     {
       "route": "/dashboard/models",
@@ -473,7 +473,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/mrp",
@@ -482,7 +482,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/notifications",
@@ -500,7 +500,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
-      "selector": "header > .min-w-0.flex-1 > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/operador",
@@ -554,7 +554,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/procurement",
@@ -563,7 +563,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": ".text-\\[12px\\].leading-tight"
+      "selector": ".flex-1.min-w-0.jsx-925fe94f6bfe109a > p"
     },
     {
       "route": "/dashboard/procurement",
@@ -581,7 +581,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-      "selector": "header > .min-w-0.flex-1 > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/production-plan",
@@ -608,7 +608,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/quality/holds",
@@ -635,7 +635,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/receiving",
@@ -644,7 +644,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/reports",
@@ -653,7 +653,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > .text-sm"
     },
     {
       "route": "/dashboard/reports/coc",
@@ -698,7 +698,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/rh/analitica",
@@ -743,7 +743,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/rh/plantilla",
@@ -761,7 +761,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/rh/reclutamiento",
@@ -797,7 +797,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/settings/organization",
@@ -806,7 +806,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-      "selector": "header > div:nth-child(2) > .dark\\:text-gray-400"
+      "selector": "header > div:nth-child(2) > p"
     },
     {
       "route": "/dashboard/settings/permissions",
@@ -833,7 +833,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (17 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/shipping",
@@ -851,7 +851,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".leading-tight.text-\\[12px\\].text-gray-400"
+      "selector": ".flex-1.min-w-0.jsx-3763695c86861641 > p"
     },
     {
       "route": "/dashboard/skills",
@@ -869,7 +869,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-      "selector": "header > .min-w-0.flex-1 > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/test-flow",
@@ -878,7 +878,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-      "selector": ".text-\\[12px\\].leading-tight"
+      "selector": ".flex-1.min-w-0.jsx-189aa880a8f4bc26 > p"
     },
     {
       "route": "/dashboard/test-flow",
@@ -896,7 +896,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-      "selector": "header > .min-w-0.flex-1 > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/traffic",
@@ -923,7 +923,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/warehouse",
@@ -932,7 +932,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (17 nodes)",
-      "selector": ".px-3\\.5.inline-flex.gap-2:nth-child(1)"
+      "selector": ".px-3\\.5.py-2.inline-flex:nth-child(1)"
     },
     {
       "route": "/login",
@@ -968,7 +968,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-      "selector": ".px-3\\.5.py-1\\.5.inline-flex:nth-child(2)"
+      "selector": ".px-3\\.5.rounded-xl.inline-flex:nth-child(2)"
     },
     {
       "route": "/dashboard/admin/ai",
@@ -986,7 +986,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".transition.gap-2[href$=\"dashboard\"]"
+      "selector": ".transition"
     },
     {
       "route": "/dashboard/admin/numbering",
@@ -1004,7 +1004,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".md\\:col-span-2 > .mb-1.text-gray-500.text-\\[11px\\]"
+      "selector": ".md\\:col-span-2 > .text-\\[11px\\].mb-1.font-medium"
     },
     {
       "route": "/dashboard/chat",
@@ -1049,7 +1049,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".px-3\\.5.text-white.inline-flex"
+      "selector": ".py-2.rounded-xl.px-3\\.5"
     },
     {
       "route": "/dashboard/ehs",
@@ -1067,7 +1067,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (15 nodes)",
-      "selector": ".gap-1\\.5.text-gray-500[href$=\"dashboard\"]"
+      "selector": ".font-medium.text-sm[href$=\"dashboard\"]"
     },
     {
       "route": "/dashboard/erp/fin",
@@ -1076,7 +1076,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+      "selector": ".font-medium.text-sm[href$=\"erp\"]"
     },
     {
       "route": "/dashboard/erp/mm",
@@ -1085,7 +1085,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+      "selector": ".font-medium.text-sm[href$=\"erp\"]"
     },
     {
       "route": "/dashboard/erp/pp",
@@ -1094,7 +1094,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-      "selector": ".gap-1\\.5.text-gray-500[href$=\"erp\"]"
+      "selector": ".font-medium.text-sm[href$=\"erp\"]"
     },
     {
       "route": "/dashboard/erp/sd",
@@ -1103,7 +1103,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+      "selector": ".font-medium.text-gray-500[href$=\"erp\"]"
     },
     {
       "route": "/dashboard/expenses",
@@ -1157,7 +1157,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".inline-flex.px-3\\.5.text-white"
+      "selector": ".rounded-xl"
     },
     {
       "route": "/dashboard/forecast",
@@ -1202,7 +1202,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-      "selector": ".md\\:col-span-2 > .mb-1.text-\\[12px\\].text-gray-500"
+      "selector": ".md\\:col-span-2 > .mb-1.text-\\[12px\\].font-medium"
     },
     {
       "route": "/dashboard/inbound",
@@ -1238,7 +1238,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": ".py-1\\.5.inline-flex.px-3\\.5:nth-child(2)"
+      "selector": ".rounded-xl.font-medium.inline-flex:nth-child(2)"
     },
     {
       "route": "/dashboard/legal",
@@ -1247,7 +1247,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".p-4.h-full.rounded-2xl:nth-child(4) > .tabular-nums.mt-1.text-2xl"
+      "selector": ".p-4.group.h-full:nth-child(4) > .tabular-nums.mt-1.text-2xl"
     },
     {
       "route": "/dashboard/line-engineering",
@@ -1292,7 +1292,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".rounded-lg.py-1\\.5.text-\\[13px\\]:nth-child(1)"
+      "selector": ".text-\\[13px\\].px-3.rounded-lg:nth-child(1)"
     },
     {
       "route": "/dashboard/models",
@@ -1310,7 +1310,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".md\\:col-span-2 > .mb-1.text-gray-500.text-\\[11px\\]"
+      "selector": ".md\\:col-span-2 > .text-\\[11px\\].mb-1.font-medium"
     },
     {
       "route": "/dashboard/notifications",
@@ -1319,7 +1319,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": ".mb-5 > .text-\\[12px\\].transition.py-1\\.5:nth-child(1)"
+      "selector": ".mb-5 > .transition.text-\\[12px\\].border:nth-child(1)"
     },
     {
       "route": "/dashboard/npi",
@@ -1328,7 +1328,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "label:nth-child(1) > .mb-1.text-gray-500.text-\\[11px\\]"
+      "selector": "label:nth-child(1) > .mb-1.block.text-gray-500"
     },
     {
       "route": "/dashboard/operador",
@@ -1337,7 +1337,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".tracking-wider"
+      "selector": "h2"
     },
     {
       "route": "/dashboard/outbound",
@@ -1400,7 +1400,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".px-3\\.5.transition-opacity.hover\\:opacity-90"
+      "selector": "a[href$=\"live\"]"
     },
     {
       "route": "/dashboard/production-plan",
@@ -1418,7 +1418,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".px-3\\.5.inline-flex.text-white"
+      "selector": ".px-3\\.5.inline-flex.font-medium"
     },
     {
       "route": "/dashboard/quality/holds",
@@ -1427,7 +1427,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".px-3\\.5.inline-flex.text-white"
+      "selector": ".px-3\\.5.rounded-xl.py-2"
     },
     {
       "route": "/dashboard/quality/inspections",
@@ -1445,7 +1445,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".inline-flex.px-4.text-white"
+      "selector": ".inline-flex.px-4.rounded-xl"
     },
     {
       "route": "/dashboard/receiving",
@@ -1454,7 +1454,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".inline-flex.px-3\\.5.gap-2"
+      "selector": ".rounded-xl"
     },
     {
       "route": "/dashboard/reports/coc",
@@ -1589,7 +1589,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-      "selector": ".gap-2.text-gray-500[href$=\"dashboard\"]"
+      "selector": ".font-medium.transition-colors[href$=\"dashboard\"]"
     },
     {
       "route": "/dashboard/settings/permissions",
@@ -1634,7 +1634,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".rounded-lg.py-1\\.5.text-\\[13px\\]:nth-child(2)"
+      "selector": ".rounded-lg.px-3.py-1\\.5:nth-child(2)"
     },
     {
       "route": "/dashboard/skills",
@@ -1697,7 +1697,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": ".px-3\\.5.inline-flex.gap-2:nth-child(1)"
+      "selector": ".px-3\\.5.py-2.inline-flex:nth-child(1)"
     },
     {
       "route": "/login",
@@ -1733,7 +1733,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/admin/approvals",
@@ -1742,7 +1742,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".tracking-\\[0\\.2em\\]"
+      "selector": ".uppercase"
     },
     {
       "route": "/dashboard/admin/numbering",
@@ -1751,7 +1751,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": ".leading-tight.text-\\[12px\\]"
+      "selector": ".flex-1.min-w-0.jsx-1785b315b8ad92ce > p"
     },
     {
       "route": "/dashboard/admin/numbering",
@@ -1769,7 +1769,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/backflush",
@@ -1778,7 +1778,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/bom",
@@ -1787,7 +1787,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/cancellation-requests",
@@ -1796,7 +1796,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/chat",
@@ -1814,7 +1814,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".text-\\[12px\\].text-gray-400.leading-tight"
+      "selector": "p"
     },
     {
       "route": "/dashboard/control-tower",
@@ -1874,7 +1874,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/cycle-counts",
@@ -1883,7 +1883,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/ehs",
@@ -1892,7 +1892,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (14 nodes)",
-      "selector": "header > .flex-1.min-w-0 > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/engineering",
@@ -1901,7 +1901,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "header > .flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/erp",
@@ -1919,7 +1919,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".text-center > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/erp/mm",
@@ -1937,7 +1937,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".bg-amber-500.py-1\\.5.transition"
+      "selector": ".bg-amber-500.px-3.transition"
     },
     {
       "route": "/dashboard/erp/sd",
@@ -1946,7 +1946,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".text-center > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/expenses",
@@ -1955,7 +1955,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-      "selector": ".leading-tight.text-\\[12px\\]"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/expenses",
@@ -1973,7 +1973,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/finance/cost-intelligence",
@@ -1982,7 +1982,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (15 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/finance/cost-rollup",
@@ -1991,7 +1991,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-      "selector": ".flex-1.min-w-0 > .text-gray-500.dark\\:text-gray-400"
+      "selector": ".flex-1.min-w-0 > .text-gray-500.dark\\:text-gray-400.text-sm"
     },
     {
       "route": "/dashboard/fixed-assets",
@@ -2000,7 +2000,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-      "selector": ".text-\\[12px\\].leading-tight"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/fixed-assets",
@@ -2018,7 +2018,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/forecast",
@@ -2060,7 +2060,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-      "selector": "header > div > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/improvement",
@@ -2069,7 +2069,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/improvement",
@@ -2087,7 +2087,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".flex-1.min-w-0.jsx-a482e8652690edce > p"
     },
     {
       "route": "/dashboard/inbound",
@@ -2105,7 +2105,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/inventory",
@@ -2114,7 +2114,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div > .dark\\:text-gray-400"
+      "selector": "header > .flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/lab",
@@ -2123,7 +2123,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/legal",
@@ -2132,7 +2132,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-      "selector": "header > .flex-1 > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/line-engineering",
@@ -2159,7 +2159,7 @@
       "type": "axe:button-name",
       "severity": "high",
       "detail": "Buttons must have discernible text (1 node)",
-      "selector": ".gap-3 > .text-white.inline-flex.px-3\\.5"
+      "selector": ".gap-3.flex.items-center > .py-2.text-white.inline-flex"
     },
     {
       "route": "/dashboard/maintenance",
@@ -2185,8 +2185,8 @@
       "theme": "light",
       "type": "axe:color-contrast",
       "severity": "high",
-      "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-      "selector": "header > div > p"
+      "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/materials",
@@ -2195,7 +2195,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/metrics",
@@ -2204,7 +2204,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/mission-control",
@@ -2213,7 +2213,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-      "selector": ".gap-4 > div > .tracking-wide.text-gray-500.dark\\:text-gray-400"
+      "selector": ".gap-4.items-center.flex > div > .uppercase.font-medium.tracking-wide"
     },
     {
       "route": "/dashboard/models",
@@ -2222,7 +2222,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/mrp",
@@ -2231,7 +2231,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/notifications",
@@ -2249,7 +2249,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-      "selector": "header > .min-w-0.flex-1 > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/operador",
@@ -2282,7 +2282,7 @@
       "type": "axe:button-name",
       "severity": "high",
       "detail": "Buttons must have discernible text (1 node)",
-      "selector": ".inline-flex.px-3\\.5.gap-2:nth-child(4)"
+      "selector": ".inline-flex.px-3\\.5.py-2:nth-child(4)"
     },
     {
       "route": "/dashboard/outbound",
@@ -2309,7 +2309,7 @@
       "type": "axe:button-name",
       "severity": "high",
       "detail": "Buttons must have discernible text (1 node)",
-      "selector": ".inline-flex.px-3\\.5.text-white"
+      "selector": ".inline-flex.px-3\\.5.py-2"
     },
     {
       "route": "/dashboard/packing",
@@ -2336,7 +2336,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/procurement",
@@ -2345,7 +2345,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": ".text-\\[12px\\].leading-tight"
+      "selector": ".flex-1.min-w-0.jsx-925fe94f6bfe109a > p"
     },
     {
       "route": "/dashboard/procurement",
@@ -2363,7 +2363,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-      "selector": "header > .min-w-0.flex-1 > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/production-plan",
@@ -2390,7 +2390,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/quality/holds",
@@ -2417,7 +2417,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/receiving",
@@ -2426,7 +2426,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/reports",
@@ -2450,7 +2450,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div > p"
+      "selector": ".flex-1.min-w-0 > .text-sm"
     },
     {
       "route": "/dashboard/reports/coc",
@@ -2504,7 +2504,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": "p"
     },
     {
       "route": "/dashboard/rh/analitica",
@@ -2549,7 +2549,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/rh/plantilla",
@@ -2567,7 +2567,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/rh/reclutamiento",
@@ -2603,7 +2603,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/settings/organization",
@@ -2612,7 +2612,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-      "selector": "header > div:nth-child(2) > .dark\\:text-gray-400"
+      "selector": "header > div:nth-child(2) > p"
     },
     {
       "route": "/dashboard/settings/permissions",
@@ -2654,7 +2654,7 @@
       "type": "axe:button-name",
       "severity": "high",
       "detail": "Buttons must have discernible text (1 node)",
-      "selector": ".max-w-5xl.mx-auto > .px-3\\.5.text-white.gap-2"
+      "selector": ".max-w-5xl.mx-auto.gap-3 > .px-3\\.5.py-2.text-sm"
     },
     {
       "route": "/dashboard/shipping",
@@ -2663,7 +2663,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
-      "selector": ".leading-tight:nth-child(2)"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/shipping",
@@ -2681,7 +2681,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".leading-tight.text-\\[12px\\].text-gray-400"
+      "selector": ".flex-1.min-w-0.jsx-3763695c86861641 > p"
     },
     {
       "route": "/dashboard/skills",
@@ -2699,7 +2699,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-      "selector": "header > .min-w-0.flex-1 > p"
+      "selector": ".min-w-0.flex-1 > p"
     },
     {
       "route": "/dashboard/test-flow",
@@ -2708,7 +2708,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-      "selector": ".text-\\[12px\\].leading-tight"
+      "selector": ".flex-1.min-w-0.jsx-189aa880a8f4bc26 > p"
     },
     {
       "route": "/dashboard/test-flow",
@@ -2726,7 +2726,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-      "selector": "header > .min-w-0.flex-1 > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/traffic",
@@ -2753,7 +2753,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": "header > div:nth-child(2) > p"
+      "selector": ".flex-1.min-w-0 > p"
     },
     {
       "route": "/dashboard/warehouse",
@@ -2777,7 +2777,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
-      "selector": ".px-3\\.5.inline-flex.gap-2:nth-child(1)"
+      "selector": ".px-3\\.5.py-2.inline-flex:nth-child(1)"
     },
     {
       "route": "/login",
@@ -2813,7 +2813,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-      "selector": ".px-3\\.5.py-1\\.5.inline-flex:nth-child(2)"
+      "selector": ".px-3\\.5.rounded-xl.inline-flex:nth-child(2)"
     },
     {
       "route": "/dashboard/admin/ai",
@@ -2831,7 +2831,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".transition.gap-2[href$=\"dashboard\"]"
+      "selector": ".transition"
     },
     {
       "route": "/dashboard/admin/numbering",
@@ -2849,7 +2849,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".md\\:col-span-2 > .mb-1.text-gray-500.text-\\[11px\\]"
+      "selector": ".md\\:col-span-2 > .text-\\[11px\\].mb-1.font-medium"
     },
     {
       "route": "/dashboard/chat",
@@ -2918,7 +2918,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".px-3\\.5.text-white.inline-flex"
+      "selector": ".py-2.rounded-xl.px-3\\.5"
     },
     {
       "route": "/dashboard/ehs",
@@ -2936,7 +2936,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (15 nodes)",
-      "selector": ".gap-1\\.5.text-gray-500[href$=\"dashboard\"]"
+      "selector": ".font-medium.text-sm[href$=\"dashboard\"]"
     },
     {
       "route": "/dashboard/erp/fin",
@@ -2945,7 +2945,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+      "selector": ".font-medium.text-sm[href$=\"erp\"]"
     },
     {
       "route": "/dashboard/erp/mm",
@@ -2954,7 +2954,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+      "selector": ".font-medium.text-sm[href$=\"erp\"]"
     },
     {
       "route": "/dashboard/erp/pp",
@@ -2963,7 +2963,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-      "selector": ".gap-1\\.5.text-gray-500[href$=\"erp\"]"
+      "selector": ".font-medium.text-sm[href$=\"erp\"]"
     },
     {
       "route": "/dashboard/erp/sd",
@@ -2972,7 +2972,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+      "selector": ".font-medium.text-gray-500[href$=\"erp\"]"
     },
     {
       "route": "/dashboard/expenses",
@@ -3026,7 +3026,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".inline-flex.px-3\\.5.text-white"
+      "selector": ".rounded-xl"
     },
     {
       "route": "/dashboard/forecast",
@@ -3086,7 +3086,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-      "selector": ".md\\:col-span-2 > .mb-1.text-\\[12px\\].text-gray-500"
+      "selector": ".md\\:col-span-2 > .mb-1.text-\\[12px\\].font-medium"
     },
     {
       "route": "/dashboard/inbound",
@@ -3122,7 +3122,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": ".py-1\\.5.inline-flex.px-3\\.5:nth-child(2)"
+      "selector": ".rounded-xl.font-medium.inline-flex:nth-child(2)"
     },
     {
       "route": "/dashboard/legal",
@@ -3131,7 +3131,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".p-4.h-full.rounded-2xl:nth-child(4) > .tabular-nums.mt-1.text-2xl"
+      "selector": ".p-4.group.h-full:nth-child(4) > .tabular-nums.mt-1.text-2xl"
     },
     {
       "route": "/dashboard/line-engineering",
@@ -3140,7 +3140,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".max-w-6xl.mx-auto.jsx-7c04a24bed51c951 > .inline-flex.px-3\\.5.text-white"
+      "selector": ".inline-flex.py-2.px-3\\.5"
     },
     {
       "route": "/dashboard/line-engineering",
@@ -3158,7 +3158,7 @@
       "type": "axe:button-name",
       "severity": "high",
       "detail": "Buttons must have discernible text (1 node)",
-      "selector": ".gap-3 > .text-white.inline-flex.px-3\\.5"
+      "selector": ".gap-3.flex.items-center > .py-2.text-white.inline-flex"
     },
     {
       "route": "/dashboard/maintenance",
@@ -3185,7 +3185,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".rounded-lg.py-1\\.5.text-\\[13px\\]:nth-child(1)"
+      "selector": ".text-\\[13px\\].px-3.rounded-lg:nth-child(1)"
     },
     {
       "route": "/dashboard/models",
@@ -3203,7 +3203,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".md\\:col-span-2 > .mb-1.text-gray-500.text-\\[11px\\]"
+      "selector": ".md\\:col-span-2 > .text-\\[11px\\].mb-1.font-medium"
     },
     {
       "route": "/dashboard/notifications",
@@ -3212,7 +3212,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-      "selector": ".mb-5 > .text-\\[12px\\].transition.py-1\\.5:nth-child(1)"
+      "selector": ".mb-5 > .transition.text-\\[12px\\].border:nth-child(1)"
     },
     {
       "route": "/dashboard/npi",
@@ -3221,7 +3221,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": "label:nth-child(1) > .mb-1.text-gray-500.text-\\[11px\\]"
+      "selector": "label:nth-child(1) > .mb-1.block.text-gray-500"
     },
     {
       "route": "/dashboard/operador",
@@ -3245,7 +3245,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".tracking-wider"
+      "selector": "h2"
     },
     {
       "route": "/dashboard/outbound",
@@ -3254,7 +3254,7 @@
       "type": "axe:button-name",
       "severity": "high",
       "detail": "Buttons must have discernible text (1 node)",
-      "selector": ".inline-flex.px-3\\.5.gap-2:nth-child(4)"
+      "selector": ".inline-flex.px-3\\.5.py-2:nth-child(4)"
     },
     {
       "route": "/dashboard/outbound",
@@ -3263,7 +3263,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".inline-flex.px-3\\.5.text-white"
+      "selector": ".inline-flex.px-3\\.5.py-2:nth-child(5)"
     },
     {
       "route": "/dashboard/outbound",
@@ -3281,7 +3281,7 @@
       "type": "axe:button-name",
       "severity": "high",
       "detail": "Buttons must have discernible text (1 node)",
-      "selector": ".inline-flex.px-3\\.5.text-white"
+      "selector": ".inline-flex.px-3\\.5.py-2"
     },
     {
       "route": "/dashboard/packing",
@@ -3326,7 +3326,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".px-3\\.5.transition-opacity.hover\\:opacity-90"
+      "selector": "a[href$=\"live\"]"
     },
     {
       "route": "/dashboard/production-plan",
@@ -3344,7 +3344,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".px-3\\.5.inline-flex.text-white"
+      "selector": ".px-3\\.5.inline-flex.font-medium"
     },
     {
       "route": "/dashboard/quality/holds",
@@ -3353,7 +3353,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-      "selector": ".px-3\\.5.inline-flex.text-white"
+      "selector": ".px-3\\.5.rounded-xl.py-2"
     },
     {
       "route": "/dashboard/quality/inspections",
@@ -3371,7 +3371,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".inline-flex.px-4.text-white"
+      "selector": ".inline-flex.px-4.rounded-xl"
     },
     {
       "route": "/dashboard/receiving",
@@ -3380,7 +3380,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-      "selector": ".inline-flex.px-3\\.5.gap-2"
+      "selector": ".rounded-xl"
     },
     {
       "route": "/dashboard/reports",
@@ -3539,7 +3539,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-      "selector": ".gap-2.text-gray-500[href$=\"dashboard\"]"
+      "selector": ".font-medium.transition-colors[href$=\"dashboard\"]"
     },
     {
       "route": "/dashboard/settings/permissions",
@@ -3581,7 +3581,7 @@
       "type": "axe:button-name",
       "severity": "high",
       "detail": "Buttons must have discernible text (1 node)",
-      "selector": ".max-w-5xl.mx-auto > .px-3\\.5.text-white.gap-2"
+      "selector": ".max-w-5xl.mx-auto.gap-3 > .px-3\\.5.py-2.text-sm"
     },
     {
       "route": "/dashboard/shipping",
@@ -3590,7 +3590,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".mb-3 > .px-3\\.5.text-white.gap-2"
+      "selector": ".mb-3 > .px-3\\.5.py-2.text-sm"
     },
     {
       "route": "/dashboard/shipping",
@@ -3608,7 +3608,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-      "selector": ".rounded-lg.py-1\\.5.text-\\[13px\\]:nth-child(2)"
+      "selector": ".rounded-lg.px-3.py-1\\.5:nth-child(2)"
     },
     {
       "route": "/dashboard/skills",
@@ -3686,7 +3686,7 @@
       "type": "axe:color-contrast",
       "severity": "high",
       "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-      "selector": ".px-3\\.5.inline-flex.gap-2:nth-child(1)"
+      "selector": ".px-3\\.5.py-2.inline-flex:nth-child(1)"
     },
     {
       "route": "/login",
@@ -3739,7 +3739,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -3760,7 +3760,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": ".tracking-\\[0\\.2em\\]"
+          "selector": ".uppercase"
         }
       ]
     },
@@ -3774,7 +3774,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": ".leading-tight.text-\\[12px\\]"
+          "selector": ".flex-1.min-w-0.jsx-1785b315b8ad92ce > p"
         },
         {
           "type": "axe:link-name",
@@ -3794,7 +3794,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -3808,7 +3808,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div > p"
+          "selector": "p"
         }
       ]
     },
@@ -3822,7 +3822,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -3836,7 +3836,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -3864,7 +3864,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".text-\\[12px\\].text-gray-400.leading-tight"
+          "selector": "p"
         },
         {
           "type": "axe:link-name",
@@ -3904,7 +3904,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -3918,7 +3918,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -3939,7 +3939,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (14 nodes)",
-          "selector": "header > .flex-1.min-w-0 > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -3953,7 +3953,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "header > .flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4009,7 +4009,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": ".md\\:inline.text-gray-400.text-xs"
+          "selector": ".md\\:inline.text-gray-400.hidden"
         }
       ]
     },
@@ -4037,7 +4037,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-          "selector": ".leading-tight.text-\\[12px\\]"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -4057,7 +4057,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4071,7 +4071,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (19 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4085,7 +4085,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-          "selector": ".flex-1.min-w-0 > .text-gray-500.dark\\:text-gray-400"
+          "selector": ".flex-1.min-w-0 > .text-gray-500.dark\\:text-gray-400.text-sm"
         }
       ]
     },
@@ -4099,7 +4099,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-          "selector": ".text-\\[12px\\].leading-tight"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -4119,7 +4119,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4161,7 +4161,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-          "selector": "header > div > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -4175,7 +4175,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -4195,7 +4195,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".flex-1.min-w-0.jsx-a482e8652690edce > p"
         },
         {
           "type": "axe:link-name",
@@ -4215,7 +4215,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -4243,7 +4243,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div > .dark\\:text-gray-400"
+          "selector": "header > .flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4257,7 +4257,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -4271,7 +4271,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-          "selector": "header > .flex-1 > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4338,8 +4338,8 @@
         {
           "type": "axe:color-contrast",
           "severity": "high",
-          "detail": "Elements must meet minimum color contrast ratio thresholds (14 nodes)",
-          "selector": "header > div > p"
+          "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4353,7 +4353,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4367,7 +4367,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -4381,7 +4381,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-          "selector": ".gap-4 > div > .tracking-wide.text-gray-500.dark\\:text-gray-400"
+          "selector": ".gap-4.items-center.flex > div > .uppercase.font-medium.tracking-wide"
         }
       ]
     },
@@ -4395,7 +4395,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -4409,7 +4409,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div > p"
+          "selector": "p"
         }
       ]
     },
@@ -4437,7 +4437,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
-          "selector": "header > .min-w-0.flex-1 > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -4512,7 +4512,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4526,7 +4526,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": ".text-\\[12px\\].leading-tight"
+          "selector": ".flex-1.min-w-0.jsx-925fe94f6bfe109a > p"
         },
         {
           "type": "axe:link-name",
@@ -4546,7 +4546,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-          "selector": "header > .min-w-0.flex-1 > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4594,7 +4594,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4636,7 +4636,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4650,7 +4650,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -4664,7 +4664,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > .text-sm"
         }
       ]
     },
@@ -4734,7 +4734,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -4788,7 +4788,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -4808,7 +4808,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -4848,7 +4848,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -4869,7 +4869,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-          "selector": "header > div:nth-child(2) > .dark\\:text-gray-400"
+          "selector": "header > div:nth-child(2) > p"
         }
       ]
     },
@@ -4911,7 +4911,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (17 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".min-w-0.flex-1 > p"
         },
         {
           "type": "axe:link-name",
@@ -4931,7 +4931,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".leading-tight.text-\\[12px\\].text-gray-400"
+          "selector": ".flex-1.min-w-0.jsx-3763695c86861641 > p"
         },
         {
           "type": "axe:link-name",
@@ -4951,7 +4951,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-          "selector": "header > .min-w-0.flex-1 > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -4972,7 +4972,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-          "selector": ".text-\\[12px\\].leading-tight"
+          "selector": ".flex-1.min-w-0.jsx-189aa880a8f4bc26 > p"
         },
         {
           "type": "axe:link-name",
@@ -4992,7 +4992,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-          "selector": "header > .min-w-0.flex-1 > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -5026,7 +5026,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -5040,7 +5040,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (17 nodes)",
-          "selector": ".px-3\\.5.inline-flex.gap-2:nth-child(1)"
+          "selector": ".px-3\\.5.py-2.inline-flex:nth-child(1)"
         }
       ]
     },
@@ -5116,7 +5116,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-          "selector": ".px-3\\.5.py-1\\.5.inline-flex:nth-child(2)"
+          "selector": ".px-3\\.5.rounded-xl.inline-flex:nth-child(2)"
         }
       ]
     },
@@ -5144,7 +5144,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".transition.gap-2[href$=\"dashboard\"]"
+          "selector": ".transition"
         }
       ]
     },
@@ -5179,7 +5179,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".md\\:col-span-2 > .mb-1.text-gray-500.text-\\[11px\\]"
+          "selector": ".md\\:col-span-2 > .text-\\[11px\\].mb-1.font-medium"
         }
       ]
     },
@@ -5262,7 +5262,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".px-3\\.5.text-white.inline-flex"
+          "selector": ".py-2.rounded-xl.px-3\\.5"
         }
       ]
     },
@@ -5304,7 +5304,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (15 nodes)",
-          "selector": ".gap-1\\.5.text-gray-500[href$=\"dashboard\"]"
+          "selector": ".font-medium.text-sm[href$=\"dashboard\"]"
         }
       ]
     },
@@ -5318,7 +5318,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+          "selector": ".font-medium.text-sm[href$=\"erp\"]"
         }
       ]
     },
@@ -5332,7 +5332,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+          "selector": ".font-medium.text-sm[href$=\"erp\"]"
         }
       ]
     },
@@ -5346,7 +5346,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-          "selector": ".gap-1\\.5.text-gray-500[href$=\"erp\"]"
+          "selector": ".font-medium.text-sm[href$=\"erp\"]"
         }
       ]
     },
@@ -5360,7 +5360,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+          "selector": ".font-medium.text-gray-500[href$=\"erp\"]"
         }
       ]
     },
@@ -5442,7 +5442,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".inline-flex.px-3\\.5.text-white"
+          "selector": ".rounded-xl"
         }
       ]
     },
@@ -5511,7 +5511,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-          "selector": ".md\\:col-span-2 > .mb-1.text-\\[12px\\].text-gray-500"
+          "selector": ".md\\:col-span-2 > .mb-1.text-\\[12px\\].font-medium"
         },
         {
           "type": "axe:link-name",
@@ -5566,7 +5566,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": ".py-1\\.5.inline-flex.px-3\\.5:nth-child(2)"
+          "selector": ".rounded-xl.font-medium.inline-flex:nth-child(2)"
         }
       ]
     },
@@ -5587,7 +5587,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".p-4.h-full.rounded-2xl:nth-child(4) > .tabular-nums.mt-1.text-2xl"
+          "selector": ".p-4.group.h-full:nth-child(4) > .tabular-nums.mt-1.text-2xl"
         }
       ]
     },
@@ -5655,7 +5655,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".rounded-lg.py-1\\.5.text-\\[13px\\]:nth-child(1)"
+          "selector": ".text-\\[13px\\].px-3.rounded-lg:nth-child(1)"
         }
       ]
     },
@@ -5704,7 +5704,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".md\\:col-span-2 > .mb-1.text-gray-500.text-\\[11px\\]"
+          "selector": ".md\\:col-span-2 > .text-\\[11px\\].mb-1.font-medium"
         }
       ]
     },
@@ -5718,7 +5718,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": ".mb-5 > .text-\\[12px\\].transition.py-1\\.5:nth-child(1)"
+          "selector": ".mb-5 > .transition.text-\\[12px\\].border:nth-child(1)"
         }
       ]
     },
@@ -5732,7 +5732,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "label:nth-child(1) > .mb-1.text-gray-500.text-\\[11px\\]"
+          "selector": "label:nth-child(1) > .mb-1.block.text-gray-500"
         }
       ]
     },
@@ -5753,7 +5753,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".tracking-wider"
+          "selector": "h2"
         }
       ]
     },
@@ -5834,7 +5834,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".px-3\\.5.transition-opacity.hover\\:opacity-90"
+          "selector": "a[href$=\"live\"]"
         }
       ]
     },
@@ -5876,7 +5876,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".px-3\\.5.inline-flex.text-white"
+          "selector": ".px-3\\.5.inline-flex.font-medium"
         }
       ]
     },
@@ -5890,7 +5890,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".px-3\\.5.inline-flex.text-white"
+          "selector": ".px-3\\.5.rounded-xl.py-2"
         }
       ]
     },
@@ -5918,7 +5918,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".inline-flex.px-4.text-white"
+          "selector": ".inline-flex.px-4.rounded-xl"
         }
       ]
     },
@@ -5932,7 +5932,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".inline-flex.px-3\\.5.gap-2"
+          "selector": ".rounded-xl"
         }
       ]
     },
@@ -6131,7 +6131,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-          "selector": ".gap-2.text-gray-500[href$=\"dashboard\"]"
+          "selector": ".font-medium.transition-colors[href$=\"dashboard\"]"
         }
       ]
     },
@@ -6193,7 +6193,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".rounded-lg.py-1\\.5.text-\\[13px\\]:nth-child(2)"
+          "selector": ".rounded-lg.px-3.py-1\\.5:nth-child(2)"
         },
         {
           "type": "axe:link-name",
@@ -6288,7 +6288,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": ".px-3\\.5.inline-flex.gap-2:nth-child(1)"
+          "selector": ".px-3\\.5.py-2.inline-flex:nth-child(1)"
         }
       ]
     },
@@ -6364,7 +6364,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6385,7 +6385,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".tracking-\\[0\\.2em\\]"
+          "selector": ".uppercase"
         }
       ]
     },
@@ -6399,7 +6399,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": ".leading-tight.text-\\[12px\\]"
+          "selector": ".flex-1.min-w-0.jsx-1785b315b8ad92ce > p"
         },
         {
           "type": "axe:link-name",
@@ -6419,7 +6419,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6433,7 +6433,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div > p"
+          "selector": "p"
         }
       ]
     },
@@ -6447,7 +6447,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6461,7 +6461,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -6489,7 +6489,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".text-\\[12px\\].text-gray-400.leading-tight"
+          "selector": "p"
         },
         {
           "type": "axe:link-name",
@@ -6547,7 +6547,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6561,7 +6561,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6582,7 +6582,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (14 nodes)",
-          "selector": "header > .flex-1.min-w-0 > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6596,7 +6596,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "header > .flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6624,7 +6624,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".text-center > p"
+          "selector": "p"
         }
       ]
     },
@@ -6652,7 +6652,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".bg-amber-500.py-1\\.5.transition"
+          "selector": ".bg-amber-500.px-3.transition"
         }
       ]
     },
@@ -6666,7 +6666,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".text-center > p"
+          "selector": "p"
         }
       ]
     },
@@ -6680,7 +6680,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-          "selector": ".leading-tight.text-\\[12px\\]"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -6700,7 +6700,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6714,7 +6714,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (15 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6728,7 +6728,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-          "selector": ".flex-1.min-w-0 > .text-gray-500.dark\\:text-gray-400"
+          "selector": ".flex-1.min-w-0 > .text-gray-500.dark\\:text-gray-400.text-sm"
         }
       ]
     },
@@ -6742,7 +6742,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-          "selector": ".text-\\[12px\\].leading-tight"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -6762,7 +6762,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6816,7 +6816,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-          "selector": "header > div > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -6830,7 +6830,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -6850,7 +6850,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".flex-1.min-w-0.jsx-a482e8652690edce > p"
         },
         {
           "type": "axe:link-name",
@@ -6870,7 +6870,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -6898,7 +6898,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div > .dark\\:text-gray-400"
+          "selector": "header > .flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6912,7 +6912,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -6926,7 +6926,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-          "selector": "header > .flex-1 > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -6974,7 +6974,7 @@
           "type": "axe:button-name",
           "severity": "high",
           "detail": "Buttons must have discernible text (1 node)",
-          "selector": ".gap-3 > .text-white.inline-flex.px-3\\.5"
+          "selector": ".gap-3.flex.items-center > .py-2.text-white.inline-flex"
         },
         {
           "type": "axe:color-contrast",
@@ -6999,8 +6999,8 @@
         {
           "type": "axe:color-contrast",
           "severity": "high",
-          "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-          "selector": "header > div > p"
+          "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7014,7 +7014,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7028,7 +7028,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -7042,7 +7042,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-          "selector": ".gap-4 > div > .tracking-wide.text-gray-500.dark\\:text-gray-400"
+          "selector": ".gap-4.items-center.flex > div > .uppercase.font-medium.tracking-wide"
         }
       ]
     },
@@ -7056,7 +7056,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -7070,7 +7070,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div > p"
+          "selector": "p"
         }
       ]
     },
@@ -7098,7 +7098,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (13 nodes)",
-          "selector": "header > .min-w-0.flex-1 > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -7145,7 +7145,7 @@
           "type": "axe:button-name",
           "severity": "high",
           "detail": "Buttons must have discernible text (1 node)",
-          "selector": ".inline-flex.px-3\\.5.gap-2:nth-child(4)"
+          "selector": ".inline-flex.px-3\\.5.py-2:nth-child(4)"
         },
         {
           "type": "axe:color-contrast",
@@ -7171,7 +7171,7 @@
           "type": "axe:button-name",
           "severity": "high",
           "detail": "Buttons must have discernible text (1 node)",
-          "selector": ".inline-flex.px-3\\.5.text-white"
+          "selector": ".inline-flex.px-3\\.5.py-2"
         },
         {
           "type": "axe:color-contrast",
@@ -7197,7 +7197,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7211,7 +7211,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": ".text-\\[12px\\].leading-tight"
+          "selector": ".flex-1.min-w-0.jsx-925fe94f6bfe109a > p"
         },
         {
           "type": "axe:link-name",
@@ -7231,7 +7231,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (12 nodes)",
-          "selector": "header > .min-w-0.flex-1 > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7279,7 +7279,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7321,7 +7321,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7335,7 +7335,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -7361,7 +7361,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div > p"
+          "selector": ".flex-1.min-w-0 > .text-sm"
         }
       ]
     },
@@ -7437,7 +7437,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": "p"
         }
       ]
     },
@@ -7491,7 +7491,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -7511,7 +7511,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".flex-1.min-w-0 > p"
         },
         {
           "type": "axe:link-name",
@@ -7551,7 +7551,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7572,7 +7572,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-          "selector": "header > div:nth-child(2) > .dark\\:text-gray-400"
+          "selector": "header > div:nth-child(2) > p"
         }
       ]
     },
@@ -7626,13 +7626,13 @@
           "type": "axe:button-name",
           "severity": "high",
           "detail": "Buttons must have discernible text (1 node)",
-          "selector": ".max-w-5xl.mx-auto > .px-3\\.5.text-white.gap-2"
+          "selector": ".max-w-5xl.mx-auto.gap-3 > .px-3\\.5.py-2.text-sm"
         },
         {
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
-          "selector": ".leading-tight:nth-child(2)"
+          "selector": ".min-w-0.flex-1 > p"
         },
         {
           "type": "axe:link-name",
@@ -7652,7 +7652,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".leading-tight.text-\\[12px\\].text-gray-400"
+          "selector": ".flex-1.min-w-0.jsx-3763695c86861641 > p"
         },
         {
           "type": "axe:link-name",
@@ -7672,7 +7672,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (11 nodes)",
-          "selector": "header > .min-w-0.flex-1 > p"
+          "selector": ".min-w-0.flex-1 > p"
         }
       ]
     },
@@ -7693,7 +7693,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (10 nodes)",
-          "selector": ".text-\\[12px\\].leading-tight"
+          "selector": ".flex-1.min-w-0.jsx-189aa880a8f4bc26 > p"
         },
         {
           "type": "axe:link-name",
@@ -7713,7 +7713,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-          "selector": "header > .min-w-0.flex-1 > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7747,7 +7747,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": "header > div:nth-child(2) > p"
+          "selector": ".flex-1.min-w-0 > p"
         }
       ]
     },
@@ -7773,7 +7773,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (16 nodes)",
-          "selector": ".px-3\\.5.inline-flex.gap-2:nth-child(1)"
+          "selector": ".px-3\\.5.py-2.inline-flex:nth-child(1)"
         }
       ]
     },
@@ -7849,7 +7849,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (8 nodes)",
-          "selector": ".px-3\\.5.py-1\\.5.inline-flex:nth-child(2)"
+          "selector": ".px-3\\.5.rounded-xl.inline-flex:nth-child(2)"
         }
       ]
     },
@@ -7877,7 +7877,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".transition.gap-2[href$=\"dashboard\"]"
+          "selector": ".transition"
         }
       ]
     },
@@ -7912,7 +7912,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".md\\:col-span-2 > .mb-1.text-gray-500.text-\\[11px\\]"
+          "selector": ".md\\:col-span-2 > .text-\\[11px\\].mb-1.font-medium"
         }
       ]
     },
@@ -8013,7 +8013,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".px-3\\.5.text-white.inline-flex"
+          "selector": ".py-2.rounded-xl.px-3\\.5"
         }
       ]
     },
@@ -8055,7 +8055,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (15 nodes)",
-          "selector": ".gap-1\\.5.text-gray-500[href$=\"dashboard\"]"
+          "selector": ".font-medium.text-sm[href$=\"dashboard\"]"
         }
       ]
     },
@@ -8069,7 +8069,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+          "selector": ".font-medium.text-sm[href$=\"erp\"]"
         }
       ]
     },
@@ -8083,7 +8083,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+          "selector": ".font-medium.text-sm[href$=\"erp\"]"
         }
       ]
     },
@@ -8097,7 +8097,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (9 nodes)",
-          "selector": ".gap-1\\.5.text-gray-500[href$=\"erp\"]"
+          "selector": ".font-medium.text-sm[href$=\"erp\"]"
         }
       ]
     },
@@ -8111,7 +8111,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".text-gray-500.gap-1\\.5[href$=\"erp\"]"
+          "selector": ".font-medium.text-gray-500[href$=\"erp\"]"
         }
       ]
     },
@@ -8193,7 +8193,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".inline-flex.px-3\\.5.text-white"
+          "selector": ".rounded-xl"
         }
       ]
     },
@@ -8274,7 +8274,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (5 nodes)",
-          "selector": ".md\\:col-span-2 > .mb-1.text-\\[12px\\].text-gray-500"
+          "selector": ".md\\:col-span-2 > .mb-1.text-\\[12px\\].font-medium"
         },
         {
           "type": "axe:link-name",
@@ -8329,7 +8329,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": ".py-1\\.5.inline-flex.px-3\\.5:nth-child(2)"
+          "selector": ".rounded-xl.font-medium.inline-flex:nth-child(2)"
         }
       ]
     },
@@ -8350,7 +8350,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".p-4.h-full.rounded-2xl:nth-child(4) > .tabular-nums.mt-1.text-2xl"
+          "selector": ".p-4.group.h-full:nth-child(4) > .tabular-nums.mt-1.text-2xl"
         }
       ]
     },
@@ -8371,7 +8371,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".max-w-6xl.mx-auto.jsx-7c04a24bed51c951 > .inline-flex.px-3\\.5.text-white"
+          "selector": ".inline-flex.py-2.px-3\\.5"
         },
         {
           "type": "axe:link-name",
@@ -8398,7 +8398,7 @@
           "type": "axe:button-name",
           "severity": "high",
           "detail": "Buttons must have discernible text (1 node)",
-          "selector": ".gap-3 > .text-white.inline-flex.px-3\\.5"
+          "selector": ".gap-3.flex.items-center > .py-2.text-white.inline-flex"
         },
         {
           "type": "axe:color-contrast",
@@ -8424,7 +8424,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".rounded-lg.py-1\\.5.text-\\[13px\\]:nth-child(1)"
+          "selector": ".text-\\[13px\\].px-3.rounded-lg:nth-child(1)"
         }
       ]
     },
@@ -8473,7 +8473,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".md\\:col-span-2 > .mb-1.text-gray-500.text-\\[11px\\]"
+          "selector": ".md\\:col-span-2 > .text-\\[11px\\].mb-1.font-medium"
         }
       ]
     },
@@ -8487,7 +8487,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (7 nodes)",
-          "selector": ".mb-5 > .text-\\[12px\\].transition.py-1\\.5:nth-child(1)"
+          "selector": ".mb-5 > .transition.text-\\[12px\\].border:nth-child(1)"
         }
       ]
     },
@@ -8501,7 +8501,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": "label:nth-child(1) > .mb-1.text-gray-500.text-\\[11px\\]"
+          "selector": "label:nth-child(1) > .mb-1.block.text-gray-500"
         }
       ]
     },
@@ -8534,7 +8534,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".tracking-wider"
+          "selector": "h2"
         }
       ]
     },
@@ -8548,13 +8548,13 @@
           "type": "axe:button-name",
           "severity": "high",
           "detail": "Buttons must have discernible text (1 node)",
-          "selector": ".inline-flex.px-3\\.5.gap-2:nth-child(4)"
+          "selector": ".inline-flex.px-3\\.5.py-2:nth-child(4)"
         },
         {
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".inline-flex.px-3\\.5.text-white"
+          "selector": ".inline-flex.px-3\\.5.py-2:nth-child(5)"
         },
         {
           "type": "axe:link-name",
@@ -8574,7 +8574,7 @@
           "type": "axe:button-name",
           "severity": "high",
           "detail": "Buttons must have discernible text (1 node)",
-          "selector": ".inline-flex.px-3\\.5.text-white"
+          "selector": ".inline-flex.px-3\\.5.py-2"
         },
         {
           "type": "axe:color-contrast",
@@ -8627,7 +8627,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".px-3\\.5.transition-opacity.hover\\:opacity-90"
+          "selector": "a[href$=\"live\"]"
         }
       ]
     },
@@ -8669,7 +8669,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".px-3\\.5.inline-flex.text-white"
+          "selector": ".px-3\\.5.inline-flex.font-medium"
         }
       ]
     },
@@ -8683,7 +8683,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (3 nodes)",
-          "selector": ".px-3\\.5.inline-flex.text-white"
+          "selector": ".px-3\\.5.rounded-xl.py-2"
         }
       ]
     },
@@ -8711,7 +8711,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".inline-flex.px-4.text-white"
+          "selector": ".inline-flex.px-4.rounded-xl"
         }
       ]
     },
@@ -8725,7 +8725,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (1 node)",
-          "selector": ".inline-flex.px-3\\.5.gap-2"
+          "selector": ".rounded-xl"
         }
       ]
     },
@@ -8944,7 +8944,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (6 nodes)",
-          "selector": ".gap-2.text-gray-500[href$=\"dashboard\"]"
+          "selector": ".font-medium.transition-colors[href$=\"dashboard\"]"
         }
       ]
     },
@@ -8998,13 +8998,13 @@
           "type": "axe:button-name",
           "severity": "high",
           "detail": "Buttons must have discernible text (1 node)",
-          "selector": ".max-w-5xl.mx-auto > .px-3\\.5.text-white.gap-2"
+          "selector": ".max-w-5xl.mx-auto.gap-3 > .px-3\\.5.py-2.text-sm"
         },
         {
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".mb-3 > .px-3\\.5.text-white.gap-2"
+          "selector": ".mb-3 > .px-3\\.5.py-2.text-sm"
         },
         {
           "type": "axe:link-name",
@@ -9024,7 +9024,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (2 nodes)",
-          "selector": ".rounded-lg.py-1\\.5.text-\\[13px\\]:nth-child(2)"
+          "selector": ".rounded-lg.px-3.py-1\\.5:nth-child(2)"
         },
         {
           "type": "axe:link-name",
@@ -9131,7 +9131,7 @@
           "type": "axe:color-contrast",
           "severity": "high",
           "detail": "Elements must meet minimum color contrast ratio thresholds (4 nodes)",
-          "selector": ".px-3\\.5.inline-flex.gap-2:nth-child(1)"
+          "selector": ".px-3\\.5.py-2.inline-flex:nth-child(1)"
         }
       ]
     },

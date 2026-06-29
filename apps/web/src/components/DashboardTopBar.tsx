@@ -17,11 +17,13 @@ import {
   Sun,
   Moon,
   Monitor,
-  Menu,
+  PanelLeft,
+  PanelLeftClose,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useTheme, type ColorScheme } from "@/contexts/ThemeContext";
 import { glass } from "@/lib/glass";
+import { toggleNav, useNavOpen } from "@/lib/navDrawer";
 import { positionLabel } from "@/config/positions";
 import { IconTile } from "@/components/ui/IconTile";
 import { DOMAINS, type DomainKey } from "@/lib/design/domains";
@@ -210,6 +212,7 @@ function ThemeChoice() {
 export function DashboardTopBar() {
   const router = useRouter();
   const { session } = useDashboardSession();
+  const navOpen = useNavOpen();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -319,24 +322,28 @@ export function DashboardTopBar() {
 
   return (
     <nav
-      className={`${glass} fixed top-0 z-50 flex w-full items-center justify-between gap-4 rounded-none border-x-0 border-t-0 px-5 py-3.5 md:px-6`}
+      className={`${glass} fixed top-0 z-[60] flex w-full items-center justify-between gap-4 rounded-none border-x-0 border-t-0 px-4 py-3.5 md:px-6`}
     >
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Menú de navegación (móvil): abre el panel con TODOS los módulos. En
-            desktop la navegación vive en el Command rail, así que se oculta. */}
+        {/* "Axos OS" = toggle del cajón de navegación. El contenido vive a
+            pantalla completa; aquí se abre/cierra el sidebar. El ícono refleja el
+            estado (panel ↔ cerrar) para que la flecha/affordance sea clara. */}
         <button
-          onClick={() => window.dispatchEvent(new CustomEvent("axos:open-nav"))}
-          aria-label="Abrir navegación"
-          className="lg:hidden rounded-full p-2 text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          onClick={toggleNav}
+          aria-label={navOpen ? "Cerrar navegación" : "Abrir navegación"}
+          aria-expanded={navOpen}
+          aria-haspopup="menu"
+          className="group flex items-center gap-2 rounded-full py-1.5 pl-2 pr-3 text-foreground transition-colors hover:bg-foreground/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
-          <Menu className="w-5 h-5" strokeWidth={1.75} />
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground/[0.06] text-muted-foreground transition-colors group-hover:text-foreground">
+            {navOpen ? (
+              <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            ) : (
+              <PanelLeft className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            )}
+          </span>
+          <span className="text-lg font-semibold tracking-[-0.03em]">Axos OS</span>
         </button>
-        <Link
-          href="/dashboard"
-          className="text-lg font-semibold tracking-[-0.03em]"
-        >
-          Axos OS
-        </Link>
         <WorkspaceSwitcher />
       </div>
 
