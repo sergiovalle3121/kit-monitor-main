@@ -219,3 +219,9 @@ The first live connector contract is `GET /suppliers/scorecards` for Supplier sc
 ## Delivered slice — advanced chart builder
 
 AXOS Sheets chart metadata now supports an advanced builder that can target a free range, a named formatted table, or the materialized output sheet of a stored pivot. The builder keeps using the shared chart range helpers, shows an inline preview before insertion, persists source metadata for future refresh behavior, and adds industrial chart variants for columns, horizontal bars, line, pie, donut, Pareto, and gauge visuals without introducing new dependencies.
+
+## Fase 9 expansion — Slicers and timeline filter foundation
+
+AXOS Sheets now has a persistable pure filter foundation for Excel-like slicers and timeline filters. Sheet metadata can store `AxosSlicer` value filters and `AxosTimelineFilter` date windows, derive sorted unique values for slicer buttons, compare ISO/serial dates, apply combined row visibility to Fortune-Sheet `rowhidden`, and project slicer selections onto pivot configs before pivot generation. The Workbench Data inspector exposes basic insert/show controls so the foundation is reachable without adding a parallel Sheets surface.
+
+Known limitation: timeline filters currently apply to sheet row visibility; pivot date-window projection is reserved for a future pivot date-filter model so existing pivot behavior remains stable.
