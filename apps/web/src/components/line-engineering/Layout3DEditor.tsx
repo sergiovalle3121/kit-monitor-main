@@ -53,6 +53,7 @@ import { CAD_TOOLBAR_ACTIONS, type CadToolbarActionId } from '@/lib/cad/toolbar'
 import { searchCadPalette, type CadPaletteEntry } from '@/lib/cad/command-palette';
 import { matchCadShortcut } from '@/lib/cad/keyboard-shortcuts';
 import { exportCadLayoutDxf } from '@/lib/cad/layout-export-adapter';
+import { evaluateCadDxfExportReadiness, type CadDxfExportLayerSummary, type CadDxfExportReadinessEntity, type CadDxfExportReadinessIssue } from '@/lib/cad/dxf-export-readiness';
 import { importDxfPrimitives, summarizeDxfImportWarnings, type CadDxfImportResult, type CadDxfImportWarning, type CadDxfPoint, type CadDxfPrimitive } from '@/lib/cad/dxf-import';
 import { CAD_SYMBOL_LIBRARY, getCadSymbol, type CadSymbolCategory } from '@/lib/cad/symbols';
 import { detectCadCollisions, type CadCollisionHit } from '@/lib/cad/collisions';
@@ -192,7 +193,7 @@ const sameSel = (a: SelItem, b: SelItem) => a.type === b.type && a.id === b.id;
 interface Snapshot { placements: [string, Placement][]; assets: Asset[]; annotations: Ann[]; connectors: Conn[] }
 interface CommandPreviewState { input: CadCommandInput; preview: CadCommandPreview }
 interface DxfExportOptions { scope: 'all' | 'selection'; includeHidden: boolean; includeMeasurements: boolean; includeLabels: boolean; units: 'mm' | 'm'; fileName: string }
-interface DxfExportSummary { objects: number; connectors: number; measurements: number; labels: number; layers: number }
+interface DxfExportSummary { objects: number; connectors: number; measurements: number; labels: number; layers: number; canExport: boolean; includedLayers: string[]; layerSummary: CadDxfExportLayerSummary[]; issues: CadDxfExportReadinessIssue[] }
 interface MeasurementRow { id: string; label: string; length: string }
 /** Live quantity take-off computed from the editor's current state. */
 interface LocalTakeoff {
@@ -617,7 +618,7 @@ export default function Layout3DEditor({
   const [dxfImportPreview, setDxfImportPreview] = useState<CadDxfImportResult | null>(null);
   const [showDxfExport, setShowDxfExport] = useState(false);
   const [dxfExportOptions, setDxfExportOptions] = useState<DxfExportOptions>({ scope: 'all', includeHidden: true, includeMeasurements: true, includeLabels: true, units: 'mm', fileName: '' });
-  const [dxfExportSummary, setDxfExportSummary] = useState<DxfExportSummary>({ objects: 0, connectors: 0, measurements: 0, labels: 0, layers: 0 });
+  const [dxfExportSummary, setDxfExportSummary] = useState<DxfExportSummary>({ objects: 0, connectors: 0, measurements: 0, labels: 0, layers: 0, canExport: false, includedLayers: [], layerSummary: [], issues: [] });
   const dxfInputRef = useRef<HTMLInputElement | null>(null);
   const [showVersions, setShowVersions] = useState(false); // versions/scenarios modal (unify)
   const [localSnapshots, setLocalSnapshots] = useState<CadSnapshotHistory<Snapshot>>({ snapshots: [] });
@@ -2965,15 +2966,53 @@ export default function Layout3DEditor({
   };
   const computeDxfExportSummary = (options: DxfExportOptions): DxfExportSummary => {
     const selectedIds = new Set(selRef.current.map((item) => item.id));
-    const inScope = (id: string) => options.scope === 'all' || selectedIds.has(id);
-    const objects = options.scope === 'selection' ? selRef.current.length : placementsRef.current.size + assetsRef.current.size;
-    const connectors = connectorsRef.current.filter((conn) => inScope(conn.from) && inScope(conn.to)).length;
+    const layerLabel = (id: CadLayerId) => cadLayers.find((layer) => layer.id === id)?.label ?? id;
+    const layerVisible = (id: CadLayerId) => cadLayers.find((layer) => layer.id === id)?.visible ?? true;
+    const entities: CadDxfExportReadinessEntity[] = [
+      ...[...placementsRef.current.keys()].map((id) => {
+        const layerId = layerAssignments[id] ?? 'layout';
+        return { id, kind: 'object' as const, layer: layerLabel(layerId), selected: selectedIds.has(id), visible: layerVisible(layerId) };
+      }),
+      ...[...assetsRef.current.values()].map((asset) => {
+        const layerId = layerAssignments[asset.id] ?? 'equipment';
+        return { id: asset.id, kind: 'object' as const, layer: layerLabel(layerId), selected: selectedIds.has(asset.id), visible: layerVisible(layerId) };
+      }),
+      ...connectorsRef.current.map((conn) => ({
+        id: `${conn.from}:${conn.to}`,
+        kind: 'connector' as const,
+        layer: layerLabel('flow'),
+        selected: selectedIds.has(conn.from) && selectedIds.has(conn.to),
+        visible: layerVisible('flow'),
+      })),
+      ...[...annotationsRef.current.values()]
+        .filter((ann) => ann.type === 'dim' && ann.x2 != null && ann.y2 != null)
+        .map((ann) => ({ id: ann.id, kind: 'measurement' as const, layer: layerLabel('measurements'), selected: true, visible: layerVisible('measurements') })),
+      ...[...annotationsRef.current.values()]
+        .filter((ann) => ann.type === 'text')
+        .map((ann) => ({ id: ann.id, kind: 'label' as const, layer: 'Text', selected: true, visible: layersRef.current.notes })),
+    ];
+    const readiness = evaluateCadDxfExportReadiness({
+      scope: options.scope,
+      includeHidden: options.includeHidden,
+      includeMeasurements: options.includeMeasurements,
+      includeLabels: options.includeLabels,
+      selectedObjectCount: selectedIds.size,
+      entities,
+      validationBlockers: (report?.errors ?? 0) + collisionHits.length + safetyIssues.length,
+      validationWarnings: (report?.warnings ?? 0) + dxfWarnings.length + (flowHealth && flowHealth.score < 80 ? 1 : 0),
+      dxfImportWarnings: dxfWarnings.length,
+      selectionKeepsAnnotations: true,
+    });
     return {
-      objects,
-      connectors,
-      measurements: options.includeMeasurements ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'dim').length : 0,
-      labels: options.includeLabels ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'text').length : 0,
-      layers: cadLayers.filter((layer) => options.includeHidden || layer.visible).length,
+      objects: readiness.counts.object,
+      connectors: readiness.counts.connector,
+      measurements: readiness.counts.measurement,
+      labels: readiness.counts.label,
+      layers: readiness.includedLayers.length,
+      canExport: readiness.canExport,
+      includedLayers: readiness.includedLayers,
+      layerSummary: readiness.layerSummary,
+      issues: readiness.issues,
     };
   };
   const setDxfOption = (patch: Partial<DxfExportOptions>) => {
@@ -2991,6 +3030,13 @@ export default function Layout3DEditor({
   };
   const exportDxf = async (options: DxfExportOptions = dxfExportOptions) => {
     try {
+      const summary = computeDxfExportSummary(options);
+      setDxfExportSummary(summary);
+      const blocker = summary.issues.find((issue) => issue.level === 'blocker');
+      if (blocker) { toast.error(blocker.message, 'DXF'); return; }
+      const layerLabel = (id: CadLayerId) => cadLayers.find((layer) => layer.id === id)?.label ?? id;
+      const layerVisible = (id: CadLayerId) => cadLayers.find((layer) => layer.id === id)?.visible ?? true;
+      const includeLayer = (id: CadLayerId) => options.includeHidden || layerVisible(id);
       const centerFor = (id: string): { x: number; y: number } | null => {
         const p = placementsRef.current.get(id);
         if (p) return { x: p.x, y: p.y };
@@ -3001,25 +3047,24 @@ export default function Layout3DEditor({
       const selectedIds = new Set(selRef.current.map((item) => item.id));
       const includeObject = (id: string, fallback: CadLayerId) => {
         if (options.scope === 'selection' && !selectedIds.has(id)) return false;
-        if (options.includeHidden) return true;
-        const layerId = layerAssignments[id] ?? fallback;
-        return cadLayers.find((layer) => layer.id === layerId)?.visible ?? true;
+        return includeLayer(layerAssignments[id] ?? fallback);
       };
       const boxes = [
         ...[...placementsRef.current.entries()]
           .filter(([id]) => includeObject(id, 'layout'))
-          .map(([id, p]) => ({ id, label: stationsByIdRef.current.get(id)?.station ?? id, x: p.x, y: p.y, width: p.w, height: p.h, layer: cadLayers.find((layer) => layer.id === (layerAssignments[id] ?? 'layout'))?.label ?? 'Layout' })),
+          .map(([id, p]) => ({ id, label: stationsByIdRef.current.get(id)?.station ?? id, x: p.x, y: p.y, width: p.w, height: p.h, layer: layerLabel(layerAssignments[id] ?? 'layout') })),
         ...[...assetsRef.current.values()]
           .filter((asset) => includeObject(asset.id, 'equipment'))
-          .map((asset) => ({ id: asset.id, label: asset.label || assetMeta(asset.kind).label, x: asset.x, y: asset.y, width: asset.w, height: asset.h, layer: cadLayers.find((layer) => layer.id === (layerAssignments[asset.id] ?? 'equipment'))?.label ?? 'Equipment' })),
+          .map((asset) => ({ id: asset.id, label: asset.label || assetMeta(asset.kind).label, x: asset.x, y: asset.y, width: asset.w, height: asset.h, layer: layerLabel(layerAssignments[asset.id] ?? 'equipment') })),
       ];
       const connectors = connectorsRef.current.map((conn) => {
+        if (!includeLayer('flow')) return null;
         if (options.scope === 'selection' && (!selectedIds.has(conn.from) || !selectedIds.has(conn.to))) return null;
         const from = centerFor(conn.from); const to = centerFor(conn.to);
-        return from && to ? { from, to, layer: 'Flow' } : null;
+        return from && to ? { from, to, layer: layerLabel('flow') } : null;
       }).filter((conn): conn is { from: { x: number; y: number }; to: { x: number; y: number }; layer: string } => !!conn);
-      const labels = options.includeLabels ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'text').map((ann) => ({ text: ann.text || 'Nota', x: ann.x, y: ann.y, layer: 'Text' })) : [];
-      const measurements = options.includeMeasurements ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'dim' && ann.x2 != null && ann.y2 != null).map((ann) => ({ from: { x: ann.x, y: ann.y }, to: { x: ann.x2!, y: ann.y2! }, label: ann.text, layer: 'Measurements' })) : [];
+      const labels = options.includeLabels && (options.includeHidden || layersRef.current.notes) ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'text').map((ann) => ({ text: ann.text || 'Nota', x: ann.x, y: ann.y, layer: 'Text' })) : [];
+      const measurements = options.includeMeasurements && includeLayer('measurements') ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'dim' && ann.x2 != null && ann.y2 != null).map((ann) => ({ from: { x: ann.x, y: ann.y }, to: { x: ann.x2!, y: ann.y2! }, label: ann.text, layer: layerLabel('measurements') })) : [];
       const exported = exportCadLayoutDxf({ boxes, connectors, labels, measurements }, { units: options.units, fileComment: `AXOS CAD ${model} ${revision}` });
       const blob = new Blob([exported.content], { type: 'application/dxf' });
       const url = URL.createObjectURL(blob);
@@ -3128,6 +3173,8 @@ export default function Layout3DEditor({
     { label: 'DXF import', value: dxfWarnings.length ? `${dxfWarnings.length} warning(s)` : 'Sin warnings activos', tone: dxfWarnings.length ? 'text-amber-300' : 'text-emerald-300' },
   ];
   const flowSegmentRows = [...flowSegments].sort((a, b) => b.distance - a.distance).slice(0, 5);
+  const dxfExportLayerRows = dxfExportSummary.layerSummary.filter((layer) => layer.included > 0 || layer.hidden > 0).slice(0, 5);
+  const dxfExportIssueRows = dxfExportSummary.issues.slice(0, 5);
 
   // Portal to <body> so the full-screen overlay escapes the editor's glass
   // container (backdrop-filter would otherwise be the containing block for our
@@ -3842,10 +3889,11 @@ export default function Layout3DEditor({
 
       {showDxfExport && (
         <div className="absolute inset-0 z-[80] grid place-items-center bg-black/50 p-4" onClick={() => setShowDxfExport(false)}>
-          <div className="w-[440px] max-w-full rounded-2xl border border-white/10 bg-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[82vh] w-[520px] max-w-full overflow-y-auto rounded-2xl border border-white/10 bg-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
               <FileDown className="h-4 w-4 text-cyan-300" />
               <span className="text-sm font-semibold">Exportar DXF</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${dxfExportSummary.canExport ? 'bg-emerald-400/10 text-emerald-200' : 'bg-rose-400/10 text-rose-200'}`}>{dxfExportSummary.canExport ? 'Listo' : 'Bloqueado'}</span>
               <div className="flex-1" />
               <button onClick={() => setShowDxfExport(false)} className="rounded-lg p-1 hover:bg-white/10"><X className="h-4 w-4" /></button>
             </div>
@@ -3866,7 +3914,40 @@ export default function Layout3DEditor({
                 <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-200">Resumen</div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-300"><span>Objetos</span><b className="text-right">{dxfExportSummary.objects}</b><span>Conectores</span><b className="text-right">{dxfExportSummary.connectors}</b><span>Cotas</span><b className="text-right">{dxfExportSummary.measurements}</b><span>Notas</span><b className="text-right">{dxfExportSummary.labels}</b><span>Layers</span><b className="text-right">{dxfExportSummary.layers}</b></div>
               </div>
-              <button onClick={() => exportDxf(dxfExportOptions)} className="w-full rounded-lg bg-cyan-600 px-3 py-2 text-[12px] font-semibold text-white hover:bg-cyan-500">Descargar DXF</button>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-200">Paquete de capas</div>
+                  <span className="text-[10.5px] text-gray-500">{dxfExportSummary.includedLayers.join(' Â· ') || 'Sin layers'}</span>
+                </div>
+                {dxfExportLayerRows.length ? (
+                  <div className="space-y-1">
+                    {dxfExportLayerRows.map((layer) => (
+                      <div key={layer.layer} className="flex items-center justify-between gap-2 rounded-lg bg-gray-950/50 px-2 py-1.5 text-[11px]">
+                        <span className="truncate text-gray-300">{layer.layer}</span>
+                        <span className="shrink-0 text-gray-500">{layer.included}/{layer.total} incl.{layer.hidden ? ` Â· ${layer.hidden} ocultas` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-gray-950/50 px-2 py-1.5 text-[11px] text-gray-500">No hay entidades exportables con estas opciones.</div>
+                )}
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-200">Preflight</div>
+                {dxfExportIssueRows.length ? (
+                  <div className="space-y-1">
+                    {dxfExportIssueRows.map((issue) => (
+                      <div key={issue.code} className={`flex items-start gap-2 rounded-lg px-2 py-1.5 text-[11px] ${issue.level === 'blocker' ? 'bg-rose-400/10 text-rose-100' : issue.level === 'warning' ? 'bg-amber-400/10 text-amber-100' : 'bg-white/[0.04] text-gray-300'}`}>
+                        {issue.level === 'blocker' ? <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : issue.level === 'warning' ? <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <CircleCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                        <span className="min-w-0 flex-1">{issue.message}{issue.count ? ` (${issue.count})` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-lg bg-emerald-400/10 px-2 py-1.5 text-[11px] text-emerald-100"><CircleCheck className="h-3.5 w-3.5" />DXF listo para descargar.</div>
+                )}
+              </div>
+              <button disabled={!dxfExportSummary.canExport} onClick={() => exportDxf(dxfExportOptions)} className={`w-full rounded-lg px-3 py-2 text-[12px] font-semibold text-white ${dxfExportSummary.canExport ? 'bg-cyan-600 hover:bg-cyan-500' : 'cursor-not-allowed bg-gray-700 text-gray-400'}`}>Descargar DXF</button>
             </div>
           </div>
         </div>

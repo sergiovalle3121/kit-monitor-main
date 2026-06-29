@@ -8,25 +8,25 @@ AXOS CAD is beyond seed state. The active workbench already includes a unified 2
 
 ## This run
 
-This run adds a compound command-engine workflow:
+This run hardens the existing DXF export workflow:
 
-- `arrange_flow_line` arranges selected or sequenced objects into a flow line.
-- The command creates previewable `move` operations for every object.
-- It creates previewable `connect` operations between sequence steps.
-- It emits a `report` operation with direction, spacing, score before, score after, and resulting distance.
-- It warns when the proposed line is clipped by the footprint.
+- `dxf-export-readiness.ts` evaluates the export package before download.
+- The existing DXF export modal now shows a ready/blocked state, entity counts, included layers, hidden-layer exclusions, validation warnings, and active DXF import warnings.
+- Selection exports now block only when nothing is selected or no entities match the options.
+- Hidden Flow/Measurements/Text visibility is reflected in the modal and in the actual downloaded DXF.
 
-The workflow is visible through the existing CAD command dock because the editor already previews and applies command registry operations. It does not introduce a parallel editor, duplicate flow scoring, duplicate connector logic, or a new UI surface.
+The workflow is visible through the existing `Layout3DEditor.tsx` DXF export action. It does not introduce a second exporter, a parallel editor, or a new DXF model; it reuses `exportCadLayoutDxf` and the current modal.
 
 ## Phase evidence
 
 | Backlog phase | Status | Evidence | Next step |
 | --- | --- | --- | --- |
-| Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus a reachable command workflow | Keep audit current as PRs land. |
-| Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, and `arrange_flow_line` | Add richer flow recommendations and before/after preview cards. |
+| Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus a visible export modal improvement | Keep audit current as PRs land. |
+| Phase 7 - DXF Export Pro Workflow | Advanced | `dxf-export.ts`, `layout-export-adapter.ts`, `dxf-export-readiness.ts`, and the visible DXF export modal | Add optional validation report attachment/package metadata after export contract review. |
+| Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, and command-registry flow workflows | Add richer flow recommendations and before/after preview cards. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
 ## Next CAD PR
 
-Recommended next phase: add an editable connector workflow or validation issue actions after PR 746 lands, so `Layout3DEditor.tsx` conflicts can be resolved against the latest viewport/minimap changes.
+Recommended next phase: add a layer-selective DXF import review or a validation-report attachment option for DXF packages, depending on which open CAD PRs land first.
