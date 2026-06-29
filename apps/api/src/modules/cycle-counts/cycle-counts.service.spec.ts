@@ -4,10 +4,24 @@ import { CycleCount } from './entities/cycle-count.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import type { TenantContext } from '../../common/tenant/tenant-context.service';
+
+function tenantContext(tenant_id: string | null): TenantContext {
+  return {
+    tenant_id,
+    organization_id: tenant_id,
+    plant_id: null,
+    user_email: 'cycle-counter@example.com',
+    role: 'Admin',
+    permissions: null,
+    scopes: null,
+  };
+}
 
 describe('CycleCountsService (integration)', () => {
   let dataSource: DataSource;
   let service: CycleCountsService;
+  let ctx: TenantContextService;
 
   beforeEach(async () => {
     dataSource = new DataSource({
@@ -19,7 +33,7 @@ describe('CycleCountsService (integration)', () => {
     });
     await dataSource.initialize();
 
-    const ctx = new TenantContextService();
+    ctx = new TenantContextService();
     const numbering = new DocumentNumberingService(
       dataSource.getRepository(DocumentSequence),
       dataSource,
@@ -83,5 +97,64 @@ describe('CycleCountsService (integration)', () => {
     expect(kpis.inventoryAccuracyPct).toBe(50); // 1 accurate of 2 counted
     expect(kpis.countsWithVariance).toBe(1);
     expect(kpis.totalAbsVariance).toBe(3);
+  });
+
+  it('builds an actionable discrepancy monitor from unresolved counted variances', async () => {
+    const shortage = await service.create({ partNumber: 'SHORT', systemQty: 100 });
+    await service.recordCount(shortage.id, { countedQty: 80 });
+    const overage = await service.create({ partNumber: 'OVER', systemQty: 50 });
+    await service.recordCount(overage.id, { countedQty: 52 });
+    const exact = await service.create({ partNumber: 'EXACT', systemQty: 10 });
+    await service.recordCount(exact.id, { countedQty: 10 });
+    const adjusted = await service.create({ partNumber: 'ADJ', systemQty: 20 });
+    await service.recordCount(adjusted.id, { countedQty: 10 });
+    await service.transition(adjusted.id, { status: 'ADJUSTED' });
+
+    const monitor = await service.discrepancyMonitor();
+
+    expect(monitor.summary).toEqual(
+      expect.objectContaining({
+        total: 2,
+        high: 1,
+        medium: 0,
+        low: 1,
+        shortages: 1,
+        overages: 1,
+        totalAbsVariance: 22,
+        netVariance: -18,
+      }),
+    );
+    expect(monitor.items.map((item) => item.partNumber)).toEqual([
+      'SHORT',
+      'OVER',
+    ]);
+    expect(monitor.items[0]).toEqual(
+      expect.objectContaining({
+        direction: 'SHORTAGE',
+        severity: 'HIGH',
+        recommendedAction: 'INVESTIGATE_SHORTAGE',
+      }),
+    );
+  });
+
+  it('scopes getOne and transitions by tenant context', async () => {
+    const countA = await ctx.run(tenantContext('TENANT_A'), () =>
+      service.create({ partNumber: 'TENANT-A-PART', systemQty: 10 }),
+    );
+
+    await expect(
+      ctx.run(tenantContext('TENANT_B'), () => service.getOne(countA.id)),
+    ).rejects.toThrow(/Conteo no encontrado/);
+
+    await expect(
+      ctx.run(tenantContext('TENANT_B'), () =>
+        service.transition(countA.id, { status: 'CANCELLED' }),
+      ),
+    ).rejects.toThrow(/Conteo no encontrado/);
+
+    const visible = await ctx.run(tenantContext('TENANT_A'), () =>
+      service.getOne(countA.id),
+    );
+    expect(visible.partNumber).toBe('TENANT-A-PART');
   });
 });
