@@ -186,3 +186,11 @@
 - Restoring a local snapshot pushes the current layout onto the existing undo stack before applying the snapshot, so recovery remains reversible.
 - Backend versions/scenarios remain unchanged; local snapshots are explicitly session-only and do not add persistence or API calls.
 - Pending: auto-create local snapshots before high-risk DXF conversions/import-object operations once editable DXF object mapping lands.
+
+## 2026-06-29 — Editable CAD layout templates
+
+- Added pure CAD layout templates for EMS mini factory, SMT line, warehouse racks, and packing/shipping cell.
+- Wired templates into the existing `Layout3DEditor` equipment rail as "Plantillas CAD".
+- Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
+- Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
+- Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.

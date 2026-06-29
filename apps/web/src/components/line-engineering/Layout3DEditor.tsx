@@ -55,6 +55,7 @@ import { matchCadShortcut } from '@/lib/cad/keyboard-shortcuts';
 import { exportCadLayoutDxf } from '@/lib/cad/layout-export-adapter';
 import { importDxfPrimitives, summarizeDxfImportWarnings, type CadDxfImportResult, type CadDxfImportWarning, type CadDxfPoint, type CadDxfPrimitive } from '@/lib/cad/dxf-import';
 import { CAD_SYMBOL_LIBRARY, getCadSymbol, type CadSymbolCategory } from '@/lib/cad/symbols';
+import { CAD_LAYOUT_TEMPLATES, instantiateCadLayoutTemplate, type CadLayoutTemplateId } from '@/lib/cad/templates';
 import { detectCadCollisions, type CadCollisionHit } from '@/lib/cad/collisions';
 import { buildFlowSegments, scoreFlowLayout, type CadFlowNode, type CadFlowScore, type CadFlowSegment } from '@/lib/cad/flow-optimization';
 import { evaluateSafetyZones, type CadSafetyIssue, type CadSafetyZone } from '@/lib/cad/safety-zones';
@@ -2050,6 +2051,76 @@ export default function Layout3DEditor({
       toast.success(`${symbol.label} agregado al layout.`, 'Símbolos CAD');
     }
   };
+  const applyCadTemplate = (templateId: CadLayoutTemplateId) => {
+    const ctx = ctxRef.current; const fp = data?.footprint;
+    if (!ctx || !fp) { toast.error('No hay footprint listo para aplicar la plantilla.', 'Plantillas CAD'); return; }
+    const generated = instantiateCadLayoutTemplate(templateId, { width: fp.footprintW || ctx.W, height: fp.footprintH || ctx.H, gridSize: fp.gridSize || 100 });
+    recordLocalSnapshot(`Auto · antes de plantilla ${generated.template.label}`, 'command');
+    pushHistory();
+    const created: SelItem[] = [];
+    const idByRef = new Map<string, string>();
+    const layerUpdates: Record<string, CadLayerId> = {};
+    const tagUpdates: Record<string, string> = {};
+    for (const item of generated.assets) {
+      const id = newId('as');
+      assetsRef.current.set(id, {
+        id,
+        kind: item.kind,
+        label: item.label,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        rotation: item.rotation ?? 0,
+      });
+      idByRef.set(item.ref, id);
+      created.push({ type: 'asset', id });
+      layerUpdates[id] = item.layer;
+      tagUpdates[id] = [generated.template.id, ...item.tags].join(', ');
+    }
+    let noteCount = 0;
+    for (const item of generated.annotations) {
+      const id = newId('nt');
+      annotationsRef.current.set(id, {
+        id,
+        type: 'text',
+        text: item.text,
+        x: item.x,
+        y: item.y,
+        color: cadLayersRef.current.find((layer) => layer.id === item.layer)?.color,
+      });
+      noteCount++;
+    }
+    let connectorCount = 0;
+    for (const connector of generated.connectors) {
+      const from = idByRef.get(connector.fromRef);
+      const to = idByRef.get(connector.toRef);
+      if (!from || !to) continue;
+      connectorsRef.current = [...connectorsRef.current, { from, to, kind: connector.kind }];
+      connectorCount++;
+    }
+    const flowRefs = generated.connectors.flatMap((connector, idx) => idx === 0 ? [connector.fromRef, connector.toRef] : [connector.toRef]);
+    const flowNodes = [...new Set(flowRefs)]
+      .map((ref) => {
+        const id = idByRef.get(ref);
+        const item = id ? assetsRef.current.get(id) : null;
+        return item ? { id, label: item.label ?? item.id, x: item.x + item.w / 2, y: item.y + item.h / 2 } : null;
+      })
+      .filter((node): node is CadFlowNode => !!node);
+    if (flowNodes.length >= 2) {
+      setFlowSequence(flowNodes);
+      setFlowSegments(buildFlowSegments(flowNodes));
+      setFlowHealth(scoreFlowLayout(flowNodes));
+    }
+    setAssetIds(new Set(assetsRef.current.keys()));
+    setLayerAssignments((cur) => ({ ...cur, ...layerUpdates }));
+    setObjectTags((cur) => ({ ...cur, ...tagUpdates }));
+    if (created.length) select(created.slice(0, 80));
+    setDirty(true); rebuildAll(); refreshSnap();
+    const scaled = generated.scale < 1 ? ` · escala ${Math.round(generated.scale * 100)}%` : '';
+    toast.success(`${generated.template.label}: ${created.length} objetos, ${connectorCount} flujos, ${noteCount} notas${scaled}.`, 'Plantillas CAD');
+    if (generated.warnings[0]) toast.error(generated.warnings[0], 'Plantillas CAD');
+  };
   const fallbackLayerForItem = (item: SelItem): CadLayerId => item.type === 'station' ? 'layout' : 'equipment';
   const isItemLayerLocked = (item: SelItem) => isObjectLayerLocked(cadLayersRef.current, layerAssignmentsRef.current, item.id, fallbackLayerForItem(item));
   const editableItems = (items: SelItem[], action: string) => {
@@ -3391,6 +3462,20 @@ export default function Layout3DEditor({
                 </>
               ) : (
                 <>
+                  <div className="mb-3 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.05] p-2.5">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-cyan-200"><Stamp className="h-3.5 w-3.5" /> Plantillas CAD</div>
+                      <span className="text-[10px] text-cyan-100/60">{CAD_LAYOUT_TEMPLATES.length}</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {CAD_LAYOUT_TEMPLATES.map((template) => (
+                        <button key={template.id} onClick={() => applyCadTemplate(template.id)} title={template.description} className="rounded-lg bg-cyan-400/[0.08] px-2 py-1.5 text-left text-[11px] text-cyan-100 hover:bg-cyan-400/[0.14]">
+                          <span className="flex items-center justify-between gap-2"><span className="truncate font-semibold">{template.label}</span><span className="shrink-0 text-[10px] text-cyan-200/70">{template.assets.length} obj</span></span>
+                          <span className="mt-0.5 block truncate text-[10px] text-cyan-200/70">{template.category} · {template.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="mb-3 rounded-xl border border-rose-400/15 bg-rose-400/[0.05] p-2.5">
                     <div className="text-[10px] uppercase tracking-wide text-rose-200 mb-1.5">Safety zones</div>
                     <p className="mb-2 text-[10.5px] leading-snug text-rose-100/70">Crea zonas editables en la capa Safety para validar invasiones y clearances.</p>
