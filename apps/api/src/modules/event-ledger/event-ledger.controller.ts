@@ -1,5 +1,9 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { EventLedgerService } from './event-ledger.service';
+import type {
+  LedgerEventQueryResult,
+  QueryLedgerEventsDto,
+} from './event-ledger.service';
 import { LedgerEvent } from './entities/ledger-event.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -14,6 +18,14 @@ export class EventLedgerController {
   async list(@Query('limit') limit?: string): Promise<LedgerEvent[]> {
     const n = limit ? parseInt(limit, 10) : 200;
     return this.ledgerService.findRecent(Number.isFinite(n) ? n : 200);
+  }
+
+  /** Audit-ready server-side query with composable filters and pagination. */
+  @Get('query')
+  async query(
+    @Query() query: QueryLedgerEventsDto,
+  ): Promise<LedgerEventQueryResult> {
+    return this.ledgerService.queryEvents(query);
   }
 
   @Get('reference/:type/:id')

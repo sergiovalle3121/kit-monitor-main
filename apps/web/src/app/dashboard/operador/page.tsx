@@ -25,12 +25,18 @@ import { useToast } from "@/contexts/ToastContext";
 import { useMesSignals } from "@/hooks/useMesSignals";
 import { useDashboardSession } from "@/hooks/useDashboardSession";
 import {
+  buildOperatorConfirmationSummary,
   classifyScan,
+  type OperatorConfirmationSummary,
   type OfflineAction,
   type ScanResult,
   type ScanState,
 } from "./operator-terminal.utils";
-import { ANDON_TYPES } from "./andon-types";
+import {
+  ANDON_TYPES,
+  DOWNTIME_REASON_OPTIONS,
+  type DowntimeReasonCode,
+} from "./andon-types";
 import { IncidentDispositionPanel } from "./incident-disposition-panel";
 import { IndustrialTopBar } from "./industrial-top-bar";
 import { MaterialConsumptionPanel } from "./material-consumption-panel";
@@ -525,6 +531,7 @@ export default function OperadorPage() {
                 operator={operator}
                 position={session?.position ?? null}
                 onQueueAction={offlineQueue.enqueue}
+                onCancel={() => setSheet(null)}
                 onDone={() => {
                   setSheet(null);
                   mutateBoard();
@@ -936,6 +943,7 @@ function ConfirmForm({
   operator,
   position,
   onQueueAction,
+  onCancel,
   onDone,
 }: {
   board: Board;
@@ -944,6 +952,7 @@ function ConfirmForm({
   onQueueAction: (
     action: Omit<OfflineAction, "id" | "createdAt" | "attempts">,
   ) => void;
+  onCancel: () => void;
   onDone: () => void;
 }) {
   const step = board.currentStep!;
@@ -951,8 +960,20 @@ function ConfirmForm({
   const [qty, setQty] = useState(Math.min(max || 1, 1));
   const [scrap, setScrap] = useState(0);
   const [serial, setSerial] = useState("");
+  const [armedSignature, setArmedSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const confirmationSignature = `${step.stepId}:${qty}:${scrap}:${serial.trim()}`;
+  const armed = armedSignature === confirmationSignature;
+  const summary = buildOperatorConfirmationSummary({
+    action: "confirm-advance",
+    workOrder: board.execution.workOrder,
+    stepName: step.name,
+    quantity: qty,
+    scrap,
+    operator,
+  });
+
   const scanner = useIndustrialScanner((scan) => {
     if (["serial", "qr", "datamatrix", "code128"].includes(scan.kind)) {
       setSerial(scan.normalized);
@@ -963,6 +984,12 @@ function ConfirmForm({
   });
 
   async function submit() {
+    if (!armed) {
+      setError(null);
+      setArmedSignature(confirmationSignature);
+      return;
+    }
+
     const payload = {
       quantity: qty,
       scrap,
@@ -1041,19 +1068,76 @@ function ConfirmForm({
           Disponible de la estación previa: {step.maxConfirmable} u. Al
           confirmar se descuenta el material del paso (backflush).
         </p>
+        <ConfirmationReview summary={summary} armed={armed} />
         {error && <p className="text-sm text-rose-500">{error}</p>}
-        <button
-          onClick={submit}
-          disabled={busy || qty + scrap <= 0}
-          className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-        >
-          {busy ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+        <div className="grid grid-cols-1 sm:grid-cols-[0.8fr_1.2fr] gap-3">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="w-full bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200 text-base font-bold py-4 rounded-2xl hover:bg-gray-200 dark:hover:bg-white/15 active:scale-[0.98] transition-all disabled:opacity-40"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy || qty + scrap <= 0}
+            className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            {busy ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5" />
+            )}
+            {armed
+              ? summary.primaryLabel
+              : `Revisar ${qty} u${scrap > 0 ? ` · ${scrap} scrap` : ""}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmationReview({
+  summary,
+  armed,
+}: {
+  summary: OperatorConfirmationSummary;
+  armed: boolean;
+}) {
+  const tone =
+    summary.tone === "rose"
+      ? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-200"
+      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200";
+
+  return (
+    <div className={`rounded-2xl border p-3 ${tone}`}>
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5">
+          {summary.tone === "rose" ? (
+            <AlertTriangle className="w-5 h-5" />
           ) : (
             <CheckCircle2 className="w-5 h-5" />
           )}
-          Confirmar {qty} u{scrap > 0 ? ` · ${scrap} scrap` : ""}
-        </button>
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-black">
+            {armed ? summary.title : "Revisión requerida"}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed opacity-90">
+            {summary.consequence}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {summary.details.map((detail) => (
+              <span
+                key={detail}
+                className="rounded-full bg-white/60 px-2 py-1 text-[10px] font-black text-gray-700 dark:bg-black/20 dark:text-white"
+              >
+                {detail}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1289,12 +1373,38 @@ function AndonForm({
   onDone: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [stopPickerOpen, setStopPickerOpen] = useState(false);
+  const [stopReason, setStopReason] = useState<DowntimeReasonCode | "">("");
+  const [stopNote, setStopNote] = useState("");
   const toast = useToast();
-  async function call(type: string) {
+  const stopSummary = buildOperatorConfirmationSummary({
+    action: "line-stop",
+    workOrder: board.execution.workOrder,
+    stepName: board.currentStep?.name,
+    operator,
+  });
+
+  async function call(type: string, downtimeReason?: DowntimeReasonCode) {
+    if (type === "stop" && !downtimeReason) {
+      toast.error(
+        "Selecciona una razón de paro antes de detener la línea.",
+        "Andon",
+      );
+      return;
+    }
+    const reasonLabel =
+      DOWNTIME_REASON_OPTIONS.find((reason) => reason.code === downtimeReason)
+        ?.label ?? null;
     const payload = {
       type,
       stepId: board.currentStep?.stepId,
       raisedBy: operator,
+      ...(downtimeReason
+        ? {
+            downtimeReason,
+            note: stopNote.trim() || reasonLabel || undefined,
+          }
+        : {}),
     };
     setBusy(type);
     try {
@@ -1320,7 +1430,9 @@ function AndonForm({
     } catch {
       onQueueAction({
         type: "andon",
-        label: `Andon ${type} · ${board.execution.workOrder}`,
+        label: `Andon ${type}${reasonLabel ? ` · ${reasonLabel}` : ""} · ${
+          board.execution.workOrder
+        }`,
         payload,
       });
       toast.error("Sin conexión: Andon guardado en cola local.", "Andon");
@@ -1328,6 +1440,15 @@ function AndonForm({
       setBusy(null);
     }
   }
+
+  function selectAndon(type: string) {
+    if (type === "stop") {
+      setStopPickerOpen(true);
+      return;
+    }
+    void call(type);
+  }
+
   return (
     <div>
       <SheetHeader title="Andon" subtitle="Llama a soporte a tu estación" />
@@ -1335,7 +1456,7 @@ function AndonForm({
         {ANDON_TYPES.map((a) => (
           <button
             key={a.id}
-            onClick={() => call(a.id)}
+            onClick={() => selectAndon(a.id)}
             disabled={!!busy}
             className={`${glass} rounded-3xl p-5 flex flex-col items-center gap-2 active:scale-95 transition-all disabled:opacity-50`}
             style={{ color: a.color }}
@@ -1349,6 +1470,64 @@ function AndonForm({
           </button>
         ))}
       </div>
+      {stopPickerOpen && (
+        <div className="mt-5 rounded-3xl border border-rose-500/20 bg-rose-500/10 p-4">
+          <div className="mb-3">
+            <ConfirmationReview summary={stopSummary} armed />
+          </div>
+          <div className="mb-3">
+            <div className="text-sm font-black text-rose-600">
+              Razón de paro
+            </div>
+            <div className="text-xs text-gray-500">
+              Se registra contra la WO activa.
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {DOWNTIME_REASON_OPTIONS.map((reason) => (
+              <button
+                key={reason.code}
+                onClick={() => setStopReason(reason.code)}
+                className={`rounded-2xl px-3 py-3 text-left transition-all ${
+                  stopReason === reason.code
+                    ? "bg-rose-500 text-white"
+                    : "bg-white/70 text-gray-700 hover:bg-white dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+                }`}
+              >
+                <span className="block text-sm font-black">{reason.label}</span>
+                <span
+                  className={`block text-[11px] ${
+                    stopReason === reason.code
+                      ? "text-white/80"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {reason.description}
+                </span>
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={stopNote}
+            onChange={(event) => setStopNote(event.target.value)}
+            placeholder="Nota opcional para supervisor / mantenimiento"
+            rows={2}
+            className="mt-3 w-full rounded-2xl bg-white/80 px-4 py-3 text-sm outline-none dark:bg-white/10"
+          />
+          <button
+            onClick={() => call("stop", stopReason || undefined)}
+            disabled={busy === "stop" || !stopReason}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-500 py-4 text-base font-black text-white transition-all hover:bg-rose-600 active:scale-[0.98] disabled:opacity-40"
+          >
+            {busy === "stop" ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <ShieldAlert className="h-5 w-5" />
+            )}
+            Detener línea
+          </button>
+        </div>
+      )}
     </div>
   );
 }

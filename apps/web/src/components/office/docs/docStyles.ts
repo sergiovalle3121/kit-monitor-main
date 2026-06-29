@@ -11,12 +11,17 @@ export const DOC_EXTRA_CSS = `
 /* «Sin marcas» (final): el documento como si se aceptaran los cambios. */
 .doc-track-final .doc-del { display: none; }
 .doc-track-final .doc-ins { color: inherit; text-decoration: none; }
+.doc-track-final .doc-format-change { color: inherit; text-decoration: none; background: transparent; }
 /* «Original»: el documento como si se rechazaran los cambios. */
 .doc-track-original .doc-ins { display: none; }
 .doc-track-original .doc-del { color: inherit; text-decoration: none; }
+.doc-track-original .doc-format-change { color: inherit; text-decoration: none; background: transparent; }
 /* «Sencillo»: texto final + barra de cambio en el margen (sin marcas inline). */
 .doc-track-simple .doc-del { display: none; }
 .doc-track-simple .doc-ins { color: inherit; text-decoration: none; }
+.doc-track-simple .doc-format-change { color: inherit; text-decoration: none; background: transparent; }
+
+.tiptap-page .ProseMirror .doc-format-change { color: #2563eb; text-decoration: underline dotted #60a5fa; text-underline-offset: 3px; background: rgba(59,130,246,0.08); }
 
 /* Barra de cambio en el margen (bloques con inserciones/eliminaciones). Se
    muestra en los modos «Todas las marcas» y «Sencillo», como en Word. */

@@ -1,35 +1,38 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Printer } from 'lucide-react';
-import type { PrintOpts } from '@/lib/office/sheetOps';
+import { printOptsFromLayout, type PrintOpts, type SheetPrintLayout, type SheetPrintPaperSize } from '@/lib/office/sheetOps';
 
 /** Diálogo de impresión / diseño de página con vista previa. */
 export function SheetPrintDialog({
-  sheetNames, defaultRange, defaultSheetIndex, defaultTitle, getHtml, onPrint, onClose,
+  sheetNames, defaultRange, defaultSheetIndex, defaultTitle, layout, getHtml, onLayoutChange, onPrint, onClose,
 }: {
   sheetNames: string[];
   defaultRange: string;
   defaultSheetIndex: number;
   defaultTitle: string;
+  layout: SheetPrintLayout;
   getHtml: (sheetIndex: number, opts: PrintOpts) => string;
+  onLayoutChange: (layout: SheetPrintLayout) => void;
   onPrint: (html: string) => void;
   onClose: () => void;
 }) {
   const [sheetIndex, setSheetIndex] = useState(defaultSheetIndex || 0);
-  const [range, setRange] = useState(defaultRange || '');
+  const [range, setRange] = useState(layout.printArea || defaultRange || '');
   const [title, setTitle] = useState(defaultTitle || '');
   const [header, setHeader] = useState('');
   const [footer, setFooter] = useState('');
-  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
-  const [gridlines, setGridlines] = useState(true);
-  const [fitToWidth, setFitToWidth] = useState(false);
+  const [orientation, setOrientation] = useState(layout.orientation);
+  const [paperSize, setPaperSize] = useState<SheetPrintPaperSize>(layout.paperSize);
+  const [gridlines, setGridlines] = useState(layout.showGridlines);
+  const [fitToWidth, setFitToWidth] = useState(layout.fitToWidth);
+  const [fitToPage, setFitToPage] = useState(layout.fitToPage);
   const field = 'h-9 text-sm rounded-xl bg-gray-100 dark:bg-white/10 px-3 outline-none focus:ring-2 ring-emerald-500/40';
 
-  const opts: PrintOpts = { range: range.trim() || undefined, title: title.trim() || undefined, header: header.trim() || undefined, footer: footer.trim() || undefined, orientation, gridlines, fitToWidth };
-  const html = useMemo(() => getHtml(sheetIndex, opts), [getHtml, sheetIndex, range, title, header, footer, orientation, gridlines, fitToWidth]); // eslint-disable-line react-hooks/exhaustive-deps
+  const currentLayout: SheetPrintLayout = { orientation, paperSize, printArea: range.trim() || undefined, fitToWidth, fitToPage, showGridlines: gridlines };
+  const opts = printOptsFromLayout(currentLayout, { title: title.trim() || undefined, header: header.trim() || undefined, footer: footer.trim() || undefined });
+  const html = useMemo(() => getHtml(sheetIndex, opts), [getHtml, sheetIndex, range, title, header, footer, orientation, paperSize, gridlines, fitToWidth, fitToPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -53,7 +56,7 @@ export function SheetPrintDialog({
               </label>
             )}
             <label className="block text-xs text-gray-500">Área de impresión (vacío = todo)
-              <input value={range} onChange={(e) => setRange(e.target.value)} placeholder="A1:F40" className={`${field} w-full font-mono`} />
+              <input value={range} onChange={(e) => { const next = e.target.value; setRange(next); onLayoutChange({ ...currentLayout, printArea: next.trim() || undefined }); }} placeholder="A1:F40" className={`${field} w-full font-mono`} />
             </label>
             <label className="block text-xs text-gray-500">Título
               <input value={title} onChange={(e) => setTitle(e.target.value)} className={`${field} w-full`} />
@@ -67,12 +70,18 @@ export function SheetPrintDialog({
               </label>
             </div>
             <label className="block text-xs text-gray-500">Orientación
-              <select value={orientation} onChange={(e) => setOrientation(e.target.value as any)} className={`${field} w-full`}>
+              <select value={orientation} onChange={(e) => { const next = e.target.value as SheetPrintLayout['orientation']; setOrientation(next); onLayoutChange({ ...currentLayout, orientation: next }); }} className={`${field} w-full`}>
                 <option value="portrait">Vertical</option><option value="landscape">Horizontal</option>
               </select>
             </label>
-            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={gridlines} onChange={(e) => setGridlines(e.target.checked)} /> Líneas de cuadrícula</label>
-            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={fitToWidth} onChange={(e) => setFitToWidth(e.target.checked)} /> Ajustar al ancho</label>
+            <label className="block text-xs text-gray-500">Tamaño de papel
+              <select value={paperSize} onChange={(e) => { const next = e.target.value as SheetPrintPaperSize; setPaperSize(next); onLayoutChange({ ...currentLayout, paperSize: next }); }} className={`${field} w-full`}>
+                <option value="A4">A4</option><option value="Letter">Carta</option><option value="Legal">Legal</option><option value="Tabloid">Tabloide</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={gridlines} onChange={(e) => { setGridlines(e.target.checked); onLayoutChange({ ...currentLayout, showGridlines: e.target.checked }); }} /> Líneas de cuadrícula</label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={fitToWidth} onChange={(e) => { setFitToWidth(e.target.checked); onLayoutChange({ ...currentLayout, fitToWidth: e.target.checked }); }} /> Ajustar al ancho</label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={fitToPage} onChange={(e) => { setFitToPage(e.target.checked); onLayoutChange({ ...currentLayout, fitToPage: e.target.checked }); }} /> Ajustar a una página</label>
             <button onClick={() => onPrint(html)} className="w-full h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90 inline-flex items-center justify-center gap-2"><Printer className="w-4 h-4" /> Imprimir</button>
           </div>
           {/* Vista previa */}
