@@ -234,3 +234,12 @@
 - Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
 - Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
 - Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
+
+## 2026-06-29 - CAD command line assist
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and current open CAD PR file lists.
+- Avoided command-registry changes because `codex/night-cad-line-balance-command` already touches parser/registry/types.
+- Avoided layers, symbols, DXF readiness, validation quick fixes, edge-clearance dimensions, templates, flow health, plot metadata, warehouse generators, and safety paths because active PRs own those areas.
+- Added `command-line-assist.ts` to rank existing command registry examples by query and current selection count.
+- Wired the existing Copiloto CAD dock to show ready/pending suggestions that reuse selected object labels and call the existing preview-first command path.
+- Pending: richer command history reconciliation and Enter-to-apply after active editor/registry PRs settle.

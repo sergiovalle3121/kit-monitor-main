@@ -51,13 +51,14 @@ import {
 } from '@/lib/cad/layers';
 import { CAD_TOOLBAR_ACTIONS, type CadToolbarActionId } from '@/lib/cad/toolbar';
 import { searchCadPalette, type CadPaletteEntry } from '@/lib/cad/command-palette';
+import { suggestCadCommands, type CadCommandSuggestion } from '@/lib/cad/command-line-assist';
 import { matchCadShortcut } from '@/lib/cad/keyboard-shortcuts';
 import { exportCadLayoutDxf } from '@/lib/cad/layout-export-adapter';
 import { evaluateCadDxfExportReadiness, type CadDxfExportLayerSummary, type CadDxfExportReadinessEntity, type CadDxfExportReadinessIssue } from '@/lib/cad/dxf-export-readiness';
 import { importDxfPrimitives, summarizeDxfImportWarnings, type CadDxfImportResult, type CadDxfImportWarning, type CadDxfPoint, type CadDxfPrimitive } from '@/lib/cad/dxf-import';
 import { CAD_SYMBOL_LIBRARY, getCadSymbol, type CadSymbolCategory } from '@/lib/cad/symbols';
 import { CAD_LAYOUT_TEMPLATES, instantiateCadLayoutTemplate, type CadLayoutTemplateId } from '@/lib/cad/templates';
-import { detectCadCollisions, type CadClearanceIssue, type CadCollisionHit } from '@/lib/cad/collisions';
+import { type CadClearanceIssue, type CadCollisionHit } from '@/lib/cad/collisions';
 import { buildFlowSegments, scoreFlowLayout, type CadFlowNode, type CadFlowScore, type CadFlowSegment } from '@/lib/cad/flow-optimization';
 import type { CadSafetyIssue, CadSafetyZone } from '@/lib/cad/safety-zones';
 import { createCadSnapshot, diffCadSnapshots, pushCadSnapshot, restoreCadSnapshot, type CadSnapshotDiff, type CadSnapshotHistory } from '@/lib/cad/snapshots';
@@ -2897,18 +2898,31 @@ export default function Layout3DEditor({
       ...[...assetsRef.current.values()].map((a) => ({ id: a.id, type: 'asset' as const, label: a.label || assetMeta(a.kind).label, x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation })),
     ],
   });
-  const interpretCommand = () => {
-    const raw = commandText.trim();
+  const previewCommandText = (rawText: string) => {
+    const raw = rawText.trim();
     if (!raw) return;
     const parsed = parseCadCommand(raw);
     if (!parsed.ok || !parsed.input) {
       toast.error(parsed.clarification || parsed.error || 'No reconocí el comando CAD.', 'Comando CAD');
       setCommandPreview(null);
-      return;
+      return false;
     }
     const preview = previewCadCommand(parsed.input, buildCommandContext());
     setCommandPreview({ input: parsed.input, preview });
     setCommandLog((items) => [createCadHistoryItem(parsed.input!, 'previewed', preview.summary, preview), ...items].slice(0, 12));
+    return true;
+  };
+  const interpretCommand = () => {
+    previewCommandText(commandText);
+  };
+  const applyCommandSuggestion = (suggestion: CadCommandSuggestion) => {
+    setCommandText(suggestion.example);
+    if (!suggestion.ready) {
+      setCommandPreview(null);
+      toast.error(suggestion.reason, 'Comando CAD');
+      return;
+    }
+    previewCommandText(suggestion.example);
   };
   const applyCommandOperation = (op: CadOperation) => {
     if (op.type === 'move') {
@@ -3376,6 +3390,17 @@ export default function Layout3DEditor({
   if (!open || typeof document === 'undefined') return null;
 
   const paletteResults = searchCadPalette(paletteQuery).slice(0, 9);
+  const commandAssistLabels = selList.map((item) => {
+    if (item.type === 'station') return data?.stations.find((station) => station.id === item.id)?.station ?? item.id;
+    if (selSnap?.type === 'asset' && selSnap.id === item.id) return selSnap.title;
+    return item.id;
+  });
+  const commandAssistSuggestions = showCommand ? suggestCadCommands({
+    query: commandText,
+    selectedCount: selList.length,
+    selectedObjectLabels: commandAssistLabels,
+    maxItems: commandText.trim() ? 4 : 3,
+  }) : [];
   const tray = (data?.stations ?? []).filter((s) => !placedIds.has(s.id));
   const placedCount = placedIds.size;
   const assetCount = assetIds.size;
@@ -3667,11 +3692,24 @@ export default function Layout3DEditor({
                     </div>
                   </div>
                 )}
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {['alinear centro', 'distribuir horizontal', 'conectar flujo'].map((hint) => (
-                    <button key={hint} onClick={() => setCommandText(hint)} className="rounded-full border border-white/10 px-2 py-0.5 text-[10.5px] text-gray-300 hover:border-cyan-400/50 hover:text-cyan-100">{hint}</button>
-                  ))}
-                </div>
+                {commandAssistSuggestions.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-gray-500">
+                      <span>Sugerencias</span>
+                      <span>{selList.length} sel</span>
+                    </div>
+                    {commandAssistSuggestions.map((hint) => (
+                      <button key={hint.id} onClick={() => applyCommandSuggestion(hint)} title={hint.example} className={`w-full rounded-lg border px-2 py-1.5 text-left hover:bg-white/[0.08] ${hint.ready ? 'border-cyan-400/20 bg-cyan-400/[0.05]' : 'border-amber-400/20 bg-amber-400/[0.05]'}`}>
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="truncate text-[11px] font-semibold text-gray-100">{hint.label}</span>
+                          <span className={`shrink-0 text-[9.5px] uppercase tracking-wide ${hint.ready ? 'text-cyan-200' : 'text-amber-200'}`}>{hint.ready ? 'Preview' : 'Pendiente'}</span>
+                        </span>
+                        <span className="mt-0.5 block truncate text-[10.5px] text-gray-400">{hint.example}</span>
+                        <span className={`mt-0.5 block truncate text-[10px] ${hint.ready ? 'text-cyan-200/70' : 'text-amber-200/80'}`}>{hint.reason}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {commandLog.length > 0 && (
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-gray-500">

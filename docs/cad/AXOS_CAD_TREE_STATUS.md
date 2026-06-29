@@ -88,3 +88,15 @@ Recommended next phase: add an editable connector workflow or validation issue a
 
 PR #796 advances the existing validation center by making the design-check modal use the shared CAD validation report for collisions, clearances, safety, and flow. User-visible additions are clearance warning rows, selection/highlight on clearance issues, CAD validation severity in the status bar, and release-readiness counts that distinguish blockers from warnings. It does not add a parallel validation engine, collision helper, CAD shell, or flow model.
 Recommended next phase: add a parametric rack row or SMT line generator with user inputs, building on `templates.ts` and the existing editable asset/connector model.
+
+## Command line assist update
+
+This run makes the existing Copiloto CAD command line easier to use without changing the command registry:
+
+- `command-line-assist.ts` derives ranked suggestions from the existing command registry.
+- Suggestions adapt to selected object count and reuse selected object labels for pair commands like measure distance and clearance aisle.
+- The existing `Layout3DEditor` command dock now shows ready/pending suggestion rows instead of three static chips.
+- Clicking a ready suggestion immediately uses the same preview-first command flow as manual command entry.
+- Missing-selection states are explicit, so users see why a command cannot preview yet.
+
+This advances Phase 21 (shortcuts + command line) while avoiding active PR areas for registry semantics, layers, validation, DXF, symbols, templates, flow, and safety.
