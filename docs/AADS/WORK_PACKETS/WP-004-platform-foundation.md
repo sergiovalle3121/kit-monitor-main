@@ -9,8 +9,8 @@
 - **Concurrency:** run **before** the feature wave. Because feature packets *read*
   these primitives, modifying them concurrently with feature work risks conflicts —
   so WP-004 is **serialized ahead** of WP-001/003/006.
-- **Status:** PENDING
-- **Owner agent:** —
+- **Status:** IN REVIEW
+- **Owner agent:** Codex / axos-night-builder
 
 > This packet owns the shared primitives every other packet reads (RBAC, tenant
 > scope, Event Ledger, contracts). It is the gating packet: merge it first, then
@@ -44,6 +44,11 @@ ledger query API, and a shared response envelope.
 - **Objective:** Consistent success/error envelope in contracts + one adoption.
 - **Probable files:** `packages/contracts/src/*`, `apps/api/src/modules/**`
 - **Acceptance criteria:** Typed + exported; one endpoint returns it; no breaking change.
+
+**2026-06-29 implementation slice:** `@axos/contracts` now exports typed API
+success/error envelopes and Event Ledger exposes a non-breaking
+`GET /ledger/query/envelope` adoption path. Legacy `GET /ledger/query` remains
+unchanged for existing clients.
 
 ## Checks
 - `git diff --check`; `npm run build` (contracts + api); helper/guard/ledger tests.
