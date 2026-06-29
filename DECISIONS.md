@@ -2919,4 +2919,22 @@ que **avise** a los admins cada mañana cuando hay algo que atender, sin que nad
 empuja solo a admins del tenant con alertas; no empuja sin alertas), `lint web` 0 (sin cambios web).
 Sin migraciones.
 
+## 133. Production Plan - bloqueo de cancelacion insegura con staging/ejecucion
+
+**Contexto.** La maquina de estados de `production-plan` permitia mover una WO no
+terminal a `CANCELLED`, incluso cuando ya tenia material montado (`STAGED` /
+`materialReady`) o ejecucion iniciada (`IN_EXECUTION`, piezas reportadas o
+`startedAt`). Eso podia borrar semanticamente una orden que ya genero trabajo de
+almacen o piso.
+
+**Decision.** Mantener `CANCELLED` como transicion legal de la maquina de estados,
+pero aplicar una guarda de dominio en `ProductionPlanService.transition()`:
+solo se permite cancelar una WO `RELEASED` limpia, sin staging ni ejecucion. Si ya
+hubo material montado o avance productivo, el API devuelve 400 y la UI deshabilita
+el boton de cancelar con un motivo. La auditoria existente de transiciones sigue
+aplicando cuando una cancelacion valida si muta estado.
+
+**Verificacion:** pruebas enfocadas de `production-plan` y helper puro; sin
+migraciones ni modulos nuevos.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

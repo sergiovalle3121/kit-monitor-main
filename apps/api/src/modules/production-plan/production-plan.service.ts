@@ -24,6 +24,7 @@ import {
   TransitionWorkOrderDto,
 } from './dto/production-plan.dto';
 import { assertTransition, WorkOrderStatus } from './wo-state';
+import { assertSafeCancellation } from './wo-cancellation';
 import {
   DEFAULT_SHIFT_MINUTES,
   LineCapacityLoad,
@@ -149,6 +150,7 @@ export class ProductionPlanService {
     const from = wo.status;
     try {
       assertTransition(from, dto.status);
+      if (dto.status === 'CANCELLED') assertSafeCancellation(wo);
     } catch (err) {
       throw new BadRequestException((err as Error).message);
     }

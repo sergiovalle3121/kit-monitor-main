@@ -82,6 +82,24 @@ describe('ProductionPlanService (integration)', () => {
     expect(cur.completedAt).toBeTruthy();
   });
 
+  it('allows cancellation only before staging or execution activity', async () => {
+    const clean = await service.publish({ model: 'M', line: 'L', quantityPlanned: 2 });
+    const cancelled = await service.transition(clean.id, { status: 'CANCELLED' });
+    expect(cancelled.status).toBe('CANCELLED');
+
+    const staged = await service.publish({ model: 'M2', line: 'L', quantityPlanned: 2 });
+    await service.setMaterialReady(staged.id, true);
+    await expect(service.transition(staged.id, { status: 'CANCELLED' })).rejects.toThrow(
+      /material ya montado/,
+    );
+
+    const running = await service.publish({ model: 'M3', line: 'L', quantityPlanned: 2 });
+    await service.incrementCompleted(running.id, 1);
+    await expect(service.transition(running.id, { status: 'CANCELLED' })).rejects.toThrow(
+      /ejecucion ya iniciada/,
+    );
+  });
+
   it('reports run blockers (material, quality hold, FAI)', async () => {
     const wo = await service.publish({ model: 'M', line: 'L', quantityPlanned: 5, faiRequired: true });
     let b = service.runBlockers(wo);
