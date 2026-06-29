@@ -209,3 +209,9 @@ The new pure helper layer derives selection statistics, workbook summaries, heal
 ## Delivered slice — Print/export layout foundation
 
 AXOS Sheets now persists a lightweight print/export layout model in workbook content (`printLayout`) without introducing a heavy PDF engine. The model captures orientation, paper size, print area, fit-to-width, fit-to-page, and gridline visibility, and the existing print preview uses these settings to generate browser-printable HTML. The export menu also preflights dashboard-only elements and warns when slicers/timelines or AXOS chart metadata will not become native interactive controls in XLSX/CSV exports.
+
+### Fase 7 expansion — visible AXOS Data panel
+
+The Sheets workbench now exposes a visible **AXOS Data** inspector panel with a connector gallery instead of hiding connector insertion behind ribbon-only actions. Each connector card shows domain, refresh policy, description, configuration contract, preview action, and insert action. The panel distinguishes live tenant-safe connectors from **Contract pending** connectors so users do not see simulated API success when an endpoint has not been published.
+
+The first live connector contract is `GET /suppliers/scorecards` for Supplier scorecards. It must be previewed successfully before inserting live rows into the selected range. Other catalog entries remain governed starter tables until their ERP/MES aggregator endpoints are added.
