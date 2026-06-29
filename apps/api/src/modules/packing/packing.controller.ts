@@ -36,6 +36,21 @@ export class PackingController {
     return this.service.list({ shipmentId, status });
   }
 
+  @Get('readiness')
+  @RequirePermissions('logistics:read')
+  @ApiOperation({
+    summary:
+      'Readiness de empaque basado en seriales con PASS y destino PACKAGING.',
+  })
+  readiness(
+    @Query('shipmentId') shipmentId?: string,
+    @Query('workOrder') workOrder?: string,
+    @Query('model') model?: string,
+    @Query('serial') serial?: string,
+  ) {
+    return this.service.readiness({ shipmentId, workOrder, model, serial });
+  }
+
   @Get('handling-units/:id')
   @RequirePermissions('logistics:read')
   getOne(@Param('id') id: string) {
