@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { BadRequestException } from '@nestjs/common';
 import { ProductionPlanService } from './production-plan.service';
 import { SfWorkOrder } from './entities/sf-work-order.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
@@ -58,6 +59,64 @@ describe('ProductionPlanService (integration)', () => {
     expect(wo.folio).toBe(`WO-${year}-000001`);
     expect(wo.status).toBe('RELEASED');
     expect(wo.materialReady).toBe(false);
+  });
+
+  it('blocks publish before folio allocation when material readiness is incomplete', async () => {
+    const readiness = {
+      evaluatePublish: jest.fn().mockResolvedValue({
+        publishable: false,
+        model: 'AX-1000',
+        revision: 'A',
+        bomHeaderId: 1,
+        blockers: ['P-1: faltan 6 EA'],
+        demand: [],
+        summary: {
+          materials: 'red',
+          quality: 'green',
+          shipping: 'unknown',
+          detail: {
+            totalParts: 1,
+            shortParts: 1,
+            shortages: [],
+            heldParts: [],
+            dueDate: null,
+            daysToDue: null,
+            reasons: ['P-1: faltan 6 EA'],
+          },
+          timestamp: new Date(),
+        },
+      }),
+    };
+    const numbering = { allocate: jest.fn() };
+    const ledger = { recordEvent: jest.fn().mockResolvedValue({}) };
+    const gated = new ProductionPlanService(
+      createTenantScopedRepository(SfWorkOrder, dataSource.manager, ctx),
+      ctx,
+      numbering as unknown as DocumentNumberingService,
+      ledger as never,
+      undefined,
+      readiness as never,
+    );
+
+    await expect(
+      gated.publish({ model: 'AX-1000', line: 'SMT-1', quantityPlanned: 500 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(readiness.evaluatePublish).toHaveBeenCalledWith({
+      model: 'AX-1000',
+      line: 'SMT-1',
+      quantityPlanned: 500,
+    });
+    expect(numbering.allocate).not.toHaveBeenCalled();
+    expect(ledger.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'SF_WO_PUBLISH_BLOCKED',
+        referenceType: 'SF_WORK_ORDER_DRAFT',
+        metadata: expect.objectContaining({
+          reasonCode: 'MATERIAL_READINESS_BLOCKED',
+        }),
+      }),
+    );
   });
 
   it('staging readiness moves RELEASED→STAGED; pulling back reverts', async () => {

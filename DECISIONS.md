@@ -2920,6 +2920,7 @@ empuja solo a admins del tenant con alertas; no empuja sin alertas), `lint web` 
 Sin migraciones.
 
 <<<<<<< ours
+<<<<<<< ours
 ## 133. Production Plan - bloqueo de cancelacion insegura con staging/ejecucion
 
 **Contexto.** La maquina de estados de `production-plan` permitia mover una WO no
@@ -2955,6 +2956,32 @@ integración real sin simular SAP, se necesitaba visibilidad operativa del outbo
 
 **Verificación:** spec dirigido `operator-terminal.service.spec.ts` verde (10 tests). Sin tablas,
 sin migraciones y sin conector SAP real.
+>>>>>>> theirs
+=======
+## 133. Production Plan - material readiness gate before WO publish
+
+**Contexto.** El muro `production-plan` ya mostraba Clear-to-Build con BOM activo
+e inventario disponible, pero `POST /production-plan/publish` podia liberar una
+WO aunque no hubiera BOM activo o materiales suficientes. Eso dejaba el bloqueo
+para etapas posteriores de staging/ejecucion.
+
+**Decision (aditiva, sin migracion).**
+- `production-plan` reutiliza `deriveReadiness` de `@axos/contracts` para evaluar
+  la demanda del BOM activo del modelo/revision contra `inventory_positions`
+  disponibles (`holdStatus=available`, `onHand - allocated`).
+- La publicacion de WO queda bloqueada antes de asignar folio si material
+  readiness no esta en verde. El rechazo devuelve blockers y el resumen de
+  readiness.
+- Cada bloqueo se registra en Event Ledger como `SF_WO_PUBLISH_BLOCKED`, con
+  modelo, linea, revision, cantidad y detalle del faltante.
+- La UI de `/dashboard/production-plan` muestra la validacion de BOM/inventario
+  en el modal y deshabilita publicar hasta tener material cubierto. El backend
+  sigue siendo la fuente autoritativa.
+
+**Verificacion:** `git diff --check`, `npx eslint -c apps/web/eslint.config.mjs
+apps/web/src/app/dashboard/production-plan/page.tsx`, `npx tsc --noEmit
+--project apps/web/tsconfig.json`, `apps/api npm run build`, `apps/api npm test`
+(168 suites / 1158 tests). Sin migraciones.
 >>>>>>> theirs
 
 <!-- Nuevas decisiones se agregan al final con número incremental -->
