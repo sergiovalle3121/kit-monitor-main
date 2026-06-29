@@ -234,3 +234,12 @@
 - Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
 - Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
 - Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
+
+## 2026-06-29 - Parametric warehouse rack generator
+
+- Inspected open CAD PR #838 and avoided its command-registry/line-balance files.
+- Reused the existing `Layout3DEditor` asset, annotation, layer, tag, snapshot, selection, validation, and DXF export paths.
+- Added `warehouse-generators.ts` to generate editable rack bays, forklift aisles, and labels from rows, bays, bay width, rack depth, aisle width, orientation, and prefix.
+- Wired the generator into the existing equipment rail so users can create warehouse rack rows without leaving CAD.
+- Added pure smoke coverage for horizontal racks, vertical rack aisles, footprint bounds, scaling warnings, and large-layout caps.
+- Pending: add supermarket lane and receiving/shipping dock generators using the same output contract.

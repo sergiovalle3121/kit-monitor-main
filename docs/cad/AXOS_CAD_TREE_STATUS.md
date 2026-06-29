@@ -88,3 +88,15 @@ Recommended next phase: add an editable connector workflow or validation issue a
 
 PR #796 advances the existing validation center by making the design-check modal use the shared CAD validation report for collisions, clearances, safety, and flow. User-visible additions are clearance warning rows, selection/highlight on clearance issues, CAD validation severity in the status bar, and release-readiness counts that distinguish blockers from warnings. It does not add a parallel validation engine, collision helper, CAD shell, or flow model.
 Recommended next phase: add a parametric rack row or SMT line generator with user inputs, building on `templates.ts` and the existing editable asset/connector model.
+
+## Warehouse generator update
+
+This run adds the first parametric warehouse generator:
+
+- `warehouse-generators.ts` creates editable rack bays, forklift aisle assets, and text labels from rows, bays per row, bay width, rack depth, aisle width, orientation, and prefix.
+- `Layout3DEditor.tsx` exposes the generator in the existing equipment rail, creates a local snapshot before mutation, assigns CAD layers/tags, selects generated objects, and refreshes the current 3D/2D viewport.
+- Oversized rack layouts are capped/scaled with warnings instead of overflowing silently.
+
+The workflow is visible in CAD and reuses the current editable layout model. It does not duplicate the existing `arrange_rack_rows` command, because that command arranges selected racks while this generator creates new rack rows.
+
+Recommended next phase: add a supermarket lane generator or receiving/shipping dock generator using the same generator output contract.
