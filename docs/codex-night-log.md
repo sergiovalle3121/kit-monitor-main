@@ -195,3 +195,25 @@
 - Wired `Layout3DEditor.tsx` so matched shortcuts reuse existing toolbar actions, validation, export, grid, and object-snap behavior rather than adding a parallel dispatcher.
 - Added shortcut hints to the toolbar registry and the in-editor help overlay, plus pure shortcut/toolbar smoke coverage.
 - Pending: Enter-to-confirm command previews, clipboard copy/paste, and richer validation issue quick actions after editor-conflict PRs settle.
+## 2026-06-29 - DXF export readiness preflight
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and open CAD PRs.
+- Avoided shortcuts, layer lock/quick actions, validation clearances, and rack-row command work because open PRs already own those concerns.
+- Reused the existing `exportCadLayoutDxf` adapter and the current DXF export modal instead of adding another exporter.
+- Added `dxf-export-readiness.ts` to evaluate selected/all scope, hidden-layer exclusions, dimensions, labels, validation warnings, and active DXF import warnings before download.
+- Wired the existing `Layout3DEditor.tsx` DXF modal to show ready/blocked state, included layer package, preflight issues, and true empty-export blockers.
+- Added a pure smoke spec for DXF export readiness.
+## 2026-06-29 - CAD object inspector properties
+
+- Inspected the existing CAD properties panel, CAD layers/tags, DXF import tags, command registry, validation helpers, and open CAD PRs #805, #804, #801, #799, and #796 before choosing a panel-scoped object inspector slice.
+- Added `apps/web/src/lib/cad/object-properties.ts` to derive object area, bounds, center, source metadata, safety classification, lock/visibility warnings, and multi-selection summaries without creating a parallel editor model.
+- Wired the existing `Layout3DEditor` right inspector to show local notes, DXF/source metadata, safety classification, object center, multi-selection bounds, layer spread, and locked/hidden object counts.
+- Added `object-properties.spec.ts` for source metadata, safety tag parsing, single-object properties, and multi-selection summaries.
+- Pending: notes/tags/source metadata remain local-only until the layout API metadata contract is approved.
+## 2026-06-29 - DXF footprint label export
+
+- Reused the existing `exportCadLayoutDxf` path that the `Layout3DEditor.tsx` DXF modal already calls.
+- Extended `exportCadDxf` so non-text primitives with `text` export a centered DXF `TEXT` label after valid geometry.
+- Added deterministic layer color definitions in `layout-export-adapter.ts` for Layout, Equipment, Flow, Aisles, Measurements, Safety, and Text.
+- Added smoke coverage for primitive labels, layout box labels, layer colors, and updated entity counts.
+- Pending: add export preflight warnings for empty selection, hidden-layer exports, and unlabeled critical footprints.
