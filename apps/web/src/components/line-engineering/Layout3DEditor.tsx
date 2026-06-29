@@ -259,6 +259,8 @@ const HELP_SECTIONS: { title: string; rows: [string, string][] }[] = [
     ['V', 'Seleccionar / mover'],
     ['M', 'Medir / acotar'],
     ['W', 'Dibujar muros (Shift = 45°)'],
+    ['T', 'Agregar nota de texto'],
+    ['G', 'Alternar snap a grilla'],
     ['Recorrido', 'Caminar en primera persona'],
   ] },
   { title: 'Selección', rows: [
@@ -275,11 +277,17 @@ const HELP_SECTIONS: { title: string; rows: [string, string][] }[] = [
     ['Supr', 'Borrar selección'],
     ['Ctrl/⌘+Z / ⇧+Z', 'Deshacer / Rehacer'],
   ] },
+  { title: 'Workbench', rows: [
+    ['Ctrl/Cmd+K', 'Paleta CAD'],
+    ['Shift+V', 'Validar layout'],
+    ['E', 'Exportar DXF'],
+    ['F', 'Enfocar layout'],
+    ['?', 'Mostrar esta ayuda'],
+  ] },
   { title: 'Vista', rows: [
     ['Arrastrar fondo', 'Orbitar'],
     ['Rueda', 'Acercar / alejar'],
     ['Recorrido', 'Arrastrar = mirar · WASD = caminar'],
-    ['?', 'Mostrar esta ayuda'],
   ] },
 ];
 
@@ -650,6 +658,7 @@ export default function Layout3DEditor({
   const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d'); // 2D = locked top-down plan view (CAD unificado)
   const [walk, setWalk] = useState(false); // first-person walkthrough mode
   const [showHelp, setShowHelp] = useState(false); // keyboard shortcuts overlay
+  const helpOpenRef = useRef(false);
   const [measureLive, setMeasureLive] = useState<string | null>(null);
   const [dimCount, setDimCount] = useState(0);
   const [measurementRowsView, setMeasurementRowsView] = useState<MeasurementRow[]>([]);
@@ -686,6 +695,7 @@ export default function Layout3DEditor({
   const [arr, setArr] = useState({ cols: 3, rows: 1, gap: 500, dx: 1000, dy: 0 }); // array/offset params (Fase 55)
   const [showGaps, setShowGaps] = useState(false); // clearance/safety gap markers overlay (Fase 52)
   useEffect(() => { paletteOpenRef.current = showPalette; }, [showPalette]);
+  useEffect(() => { helpOpenRef.current = showHelp; }, [showHelp]);
 
   // three.js refs
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -3066,26 +3076,61 @@ export default function Layout3DEditor({
       if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
       const cadShortcut = matchCadShortcut(e);
       if (cadShortcut?.id === 'palette') { e.preventDefault(); setShowPalette(true); return; }
-      // in walkthrough mode WASD/look take over; only Esc (exit) reaches here
-      if (walkRef.current) { if (e.key === 'Escape') { e.preventDefault(); toggleWalk(); } return; }
       const g = data?.footprint.gridSize || 100;
       const step = e.shiftKey ? g * 5 : g;
       const hasSel = selRef.current.length > 0;
-      if (e.key === 'Escape') {
+      const cancelShortcut = () => {
         if (paletteOpenRef.current) { setShowPalette(false); setPaletteQuery(''); }
-        else if (toolRef.current !== 'select') { endDraw(); setTool('select'); toolRef.current = 'select'; }
+        else if (helpOpenRef.current) setShowHelp(false);
+        else if (toolRef.current !== 'select') setToolMode('select');
         else if (hasSel) { select([]); rebuildAll(); }
         else onClose();
+      };
+      // in walkthrough mode WASD/look take over; only Esc (exit) reaches here
+      if (walkRef.current) { if (cadShortcut?.id === 'cancel') { e.preventDefault(); toggleWalk(); } return; }
+      if (cadShortcut) {
+        switch (cadShortcut.id) {
+          case 'cancel':
+            e.preventDefault(); cancelShortcut(); return;
+          case 'select':
+            e.preventDefault(); setToolMode('select'); return;
+          case 'measure':
+            e.preventDefault(); toggleMeasure(); return;
+          case 'wall':
+            e.preventDefault(); toggleWall(); return;
+          case 'text':
+            e.preventDefault(); addNote(); return;
+          case 'grid':
+            e.preventDefault(); setSnap((value) => !value); return;
+          case 'fit_view':
+            e.preventDefault(); viewPreset('iso'); return;
+          case 'validate_layout':
+            e.preventDefault(); openChecks(); return;
+          case 'export_dxf':
+            e.preventDefault(); openDxfExport(); return;
+          case 'select_all':
+            e.preventDefault(); selectAll(); return;
+          case 'undo':
+            e.preventDefault(); undo(); return;
+          case 'redo':
+            e.preventDefault(); redo(); return;
+          case 'delete':
+            if (hasSel) { e.preventDefault(); removeSelected(); }
+            return;
+          case 'rotate_cw':
+            if (hasSel) { e.preventDefault(); rotateSelected(15); }
+            return;
+          case 'rotate_ccw':
+            if (hasSel) { e.preventDefault(); rotateSelected(-15); }
+            return;
+          case 'duplicate':
+            if (hasSel) { e.preventDefault(); duplicateSelected(); }
+            return;
+          case 'palette':
+            return;
+        }
       }
-      else if (e.key === '?' || (e.key === '/' && e.shiftKey)) { e.preventDefault(); setShowHelp((v) => !v); }
-      else if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); selectAll(); }
-      else if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) { e.preventDefault(); undo(); }
-      else if (((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) || ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey))) { e.preventDefault(); redo(); }
-      else if ((e.key === 'm' || e.key === 'M')) { e.preventDefault(); toggleMeasure(); }
-      else if ((e.key === 'w' || e.key === 'W')) { e.preventDefault(); toggleWall(); }
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && hasSel) { e.preventDefault(); removeSelected(); }
-      else if ((e.key === 'r' || e.key === 'R') && hasSel) { e.preventDefault(); rotateSelected(e.shiftKey ? -15 : 15); }
-      else if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey) && hasSel) { e.preventDefault(); duplicateSelected(); }
+      if (e.key === '?' || (e.key === '/' && e.shiftKey)) { e.preventDefault(); setShowHelp((v) => !v); }
       else if (e.key === 'ArrowLeft' && hasSel) { e.preventDefault(); nudgeSelected(-step, 0); }
       else if (e.key === 'ArrowRight' && hasSel) { e.preventDefault(); nudgeSelected(step, 0); }
       else if (e.key === 'ArrowUp' && hasSel) { e.preventDefault(); nudgeSelected(0, -step); }
@@ -3148,7 +3193,7 @@ export default function Layout3DEditor({
         <T3Btn active={tool === 'select'} onClick={() => setToolMode('select')} title="Seleccionar / mover (V)"><MousePointer2 className="w-4 h-4" /></T3Btn>
         <T3Btn active={tool === 'measure'} onClick={toggleMeasure} title="Medir / acotar (M)"><Ruler className="w-4 h-4" /></T3Btn>
         <T3Btn active={tool === 'wall'} onClick={toggleWall} title="Dibujar muros (W) — clic en puntos, Esc termina"><Spline className="w-4 h-4" /></T3Btn>
-        <T3Btn onClick={addNote} title="Agregar nota de texto (clic en una nota para quitarla)"><StickyNote className="w-4 h-4" /></T3Btn>
+        <T3Btn onClick={addNote} title="Agregar nota de texto (T) · clic en una nota para quitarla"><StickyNote className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={autoDimension} title="Acotar automáticamente — medidas generales y pasos del layout (o de la selección)"><RulerDimensionLine className="w-4 h-4" /></T3Btn>
         {dimCount > 0 && (
           <button onClick={clearDims} title="Quitar todas las cotas" className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-gray-300 hover:bg-white/10">
@@ -3159,11 +3204,11 @@ export default function Layout3DEditor({
         <T3Btn onClick={undo} disabled={hist.undo === 0} title="Deshacer (Ctrl+Z)"><Undo2 className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={redo} disabled={hist.redo === 0} title="Rehacer (Ctrl+Shift+Z)"><Redo2 className="w-4 h-4" /></T3Btn>
         <div className="w-px h-5 bg-white/10 mx-1" />
-        <T3Btn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></T3Btn>
+        <T3Btn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla (G)"><Grid3x3 className="w-4 h-4" /></T3Btn>
         <T3Btn active={osnap} onClick={() => setOsnap((v) => !v)} title="Snap a objetos y al plano DXF — alinea con bordes/centros y engancha a vértices y puntos medios del plano al medir o trazar muros"><Magnet className="w-4 h-4" /></T3Btn>
         <div className="w-px h-5 bg-white/10 mx-1" />
         {viewMode === '3d' && (<>
-          <T3Btn onClick={() => viewPreset('iso')} title="Vista isométrica"><Maximize2 className="w-4 h-4" /></T3Btn>
+          <T3Btn onClick={() => viewPreset('iso')} title="Vista isométrica / enfocar layout (F)"><Maximize2 className="w-4 h-4" /></T3Btn>
           <T3Btn onClick={() => viewPreset('top')} title="Vista superior (planta)"><Eye className="w-4 h-4" /></T3Btn>
           <T3Btn onClick={() => viewPreset('front')} title="Vista frontal"><Layers className="w-4 h-4" /></T3Btn>
           <T3Btn active={walk} onClick={toggleWalk} title="Recorrido en primera persona — arrastra para mirar, WASD para caminar, Esc para salir"><PersonStanding className="w-4 h-4" /></T3Btn>
@@ -3249,7 +3294,7 @@ export default function Layout3DEditor({
         <T3Btn onClick={connectLineLayout} title="Conectar la línea — enlaza cada estación con la siguiente en secuencia (flujo)"><Waypoints className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={runOptimize} disabled={serverBusy} title="Optimizar flujo — reordena para minimizar el recorrido (servidor)"><WandSparkles className="w-4 h-4" /></T3Btn>
         <T3Btn active={showCommand} onClick={() => setShowCommand((v) => !v)} title="Comandos en lenguaje natural — scaffold local para function calling"><ChevronRight className="w-4 h-4" /></T3Btn>
-        <T3Btn onClick={openChecks} title="Revisión de diseño — valida colocación, límites, traslapes y flujo"><ShieldCheck className="w-4 h-4" /></T3Btn>
+        <T3Btn onClick={openChecks} title="Revisión de diseño (Shift+V) — valida colocación, límites, traslapes y flujo"><ShieldCheck className="w-4 h-4" /></T3Btn>
         <T3Btn active={!!flowHealth} onClick={analyzeFlowHealth} title="Flow Health — score, cruces y backtracking"><ChartLine className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={openTakeoff} title="Cantidades / lista de materiales"><ClipboardList className="w-4 h-4" /></T3Btn>
         <div className="relative" ref={analysisMenuRef}>
@@ -3270,7 +3315,7 @@ export default function Layout3DEditor({
         <T3Btn onClick={() => dxfInputRef.current?.click()} disabled={dxfBusy} title="Cargar plano DXF de fondo (calcar el plano del cliente)"><Upload className="w-4 h-4" /></T3Btn>
         {hasDxf && <T3Btn onClick={importDxfWalls} title="Convertir el plano DXF de fondo en muros editables"><BrickWall className="w-4 h-4" /></T3Btn>}
         {hasDxf && <T3Btn onClick={removeDxf} disabled={dxfBusy} title="Quitar el plano DXF de fondo"><ImageOff className="w-4 h-4" /></T3Btn>}
-        <T3Btn onClick={openDxfExport} title="Exportar a DXF (AutoCAD) — opciones de capas, selección y cotas"><FileDown className="w-4 h-4" /></T3Btn>
+        <T3Btn onClick={openDxfExport} title="Exportar a DXF (E) — opciones de capas, selección y cotas"><FileDown className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={exportCsvSchedule} title="Exportar estaciones a CSV (Excel)"><FileText className="w-4 h-4" /></T3Btn>
         {dxfWarnings.length > 0 && (
           <div className="ml-1 inline-flex items-center gap-1 rounded-lg border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[11px] text-amber-100" title="Advertencias del último DXF importado">
@@ -3491,6 +3536,7 @@ export default function Layout3DEditor({
               <span>{data?.footprint.unit ?? 'mm'}</span>
               <span>Layer {cadLayers.find((layer) => layer.id === activeCadLayer)?.label ?? activeCadLayer}</span>
               <span>Snap {snap ? 'grid' : 'off'} / {osnap ? 'obj' : 'obj off'}</span>
+              <span>Atajos Ctrl-K · T nota · E DXF · Shift-V valida</span>
               <button onClick={openChecks} className={`${releaseTone} hover:text-white`}>Release {releaseState}</button>
               {report && <span className={report.score === 'error' ? 'text-rose-300' : report.score === 'warn' ? 'text-amber-300' : 'text-emerald-300'}>Validación {report.score}</span>}
               {flowHealth && <span className={flowHealth.score >= 80 ? 'text-emerald-300' : flowHealth.score >= 55 ? 'text-amber-300' : 'text-rose-300'}>Flow {flowHealth.score}</span>}
