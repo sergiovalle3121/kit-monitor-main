@@ -8,6 +8,14 @@ AXOS CAD is beyond seed state. The active workbench already includes a unified 2
 
 ## This run
 
+This run adds the first parametric warehouse generator:
+
+- `warehouse-generator.ts` creates editable rack bay assets, forklift aisle paths, and text labels from rows, bays per row, bay width, rack depth, aisle width, orientation, prefix, and start index.
+- The existing equipment rail now exposes a compact Rack row generator card under CAD templates.
+- Generated objects reuse the current asset model, CAD layers, tags, local snapshots, selection, and rebuild path; no parallel block/editor model was added.
+- The helper warns when the generated rack footprint exceeds the current layout footprint instead of overflowing silently.
+- Pure smoke coverage verifies horizontal rows, vertical rows, labeling, aisle-layer assignment, generated tags, and overflow warnings.
+
 This run hardens the existing CAD keyboard shortcut path:
 
 - `keyboard-shortcuts.ts` now includes draw/insert/productivity actions for aisle, connector, zone, equipment, text, fit view, grid, object snap, validation, and DXF export.
@@ -67,6 +75,7 @@ The workflow is visible in `Layout3DEditor` and reuses the current editable layo
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, `arrange_flow_line`, and template-seeded flow health | Add richer flow recommendations and before/after preview cards. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
+| Phase 13 - Warehouse generator | Usable | `warehouse-generator.ts` plus the equipment-rail rack row generator | Add supermarket and dock generators with editable output. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
 ## Next CAD PR
@@ -88,3 +97,4 @@ Recommended next phase: add an editable connector workflow or validation issue a
 
 PR #796 advances the existing validation center by making the design-check modal use the shared CAD validation report for collisions, clearances, safety, and flow. User-visible additions are clearance warning rows, selection/highlight on clearance issues, CAD validation severity in the status bar, and release-readiness counts that distinguish blockers from warnings. It does not add a parallel validation engine, collision helper, CAD shell, or flow model.
 Recommended next phase: add a parametric rack row or SMT line generator with user inputs, building on `templates.ts` and the existing editable asset/connector model.
+Recommended next phase: add supermarket lane and receiving/shipping dock generators, reusing the same generated asset/annotation contract.

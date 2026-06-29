@@ -57,7 +57,8 @@ import { evaluateCadDxfExportReadiness, type CadDxfExportLayerSummary, type CadD
 import { importDxfPrimitives, summarizeDxfImportWarnings, type CadDxfImportResult, type CadDxfImportWarning, type CadDxfPoint, type CadDxfPrimitive } from '@/lib/cad/dxf-import';
 import { CAD_SYMBOL_LIBRARY, getCadSymbol, type CadSymbolCategory } from '@/lib/cad/symbols';
 import { CAD_LAYOUT_TEMPLATES, instantiateCadLayoutTemplate, type CadLayoutTemplateId } from '@/lib/cad/templates';
-import { detectCadCollisions, type CadClearanceIssue, type CadCollisionHit } from '@/lib/cad/collisions';
+import { generateWarehouseRackRows, type CadRackRowGeneratorInput } from '@/lib/cad/warehouse-generator';
+import type { CadClearanceIssue, CadCollisionHit } from '@/lib/cad/collisions';
 import { buildFlowSegments, scoreFlowLayout, type CadFlowNode, type CadFlowScore, type CadFlowSegment } from '@/lib/cad/flow-optimization';
 import type { CadSafetyIssue, CadSafetyZone } from '@/lib/cad/safety-zones';
 import { createCadSnapshot, diffCadSnapshots, pushCadSnapshot, restoreCadSnapshot, type CadSnapshotDiff, type CadSnapshotHistory } from '@/lib/cad/snapshots';
@@ -687,6 +688,16 @@ export default function Layout3DEditor({
   const [tab, setTab] = useState<'stations' | 'equipment'>('stations');
   const [symbolSearch, setSymbolSearch] = useState('');
   const [symbolCategory, setSymbolCategory] = useState<CadSymbolCategory | 'all'>('all');
+  const [rackGenerator, setRackGenerator] = useState<CadRackRowGeneratorInput>({
+    rows: 2,
+    baysPerRow: 4,
+    bayWidth: 4200,
+    rackDepth: 1100,
+    aisleWidth: 3000,
+    orientation: 'horizontal',
+    labelPrefix: 'R',
+    startIndex: 1,
+  });
   const [tool, setTool] = useState<'select' | 'measure' | 'wall'>('select');
   const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d'); // 2D = locked top-down plan view (CAD unificado)
   const [walk, setWalk] = useState(false); // first-person walkthrough mode
@@ -2242,6 +2253,58 @@ export default function Layout3DEditor({
     toast.success(`${generated.template.label}: ${created.length} objetos, ${connectorCount} flujos, ${noteCount} notas${scaled}.`, 'Plantillas CAD');
     if (generated.warnings[0]) toast.error(generated.warnings[0], 'Plantillas CAD');
   };
+  const updateRackGenerator = (patch: Partial<CadRackRowGeneratorInput>) => setRackGenerator((cur) => ({ ...cur, ...patch }));
+  const applyWarehouseRackGenerator = () => {
+    const ctx = ctxRef.current; const fp = data?.footprint;
+    if (!ctx || !fp) { toast.error('No hay footprint listo para generar racks.', 'Generador CAD'); return; }
+    const generated = generateWarehouseRackRows(rackGenerator, { width: fp.footprintW || ctx.W, height: fp.footprintH || ctx.H, gridSize: fp.gridSize || 100 });
+    recordLocalSnapshot('Auto · antes de generar racks', 'command');
+    pushHistory();
+    const created: SelItem[] = [];
+    const layerUpdates: Record<string, CadLayerId> = {};
+    const tagUpdates: Record<string, string> = {};
+    const flowNodes: CadFlowNode[] = [];
+    for (const item of generated.assets) {
+      const id = newId('as');
+      assetsRef.current.set(id, {
+        id,
+        kind: item.kind,
+        label: item.label,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        rotation: item.rotation,
+      });
+      created.push({ type: 'asset', id });
+      layerUpdates[id] = item.layer;
+      tagUpdates[id] = item.tags.join(', ');
+      if (item.kind === 'agvpath') flowNodes.push({ id, label: item.label, x: item.x + item.w / 2, y: item.y + item.h / 2 });
+    }
+    for (const item of generated.annotations) {
+      const id = newId('nt');
+      annotationsRef.current.set(id, {
+        id,
+        type: 'text',
+        text: item.text,
+        x: item.x,
+        y: item.y,
+        color: cadLayersRef.current.find((layer) => layer.id === item.layer)?.color,
+      });
+    }
+    if (flowNodes.length >= 2) {
+      setFlowSequence(flowNodes);
+      setFlowSegments(buildFlowSegments(flowNodes));
+      setFlowHealth(scoreFlowLayout(flowNodes));
+    }
+    setAssetIds(new Set(assetsRef.current.keys()));
+    setLayerAssignments((cur) => ({ ...cur, ...layerUpdates }));
+    setObjectTags((cur) => ({ ...cur, ...tagUpdates }));
+    if (created.length) select(created.slice(0, 80));
+    setDirty(true); rebuildAll(); refreshSnap();
+    toast.success(`${generated.summary.rackCount} racks · ${generated.summary.aisleCount} pasillos · ${generated.summary.labelCount} labels.`, 'Generador CAD');
+    if (generated.warnings[0]) toast.error(generated.warnings[0], 'Generador CAD');
+  };
   const fallbackLayerForItem = (item: SelItem): CadLayerId => item.type === 'station' ? 'layout' : 'equipment';
   const isItemLayerLocked = (item: SelItem) => isObjectLayerLocked(cadLayersRef.current, layerAssignmentsRef.current, item.id, fallbackLayerForItem(item));
   const editableItems = (items: SelItem[], action: string) => {
@@ -3722,6 +3785,35 @@ export default function Layout3DEditor({
                           <span className="mt-0.5 block truncate text-[10px] text-cyan-200/70">{template.category} · {template.description}</span>
                         </button>
                       ))}
+                    </div>
+                  </div>
+                  <div className="mb-3 rounded-xl border border-amber-400/15 bg-amber-400/[0.05] p-2.5">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-amber-200"><Rows3 className="h-3.5 w-3.5" /> Rack row generator</div>
+                      <span className="text-[10px] text-amber-100/60">{rackGenerator.rows * rackGenerator.baysPerRow} racks</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <DimInput label="Rows" value={rackGenerator.rows} onChange={(value) => updateRackGenerator({ rows: Math.max(1, Math.trunc(value || 1)) })} />
+                      <DimInput label="Bays/row" value={rackGenerator.baysPerRow} onChange={(value) => updateRackGenerator({ baysPerRow: Math.max(1, Math.trunc(value || 1)) })} />
+                      <DimInput label="Bay W" value={rackGenerator.bayWidth} onChange={(value) => updateRackGenerator({ bayWidth: Math.max(100, value || 4200) })} />
+                      <DimInput label="Rack D" value={rackGenerator.rackDepth} onChange={(value) => updateRackGenerator({ rackDepth: Math.max(100, value || 1100) })} />
+                      <DimInput label="Aisle" value={rackGenerator.aisleWidth} onChange={(value) => updateRackGenerator({ aisleWidth: Math.max(100, value || 3000) })} />
+                      <label className="block">
+                        <span className="block text-[9px] uppercase tracking-wide text-gray-500 mb-0.5">Orient</span>
+                        <select value={rackGenerator.orientation} onChange={(e) => updateRackGenerator({ orientation: e.target.value as CadRackRowGeneratorInput['orientation'] })} className="w-full rounded-md border border-white/10 bg-gray-950/70 px-1.5 py-1 text-[12px] text-white outline-none">
+                          <option className="text-gray-900" value="horizontal">Horizontal</option>
+                          <option className="text-gray-900" value="vertical">Vertical</option>
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="block text-[9px] uppercase tracking-wide text-gray-500 mb-0.5">Prefix</span>
+                        <input value={rackGenerator.labelPrefix} onChange={(e) => updateRackGenerator({ labelPrefix: e.target.value })} className="w-full rounded-md border border-white/10 bg-gray-950/70 px-1.5 py-1 text-[12px] text-white outline-none" />
+                      </label>
+                      <DimInput label="Start" value={rackGenerator.startIndex} onChange={(value) => updateRackGenerator({ startIndex: Math.max(0, Math.trunc(value || 0)) })} />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-[10.5px] text-amber-100/70">
+                      <span>{Math.max(0, rackGenerator.rows - 1)} forklift aisle(s)</span>
+                      <button onClick={applyWarehouseRackGenerator} className="rounded-lg bg-amber-500/20 px-2 py-1.5 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/30">Generate</button>
                     </div>
                   </div>
                   <div className="mb-3 rounded-xl border border-rose-400/15 bg-rose-400/[0.05] p-2.5">
