@@ -19,7 +19,9 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
   let svc: MaterialStagingMesService;
   let ctx: TenantContextService;
   let pickList: { getByPlan: jest.Mock };
+  let positions: { find: jest.Mock };
   let planRepo: { createQueryBuilder: jest.Mock };
+  let stockByPart: Record<string, number>;
 
   const PLAN_ID = 1;
   const LINES = [
@@ -62,6 +64,27 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
     await dataSource.initialize();
     ctx = new TenantContextService();
     pickList = { getByPlan: jest.fn(async () => pickPayload()) };
+    stockByPart = {
+      'AX-PCBA-100': 80,
+      'ENC-AL-6061': 50,
+    };
+    positions = {
+      find: jest.fn(async ({ where }: any) => {
+        const partFilter =
+          where?.partNumber?.value ??
+          where?.partNumber?._value ??
+          where?.partNumber ??
+          [];
+        const partNumbers = Array.isArray(partFilter) ? partFilter : [partFilter];
+        return partNumbers
+          .filter((partNumber) => stockByPart[partNumber] != null)
+          .map((partNumber) => ({
+            partNumber,
+            onHand: stockByPart[partNumber],
+            allocated: 0,
+          }));
+      }),
+    };
     planRepo = {
       createQueryBuilder: jest.fn(() => {
         const qb: any = {
@@ -88,6 +111,7 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
     };
     svc = new MaterialStagingMesService(
       createTenantScopedRepository(MesStagingLine, dataSource.manager, ctx),
+      positions as never,
       planRepo as never,
       pickList as never,
       ctx,
@@ -114,6 +138,9 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
     expect(pick.lines.every((l: any) => l.stagingStatus === 'PENDING')).toBe(
       true,
     );
+    expect(pick.lines[0].availableQty).toBe(80);
+    expect(pick.lines[0].shortageQty).toBe(0);
+    expect(pick.summary.stockReady).toBe(true);
     expect(pick.summary.fillRatePct).toBe(0);
   });
 
@@ -136,6 +163,58 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
     const plans = await svc.listPublishedPlans();
     expect(plans[0].stagedLines).toBe(2);
     expect(plans[0].allStaged).toBe(true);
+  });
+
+  it('blocks staging a line when available inventory cannot cover the requested quantity', async () => {
+    stockByPart['AX-PCBA-100'] = 20;
+
+    await expect(svc.stageLine(PLAN_ID, LINES[0].id, {})).rejects.toThrow(
+      /inventario|faltan|No se puede surtir/,
+    );
+  });
+
+  it('blocks stage-all when any pick-list line is short', async () => {
+    stockByPart['ENC-AL-6061'] = 10;
+
+    await expect(svc.stageAllForPlan(PLAN_ID)).rejects.toThrow(
+      /inventario disponible insuficiente/,
+    );
+  });
+
+  it('blocks stage-all when repeated parts exceed aggregate available stock', async () => {
+    stockByPart['AX-PCBA-100'] = 80;
+    pickList.getByPlan.mockImplementation(async () => ({
+      ...pickPayload(),
+      lineCount: 3,
+      lines: [
+        LINES[0],
+        { ...LINES[0], id: 13 },
+        LINES[1],
+      ],
+    }));
+
+    await expect(svc.stageAllForPlan(PLAN_ID)).rejects.toThrow(
+      /AX-PCBA-100/,
+    );
+  });
+
+  it('blocks staging a repeated part when sibling staged quantity already consumes stock', async () => {
+    stockByPart['AX-PCBA-100'] = 80;
+    pickList.getByPlan.mockImplementation(async () => ({
+      ...pickPayload(),
+      lineCount: 3,
+      lines: [
+        LINES[0],
+        { ...LINES[0], id: 13 },
+        LINES[1],
+      ],
+    }));
+
+    await svc.stageLine(PLAN_ID, LINES[0].id, {});
+
+    await expect(svc.stageLine(PLAN_ID, 13, {})).rejects.toThrow(
+      /AX-PCBA-100/,
+    );
   });
 
   it('unstage reverts a line to pending', async () => {
