@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { usePathname } from 'next/navigation';
-import { useOperatorKiosk, useWorkbenchChrome } from '@/lib/operatorChrome';
+import { usePathname } from "next/navigation";
+import { useOperatorKiosk, useWorkbenchChrome } from "@/lib/operatorChrome";
 
 /**
  * Shell Taxonomy — fuente única de verdad del "tipo de cromo" por ruta.
@@ -28,11 +28,7 @@ import { useOperatorKiosk, useWorkbenchChrome } from '@/lib/operatorChrome';
  * `operatorChrome`), por eso se combina aquí con la clasificación por pathname.
  */
 export type ChromeMode =
-  | 'standard'
-  | 'command-center'
-  | 'workbench'
-  | 'kiosk'
-  | 'landing';
+  "standard" | "command-center" | "workbench" | "kiosk" | "landing";
 
 /**
  * Rutas "bare": montan su propio layout a pantalla completa y no quieren NADA
@@ -41,8 +37,8 @@ export type ChromeMode =
  * `DashboardWayfinding`.
  */
 export const BARE_PREFIXES = [
-  '/dashboard/chat',
-  '/dashboard/select-workspace',
+  "/dashboard/chat",
+  "/dashboard/select-workspace",
 ] as const;
 
 /**
@@ -52,7 +48,20 @@ export const BARE_PREFIXES = [
  * del overlay y centraliza la decisión para los demás workbenches conforme se
  * migren (CAD, editores) en las fases siguientes.
  */
-export const WORKBENCH_PREFIXES = ['/dashboard/office/'] as const;
+export const WORKBENCH_PREFIXES = ["/dashboard/office/"] as const;
+
+/** Rutas que se comportan como torres de control dentro del chrome global. */
+export const COMMAND_CENTER_PATHS = ["/dashboard"] as const;
+
+export const COMMAND_CENTER_PREFIXES = [
+  "/dashboard/control-tower",
+  "/dashboard/line-control-tower",
+  "/dashboard/mission-control",
+  "/dashboard/intelligence",
+  "/dashboard/live",
+  "/dashboard/quality-command-center",
+  "/dashboard/npi",
+] as const;
 
 export interface RouteChrome {
   /** Tipo de experiencia de la ruta actual. */
@@ -63,6 +72,8 @@ export interface RouteChrome {
   bare: boolean;
   /** El dock flotante inferior debe ocultarse (bare o workbench). */
   hideDock: boolean;
+  /** Navegación lateral desktop por dominios para standard/command-center. */
+  showCommandRail: boolean;
   /**
    * Los widgets flotantes (mensajería `ChatWidget`, asistente `Cide`) deben
    * ocultarse: fuera del dashboard, en rutas bare/kiosko, o en cualquier
@@ -87,21 +98,28 @@ export function isBarePath(pathname: string | null | undefined): boolean {
  * que el shell decida qué montar.
  */
 export function useRouteChrome(): RouteChrome {
-  const pathname = usePathname() ?? '';
+  const pathname = usePathname() ?? "";
   const kiosk = useOperatorKiosk();
   const imperativeWorkbench = useWorkbenchChrome();
 
-  const inDashboard = pathname.startsWith('/dashboard');
+  const inDashboard = pathname.startsWith("/dashboard");
   const bareRoute = isBarePath(pathname);
   // Workbench por pathname (Office editor) o imperativo (CAD montado dentro de
   // una ruta standard, que se declara workbench mientras está abierto).
   const workbench = imperativeWorkbench || isWorkbenchPath(pathname);
 
   let mode: ChromeMode;
-  if (!inDashboard) mode = 'landing';
-  else if (kiosk) mode = 'kiosk';
-  else if (workbench) mode = 'workbench';
-  else mode = 'standard';
+  if (!inDashboard) mode = "landing";
+  else if (kiosk) mode = "kiosk";
+  else if (workbench) mode = "workbench";
+  else if (
+    COMMAND_CENTER_PATHS.some((p) => pathname === p) ||
+    COMMAND_CENTER_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    )
+  ) {
+    mode = "command-center";
+  } else mode = "standard";
 
   const bare = kiosk || bareRoute;
 
@@ -110,6 +128,11 @@ export function useRouteChrome(): RouteChrome {
     inDashboard,
     bare,
     hideDock: bare || workbench,
+    showCommandRail:
+      inDashboard &&
+      !bare &&
+      !workbench &&
+      (mode === "standard" || mode === "command-center"),
     hideFloatingWidgets: !inDashboard || bare || workbench,
   };
 }
