@@ -10,8 +10,8 @@ import { BOM_ITEM_CATEGORIES } from '../bom-tree/bom-state';
 export type ImportSource = 'CSV' | 'EXCEL' | 'SQL_STAGING' | 'IDOC_API';
 export const IMPORT_SOURCES: ImportSource[] = ['CSV', 'EXCEL', 'SQL_STAGING', 'IDOC_API'];
 
-export type ImportTarget = 'MATERIAL' | 'BOM' | 'ROUTING';
-export const IMPORT_TARGETS: ImportTarget[] = ['MATERIAL', 'BOM', 'ROUTING'];
+export type ImportTarget = 'MODEL' | 'MATERIAL' | 'BOM' | 'ROUTING';
+export const IMPORT_TARGETS: ImportTarget[] = ['MODEL', 'MATERIAL', 'BOM', 'ROUTING'];
 
 export type ImportCapabilityStatus = 'READY' | 'CONFIG_REQUIRED' | 'MANUAL_LINK';
 
@@ -75,6 +75,14 @@ export interface FieldSpec {
 }
 
 export const FIELD_SPECS: Record<ImportTarget, FieldSpec[]> = {
+  MODEL: [
+    { field: 'modelNumber', label: 'Número de modelo', required: true, type: 'string', aliases: ['modelnumber', 'modelo', 'model', 'material', 'matnr', 'sku'] },
+    { field: 'name', label: 'Nombre del modelo', required: true, type: 'string', aliases: ['name', 'nombre', 'modelname', 'descripcion', 'description', 'maktx'] },
+    { field: 'customer', label: 'Cliente', required: false, type: 'string', aliases: ['customer', 'cliente', 'kunnr', 'account'] },
+    { field: 'revision', label: 'Revisión', required: false, type: 'string', aliases: ['revision', 'rev', 'aennr'] },
+    { field: 'description', label: 'Descripción', required: false, type: 'string', aliases: ['longdescription', 'descripcionlarga', 'notes', 'notas'] },
+    { field: 'programId', label: 'Programa', required: false, type: 'string', aliases: ['programid', 'program', 'programa', 'project', 'proyecto'] },
+  ],
   MATERIAL: [
     { field: 'partNumber', label: 'Número de parte', required: true, type: 'string', aliases: ['partnumber', 'numerodeparte', 'sku', 'material', 'matnr', 'item'] },
     { field: 'description', label: 'Descripción', required: true, type: 'string', aliases: ['description', 'descripcion', 'desc', 'maktx', 'nombre'] },
@@ -112,6 +120,7 @@ export const FIELD_SPECS: Record<ImportTarget, FieldSpec[]> = {
 };
 
 const targetLabel: Record<ImportTarget, string> = {
+  MODEL: 'Modelos de producto',
   MATERIAL: 'Material Master',
   BOM: 'BOM multinivel',
   ROUTING: 'Routing',

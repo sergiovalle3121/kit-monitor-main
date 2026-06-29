@@ -22,6 +22,39 @@ describe('suggestMapping', () => {
     expect(m.quantity).toBe('MENGE');
     expect(m.findNumber).toBe('POSNR');
   });
+
+  it('maps SAP-ish field names for product models', () => {
+    const m = suggestMapping('MODEL', ['MATNR', 'MAKTX', 'Customer', 'Rev']);
+    expect(m.modelNumber).toBe('MATNR');
+    expect(m.name).toBe('MAKTX');
+    expect(m.customer).toBe('Customer');
+    expect(m.revision).toBe('Rev');
+  });
+});
+
+describe('validateRow — MODEL', () => {
+  const mapping = { modelNumber: 'model', name: 'name', customer: 'customer', revision: 'rev' };
+
+  it('accepts a valid row for the canonical product model master', () => {
+    const r = validateRow(
+      'MODEL',
+      { model: 'ASM-100', name: 'Controller board', customer: 'ACME', rev: 'B' },
+      mapping,
+      0,
+    );
+    expect(r.valid).toBe(true);
+    expect(r.data.modelNumber).toBe('ASM-100');
+    expect(r.data.name).toBe('Controller board');
+    expect(r.data.customer).toBe('ACME');
+    expect(r.data.revision).toBe('B');
+  });
+
+  it('requires a model number and name', () => {
+    const r = validateRow('MODEL', { model: '', name: '' }, mapping, 1);
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => e.field === 'modelNumber')).toBe(true);
+    expect(r.errors.some((e) => e.field === 'name')).toBe(true);
+  });
 });
 
 describe('validateRow — MATERIAL', () => {
@@ -66,6 +99,7 @@ describe('validateRows — BOM summary', () => {
 describe('FIELD_SPECS', () => {
   it('marks the natural keys as required', () => {
     expect(FIELD_SPECS.MATERIAL.find((f) => f.field === 'partNumber')?.required).toBe(true);
+    expect(FIELD_SPECS.MODEL.find((f) => f.field === 'modelNumber')?.required).toBe(true);
     expect(FIELD_SPECS.BOM.find((f) => f.field === 'parentPartNumber')?.required).toBe(true);
     expect(FIELD_SPECS.ROUTING.find((f) => f.field === 'sequence')?.required).toBe(true);
   });

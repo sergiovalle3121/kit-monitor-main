@@ -88,6 +88,13 @@ export class ProductionPlanController {
     return this.service.publish(dto);
   }
 
+  @Post('readiness')
+  @RequirePermissions('planning:publish')
+  @ApiOperation({ summary: 'Valida material readiness antes de publicar una WO.' })
+  readiness(@Body() dto: PublishWorkOrderDto) {
+    return this.service.evaluatePublishReadiness(dto);
+  }
+
   @Patch(':id/resequence')
   @RequirePermissions('planning:write')
   @ApiOperation({ summary: 'Re-secuencia / re-prioriza una WO.' })
