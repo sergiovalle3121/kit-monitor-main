@@ -2,7 +2,7 @@
 
 import React, { Suspense, useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -11,8 +11,8 @@ import {
   PackageCheck,
   CheckCircle2,
   Search,
-  MessageSquare,
   History,
+  ArrowUpRight,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
@@ -20,10 +20,10 @@ import { useApi } from "@/hooks/useApi";
 import { positionLabel } from "@/config/positions";
 import { IconTile } from "@/components/ui/IconTile";
 import { HoverArrow } from "@/components/ui/HoverArrow";
-import { type DomainKey } from "@/lib/design/domains";
+import { ICON_STROKE, type DomainKey } from "@/lib/design/domains";
 import { seesAllAreas } from "@/lib/owner";
 import { timeAgo, ROLE_LABELS } from "@/lib/dashboardShared";
-import { AREAS, SECTION_ORDER } from "@/lib/dashboardAreas";
+import { quickAccessAreas } from "@/lib/dashboardAreas";
 import { useDashboardSession } from "@/hooks/useDashboardSession";
 
 const MotionLink = motion.create(Link);
@@ -44,20 +44,7 @@ interface RequestRow {
   createdAt?: string;
 }
 
-const sectionCopy: Record<string, string> = {
-  "Diseño · NPI": "Definición de producto, materiales y proceso",
-  Planeación: "Demanda, abastecimiento y publicación del plan",
-  Materiales: "Inventario, recibo y flujo hacia línea",
-  Producción: "Ejecución, mantenimiento y control de piso",
-  Calidad: "Inspección, trazabilidad y contención",
-  Logística: "Empaque, embarques y tráfico",
-  "Finanzas · ERP": "Costo, operación administrativa y módulos ERP",
-  "Control e inteligencia": "Señales ejecutivas, reportes y ontología",
-  Administración: "Personas, seguridad y configuración operativa",
-};
-
 function DashboardInner() {
-  const router = useRouter();
   const params = useSearchParams();
   const blocked = params.get("blocked");
   const reduce = useReducedMotion();
@@ -197,17 +184,18 @@ function DashboardInner() {
     session?.role ||
     "—";
   const workspaceLabel = session?.email?.split("@")[1] || "Workspace AXOS";
-  const areas = AREAS.filter(
-    (a) => seesAll || a.roles.includes(session?.role || ""),
+
+  // Accesos rápidos contextuales (role-aware). El catálogo COMPLETO de módulos
+  // vive en la navegación (Command rail / panel móvil) — el home ya no duplica
+  // la rejilla; aquí solo 4–6 atajos a lo más operativo.
+  const quickAccess = useMemo(
+    () => quickAccessAreas(session?.role || "", seesAll, 6),
+    [session?.role, seesAll],
   );
-  const grouped = SECTION_ORDER.map((section) => ({
-    section,
-    items: areas.filter((a) => a.section === section),
-  })).filter((g) => g.items.length > 0);
 
   return (
     <div className="min-h-screen text-foreground font-sans">
-      {/* Barra superior, dock y fondo aurora los provee el layout del dashboard. */}
+      {/* Barra superior, navegación y fondo aurora los provee el layout del dashboard. */}
       <main className="mx-auto max-w-6xl px-5 pb-28 pt-3 sm:px-6 md:px-10 lg:px-12">
         {blocked && (
           <motion.div
@@ -222,79 +210,59 @@ function DashboardInner() {
           </motion.div>
         )}
 
-        {/* Hero */}
+        {/* Hero compacto — saludo + contexto, sin rejilla de módulos. */}
         <motion.header
-          initial={reduce ? false : { opacity: 0, y: 14 }}
+          initial={reduce ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55 }}
-          className={`${glass} relative mb-5 overflow-hidden rounded-[2rem] px-6 py-7 sm:px-8 sm:py-9 md:px-10`}
+          transition={{ duration: 0.45 }}
+          className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
         >
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-foreground/[0.035] blur-3xl dark:bg-white/[0.045]"
-          />
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-                Hub operativo · {roleLabel}
-              </p>
-              <h1 className="text-4xl font-semibold tracking-[-0.045em] text-foreground sm:text-5xl md:text-6xl">
-                Hola, {firstName}.
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Coordina el flujo industrial desde un solo punto: diseño,
-                materiales, producción, calidad y control ejecutivo con señales
-                claras y navegación precisa.
-              </p>
-              {/* Acciones rápidas — qué puedes hacer ahora (universal a todo rol). */}
-              <div className="mt-5 flex flex-wrap gap-2">
-                <button
-                  onClick={() =>
-                    window.dispatchEvent(new CustomEvent("axos:open-search"))
-                  }
-                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-                >
-                  <Search className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                  Buscar
-                  <kbd className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
-                    ⌘K
-                  </kbd>
-                </button>
-                <Link
-                  href="/dashboard/chat"
-                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-                >
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                  Mensajes
-                </Link>
-                <Link
-                  href="/dashboard/activity"
-                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-                >
-                  <History className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                  Mi actividad
-                </Link>
-              </div>
+          <div className="max-w-2xl">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Hub operativo · {roleLabel}
+            </p>
+            <h1 className="text-3xl font-semibold tracking-[-0.035em] text-foreground sm:text-4xl">
+              Hola, {firstName}.
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+              Lo que requiere tu atención hoy, de un vistazo.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() =>
+                  window.dispatchEvent(new CustomEvent("axos:open-search"))
+                }
+                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+              >
+                <Search className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                Buscar
+                <kbd className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
+                  ⌘K
+                </kbd>
+              </button>
+              <Link
+                href="/dashboard/activity"
+                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+              >
+                <History className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                Mi actividad
+              </Link>
             </div>
-            <div className="grid min-w-[220px] gap-2 rounded-2xl border border-border/70 bg-background/55 p-4 text-sm shadow-sm backdrop-blur-sm dark:bg-white/[0.035]">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Contexto
-              </span>
-              <span className="truncate font-medium text-foreground">
-                {workspaceLabel}
-              </span>
-              <span className="text-xs capitalize text-muted-foreground">
-                {new Date().toLocaleDateString("es-ES", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })}
-              </span>
-            </div>
+          </div>
+          <div className="grid min-w-[200px] gap-1.5 rounded-2xl border border-border/70 bg-background/55 px-4 py-3.5 text-sm shadow-sm backdrop-blur-sm dark:bg-white/[0.035]">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Contexto
+            </span>
+            <span className="truncate font-medium text-foreground">
+              {workspaceLabel}
+            </span>
+            <span className="text-xs capitalize text-muted-foreground">
+              {new Date().toLocaleDateString("es-ES", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
+            </span>
           </div>
         </motion.header>
 
@@ -315,11 +283,11 @@ function DashboardInner() {
               className="group block h-full rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               <div
-                className={`${glass} h-full rounded-3xl p-4 transition-[border-color,box-shadow,transform] duration-300 group-hover:border-foreground/10 group-hover:shadow-md sm:p-5`}
+                className={`${glass} h-full rounded-3xl p-5 transition-[border-color,box-shadow] duration-300 group-hover:border-foreground/10`}
               >
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <IconTile domain={k.domain} size={40} icon={k.icon} />
-                  <HoverArrow className="mt-1 opacity-60 group-hover:opacity-100" />
+                  <HoverArrow className="mt-1 opacity-50 group-hover:opacity-100" />
                 </div>
                 <div className="text-3xl font-semibold tracking-[-0.04em] text-foreground tabular-nums sm:text-4xl">
                   {k.value}
@@ -376,7 +344,7 @@ function DashboardInner() {
                     className={`group block rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35`}
                   >
                     <div
-                      className={`${glass} flex h-full items-center gap-4 rounded-3xl border-l-2 ${sv.ring} p-4 transition-[border-color,box-shadow,transform] duration-300 group-hover:shadow-md sm:p-5`}
+                      className={`${glass} flex h-full items-center gap-4 rounded-3xl border-l-2 ${sv.ring} p-5 transition-[border-color,box-shadow] duration-300`}
                     >
                       <IconTile domain={a.domain} size={40} icon={a.icon} />
                       <div className="min-w-0 flex-1">
@@ -405,65 +373,53 @@ function DashboardInner() {
           )}
         </section>
 
-        {/* Tus áreas — agrupadas por el flujo real (Diseño → … → Admin) */}
-        {areas.length > 0 ? (
-          <div className="mb-12 space-y-11">
-            {grouped.map((g) => (
-              <section key={g.section}>
-                <div className="mb-4 flex flex-col gap-1 border-t border-border/70 pt-5 sm:flex-row sm:items-end sm:justify-between">
-                  <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                    {g.section}
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    {sectionCopy[g.section] ?? "Módulos operativos del área"}
-                  </p>
-                </div>
-                <motion.div
-                  variants={containerRM(reduce)}
-                  initial="hidden"
-                  animate="show"
-                  className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
-                >
-                  {g.items.map((a) => (
-                    <motion.button
-                      key={a.name}
-                      variants={itemRM(reduce)}
-                      onClick={() => router.push(a.href)}
-                      whileHover={hoverRM(reduce)}
-                      whileTap={pressRM(reduce)}
-                      aria-label={a.name}
-                      className={`${glass} group relative min-h-36 overflow-hidden rounded-3xl p-5 text-left transition-[border-color,box-shadow,transform] duration-300 hover:border-foreground/10 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35`}
-                    >
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent opacity-70 dark:via-white/15"
-                      />
-                      <div className="flex h-full flex-col justify-between gap-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <IconTile domain={a.domain} size={40} icon={a.icon} />
-                          <HoverArrow className="opacity-50 group-hover:opacity-100" />
-                        </div>
-                        <div>
-                          <div className="font-semibold leading-tight tracking-[-0.01em] text-foreground">
-                            {a.name}
-                          </div>
-                          <div className="mt-1.5 text-xs leading-5 text-muted-foreground">
-                            {a.desc}
-                          </div>
-                        </div>
-                      </div>
-                    </motion.button>
-                  ))}
-                </motion.div>
-              </section>
-            ))}
-          </div>
-        ) : (
-          <div
-            className={`${glass} mb-10 rounded-3xl p-8 text-center text-sm text-muted-foreground`}
-          >
-            Aún no tienes áreas asignadas. Pide acceso a tu administrador.
-          </div>
+        {/* Accesos rápidos — atajos contextuales (la navegación completa vive en
+            el Command rail / panel móvil; el home ya no duplica la rejilla). */}
+        {quickAccess.length > 0 && (
+          <section className="mb-12">
+            <div className="mb-4 flex items-end justify-between border-t border-border/70 pt-5">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                Accesos rápidos
+              </h2>
+              <span className="hidden text-xs text-muted-foreground lg:inline">
+                Todos los módulos están en la navegación lateral
+              </span>
+            </div>
+            <motion.div
+              variants={containerRM(reduce)}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+            >
+              {quickAccess.map((a) => {
+                const Icon = a.icon;
+                return (
+                  <MotionLink
+                    key={a.href}
+                    href={a.href}
+                    variants={itemRM(reduce)}
+                    whileHover={hoverRM(reduce)}
+                    whileTap={pressRM(reduce)}
+                    aria-label={a.name}
+                    className="group flex items-center gap-3 rounded-2xl border border-border/70 bg-background/55 px-4 py-3.5 text-left transition-colors hover:border-foreground/15 hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 dark:bg-white/[0.025]"
+                  >
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-foreground/[0.05] text-muted-foreground transition-colors group-hover:text-foreground dark:bg-white/[0.06]">
+                      <Icon className="h-[18px] w-[18px]" strokeWidth={ICON_STROKE} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {a.name}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {a.desc}
+                      </span>
+                    </span>
+                    <ArrowUpRight className="h-4 w-4 flex-shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
+                  </MotionLink>
+                );
+              })}
+            </motion.div>
+          </section>
         )}
 
         {/* Actividad reciente — lista limpia a todo lo ancho */}

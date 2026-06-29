@@ -1,0 +1,4 @@
+# Bulk sweep screenshots are large and fully regenerable — keep them out of git.
+screenshots/
+.cache/
+# Keep visual-findings.json and curated before/after evidence under report/.

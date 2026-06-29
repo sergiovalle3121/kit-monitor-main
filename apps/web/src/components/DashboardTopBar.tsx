@@ -17,6 +17,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Menu,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useTheme, type ColorScheme } from "@/contexts/ThemeContext";
@@ -320,7 +321,16 @@ export function DashboardTopBar() {
     <nav
       className={`${glass} fixed top-0 z-50 flex w-full items-center justify-between gap-4 rounded-none border-x-0 border-t-0 px-5 py-3.5 md:px-6`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Menú de navegación (móvil): abre el panel con TODOS los módulos. En
+            desktop la navegación vive en el Command rail, así que se oculta. */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("axos:open-nav"))}
+          aria-label="Abrir navegación"
+          className="lg:hidden rounded-full p-2 text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          <Menu className="w-5 h-5" strokeWidth={1.75} />
+        </button>
         <Link
           href="/dashboard"
           className="text-lg font-semibold tracking-[-0.03em]"
@@ -337,14 +347,14 @@ export function DashboardTopBar() {
         }
         aria-label="Buscar"
         aria-keyshortcuts="Control+K Meta+K"
-        className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-500 dark:text-gray-400 w-full max-w-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.07] dark:border-white/[0.08] hover:border-black/[0.13] dark:hover:border-white/[0.16] hover:bg-black/[0.05] dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-all"
+        className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-600 dark:text-gray-300 w-full max-w-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.07] dark:border-white/[0.08] hover:border-black/[0.13] dark:hover:border-white/[0.16] hover:bg-black/[0.05] dark:hover:bg-white/[0.06] hover:text-gray-800 dark:hover:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-all"
       >
         <Search
-          className="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500"
+          className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400"
           strokeWidth={1.75}
         />
         <span className="flex-1 text-left">Ir a un área o pantalla…</span>
-        <kbd className="hidden md:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/[0.05] dark:bg-white/10 text-gray-400 dark:text-gray-500">
+        <kbd className="hidden md:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/[0.06] dark:bg-white/[0.14] text-gray-600 dark:text-gray-200">
           ⌘K
         </kbd>
       </button>

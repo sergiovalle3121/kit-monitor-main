@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
@@ -64,6 +65,8 @@ type Crumb = {
 };
 
 /** Menú de áreas hermanas (mismo section), navegable por teclado y con Esc. */
+const MENU_WIDTH = 240; // px — usado para anclar y recortar al viewport.
+
 function SectionDropdown({
   label,
   siblings,
@@ -78,11 +81,50 @@ function SectionDropdown({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Posición FIJA calculada desde el botón (el menú se porta a <body>, así que no
+  // hereda el `backdrop-filter` translúcido de la barra de migas).
+  const [coords, setCoords] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+
+  // Calcula y recorta la posición al viewport (no se sale por los bordes).
+  const reposition = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const margin = 8;
+    const left = Math.min(
+      Math.max(margin, r.left),
+      window.innerWidth - MENU_WIDTH - margin,
+    );
+    const top = r.bottom + 6;
+    const maxHeight = Math.min(
+      window.innerHeight * 0.6,
+      window.innerHeight - top - margin,
+    );
+    setCoords({ top, left: Math.max(margin, left), maxHeight });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    reposition();
+    const onScrollResize = () => reposition();
+    window.addEventListener('scroll', onScrollResize, true);
+    window.addEventListener('resize', onScrollResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollResize, true);
+      window.removeEventListener('resize', onScrollResize);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function onPointerDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (
+        ref.current && !ref.current.contains(t) &&
+        menuRef.current && !menuRef.current.contains(t)
+      ) {
+        setOpen(false);
+      }
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -93,7 +135,7 @@ function SectionDropdown({
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const items = Array.from(
-          ref.current?.querySelectorAll<HTMLAnchorElement>('[data-menuitem]') ?? [],
+          menuRef.current?.querySelectorAll<HTMLAnchorElement>('[data-menuitem]') ?? [],
         );
         if (!items.length) return;
         const idx = items.indexOf(document.activeElement as HTMLAnchorElement);
@@ -115,9 +157,9 @@ function SectionDropdown({
   // Foco al primer ítem al abrir (patrón de menú accesible).
   useEffect(() => {
     if (!open) return;
-    const first = ref.current?.querySelector<HTMLAnchorElement>('[data-menuitem]');
+    const first = menuRef.current?.querySelector<HTMLAnchorElement>('[data-menuitem]');
     first?.focus();
-  }, [open]);
+  }, [open, coords]);
 
   // Sin hermanas (sesión sin cargar o rol sin acceso): miga simple, sin menú.
   if (siblings.length === 0) {
@@ -141,40 +183,52 @@ function SectionDropdown({
           strokeWidth={1.75}
         />
       </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            role="menu"
-            aria-label={`Áreas de ${label}`}
-            initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
-            animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-56 overflow-y-auto rounded-2xl border border-border bg-white p-1.5 shadow-xl dark:bg-slate-900"
-          >
-            {siblings.map((s) => {
-              const active = s.href === currentHref;
-              return (
-                <Link
-                  key={s.href}
-                  href={s.href}
-                  role="menuitem"
-                  data-menuitem
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-                    active
-                      ? 'bg-primary/10 font-medium text-primary'
-                      : 'text-gray-700 hover:bg-black/5 dark:text-gray-200 dark:hover:bg-white/10'
-                  }`}
-                >
-                  <span className="truncate">{s.name}</span>
-                </Link>
-              );
-            })}
-          </motion.div>
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {open && coords && (
+              <motion.div
+                ref={menuRef}
+                role="menu"
+                aria-label={`Áreas de ${label}`}
+                initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
+                animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
+                transition={{ duration: 0.15 }}
+                style={{
+                  position: 'fixed',
+                  top: coords.top,
+                  left: coords.left,
+                  width: MENU_WIDTH,
+                  maxHeight: coords.maxHeight,
+                }}
+                className="z-[120] overflow-y-auto rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-2xl ring-1 ring-foreground/[0.04]"
+              >
+                {siblings.map((s) => {
+                  const active = s.href === currentHref;
+                  return (
+                    <Link
+                      key={s.href}
+                      href={s.href}
+                      role="menuitem"
+                      data-menuitem
+                      aria-current={active ? 'page' : undefined}
+                      onClick={() => setOpen(false)}
+                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                        active
+                          ? 'bg-primary/10 font-medium text-primary'
+                          : 'text-foreground hover:bg-foreground/[0.06]'
+                      }`}
+                    >
+                      <span className="truncate">{s.name}</span>
+                    </Link>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }
