@@ -2919,4 +2919,22 @@ que **avise** a los admins cada mañana cuando hay algo que atender, sin que nad
 empuja solo a admins del tenant con alertas; no empuja sin alertas), `lint web` 0 (sin cambios web).
 Sin migraciones.
 
+## 133. Backflush MES — contrato SAP 261 visible, sin posteo real
+
+**Contexto.** El terminal de operador ya generaba eventos `sf_consumption_events` y un stub
+`SapAdapter.postGoodsIssue261`, pero el payload 261 quedaba implícito en código. Para preparar la
+integración real sin simular SAP, se necesitaba visibilidad operativa del outbox.
+
+**Decisión (aditiva, sin migración).**
+- Se centraliza `buildGoodsIssue261()` en `operator-terminal/sap-adapter.ts`; el flujo de
+  confirmación MES y la vista read-only usan el mismo contrato.
+- Nuevo `GET /operator-terminal/backflush-outbox` (permiso `production:read`) lista eventos de
+  consumo filtrables por estatus/WO y devuelve el payload MV261: movement type `261`,
+  idempotency key, WO, material, cantidad, planta y serial.
+- `/dashboard/backflush` ahora muestra el outbox y sus estados honestos (`PENDING`, `SENT_STUB`,
+  `ACK`, `ERROR`). `SENT_STUB` significa contrato generado, no confirmación SAP real.
+
+**Verificación:** spec dirigido `operator-terminal.service.spec.ts` verde (10 tests). Sin tablas,
+sin migraciones y sin conector SAP real.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { SfConsumptionEvent } from './entities/sf-consumption-event.entity';
 
 /**
  * SAP integration seam (STUB). AXOS runs standalone today; this is where a real
@@ -12,6 +13,7 @@ import { Injectable, Logger } from '@nestjs/common';
  * (ConsumptionEvent.outboxStatus) is exercised end-to-end.
  */
 export interface GoodsIssue261 {
+  movementType: '261';
   idempotencyKey: string;
   orderFolio: string | null;
   material: string;
@@ -26,6 +28,29 @@ export interface SapPostResult {
   sapDocument: string | null;
 }
 
+export function buildGoodsIssue261(
+  event: Pick<
+    SfConsumptionEvent,
+    | 'idempotencyKey'
+    | 'woFolio'
+    | 'part'
+    | 'model'
+    | 'backflushQty'
+    | 'plant_id'
+    | 'unitSerial'
+  >,
+): GoodsIssue261 {
+  return {
+    movementType: '261',
+    idempotencyKey: event.idempotencyKey,
+    orderFolio: event.woFolio,
+    material: event.part ?? event.model,
+    quantity: Number(event.backflushQty) || 0,
+    plant: event.plant_id,
+    unitSerial: event.unitSerial ?? null,
+  };
+}
+
 @Injectable()
 export class SapAdapter {
   private readonly logger = new Logger(SapAdapter.name);
@@ -33,7 +58,7 @@ export class SapAdapter {
   /** STUB: pretend to post a 261 goods issue. Never throws — outbox stays PENDING. */
   async postGoodsIssue261(mv: GoodsIssue261): Promise<SapPostResult> {
     this.logger.debug(
-      `[SAP STUB] MV261 order=${mv.orderFolio ?? '—'} material=${mv.material} qty=${mv.quantity} key=${mv.idempotencyKey}`,
+      `[SAP STUB] MV${mv.movementType} order=${mv.orderFolio ?? '—'} material=${mv.material} qty=${mv.quantity} key=${mv.idempotencyKey}`,
     );
     // Real impl: BAPI_GOODSMVT_CREATE with idempotency on mv.idempotencyKey.
     return { posted: false, stub: true, sapDocument: null };

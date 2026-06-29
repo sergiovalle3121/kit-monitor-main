@@ -77,6 +77,21 @@ export class OperatorTerminalController {
     return this.service.listFloorEvents({ status, type, line });
   }
 
+  @Get('backflush-outbox')
+  @RequirePermissions('production:read')
+  @ApiOperation({ summary: 'Outbox SAP 261 derivado de confirmaciones MES.' })
+  backflushOutbox(
+    @Query('status') status?: string,
+    @Query('workOrder') workOrder?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.listBackflushOutbox({
+      status,
+      workOrder,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   @Post('confirm')
   @RequirePermissions('production:execute')
   @ApiOperation({ summary: 'Confirma producción (skill + poka-yoke + backflush + serial, idempotente).' })
