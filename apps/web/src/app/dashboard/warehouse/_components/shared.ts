@@ -94,6 +94,55 @@ export interface SupplyAnalytics {
   topParts: Array<{ partNumber: string; count: number }>;
 }
 
+export interface WarehouseLocation {
+  warehouseId: string;
+  warehouseName: string;
+  warehouseCode?: string;
+  location: string;
+  programIds: string[];
+  partCount: number;
+  lotCount: number;
+  onHand: number;
+  allocated: number;
+  available: number;
+  inTransit: number;
+  holdQty: number;
+  quarantineQty: number;
+  qualityBlockQty: number;
+  openOutboundPulls: number;
+  openInboundPulls: number;
+  outboundQty: number;
+  inboundQty: number;
+  signal: 'available' | 'busy' | 'blocked' | 'empty';
+  statuses: Array<{ status: string; positions: number; onHand: number }>;
+  topParts: Array<{
+    partNumber: string;
+    onHand: number;
+    available: number;
+    holdStatus: string;
+    programId?: string | null;
+    lotNumber?: string | null;
+  }>;
+}
+
+export const LOCATION_SIGNAL_META: Record<WarehouseLocation['signal'], { label: string; color: string }> = {
+  available: { label: 'Disponible', color: GREEN },
+  busy: { label: 'Con flujo', color: BLUE },
+  blocked: { label: 'Bloqueada', color: RED },
+  empty: { label: 'Sin stock', color: GRAY },
+};
+
+export const HOLD_STATUS_META: Record<string, { label: string; color: string }> = {
+  available: { label: 'Disponible', color: GREEN },
+  hold: { label: 'Hold', color: AMBER },
+  quarantine: { label: 'Cuarentena', color: RED },
+  expired: { label: 'Expirado', color: RED },
+  pending_iqc: { label: 'Pend. IQC', color: AMBER },
+  pending_oqc: { label: 'Pend. OQC', color: AMBER },
+  staged_for_shipping: { label: 'Embarque', color: BLUE },
+  shipped: { label: 'Embarcado', color: GRAY },
+};
+
 export const TYPE_META: Record<string, { label: string; color: string }> = {
   put_away: { label: 'Acomodo', color: BLUE },
   transfer: { label: 'Traslado', color: VIOLET },

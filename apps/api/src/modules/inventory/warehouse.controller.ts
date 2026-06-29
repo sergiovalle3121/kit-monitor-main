@@ -13,6 +13,12 @@ export class WarehouseController {
     private readonly returnsService: ReturnsService,
   ) {}
 
+  @Get('locations')
+  @RequirePermissions('materials:read')
+  async getLocations(@Query() filters: any, @Request() req: any) {
+    return this.warehouseService.getLocationVisibility(filters, req.user);
+  }
+
   @Get('tasks')
   @RequirePermissions('materials:read')
   async getTasks(@Query() filters: any, @Request() req: any) {
