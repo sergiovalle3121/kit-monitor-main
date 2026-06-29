@@ -6,6 +6,17 @@ Last updated: 2026-06-29
 
 AXOS CAD is beyond seed state. The active workbench already includes a unified 2D/3D editor, local command dock, command palette, layers, lock enforcement, measurements, symbols, DXF import/export, validation, safety checks, flow scoring, local snapshots, CAD templates, and a release-readiness surface.
 
+## 2026-06-29 - Layer visibility hardening
+
+This run upgrades the existing CAD layer workflow:
+
+- `layers.ts` now has tested helpers for isolate-layer visibility, show-all recovery, and layer state summaries.
+- `Layout3DEditor.tsx` applies CAD layer visibility per station/asset object in the viewport instead of treating it as export/inspector metadata only.
+- The existing CAD layer panel shows visible-layer counts, hidden/locked object totals, an `All` recovery action, and a warning when hidden CAD layers are hiding objects.
+- The bottom status bar surfaces hidden/locked layer object counts while preserving the active layer indicator.
+
+The workflow is visible in the existing layer popover and status bar. It reuses current layer assignments, lock enforcement, object ids, station labels, asset groups, and export filtering; it does not introduce a parallel layer manager, editor, or persistence path.
+
 ## This run
 
 This run hardens the existing CAD keyboard shortcut path:
@@ -68,6 +79,7 @@ The workflow is visible in `Layout3DEditor` and reuses the current editable layo
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
+| Phase 8 - Layers Pro / Layer Manager | Advanced | `layers.ts`, object-level viewport layer filtering, `All` recovery, hidden/locked object counts | Persist layer assignments and add layer search/filter. |
 
 ## Next CAD PR
 
