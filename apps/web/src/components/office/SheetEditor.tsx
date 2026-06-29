@@ -11,6 +11,7 @@ import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
 import { SheetFindReplace } from './SheetFindReplace';
 import { SheetDataDialog, type DataMode } from './SheetDataDialog';
+import { SheetTransformDialog, type SheetTransformApplyPayload } from './SheetTransformDialog';
 import { SheetPivot } from './SheetPivot';
 import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
 import { SheetNameManager } from './SheetNameManager';
@@ -46,6 +47,7 @@ import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth,
 import { normalizeWorkbookApproval, requestWorkbookReview, WORKBOOK_APPROVAL_LABELS, type WorkbookApprovalSignoff } from '@/lib/office/workbookApproval';
 import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
+import { runSheetTransform, sheetTransformResultToCelldata } from '@/lib/office/sheetTransforms';
 import { apiFetch } from '@/lib/apiFetch';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -170,6 +172,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showFormat, setShowFormat] = useState(false);
   const [showGoalSeek, setShowGoalSeek] = useState(false);
   const [showDataTable, setShowDataTable] = useState(false);
+  const [showTransform, setShowTransform] = useState(false);
   const [showSolver, setShowSolver] = useState(false);
   const [showConsolidate, setShowConsolidate] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<'workbook' | 'cell' | 'data' | 'charts' | 'pivot' | 'comments' | 'protection' | 'xlsx' | 'axos'>('workbook');
@@ -711,6 +714,47 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     if (msg) window.setTimeout(() => toast.info(msg), 30);
   }
 
+  function applyTransform(payload: SheetTransformApplyPayload) {
+    const sheets = clone(sheetsRef.current);
+    const sourceSheet = sheets[payload.sheetIndex] ?? sheets[0];
+    if (!sourceSheet) { setShowTransform(false); return; }
+    const result = runSheetTransform(sourceSheet, payload);
+    if (!result.ok) {
+      toast.error(result.warnings[0] || 'No se pudo transformar el rango.');
+      return;
+    }
+    const origin = payload.outputMode === 'cell' ? parseRange(payload.targetCell || 'A1') : null;
+    const output = sheetTransformResultToCelldata(result, origin ? { r: origin.r1, c: origin.c1 } : { r: 0, c: 0 });
+    if (payload.outputMode === 'cell') {
+      if (!origin) { toast.error('Celda destino invalida. Ej: H1'); return; }
+      const occupied = new Set(output.celldata.map((cd: any) => `${cd.r}_${cd.c}`));
+      sourceSheet.celldata = [
+        ...(sourceSheet.celldata ?? []).filter((cd: any) => !occupied.has(`${cd.r}_${cd.c}`)),
+        ...output.celldata,
+      ];
+      sourceSheet.row = Math.max(sourceSheet.row ?? 100, origin.r1 + output.nRows + 4);
+      sourceSheet.column = Math.max(sourceSheet.column ?? 26, origin.c1 + output.nCols + 3);
+    } else {
+      const n = sheets.filter((sheet: any) => /^Transform/.test(sheet?.name ?? '')).length + 1;
+      sheets.forEach((sheet: any) => { sheet.status = 0; });
+      sheets.push({
+        name: `Transform ${n}`,
+        celldata: output.celldata,
+        order: sheets.length,
+        row: Math.max(100, output.nRows + 8),
+        column: Math.max(26, output.nCols + 4),
+        config: {},
+        status: 1,
+      });
+    }
+    setShowTransform(false);
+    remount(sheets);
+    window.setTimeout(() => {
+      const note = result.warnings.length ? ` ${result.warnings.length} warning(s).` : '';
+      toast.success(`Transform aplicado: ${result.inputRows} -> ${result.outputRows} fila(s).${note}`);
+    }, 30);
+  }
+
   function insertIntoCell(text: string): boolean {
     const wb = wbRef.current;
     try {
@@ -1083,6 +1127,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonGroup label="Herramientas de datos">
               <RibbonButton icon={ListChecks} label="Validación de datos" onClick={() => setTool('validation')} />
               <RibbonButton icon={Palette} label="Formato condicional" onClick={() => setTool('condformat')} />
+              <RibbonButton icon={Sparkles} label="Transformar datos" hideLabel={false} onClick={() => setShowTransform(true)} />
               <RibbonButton icon={Hash} label="Copiar como Markdown" hideLabel={false} onClick={copyRangeAsMarkdown} />
             </RibbonGroup>
             <RibbonSeparator />
@@ -1288,6 +1333,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           onOpenValidation={() => setTool('validation')}
           onOpenConditional={() => setTool('condformat')}
           onOpenNames={() => setShowNames(true)}
+          onOpenTransform={() => setShowTransform(true)}
           onOpenPivot={() => setShowPivot(true)}
           onInsertSlicer={() => insertSlicer('slicer')}
           onInsertTimeline={() => insertSlicer('timeline')}
@@ -1359,6 +1405,16 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         )}
         {dataMode && (
           <SheetDataDialog mode={dataMode} sheetNames={sheetNames()} onApply={applyData} onClose={() => setDataMode(null)} />
+        )}
+        {showTransform && (
+          <SheetTransformDialog
+            sheets={sheetsRef.current}
+            sheetNames={sheetNames()}
+            activeSheetIndex={activeIndex()}
+            defaultRange={selectionRange()}
+            onApply={applyTransform}
+            onClose={() => setShowTransform(false)}
+          />
         )}
         {showWizard && <SheetFunctionWizard onInsert={insertFunction} onClose={() => setShowWizard(false)} />}
         {showGoalSeek && (
@@ -1435,7 +1491,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
 function SheetWorkbenchInspector({
   tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, approval, readOnly,
-  onOpenValidation, onOpenConditional, onOpenNames, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
+  onOpenValidation, onOpenConditional, onOpenNames, onOpenTransform, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
   onInsertSlicer, onInsertTimeline, onShowSlicers, onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector, onSendForReview,
 }: any) {
   const tabs = [
@@ -1514,6 +1570,7 @@ function SheetWorkbenchInspector({
           <button disabled={readOnly} className={tool} onClick={onOpenValidation}>Validación de datos — reglas por rango</button>
           <button disabled={readOnly} className={tool} onClick={onOpenConditional}>Formato condicional — resaltar riesgos</button>
           <button disabled={readOnly} className={tool} onClick={onOpenNames}>Nombres definidos — manager</button>
+          <button disabled={readOnly} className={tool} onClick={onOpenTransform}>Data Transform - preview y aplicar</button>
           <button disabled={readOnly} className={tool} onClick={onOpenScenarios}>Escenarios — what-if industrial</button>
           <button disabled={readOnly} className={tool} onClick={onOpenGoalSeek}>Goal Seek — objetivo financiero/OEE</button>
           <button disabled={readOnly} className={tool} onClick={onOpenSolver}>Solver — optimización restringida</button>
