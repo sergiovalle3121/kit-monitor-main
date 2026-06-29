@@ -1252,7 +1252,7 @@ export function copyRange(sheet: any, srcRange: string, destCell: string, mode: 
 }
 
 // ── Autofiltro (no destructivo) ───────────────────────────────────────────────
-export type FilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'notcontains' | 'beginsWith' | 'endsWith' | 'empty' | 'notempty';
+export type FilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'notcontains' | 'beginsWith' | 'endsWith' | 'empty' | 'notempty' | 'top' | 'bottom';
 export interface FilterCriterion { colRel: number; op: FilterOp; value: string }
 
 /**
@@ -1277,6 +1277,7 @@ export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean
   const sraw = raw == null ? '' : String(raw);
   if (op === 'empty') return sraw.trim() === '';
   if (op === 'notempty') return sraw.trim() !== '';
+  if (op === 'top' || op === 'bottom') return false;
   if (op === 'contains') return sraw.toLowerCase().includes(value.toLowerCase());
   if (op === 'notcontains') return !sraw.toLowerCase().includes(value.toLowerCase());
   if (op === 'beginsWith') return sraw.toLowerCase().startsWith(value.toLowerCase());
@@ -1297,6 +1298,36 @@ export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean
   }
 }
 
+function filterNumericValue(raw: any): number | null {
+  const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function filterRankLimit(value: string): number | null {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function rankMatchedRows(
+  map: Map<string, any>,
+  rng: { r1: number; c1: number; r2: number; c2: number },
+  startR: number,
+  criterion: FilterCriterion,
+): Set<number> {
+  const limit = filterRankLimit(criterion.value);
+  if (!limit || criterion.colRel < 0 || rng.c1 + criterion.colRel > rng.c2) return new Set<number>();
+  const values: { row: number; value: number }[] = [];
+  for (let r = startR; r <= rng.r2; r++) {
+    const value = filterNumericValue(rawOf(map.get(`${r}_${rng.c1 + criterion.colRel}`) as any));
+    if (value != null) values.push({ row: r, value });
+  }
+  const sorted = values.sort((a, b) => {
+    const delta = criterion.op === 'top' ? b.value - a.value : a.value - b.value;
+    return delta || a.row - b.row;
+  });
+  return new Set(sorted.slice(0, limit).map((item) => item.row));
+}
+
 /**
  * Filtra un rango por uno o varios criterios y devuelve celldata para una hoja nueva. La unión por
  * defecto es `AND` (todas); `conjunction: 'OR'` exige que se cumpla **alguna** (autofiltro
@@ -1308,6 +1339,10 @@ export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; 
   for (const cd of sheet.celldata ?? []) map.set(`${cd.r}_${cd.c}`, cd);
   const nCols = rng.c2 - rng.c1 + 1;
   const startR = p.hasHeader ? rng.r1 + 1 : rng.r1;
+  const rankRows = new Map<FilterCriterion, Set<number>>();
+  for (const criterion of p.criteria ?? []) {
+    if (criterion.op === 'top' || criterion.op === 'bottom') rankRows.set(criterion, rankMatchedRows(map, rng, startR, criterion));
+  }
   const out: any[] = [];
   let rr = 0;
   const pushRow = (srcR: number, header: boolean) => {
@@ -1324,7 +1359,9 @@ export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; 
   if (p.hasHeader) pushRow(rng.r1, true);
   let matched = 0;
   for (let r = startR; r <= rng.r2; r++) {
-    const test = (cr: FilterCriterion) => matchesCriterion(rawOf(map.get(`${r}_${rng.c1 + cr.colRel}`) as any), cr.op, cr.value);
+    const test = (cr: FilterCriterion) => (cr.op === 'top' || cr.op === 'bottom')
+      ? (rankRows.get(cr)?.has(r) ?? false)
+      : matchesCriterion(rawOf(map.get(`${r}_${rng.c1 + cr.colRel}`) as any), cr.op, cr.value);
     const ok = !p.criteria.length || (p.conjunction === 'OR' ? p.criteria.some(test) : p.criteria.every(test));
     if (!ok) continue;
     pushRow(r, false); matched++;
