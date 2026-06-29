@@ -7,7 +7,7 @@ import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
   ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX, Package,
-  Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus, Rocket,
+  Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus, Rocket, X,
 } from 'lucide-react';
 import {
   ENTITY_ORDER, ensureSearchIndex, filterSearchIndex,
@@ -359,7 +359,7 @@ export function SearchPalette() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.16 }}
-          className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] flex items-start justify-center pt-20 bg-black/40 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         >
           <motion.div
@@ -385,22 +385,22 @@ export function SearchPalette() {
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setSelected(0); }}
                 onKeyDown={onKeyDown}
-                placeholder="Ir a un área o pantalla…  Planeación, Calidad, Almacén, ERP"
+                placeholder="Buscar área o pantalla…"
                 className="flex-1 bg-transparent outline-none text-base text-foreground placeholder:text-gray-400"
               />
               {recordsLoading && <Loader2 className="w-4 h-4 text-primary animate-spin flex-shrink-0" />}
-              <kbd className="hidden sm:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">ESC</kbd>
+              <button
+                onClick={() => setIsOpen(false)}
+                aria-label="Cerrar búsqueda"
+                title="Cerrar (Esc)"
+                className="flex-shrink-0 rounded-full p-1.5 text-rose-500 transition-colors hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Resultados */}
-            <div id="axos-search-listbox" role="listbox" aria-label="Resultados" className="max-h-[58vh] overflow-y-auto p-2">
-              {/* Pista honesta en la vista inicial: hoy esto navega; la búsqueda de registros llegará después. */}
-              {!searching && (
-                <p className="px-3 pt-1.5 pb-2 text-[11.5px] text-gray-400">
-                  Salta a cualquier área. La búsqueda de órdenes, NCR y partes llegará pronto.
-                </p>
-              )}
-
+            <div id="axos-search-listbox" role="listbox" aria-label="Resultados" className="max-h-[60vh] overflow-y-auto p-2">
               {groups.map((group) => (
                 <div key={group.key} className="mb-1.5 last:mb-0">
                   <GroupHeader label={group.label} tone={group.tone} count={group.items.length} />

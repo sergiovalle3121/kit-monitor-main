@@ -241,3 +241,30 @@ el home quedó en 0 altos y mejora el contraste de todas las páginas a la vez.
 - `e2e/visual-sweep/**`, `e2e/visual-sweep.spec.ts` — harness de barrido.
 - `e2e/golden/01-login-hub.spec.ts`, `e2e/golden/09-flow-end-to-end.spec.ts` —
   assertions de navegación actualizadas a la IA rail-primario.
+
+---
+
+## 9. Pase 2 — sidebar como cajón + herramientas a pantalla completa
+
+Feedback del owner sobre la versión desplegada del pase 1. Decisiones confirmadas:
+sidebar **oculto por defecto** (contenido a pantalla completa) y herramientas
+grandes (Chat, Office, CAD) a **pantalla completa** (los avisos chicos siguen
+centrados).
+
+| Tema | Cambio | Evidencia (`e2e/__visual__/report2/`) |
+| --- | --- | --- |
+| **Sidebar** | El rail persistente se elimina. La navegación es un **cajón** que se abre/cierra desde el botón **"Axos OS"** (con ícono panel↔cerrar, affordance clara y sincronizada). El contenido queda **a pantalla completa**. El cajón sale debajo de la barra para que "Axos OS" siga sirviendo de toggle. | `home-fullscreen.png`, `nav-drawer-open.png` |
+| **CAD** | Botón **"✕ Cerrar"** rojo, claro y siempre visible a la izquierda; la barra de herramientas usa **`flex-wrap`** para que **nunca recorte ni choque**. | `cad-cerrar.png` |
+| **Chat** | Se abre a **pantalla completa** (no cuadro central); el mismo botón flotante hace **toggle** (se vuelve ✕) y **cambia de tono** cuando hay mensajes sin leer. | `chat-fullscreen.png` |
+| **Buscador ⌘K** | Menos texto (placeholder corto, sin párrafo de ayuda), **"✕" rojo** para cerrar, se despliega desde la barra (debajo del topbar). | `search-simplified.png` |
+
+Modelo nuevo de navegación: store compartido `src/lib/navDrawer.ts`
+(`useNavOpen`/`toggleNav`) → el botón "Axos OS" (`DashboardTopBar`) y el cajón
+(`DashboardNavSheet`, ahora universal) están siempre en sync. Se eliminó
+`DashboardCommandRail` (rail persistente) y el padding lateral del contenido.
+
+**QA de colisiones:** el barrido (384 combos) confirma **0 errores de navegación**
+y **0 hallazgos altos nuevos** introducidos por el cambio de layout. El único
+`horizontal-overflow` son **7 tiras de tabs en móvil 390** (`crm`, `import`,
+`operador`, `reports`, `rh`, `settings/permissions`, `warehouse`) — pre-existentes
+(no en desktop), pendientes de `flex-wrap`/`overflow-x-auto` por página.
