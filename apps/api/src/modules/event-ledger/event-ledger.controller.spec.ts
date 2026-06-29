@@ -54,6 +54,21 @@ describe('EventLedgerController', () => {
     expect(res.items).toEqual([{ id: 'e1' }]);
   });
 
+  it('queryEnvelope returns the shared API response envelope without changing query semantics', async () => {
+    const res = await controller.queryEnvelope({
+      actor: 'Operator',
+      pageSize: '25',
+    });
+
+    expect(service.queryEvents).toHaveBeenCalledWith({
+      actor: 'Operator',
+      pageSize: '25',
+    });
+    expect(res.success).toBe(true);
+    expect(res.data.items).toEqual([{ id: 'e1' }]);
+    expect(Date.parse(res.timestamp)).not.toBeNaN();
+  });
+
   it('getByReference uppercases the reference type', async () => {
     const res = await controller.getByReference('kit', 'K-1');
     expect(service.getEventsByReference).toHaveBeenCalledWith('KIT', 'K-1');

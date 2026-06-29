@@ -44,6 +44,7 @@ ledger query API, and a shared response envelope.
 - **Objective:** Consistent success/error envelope in contracts + one adoption.
 - **Probable files:** `packages/contracts/src/*`, `apps/api/src/modules/**`
 - **Acceptance criteria:** Typed + exported; one endpoint returns it; no breaking change.
+- **Implementation note:** Keep adoption additive so existing raw endpoints remain stable while clients migrate.
 
 ## Checks
 - `git diff --check`; `npm run build` (contracts + api); helper/guard/ledger tests.
