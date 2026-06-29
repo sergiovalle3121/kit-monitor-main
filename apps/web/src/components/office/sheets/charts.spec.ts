@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Spec del constructor de datos de gráficas. npx tsx src/components/office/sheets/charts.spec.ts */
-import { buildChartData, seriesLabels, usesSecondaryAxis, type ChartConfig } from '@/lib/office/charts';
+import { buildChartData, chartJsType, seriesLabels, usesSecondaryAxis, type ChartConfig } from '@/lib/office/charts';
 
 let passed = 0; const fails: string[] = [];
 const eq = (a: any, b: any, m: string) => { if (JSON.stringify(a) === JSON.stringify(b)) passed++; else fails.push(`${m} — esp ${JSON.stringify(b)}, obt ${JSON.stringify(a)}`); };
@@ -62,6 +62,23 @@ eq(seriesLabels(sheet, 'A1:C3'), ['Ventas', 'Margen'], 'seriesLabels = cabeceras
   eq(d.datasets[0].data[0].y, 2, 'burbuja y0');
   eq(d.datasets[0].data[0].r, 4, 'burbuja r min = 4');
   eq(d.datasets[0].data[1].r, 24, 'burbuja r max = 24');
+}
+
+
+// Pareto ordena la primera serie y agrega acumulado % en eje secundario.
+{
+  const d = buildChartData(sheet, { ...base, type: 'pareto' } as ChartConfig);
+  eq(d.labels, ['Feb', 'Ene'], 'pareto ordena categorías desc');
+  eq(d.datasets[0].data, [200, 100], 'pareto valores desc');
+  eq(d.datasets[1].data, [66.7, 100], 'pareto acumulado %');
+  ok(usesSecondaryAxis({ ...base, type: 'pareto' } as ChartConfig), 'pareto usa eje secundario');
+}
+
+// Gauge usa dona semicircular con valor/restante.
+{
+  const d = buildChartData(sheet, { ...base, type: 'gauge' } as ChartConfig);
+  eq(chartJsType('gauge'), 'doughnut', 'gauge se renderiza como doughnut');
+  eq(d.datasets[0].data, [100, 0], 'gauge limita el primer valor a 100');
 }
 
 console.log(`\nCHARTS SPEC: ${passed} OK, ${fails.length} fallos`);

@@ -215,3 +215,7 @@ AXOS Sheets now persists a lightweight print/export layout model in workbook con
 The Sheets workbench now exposes a visible **AXOS Data** inspector panel with a connector gallery instead of hiding connector insertion behind ribbon-only actions. Each connector card shows domain, refresh policy, description, configuration contract, preview action, and insert action. The panel distinguishes live tenant-safe connectors from **Contract pending** connectors so users do not see simulated API success when an endpoint has not been published.
 
 The first live connector contract is `GET /suppliers/scorecards` for Supplier scorecards. It must be previewed successfully before inserting live rows into the selected range. Other catalog entries remain governed starter tables until their ERP/MES aggregator endpoints are added.
+
+## Delivered slice — advanced chart builder
+
+AXOS Sheets chart metadata now supports an advanced builder that can target a free range, a named formatted table, or the materialized output sheet of a stored pivot. The builder keeps using the shared chart range helpers, shows an inline preview before insertion, persists source metadata for future refresh behavior, and adds industrial chart variants for columns, horizontal bars, line, pie, donut, Pareto, and gauge visuals without introducing new dependencies.
