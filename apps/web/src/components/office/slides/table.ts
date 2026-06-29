@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Tablas estructuradas: una tabla es un `Group` de Fabric con prop
- * `tableSpec = { rows, cols, cells, header, banded, accent }`. Se dibuja con
- * rect + texto (rasteriza en PDF/PNG/presentación) y se exporta como TABLA
- * NATIVA de PowerPoint usando el mismo spec. Sin dependencias nuevas.
+ * Structured slide tables. A table is a Fabric `Group` with a `tableSpec`
+ * custom prop. The canvas renders rect/text primitives and PPTX export maps the
+ * same spec to native editable PowerPoint tables.
  */
-import { Group, Rect, FabricText } from 'fabric';
+import { FabricText, Group, Rect } from 'fabric';
 
 export interface TableSpec {
   rows: number;
@@ -14,6 +13,8 @@ export interface TableSpec {
   header: boolean;
   banded: boolean;
   accent?: string;
+  presetId?: string;
+  presetLabel?: string;
 }
 
 export const TABLE_ACCENT = '#2563eb';
@@ -30,7 +31,179 @@ export function defaultTableSpec(rows = 3, cols = 3): TableSpec {
   return { rows, cols, cells, header: true, banded: true, accent: TABLE_ACCENT };
 }
 
-/** Normaliza la matriz de celdas al tamaño rows×cols. */
+export type TablePresetCategory = 'operations' | 'quality' | 'launch' | 'supplier' | 'logistics';
+
+export interface TablePreset {
+  id: string;
+  label: string;
+  category: TablePresetCategory;
+  description: string;
+  cells: string[][];
+  header?: boolean;
+  banded?: boolean;
+}
+
+export const TABLE_PRESET_CATEGORY_LABEL: Record<TablePresetCategory, string> = {
+  operations: 'Operaciones',
+  quality: 'Calidad',
+  launch: 'NPI / Launch',
+  supplier: 'Supplier',
+  logistics: 'Logistica',
+};
+
+export const INDUSTRIAL_TABLE_PRESETS: TablePreset[] = [
+  {
+    id: 'action-register',
+    label: 'Action register',
+    category: 'operations',
+    description: 'Acciones, responsables, fechas y estado para juntas industriales.',
+    cells: [
+      ['Accion', 'Owner', 'Due', 'Status', 'Decision needed'],
+      ['Accion 1', '', '', '', ''],
+      ['Accion 2', '', '', '', ''],
+      ['Accion 3', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'risk-matrix',
+    label: 'Risk matrix',
+    category: 'quality',
+    description: 'Registro de riesgos con severidad, probabilidad y mitigacion.',
+    cells: [
+      ['Risk', 'Severity', 'Probability', 'Mitigation', 'Owner'],
+      ['Risk 1', '', '', '', ''],
+      ['Risk 2', '', '', '', ''],
+      ['Risk 3', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'issue-log',
+    label: 'Issue log',
+    category: 'operations',
+    description: 'Problemas abiertos con contencion y siguiente paso.',
+    cells: [
+      ['Issue', 'Area', 'Containment', 'Next step', 'Age'],
+      ['Issue 1', '', '', '', ''],
+      ['Issue 2', '', '', '', ''],
+      ['Issue 3', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'eight-d-containment',
+    label: '8D containment',
+    category: 'quality',
+    description: 'Resumen editable para D1-D4 y contencion inmediata.',
+    cells: [
+      ['8D step', 'Evidence', 'Owner', 'Due', 'Status'],
+      ['D1 Team', '', '', '', ''],
+      ['D2 Problem', '', '', '', ''],
+      ['D3 Containment', '', '', '', ''],
+      ['D4 Root cause', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'supplier-scorecard',
+    label: 'Supplier scorecard',
+    category: 'supplier',
+    description: 'Scorecard de proveedor para quality, delivery y acciones.',
+    cells: [
+      ['Metric', 'Target', 'Current', 'Trend', 'Action'],
+      ['Quality PPM', '', '', '', ''],
+      ['OTD', '', '', '', ''],
+      ['SCARs', '', '', '', ''],
+      ['Responsiveness', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'launch-checklist',
+    label: 'Launch checklist',
+    category: 'launch',
+    description: 'Gate review de lanzamiento con PPAP, Run@Rate y readiness.',
+    cells: [
+      ['Gate item', 'Evidence', 'Ready?', 'Owner', 'Blocker'],
+      ['APQP', '', '', '', ''],
+      ['PPAP', '', '', '', ''],
+      ['Run@Rate', '', '', '', ''],
+      ['SOP readiness', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'test-summary',
+    label: 'Test summary',
+    category: 'quality',
+    description: 'Resumen de yield, fallas y disposition de pruebas.',
+    cells: [
+      ['Test area', 'Samples', 'Pass', 'Fail', 'Disposition'],
+      ['ICT', '', '', '', ''],
+      ['FCT', '', '', '', ''],
+      ['Burn-in', '', '', '', ''],
+      ['Final audit', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'packing-shipping',
+    label: 'Packing / shipping',
+    category: 'logistics',
+    description: 'Readiness de empaque, etiquetas, documentos y embarque.',
+    cells: [
+      ['Checkpoint', 'Required', 'Actual', 'Owner', 'Status'],
+      ['Packing spec', '', '', '', ''],
+      ['Label verification', '', '', '', ''],
+      ['COC / docs', '', '', '', ''],
+      ['Shipment booking', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'mrp-shortage',
+    label: 'MRP shortage',
+    category: 'logistics',
+    description: 'Shortage review editable para material, ETA y riesgo.',
+    cells: [
+      ['Part', 'Need date', 'Short qty', 'ETA', 'Risk'],
+      ['PN-0001', '', '', '', ''],
+      ['PN-0002', '', '', '', ''],
+      ['PN-0003', '', '', '', ''],
+    ],
+  },
+  {
+    id: 'quality-pareto-actions',
+    label: 'Pareto actions',
+    category: 'quality',
+    description: 'Top defectos con causa, contencion y accion correctiva.',
+    cells: [
+      ['Defect', 'Count', 'Root cause', 'Containment', 'Corrective action'],
+      ['Defect 1', '', '', '', ''],
+      ['Defect 2', '', '', '', ''],
+      ['Defect 3', '', '', '', ''],
+    ],
+  },
+];
+
+export function createTablePresetSpec(preset: TablePreset, accent = TABLE_ACCENT): TableSpec {
+  const cells = preset.cells.map((row) => row.slice());
+  const rows = cells.length;
+  const cols = Math.max(1, ...cells.map((row) => row.length));
+  return {
+    rows,
+    cols,
+    cells,
+    header: preset.header ?? true,
+    banded: preset.banded ?? true,
+    accent,
+    presetId: preset.id,
+    presetLabel: preset.label,
+  };
+}
+
+export function getTablePreset(id: string): TablePreset | undefined {
+  return INDUSTRIAL_TABLE_PRESETS.find((preset) => preset.id === id);
+}
+
+export function createTablePresetSpecById(id: string, accent = TABLE_ACCENT): TableSpec | null {
+  const preset = getTablePreset(id);
+  return preset ? createTablePresetSpec(preset, accent) : null;
+}
+
 export function normalizeCells(spec: TableSpec): string[][] {
   const out: string[][] = [];
   for (let r = 0; r < spec.rows; r++) {
