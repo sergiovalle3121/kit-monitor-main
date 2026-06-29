@@ -26,14 +26,25 @@ export function analyzeWorkbookHealth(content: any, now = new Date()): WorkbookH
   if (dependencies.missingReferences.length) findings.push({ severity: 'warning', code: 'missing-formula-references', message: `${dependencies.missingReferences.length} referencia(s) de fórmula apuntan a hojas faltantes.` });
   if (!recalcPlan.ready && recalcPlan.order.length) findings.push({ severity: 'info', code: 'partial-recalc-plan', message: `${recalcPlan.order.length} fórmula(s) siguen teniendo orden de recálculo seguro.` });
 
-  const comments = Array.isArray(content?.comments) ? content.comments : [];
-  const openComments = comments.filter((c: any) => !c.resolved).length;
+  const governance = governanceOf(content);
+  const openComments = governance.openComments;
   if (openComments) findings.push({ severity: 'info', code: 'open-comments', message: `${openComments} comentario(s) abiertos antes de publicar.` });
+
+
+  if (governance.assignedComments) findings.push({ severity: 'info', code: 'assigned-comments', message: `${governance.assignedComments} comentario(s) tienen responsable asignado.` });
+  if (governance.pendingApprovals) findings.push({ severity: 'warning', code: 'pending-approvals', message: `${governance.pendingApprovals} aprobación(es) pendientes antes de liberar o exportar.` });
+  if (governance.rejectedApprovals) findings.push({ severity: 'critical', code: 'rejected-approvals', message: `${governance.rejectedApprovals} aprobación(es) rechazadas requieren acción.` });
+  const summary = deriveSheetSummary(content);
+  if (summary.unprotectedFormulas) findings.push({ severity: 'warning', code: 'unprotected-formulas', message: `${summary.unprotectedFormulas} fórmula(s) no protegidas pueden alterarse antes de aprobar.` });
+  if (summary.protectedSheets || summary.protectedRanges) findings.push({ severity: 'info', code: 'protected-areas', message: `${summary.protectedSheets} hoja(s) y ${summary.protectedRanges} rango(s) protegidos.` });
+  if (governance.exportWarnings) findings.push({ severity: 'warning', code: 'export-warnings', message: `${governance.exportWarnings} advertencia(s) de exportación requieren revisión.` });
+  if (governance.sharingStatus !== 'private' || governance.sharedPrincipals) findings.push({ severity: 'info', code: 'sharing-status', message: `Compartición: ${governance.sharingStatus}${governance.sharedPrincipals ? ` · ${governance.sharedPrincipals} colaborador(es)` : ''}.` });
 
   const connectors = Array.isArray(content?.connectors) ? content.connectors : [];
   const freshness = summarizeConnectorFreshness(connectors, now);
   if (freshness.stale) findings.push({ severity: 'warning', code: 'stale-connectors', message: `${freshness.stale} conector(es) están vencidos críticamente.` });
   if (freshness.due) findings.push({ severity: 'info', code: 'connector-refresh-due', message: `${freshness.due} conector(es) requieren refresh según su política.` });
+  if (connectors.filter((c: any) => ['failed', 'error'].includes(String(c?.status ?? c?.lastStatus ?? '').toLowerCase()) || !!c?.lastError || !!c?.error).length) findings.push({ severity: 'critical', code: 'failed-queries', message: `${connectors.filter((c: any) => ['failed', 'error'].includes(String(c?.status ?? c?.lastStatus ?? '').toLowerCase()) || !!c?.lastError || !!c?.error).length} consulta(s) fallidas en conectores AXOS.` });
   if (freshness.invalid) findings.push({ severity: 'warning', code: 'invalid-connectors', message: `${freshness.invalid} conector(es) tienen metadata inválida.` });
   if (connectors.length && !stats.charts) findings.push({ severity: 'info', code: 'connectors-without-charts', message: 'Hay conectores sin charts persistidos; considera crear dashboard.' });
 
@@ -48,8 +59,9 @@ export function formatWorkbookHealthReport(report: WorkbookHealthReport): string
 
 export interface SheetRangeRef { r1: number; c1: number; r2: number; c2: number }
 export interface SheetSelectionStats { range: string; count: number; nums: number; sum: number; average: number; min: number | null; max: number | null; formulas: number; comments: number; protected: boolean; invalid: number }
-export interface SheetSummary { sheets: number; usedCells: number; formulas: number; charts: number; pivots: number; validations: number; comments: number; protectedRanges: number; namedRanges: number; filters: number; connectors: number }
-export interface DerivedWorkbookHealth extends SheetSummary { unsupportedXlsxFeatures: number; importWarnings: number; staleAxosConnectors: number; score: number; findings: WorkbookHealthFinding[] }
+export interface SheetSummary { sheets: number; usedCells: number; formulas: number; charts: number; pivots: number; validations: number; comments: number; protectedRanges: number; protectedSheets: number; unprotectedFormulas: number; namedRanges: number; filters: number; connectors: number; failedQueries: number }
+export interface WorkbookGovernanceSummary { openComments: number; resolvedComments: number; assignedComments: number; pendingApprovals: number; rejectedApprovals: number; approvedApprovals: number; exportWarnings: number; sharingStatus: string; sharedPrincipals: number }
+export interface DerivedWorkbookHealth extends SheetSummary, WorkbookGovernanceSummary { unsupportedXlsxFeatures: number; importWarnings: number; staleAxosConnectors: number; score: number; findings: WorkbookHealthFinding[] }
 
 function sheetsOf(content: any): any[] { return Array.isArray(content) ? content : (Array.isArray(content?.sheets) ? content.sheets : []); }
 function colNameLocal(n: number): string { let s = ''; n += 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - m) / 26); } return s; }
@@ -67,6 +79,34 @@ function parseA1(range: string): SheetRangeRef | null {
   const r1 = Number(m[2]) - 1, c1 = toCol(m[1]), r2 = m[4] ? Number(m[4]) - 1 : r1, c2 = m[3] ? toCol(m[3]) : c1;
   return { r1: Math.min(r1, r2), c1: Math.min(c1, c2), r2: Math.max(r1, r2), c2: Math.max(c1, c2) };
 }
+function rangeContainsCell(range: string | undefined, r: number, c: number): boolean {
+  const parsed = range ? parseA1(String(range).replace(/^[^!]+!/, '')) : null;
+  return !!parsed && r >= parsed.r1 && r <= parsed.r2 && c >= parsed.c1 && c <= parsed.c2;
+}
+function isFormulaCell(cd: any): boolean { return typeof cd?.v?.f === 'string' || (typeof cd?.v?.v === 'string' && cd.v.v.startsWith('=')); }
+function isCellProtected(sheet: any, cd: any): boolean {
+  const protection = sheet?.axosProtection ?? {};
+  if (protection.sheetLocked) return true;
+  const ranges = Array.isArray(protection.ranges) ? protection.ranges : [];
+  return ranges.some((p: any) => p?.locked !== false && rangeContainsCell(p?.range, Number(cd?.r ?? -1), Number(cd?.c ?? -1)));
+}
+function governanceOf(content: any): WorkbookGovernanceSummary {
+  const comments = Array.isArray(content?.comments) ? content.comments : [];
+  const approvals = Array.isArray(content?.approvals) ? content.approvals : [];
+  const shared = Array.isArray(content?.sharedWith) ? content.sharedWith : (Array.isArray(content?.shares) ? content.shares : []);
+  const rawStatus = content?.sharingStatus ?? content?.shareStatus ?? (shared.length ? 'shared' : (content?.visibility ?? 'private'));
+  return {
+    openComments: comments.filter((c: any) => !c?.resolved).length,
+    resolvedComments: comments.filter((c: any) => !!c?.resolved).length,
+    assignedComments: comments.filter((c: any) => !!(c?.assignee || c?.assignedTo || c?.assigneeId)).length,
+    pendingApprovals: approvals.filter((a: any) => ['pending', 'requested', 'in_review'].includes(String(a?.status ?? '').toLowerCase())).length,
+    rejectedApprovals: approvals.filter((a: any) => ['rejected', 'changes_requested'].includes(String(a?.status ?? '').toLowerCase())).length,
+    approvedApprovals: approvals.filter((a: any) => ['approved', 'signed'].includes(String(a?.status ?? '').toLowerCase())).length,
+    exportWarnings: Array.isArray(content?.exportWarnings) ? content.exportWarnings.length : 0,
+    sharingStatus: String(rawStatus || 'private'),
+    sharedPrincipals: shared.length,
+  };
+}
 function raw(cd: any): any { const v = cd?.v; return v && typeof v === 'object' ? (v.v ?? v.m ?? v.f ?? '') : v; }
 export function deriveSheetSelectionStats(sheet: any, rangeInput: string | SheetRangeRef, comments: any[] = []): SheetSelectionStats {
   const rng = typeof rangeInput === 'string' ? parseA1(rangeInput) : rangeInput;
@@ -83,14 +123,20 @@ export function deriveSheetSelectionStats(sheet: any, rangeInput: string | Sheet
 export function deriveSheetSummary(content: any): SheetSummary {
   const sheets = sheetsOf(content);
   const validations = sheets.reduce((sum, s) => sum + Object.keys(s?.dataVerification ?? s?.dataVerificationConfig ?? {}).length, 0);
-  const protectedRanges = sheets.reduce((sum, s) => sum + (s?.axosProtection?.sheetLocked ? 1 : 0) + (Array.isArray(s?.axosProtection?.ranges) ? s.axosProtection.ranges.length : 0), 0);
+  const protectedSheets = sheets.filter((s) => !!s?.axosProtection?.sheetLocked).length;
+  const protectedRanges = sheets.reduce((sum, s) => sum + (Array.isArray(s?.axosProtection?.ranges) ? s.axosProtection.ranges.length : 0), 0);
   const filters = sheets.filter((s) => !!(s?.filter_select || s?.config?.filter_select)).length;
-  return { sheets: sheets.length, usedCells: sheets.reduce((sum, s) => sum + ((s?.celldata ?? []) as any[]).length, 0), formulas: sheets.reduce((sum, s) => sum + ((s?.celldata ?? []) as any[]).filter((cd) => typeof cd?.v?.f === 'string').length, 0), charts: Array.isArray(content?.charts) ? content.charts.length : 0, pivots: Array.isArray(content?.pivots) ? content.pivots.length : 0, validations, comments: Array.isArray(content?.comments) ? content.comments.length : 0, protectedRanges, namedRanges: Array.isArray(content?.names) ? content.names.length : 0, filters, connectors: Array.isArray(content?.connectors) ? content.connectors.length : 0 };
+  const formulas = sheets.reduce((sum, s) => sum + ((s?.celldata ?? []) as any[]).filter(isFormulaCell).length, 0);
+  const unprotectedFormulas = sheets.reduce((sum, s) => sum + ((s?.celldata ?? []) as any[]).filter((cd) => isFormulaCell(cd) && !isCellProtected(s, cd)).length, 0);
+  const connectors = Array.isArray(content?.connectors) ? content.connectors : [];
+  const failedQueries = connectors.filter((c: any) => ['failed', 'error'].includes(String(c?.status ?? c?.lastStatus ?? '').toLowerCase()) || !!c?.lastError || !!c?.error).length;
+  return { sheets: sheets.length, usedCells: sheets.reduce((sum, s) => sum + ((s?.celldata ?? []) as any[]).length, 0), formulas, charts: Array.isArray(content?.charts) ? content.charts.length : 0, pivots: Array.isArray(content?.pivots) ? content.pivots.length : 0, validations, comments: Array.isArray(content?.comments) ? content.comments.length : 0, protectedRanges, protectedSheets, unprotectedFormulas, namedRanges: Array.isArray(content?.names) ? content.names.length : 0, filters, connectors: connectors.length, failedQueries };
 }
 export function deriveWorkbookHealth(content: any, now = new Date()): DerivedWorkbookHealth {
   const summary = deriveSheetSummary(content);
   const report = analyzeWorkbookHealth(content, now);
+  const governance = governanceOf(content);
   const connectors = Array.isArray(content?.connectors) ? content.connectors : [];
   const freshness = summarizeConnectorFreshness(connectors, now);
-  return { ...summary, unsupportedXlsxFeatures: Array.isArray(content?.unsupportedXlsxFeatures) ? content.unsupportedXlsxFeatures.length : 0, importWarnings: Array.isArray(content?.importWarnings) ? content.importWarnings.length : 0, staleAxosConnectors: freshness.stale + freshness.invalid, score: report.score, findings: report.findings };
+  return { ...summary, ...governance, unsupportedXlsxFeatures: Array.isArray(content?.unsupportedXlsxFeatures) ? content.unsupportedXlsxFeatures.length : 0, importWarnings: Array.isArray(content?.importWarnings) ? content.importWarnings.length : 0, staleAxosConnectors: freshness.stale + freshness.invalid, score: report.score, findings: report.findings };
 }
