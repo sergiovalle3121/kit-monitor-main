@@ -38,3 +38,7 @@ This audit tracks the non-redundancy check for the CAD tree sprint. It is scoped
 ## Current run decision
 
 PR 746 edits `Layout3DEditor.tsx`, `PlantMinimap.tsx`, `ScaleBar.tsx`, and new CAD scale/minimap helpers. This run avoided viewport and editor shell work. The selected improvement extends the existing command registry with a compound flow-line command that is already reachable through the CAD command dock and palette because `Layout3DEditor.tsx` consumes registry commands through `parseCadCommand`, `previewCadCommand`, and `executeCadCommand`.
+
+## Validation center update
+
+The next non-redundant CAD gap selected for PR #796 is visible clearance validation. The clearance helper already existed in `apps/web/src/lib/cad/collisions.ts` and was aggregated by `apps/web/src/lib/cad/validation-report.ts`, but the design-check modal only surfaced collisions and safety-zone issues. The PR wires that existing report into `Layout3DEditor.tsx` so release readiness, highlights, and modal rows share one validation source.

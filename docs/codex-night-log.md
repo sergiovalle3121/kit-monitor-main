@@ -186,3 +186,14 @@
 - Restoring a local snapshot pushes the current layout onto the existing undo stack before applying the snapshot, so recovery remains reversible.
 - Backend versions/scenarios remain unchanged; local snapshots are explicitly session-only and do not add persistence or API calls.
 - Pending: auto-create local snapshots before high-risk DXF conversions/import-object operations once editable DXF object mapping lands.
+
+## 2026-06-29 - Validation center clearance wiring
+
+- Inspected the existing CAD workbench, command engine, validation report, collisions, safety zones, flow optimization, DXF, layers, symbols, measurements, snapshots, route chrome, and design docs.
+- Confirmed no open CAD PRs were present in `gh pr list` during the run.
+- Reused `buildCadValidationReport` instead of adding a second validation path in `Layout3DEditor.tsx`.
+- The design-check modal now shows a CAD validation summary and actionable clearance warning rows.
+- Release readiness and the bottom status bar now include CAD validation severity and clearance counts.
+- Added coverage for clearance warnings in `validation-report.spec.ts`.
+- Added `docs/cad/AXOS_CAD_CAPABILITY_AUDIT.md` and `docs/cad/AXOS_CAD_TREE_STATUS.md`.
+- Pending: add viewport issue badges and zoom-to-issue behavior from the same shared validation report.
