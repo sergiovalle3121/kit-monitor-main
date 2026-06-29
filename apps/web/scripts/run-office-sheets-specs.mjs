@@ -11,6 +11,7 @@ const specs = [
   'src/components/office/sheets/industrialFormulaCatalog.spec.ts',
   'src/lib/office/axosConnectors.spec.ts',
   'src/lib/office/axosConnectorAudit.spec.ts',
+  'src/lib/office/sheetTransforms.spec.ts',
   'src/lib/office/workbookPerformance.spec.ts',
   'src/lib/office/workbookHealth.spec.ts',
   'src/lib/office/workbookHealthSheet.spec.ts',
