@@ -186,3 +186,12 @@
 - Restoring a local snapshot pushes the current layout onto the existing undo stack before applying the snapshot, so recovery remains reversible.
 - Backend versions/scenarios remain unchanged; local snapshots are explicitly session-only and do not add persistence or API calls.
 - Pending: auto-create local snapshots before high-risk DXF conversions/import-object operations once editable DXF object mapping lands.
+
+## 2026-06-29 - CAD shortcut workbench hardening
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, `apps/web/src/lib/cad/commands/**`, route chrome, and open CAD PRs #799/#796/#746.
+- Avoided command-registry expansion, DXF conversion, layers, validation-center internals, viewport/minimap helpers, and workbench shell extraction because open CAD PRs already touch nearby concerns.
+- Expanded the pure CAD keyboard shortcut registry with real workbench actions: aisle, connector, zone, equipment, text, fit view, grid visibility, object snap, validation, and DXF export.
+- Wired `Layout3DEditor.tsx` so matched shortcuts reuse existing toolbar actions, validation, export, grid, and object-snap behavior rather than adding a parallel dispatcher.
+- Added shortcut hints to the toolbar registry and the in-editor help overlay, plus pure shortcut/toolbar smoke coverage.
+- Pending: Enter-to-confirm command previews, clipboard copy/paste, and richer validation issue quick actions after editor-conflict PRs settle.
