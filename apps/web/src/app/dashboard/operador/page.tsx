@@ -679,7 +679,7 @@ function Picker({
 
       <form
         onSubmit={openByWo}
-        className={`${glass} rounded-3xl p-4 mb-8 flex items-center gap-3 ${gloveMode ? "min-h-24" : ""}`}
+        className={`${glass} rounded-3xl p-4 mb-8 flex flex-wrap items-center gap-3 ${gloveMode ? "min-h-24" : ""}`}
       >
         <ScanLine className="w-6 h-6 text-amber-500 flex-shrink-0" />
         <input
@@ -687,7 +687,7 @@ function Picker({
           onChange={(e) => setWo(e.target.value)}
           autoFocus
           placeholder="Escanea / escribe la WO  (ej. 00001)"
-          className="flex-1 bg-transparent outline-none text-2xl font-mono tracking-wide placeholder:text-gray-400"
+          className="min-w-0 flex-1 bg-transparent outline-none text-2xl font-mono tracking-wide placeholder:text-gray-400"
         />
         <button
           type="submit"
