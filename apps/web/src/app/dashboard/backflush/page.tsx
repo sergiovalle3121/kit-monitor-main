@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Loader2, Lock, PackageMinus, ArrowRight, CheckCircle2, AlertTriangle, Boxes, X,
+  RefreshCw, RadioTower, Search, SendHorizontal,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { glass } from '@/lib/glass';
@@ -21,9 +22,52 @@ interface RoutingDetail { id: string; revision: string; material?: Material | nu
 interface BackflushLine { materialId: string; partNumber: string; description: string; qtyPerUnit: number; uom: string; consumeQty: number; }
 interface Preview { routing: { id: string; partNumber: string; revision: string }; operation: { id: string; sequence: number; name: string; workCenter: string | null }; units: number; lines: BackflushLine[]; total: number; }
 interface Report { units: number; operation: { id: string; sequence: number; name: string }; consumed: { partNumber: string; qty: number; uom: string }[]; errors: { partNumber: string; message: string }[]; }
+type OutboxStatus = 'ALL' | 'PENDING' | 'SENT_STUB' | 'ACK' | 'ERROR';
+interface GoodsIssue261Payload { movementType: '261'; idempotencyKey: string; orderFolio: string | null; material: string; quantity: number; plant: string | null; unitSerial?: string | null; }
+interface SapBackflushOutboxItem {
+  id: string;
+  createdAt: string;
+  workOrderId: string;
+  workOrder: string | null;
+  model: string;
+  station: string;
+  part: string | null;
+  units: number;
+  backflushQty: number;
+  operatorEmail: string | null;
+  status: Exclude<OutboxStatus, 'ALL'>;
+  retryable: boolean;
+  payload: GoodsIssue261Payload;
+}
+interface SapBackflushOutboxResponse {
+  items: SapBackflushOutboxItem[];
+  summary: { total: number; pending: number; sentStub: number; acknowledged: number; errors: number };
+}
 
 const field =
   'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30';
+
+const outboxStatusOptions: OutboxStatus[] = ['ALL', 'PENDING', 'SENT_STUB', 'ACK', 'ERROR'];
+const outboxStatusMeta: Record<Exclude<OutboxStatus, 'ALL'>, { label: string; color: string; help: string }> = {
+  PENDING: { label: 'Pendiente', color: '#f59e0b', help: 'Listo para reintento cuando exista conector SAP.' },
+  SENT_STUB: { label: 'Stub', color: '#6366f1', help: 'Contrato generado; SAP real aun no confirmo.' },
+  ACK: { label: 'ACK SAP', color: '#10b981', help: 'Reconocido por el conector SAP.' },
+  ERROR: { label: 'Error', color: '#ef4444', help: 'Requiere reintento o revision.' },
+};
+
+function buildOutboxPath(status: OutboxStatus, workOrder: string) {
+  const params = new URLSearchParams({ limit: '8' });
+  if (status !== 'ALL') params.set('status', status);
+  if (workOrder.trim()) params.set('workOrder', workOrder.trim());
+  return `/operator-terminal/backflush-outbox?${params.toString()}`;
+}
+
+function fmtDate(iso: string) {
+  return new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(iso));
+}
 
 export default function BackflushPage() {
   const toast = useToast();
@@ -38,8 +82,17 @@ export default function BackflushPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [outboxStatus, setOutboxStatus] = useState<OutboxStatus>('ALL');
+  const [outboxWorkOrder, setOutboxWorkOrder] = useState('');
 
   const { data: detail } = useApi<RoutingDetail>(routingId ? `/routing/${routingId}` : null);
+  const outboxPath = useMemo(() => buildOutboxPath(outboxStatus, outboxWorkOrder), [outboxStatus, outboxWorkOrder]);
+  const {
+    data: outbox,
+    isLoading: outboxLoading,
+    error: outboxError,
+    mutate: refreshOutbox,
+  } = useApi<SapBackflushOutboxResponse>(outboxPath);
 
   const routingList = useMemo(() => (Array.isArray(routings) ? routings : []), [routings]);
   const operations = useMemo(() => (detail?.operations ?? []), [detail]);
@@ -88,9 +141,20 @@ export default function BackflushPage() {
 
   return (
     <div className="min-h-screen text-foreground font-sans pb-28">
-      <main className="max-w-3xl mx-auto px-6 pt-10">
+      <main className="max-w-5xl mx-auto px-6 pt-10">
         <PageHeader domain="production" title="Backflush por Ruteo" icon={PackageMinus}
           subtitle="Confirma unidades en una operación y consume del inventario los materiales asignados a esa operación (rt_operation_material × unidades)." />
+
+        <SapOutboxPanel
+          response={outbox}
+          loading={outboxLoading}
+          error={outboxError}
+          status={outboxStatus}
+          setStatus={setOutboxStatus}
+          workOrder={outboxWorkOrder}
+          setWorkOrder={setOutboxWorkOrder}
+          onRefresh={() => refreshOutbox()}
+        />
 
         {!isLoading && routingList.length === 0 && (
           <div className={`${glass} rounded-2xl p-4 mb-6 text-sm text-amber-600 dark:text-amber-400`}>
@@ -216,6 +280,159 @@ export default function BackflushPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function SapOutboxPanel({
+  response,
+  loading,
+  error,
+  status,
+  setStatus,
+  workOrder,
+  setWorkOrder,
+  onRefresh,
+}: {
+  response?: SapBackflushOutboxResponse;
+  loading: boolean;
+  error: unknown;
+  status: OutboxStatus;
+  setStatus: (status: OutboxStatus) => void;
+  workOrder: string;
+  setWorkOrder: (workOrder: string) => void;
+  onRefresh: () => void;
+}) {
+  const items = response?.items ?? [];
+  return (
+    <section className={`${glass} mb-5 overflow-hidden rounded-2xl`}>
+      <div className="border-b border-gray-100 p-5 dark:border-white/10">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <RadioTower className="h-5 w-5 text-indigo-500" />
+              <h2 className="text-lg font-semibold">Contrato SAP 261</h2>
+            </div>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+              Eventos MES de consumo convertidos al payload de goods issue. El
+              estado Stub no postea contra SAP; deja visible el contrato para el
+              conector real.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-600">
+              {response?.summary.pending ?? 0} pendientes
+            </span>
+            <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold text-indigo-600">
+              {response?.summary.sentStub ?? 0} stub
+            </span>
+            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-600">
+              {response?.summary.acknowledged ?? 0} ack
+            </span>
+            <span className="rounded-full bg-rose-500/10 px-3 py-1 text-[11px] font-semibold text-rose-600">
+              {response?.summary.errors ?? 0} error
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[180px_minmax(0,1fr)_auto]">
+          <select
+            className={field}
+            value={status}
+            onChange={(event) => setStatus(event.target.value as OutboxStatus)}
+          >
+            {outboxStatusOptions.map((option) => (
+              <option key={option} value={option}>
+                {option === 'ALL' ? 'Todos los estados' : outboxStatusMeta[option].label}
+              </option>
+            ))}
+          </select>
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <input
+              className={`${field} pl-9`}
+              value={workOrder}
+              onChange={(event) => setWorkOrder(event.target.value)}
+              placeholder="Filtrar por WO o folio"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-black px-4 text-sm font-semibold text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refrescar
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 p-8 text-sm text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Cargando outbox SAP...
+        </div>
+      ) : error ? (
+        <div className="m-5 rounded-2xl bg-rose-500/10 p-4 text-sm text-rose-600">
+          No se pudo cargar el outbox SAP 261.
+        </div>
+      ) : items.length === 0 ? (
+        <div className="p-8 text-center text-sm text-gray-500">
+          No hay eventos de consumo con ese filtro. Confirma produccion desde la
+          terminal MES para generar contratos 261.
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100 dark:divide-white/10">
+          {items.map((item) => (
+            <SapOutboxRow key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SapOutboxRow({ item }: { item: SapBackflushOutboxItem }) {
+  const meta = outboxStatusMeta[item.status];
+  return (
+    <div className="grid gap-3 p-4 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)] lg:items-start">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className="rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-white"
+            style={{ backgroundColor: meta.color }}
+          >
+            {meta.label}
+          </span>
+          {item.retryable && (
+            <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-600">
+              retryable
+            </span>
+          )}
+          <span className="font-mono text-xs text-gray-500">{fmtDate(item.createdAt)}</span>
+        </div>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="font-mono text-base font-semibold">{item.workOrder ?? item.workOrderId}</span>
+          <span className="text-gray-500">{item.model}</span>
+          <span className="text-gray-500">Est. {item.station}</span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+          <span>{item.part ?? item.model}</span>
+          <span>{item.backflushQty} pzas backflush</span>
+          <span>{item.units} unidades buenas</span>
+          {item.operatorEmail && <span>{item.operatorEmail}</span>}
+        </div>
+        <p className="mt-2 text-xs text-gray-500">{meta.help}</p>
+      </div>
+      <div className="rounded-xl bg-gray-950 p-3 text-xs text-gray-100">
+        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          <SendHorizontal className="h-3.5 w-3.5" />
+          Payload MV261
+        </div>
+        <code className="block whitespace-pre-wrap break-all">
+          {JSON.stringify(item.payload, null, 2)}
+        </code>
+      </div>
     </div>
   );
 }

@@ -88,6 +88,40 @@ describe('OperatorTerminalService (integration — the heart)', () => {
     expect(after).toBe(before - 2);
   });
 
+  it('exposes the SAP 261 outbox contract for confirmed backflush events', async () => {
+    const wo = await ready();
+    await op.confirm({
+      woId: wo.id,
+      station: 'EST-10',
+      scannedPart: 'P1',
+      idempotencyKey: 'sap-261-visible',
+      unitSerial: 'SN-261',
+    });
+
+    const outbox = await op.listBackflushOutbox({ status: 'SENT_STUB' });
+
+    expect(outbox.summary.sentStub).toBe(1);
+    expect(outbox.items).toHaveLength(1);
+    expect(outbox.items[0]).toMatchObject({
+      workOrderId: wo.id,
+      workOrder: wo.folio,
+      model: 'M',
+      station: 'EST-10',
+      part: 'P1',
+      status: 'SENT_STUB',
+      retryable: false,
+      payload: {
+        movementType: '261',
+        idempotencyKey: 'sap-261-visible',
+        orderFolio: wo.folio,
+        material: 'P1',
+        quantity: 2,
+        plant: null,
+        unitSerial: 'SN-261',
+      },
+    });
+  });
+
   it('poka-yoke rejects a wrong scanned NP', async () => {
     const wo = await ready();
     await expect(

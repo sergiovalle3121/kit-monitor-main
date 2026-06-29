@@ -22,7 +22,7 @@ import { SfWorkOrder } from '../production-plan/entities/sf-work-order.entity';
 import { MaterialStagingService } from '../material-staging/material-staging.service';
 import { Certification } from '../people/entities/certification.entity';
 import { certStatus } from '../people/cert-status';
-import { SapAdapter } from './sap-adapter';
+import { SapAdapter, buildGoodsIssue261, type GoodsIssue261 } from './sap-adapter';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import {
@@ -55,6 +55,33 @@ export interface WorkContext {
   authorized: boolean;
 }
 
+export interface SapBackflushOutboxItem {
+  id: string;
+  createdAt: string;
+  workOrderId: string;
+  workOrder: string | null;
+  model: string;
+  station: string;
+  part: string | null;
+  units: number;
+  backflushQty: number;
+  operatorEmail: string | null;
+  status: SfConsumptionEvent['outboxStatus'];
+  retryable: boolean;
+  payload: GoodsIssue261;
+}
+
+export interface SapBackflushOutboxResponse {
+  items: SapBackflushOutboxItem[];
+  summary: {
+    total: number;
+    pending: number;
+    sentStub: number;
+    acknowledged: number;
+    errors: number;
+  };
+}
+
 const ANDON_TARGET: Record<string, string> = {
   ANDON_MATERIAL: 'materialist',
   ANDON_QUALITY: 'quality_engineer',
@@ -64,6 +91,13 @@ const ANDON_TARGET: Record<string, string> = {
   DEFECT: 'quality_engineer',
   DOWNTIME: 'production_supervisor',
 };
+
+const OUTBOX_STATUSES: Array<SfConsumptionEvent['outboxStatus']> = [
+  'PENDING',
+  'SENT_STUB',
+  'ACK',
+  'ERROR',
+];
 
 @Injectable()
 export class OperatorTerminalService {
@@ -241,14 +275,7 @@ export class OperatorTerminalService {
     });
     // 11. SAP 261 outbox (stub).
     try {
-      const res = await this.sap.postGoodsIssue261({
-        idempotencyKey: key,
-        orderFolio: wo.folio,
-        material: req.npExpected ?? wo.model,
-        quantity: backflushQty,
-        plant: wo.plant_id,
-        unitSerial: dto.unitSerial ?? null,
-      });
+      const res = await this.sap.postGoodsIssue261(buildGoodsIssue261(event));
       event.outboxStatus = res.stub ? 'SENT_STUB' : 'ACK';
     } catch {
       event.outboxStatus = 'ERROR';
@@ -263,6 +290,62 @@ export class OperatorTerminalService {
     });
 
     return { event: saved, workOrder: updatedWo, blockers: this.plan.runBlockers(updatedWo).blockers };
+  }
+
+  async listBackflushOutbox(filters: {
+    status?: string;
+    workOrder?: string;
+    limit?: number;
+  } = {}): Promise<SapBackflushOutboxResponse> {
+    const status = filters.status?.trim().toUpperCase();
+    if (status && !OUTBOX_STATUSES.includes(status as SfConsumptionEvent['outboxStatus'])) {
+      throw new BadRequestException(`Estado de outbox inválido: ${filters.status}.`);
+    }
+
+    const limit = Math.min(
+      100,
+      Math.max(1, Number.isFinite(filters.limit) ? Number(filters.limit) : 20),
+    );
+    const qb = this.events.createQueryBuilder('e');
+    this.applyScope(qb, 'e');
+    if (status) {
+      qb.andWhere('e.outbox_status = :status', { status });
+    }
+    const workOrder = filters.workOrder?.trim();
+    if (workOrder) {
+      qb.andWhere('(e.wo_id = :workOrder OR e.wo_folio = :workOrder)', { workOrder });
+    }
+
+    const events = await qb.orderBy('e.created_at', 'DESC').take(limit).getMany();
+    const items = events.map((event) => this.toBackflushOutboxItem(event));
+    return {
+      items,
+      summary: {
+        total: items.length,
+        pending: items.filter((item) => item.status === 'PENDING').length,
+        sentStub: items.filter((item) => item.status === 'SENT_STUB').length,
+        acknowledged: items.filter((item) => item.status === 'ACK').length,
+        errors: items.filter((item) => item.status === 'ERROR').length,
+      },
+    };
+  }
+
+  private toBackflushOutboxItem(event: SfConsumptionEvent): SapBackflushOutboxItem {
+    return {
+      id: event.id,
+      createdAt: event.created_at.toISOString(),
+      workOrderId: event.woId,
+      workOrder: event.woFolio,
+      model: event.model,
+      station: event.station,
+      part: event.part,
+      units: Number(event.units) || 0,
+      backflushQty: Number(event.backflushQty) || 0,
+      operatorEmail: event.operatorEmail,
+      status: event.outboxStatus,
+      retryable: event.outboxStatus === 'PENDING' || event.outboxStatus === 'ERROR',
+      payload: buildGoodsIssue261(event),
+    };
   }
 
   // ── Andon / defect / floor events ───────────────────────────────────────────
