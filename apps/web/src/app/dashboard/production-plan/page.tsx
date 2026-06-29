@@ -226,15 +226,28 @@ export default function ProductionPlanPage() {
           <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.14)' }}><Megaphone className="w-5 h-5" style={{ color: VIOLET }} /></span>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold leading-tight">Muro de WOs · tablero operativo</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Planeación publica · operadores, materialistas y supervisión ven el mismo plan en vivo.</p>
+            <h1 className="text-lg font-semibold leading-tight">Muro de WOs · supervisión y secuenciación</h1>
+            <p className="text-[12px] text-gray-400 leading-tight">Tablero de secuenciación, autorización y readiness. La ejecución en piso (consumo y pasos) ocurre en el MES.</p>
           </div>
+          <Link href="/dashboard/operador" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors"><Factory className="w-4 h-4" /> Piso (MES)</Link>
           <Link href="/dashboard/planning" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors"><Layers className="w-4 h-4" /> Planeación</Link>
           <button data-testid="wo-publish-open" onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}><Plus className="w-4 h-4" /> Publicar WO</button>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-6 pt-8 pb-24">
+        {/* Honestidad de carriles: este muro (carril production-plan / SfWorkOrder) es
+            de supervisión/secuenciación. El piso que ejecuta pasos y consume material
+            es el MES (carril plans → mes-execution), en /dashboard/operador. Ver
+            docs/BETA-READINESS-AUDIT.md §1-2 y docs/analysis-planning-cta.md. */}
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300/40 bg-amber-50/60 dark:bg-amber-500/10 px-4 py-3 text-[13px] text-foreground">
+          <Activity className="w-4 h-4 mt-0.5 shrink-0" style={{ color: AMBER }} />
+          <p className="leading-snug">
+            Vista de <strong>supervisión y secuenciación</strong>. La ejecución real en piso
+            —montar la orden, ejecutar pasos de ruteo y consumir material— se hace en el{' '}
+            <Link href="/dashboard/operador" className="font-medium underline underline-offset-2">terminal de operador (MES)</Link>.
+          </p>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           <Kpi label="WO abiertas" value={kpis?.open ?? 0} color={VIOLET} />
           <Kpi label="En ejecución" value={kpis?.inExecution ?? 0} color={BLUE} />

@@ -43,7 +43,7 @@ export const AREAS: DashboardArea[] = [
 
   // ── Planeación ──
   { name: "Planeación", desc: "Publicar planes", href: "/dashboard/planning", icon: LineChart, domain: "planning", roles: ["planner"], section: "Planeación" },
-  { name: "Muro del plan", desc: "Publicar WOs en vivo", href: "/dashboard/production-plan", icon: Megaphone, domain: "plan", roles: ["planner", "production_supervisor", "operator", "materialist"], section: "Planeación" },
+  { name: "Muro del plan", desc: "Supervisión y secuenciación de WOs", href: "/dashboard/production-plan", icon: Megaphone, domain: "plan", roles: ["planner", "production_supervisor", "operator", "materialist"], section: "Planeación" },
   { name: "MRP · Requerimiento neto", desc: "Demanda vs existencias → órdenes", href: "/dashboard/mrp", icon: Icons.Calculator, domain: "planning", roles: ["planner", "buyer", "production_supervisor", "materialist"], section: "Planeación" },
   { name: "Pronóstico", desc: "Demanda Monte Carlo (P10/P50/P90)", href: "/dashboard/forecast", icon: Icons.TrendingUp, domain: "planning", roles: ["planner", "finance", "production_supervisor"], section: "Planeación" },
   { name: "Compras · Procurement", desc: "Órdenes de compra y OTD", href: "/dashboard/procurement", icon: Icons.ShoppingCart, domain: "planning", roles: ["buyer", "planner"], section: "Planeación" },
