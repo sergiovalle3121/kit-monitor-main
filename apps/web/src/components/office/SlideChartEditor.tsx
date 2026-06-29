@@ -3,8 +3,19 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Plus, Trash2, BarChart3, BarChart2, LineChart, AreaChart, PieChart, CircleDashed, ChartNoAxesCombined, CandlestickChart, Gauge, ScatterChart, Radar } from 'lucide-react';
+import {
+  X, Plus, Trash2, BarChart3, BarChart2, LineChart, AreaChart, PieChart, CircleDashed,
+  ChartNoAxesCombined, CandlestickChart, Gauge, ScatterChart, Radar, Search, AlertTriangle,
+} from 'lucide-react';
 import { CHART_TYPES, CHART_PALETTES, buildChartGroup, type ChartSpec, type ChartType } from './slides/chart';
+import {
+  CHART_PRESET_CATEGORIES,
+  chartPresetCategoryLabel,
+  chartPresetToSpec,
+  chartTypePptxNote,
+  filterSlideChartPresets,
+  type ChartPresetCategory,
+} from './slides/chartPresets';
 
 const TYPE_ICON: Record<ChartType, any> = { bar: BarChart3, hbar: BarChart2, line: LineChart, area: AreaChart, pie: PieChart, doughnut: CircleDashed, scatter: ScatterChart, bubble: CircleDashed, radar: Radar, pareto: ChartNoAxesCombined, waterfall: CandlestickChart, gauge: Gauge };
 
@@ -14,10 +25,14 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
 }) {
   const [spec, setSpec] = useState<ChartSpec>(() => clone(initial));
   const [preview, setPreview] = useState('');
+  const [presetQuery, setPresetQuery] = useState('');
+  const [presetCategory, setPresetCategory] = useState<ChartPresetCategory | 'all'>('all');
 
   const rows = spec.labels.length;
   const cols = spec.series.length;
   const paletteId = CHART_PALETTES.find((p) => p.colors[0] === spec.palette?.[0])?.id ?? 'Marca';
+  const presetMatches = useMemo(() => filterSlideChartPresets({ query: presetQuery, category: presetCategory }), [presetQuery, presetCategory]);
+  const pptxNote = useMemo(() => chartTypePptxNote(spec.type), [spec.type]);
 
   // Vista previa (rasteriza el gráfico fuera de pantalla, con rebote).
   useEffect(() => {
@@ -48,6 +63,10 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
   function removeRow() { setSpec((s) => (s.labels.length <= 1 ? s : { ...s, labels: s.labels.slice(0, -1), series: s.series.map((x) => ({ ...x, data: x.data.slice(0, -1) })) })); }
   function addCol() { setSpec((s) => ({ ...s, series: [...s.series, { name: `Serie ${s.series.length + 1}`, data: s.labels.map(() => 0) }] })); }
   function removeCol() { setSpec((s) => (s.series.length <= 1 ? s : { ...s, series: s.series.slice(0, -1) })); }
+  function applyPreset(id: string) {
+    const next = chartPresetToSpec(id);
+    if (next) setSpec(next);
+  }
 
   const cell = 'w-full h-8 px-2 text-sm rounded-md bg-black/[0.03] dark:bg-white/[0.05] border border-transparent focus:border-blue-500/50 outline-none text-foreground';
 
@@ -65,6 +84,54 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+          <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.015] dark:bg-white/[0.03] p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Presets industriales</p>
+                <p className="text-[11px] text-gray-400">Datos de ejemplo editables para reviews AXOS.</p>
+              </div>
+              <span className="rounded-full bg-black/5 dark:bg-white/10 px-2 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-300">{presetMatches.length} presets</span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label className="relative min-w-[180px] flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-gray-400" />
+                <input value={presetQuery} onChange={(e) => setPresetQuery(e.target.value)} placeholder="Buscar OEE, Pareto, supplier..."
+                  className="h-8 w-full rounded-lg border border-transparent bg-white/80 pl-8 pr-3 text-xs outline-none focus:border-blue-500/50 dark:bg-white/[0.06]" />
+              </label>
+              <select value={presetCategory} onChange={(e) => setPresetCategory(e.target.value as ChartPresetCategory | 'all')}
+                className="h-8 rounded-lg border border-transparent bg-white/80 px-2 text-xs outline-none focus:border-blue-500/50 dark:bg-white/[0.06]">
+                <option value="all">Todas</option>
+                {CHART_PRESET_CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
+              </select>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {presetMatches.map((preset) => {
+                const Icon = TYPE_ICON[preset.spec.type];
+                return (
+                  <button key={preset.id} type="button" onClick={() => applyPreset(preset.id)}
+                    className="group rounded-lg border border-black/10 bg-white/75 p-3 text-left transition-colors hover:border-blue-500/40 hover:bg-blue-50/70 dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-blue-400/40 dark:hover:bg-blue-500/10">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{preset.label}</p>
+                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{preset.description}</p>
+                      </div>
+                      <Icon className="h-4 w-4 flex-shrink-0 text-blue-500" />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-white/10 dark:text-gray-300">{chartPresetCategoryLabel(preset.category)}</span>
+                      <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-white/10 dark:text-gray-300">{preset.spec.type}</span>
+                      <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-white/10 dark:text-gray-300">{preset.useCase}</span>
+                    </div>
+                  </button>
+                );
+              })}
+              {!presetMatches.length && (
+                <div className="sm:col-span-2 rounded-lg border border-dashed border-black/10 px-3 py-4 text-center text-xs text-gray-400 dark:border-white/10">
+                  No hay presets para ese filtro.
+                </div>
+              )}
+            </div>
+          </div>
           {/* Tipo + título */}
           <div className="flex flex-wrap items-center gap-2">
             {CHART_TYPES.map((t) => {
@@ -93,10 +160,16 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
               {CHART_PALETTES.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
             </select>
           </div>
+          <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" /> {pptxNote}
+          </p>
 
           {/* Vista previa */}
           <div className="rounded-xl bg-gray-50 dark:bg-black/30 border border-black/5 dark:border-white/10 flex items-center justify-center p-2" style={{ minHeight: 170 }}>
-            {preview ? <img src={preview} alt="Vista previa" className="max-h-[210px] w-auto" /> : <span className="text-sm text-gray-400">Generando vista previa…</span>}
+            {preview ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Chart preview is a client-generated Fabric data URL.
+              <img src={preview} alt="Vista previa" className="max-h-[210px] w-auto" />
+            ) : <span className="text-sm text-gray-400">Generando vista previa…</span>}
           </div>
           {pieNote && <p className="text-xs text-amber-600 dark:text-amber-400">Este tipo usa sólo la primera serie de datos.</p>}
 
