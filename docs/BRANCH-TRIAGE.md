@@ -229,3 +229,28 @@ una herramienta de borrado de rama/ref. **No se borró ninguna rama.**
 - **🟡 De Codex (en vuelo)**: 15 PRs abiertos no-RED → §4 (no tocar).
 - **⏸️ Sólo en staging**: `npi-gate-foundation`, `npi-phase-2`, `pensive-maxwell-ec81j2`,
   `wizardly-carson-ijf144`, `integration/unify-office-into-staging`.
+
+---
+
+## 8. Fase de merges ejecutada (sesión del 29-jun)
+
+`main` estuvo **estático ~7h** (Codex pausó el auto-merge), así que se ejecutaron
+los merges verdes **seguros** vía API de GitHub (squash), cada uno detrás de su
+gate de CI (`Build · Test · Lint · Smoke` ✅) y verificado frontend-only + no-RED +
+sin conflictos:
+
+| PR | Feature | Archivos | Resultado |
+|---|---|---|---|
+| **#765** | Sheets: slicers + timeline filters | `office/SheetEditor`, `sheets/slicer*` | ✅ **merged** (`c357987`) |
+| **#789** | Materials: cola de surtido a staging | `material-staging/*` | ✅ **merged** (`e92c58e`) |
+| **#794** | CAD: command templates / flow-line | `lib/cad/commands/*` | ✅ **merged** (`06c1450`) |
+
+### No mergeados (con motivo)
+
+- **🔴 RED (regla de oro)** — `#762`, `#786` → cuarentena (ver §2; riesgo verificado bajo, pero requieren ojo humano por tocar `*.entity.ts` / `synchronize`).
+- **🟠 Backend (fuera de alcance)** — `#751, #777, #778, #779, #781, #783, #784, #785, #787, #791, #793` tocan `apps/api/**`; esta tarea sólo mergea frontend. Son backlog de Codex.
+- **⚠️ Operador (trío solapado)** — `#782, #788, #790` editan los MISMOS archivos (`operador/page.tsx`, `operator-terminal.utils.ts`) con implementaciones que se solapan/compiten de la confirmación del terminal (#782 ya añade `confirmStop`/`ConfirmationReview`). Elegir la canónica es decisión de producto del owner/Codex → no se mergea a ciegas. Tras elegir una, las otras requieren rebase.
+- **❌ Conflictos** — `#753` (approval-signoff) no mergea limpio contra `main` → necesita rebase.
+- **Drafts** — `#746`, `#780` (mío), `#792` (este).
+
+**Total esta sesión: 3 PRs verdes mergeados, 0 violaciones de la regla de oro, 0 a `main` por fuera de merges aprobados.**
