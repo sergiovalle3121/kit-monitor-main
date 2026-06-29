@@ -15,7 +15,8 @@
 export type DocType = 'doc' | 'sheet' | 'slides';
 
 import type { ChartConfig } from './charts';
-import { buildPivot, pivotToCelldata, type PivotConfig } from './sheetOps';
+import { AXOS_CONNECTOR_BY_TYPE, connectorProtectionFor, createAxosConnectorInstance } from './axosConnectors';
+import { buildDataVerification, buildPivot, pivotToCelldata, type PivotConfig } from './sheetOps';
 
 export interface TemplateDef {
   id: string;
@@ -886,6 +887,9 @@ function bookWithCharts(sheets: any[], charts: ChartConfig[]): { sheets: any[]; 
 function bookWithPivots(sheets: any[], pivots: { id: string; config: PivotConfig; sheetName: string }[]): { sheets: any[]; pivots: { id: string; config: PivotConfig; sheetName: string }[] } {
   return { sheets, pivots };
 }
+function bookWithIndustrialMetadata(sheets: any[], metadata: Record<string, any>): { sheets: any[] } & Record<string, any> {
+  return { sheets, ...metadata };
+}
 function appendPivotSheet(sheets: any[], name: string, cfg: PivotConfig, id: string): { id: string; config: PivotConfig; sheetName: string } | null {
   const src = sheets[cfg.sheetIndex];
   const res = buildPivot(src, cfg);
@@ -897,6 +901,116 @@ function appendPivotSheet(sheets: any[], name: string, cfg: PivotConfig, id: str
 const chart = (id: string, title: string, type: ChartConfig['type'], range: string, extra: Partial<ChartConfig> = {}): ChartConfig => ({
   id, title, type, range, sheetIndex: 0, legend: 'bottom', palette: 'brand', ...extra,
 });
+
+function buildMrpShortagesControlRoom() {
+  const connectorType = 'mrp_shortages' as const;
+  const connectorDef = AXOS_CONNECTOR_BY_TYPE[connectorType];
+  const connector = createAxosConnectorInstance(connectorType, 1, 'A1:G5', new Date('2026-06-29T00:00:00.000Z'));
+  const connectorProtection = connectorProtectionFor(connector);
+  const connectorRows = connectorDef.rows;
+  const rawRows: CellSpec[][] = [
+    [...connectorDef.headers.map((header) => H(header)), H('Coverage %', 'r'), H('Action'), H('Priority')],
+    [
+      ...connectorRows[0],
+      { f: '=IFERROR((C2+D2)/B2,0)', v: 0.75, fa: PCT },
+      { f: '=IF(E2>0,"Expedite","Ready")', v: 'Expedite', t: 's' },
+      { f: '=IF(E2/B2>0.25,"Critical",IF(E2>0,"Watch","Ready"))', v: 'Watch', t: 's' },
+    ],
+    [
+      ...connectorRows[1],
+      { f: '=IFERROR((C3+D3)/B3,0)', v: 0.45, fa: PCT },
+      { f: '=IF(E3>0,"Expedite","Ready")', v: 'Expedite', t: 's' },
+      { f: '=IF(E3/B3>0.25,"Critical",IF(E3>0,"Watch","Ready"))', v: 'Critical', t: 's' },
+    ],
+    [
+      ...connectorRows[2],
+      { f: '=IFERROR((C4+D4)/B4,0)', v: 0.8, fa: PCT },
+      { f: '=IF(E4>0,"Expedite","Ready")', v: 'Expedite', t: 's' },
+      { f: '=IF(E4/B4>0.25,"Critical",IF(E4>0,"Watch","Ready"))', v: 'Watch', t: 's' },
+    ],
+    [
+      ...connectorRows[3],
+      { f: '=IFERROR((C5+D5)/B5,0)', v: 0.71875, fa: PCT },
+      { f: '=IF(E5>0,"Expedite","Ready")', v: 'Expedite', t: 's' },
+      { f: '=IF(E5/B5>0.25,"Critical",IF(E5>0,"Watch","Ready"))', v: 'Critical', t: 's' },
+    ],
+  ];
+  const sheets = buildBook([
+    {
+      name: 'MRP Dashboard', freeze: true,
+      widths: { 0: 210, 1: 130, 2: 220, 3: 150 },
+      rows: [
+        [H('Signal'), H('Value', 'r'), H('Rule / source'), H('Status')],
+        ['Total shortage qty', { f: "=SUM('MRP Raw'!E2:E5)", v: 509, fa: NUM }, 'Sum of governed MRP connector shortage column', 'Review daily'],
+        ['Critical shortage SKUs', { f: '=COUNTIF(\'MRP Raw\'!J2:J5,"Critical")', v: 2, fa: NUM }, 'Priority helper generated beside connector table', 'Escalate'],
+        ['Average coverage', { f: "=AVERAGE('MRP Raw'!H2:H5)", v: 0.679688, fa: PCT }, 'Available + incoming divided by demand', 'Below target'],
+        ['Open expedite actions', { f: '=COUNTIF(\'MRP Raw\'!I2:I5,"Expedite")', v: 4, fa: NUM }, 'Rows still requiring buyer action', 'Owner required'],
+        ['Buyer load balance', { f: '=COUNTA(\'MRP Raw\'!G2:G5)', v: 4, fa: NUM }, 'Distinct owner rows in current connector extract', 'Check assignments'],
+        [TOT('Workbook decision'), '', 'Use this dashboard before committing production plan changes.', 'Do not publish if stale'],
+      ],
+    },
+    {
+      name: 'MRP Raw', freeze: true,
+      widths: { 0: 120, 1: 90, 2: 100, 3: 90, 4: 90, 5: 130, 6: 110, 7: 110, 8: 110, 9: 100 },
+      rows: rawRows,
+    },
+    {
+      name: 'Actions', freeze: true,
+      widths: { 0: 120, 1: 130, 2: 110, 3: 130, 4: 110, 5: 240 },
+      rows: [
+        [H('SKU'), H('Buyer'), H('Priority'), H('Due date'), H('Status'), H('Action note')],
+        ['PCB-DRV-01', 'Ana', 'Watch', '2026-07-01', 'Open', 'Confirm PO pull-in or alternate allocation.'],
+        ['HARNESS-08', 'Luis', 'Critical', '2026-07-02', 'Open', 'Escalate supplier expedite and line-side substitution.'],
+        ['COVER-ABS', 'Mia', 'Watch', '2026-07-05', 'Open', 'Check incoming shipment confidence before release.'],
+        ['SENSOR-T', 'Noah', 'Critical', '2026-07-06', 'Open', 'Launch buyer recovery plan and update planner.'],
+      ],
+    },
+    {
+      name: 'Assumptions', freeze: true,
+      widths: { 0: 190, 1: 420 },
+      rows: [
+        [H('Control'), H('Value')],
+        ['Connector', connectorDef.label],
+        ['Contract status', 'Contract pending starter table; no ERP/MES success is simulated.'],
+        ['Refresh policy', connectorDef.refreshPolicy],
+        ['Protected range', connector.range],
+        ['Formula area', 'H:J on MRP Raw stays editable and is preserved around connector refresh.'],
+        ['Publish rule', 'Refresh connector and resolve critical rows before export or approval.'],
+      ],
+    },
+  ]);
+
+  sheets[1].axosProtection = { ranges: [connectorProtection] };
+  const actionStatus = buildDataVerification({ type: 'dropdown', value1: 'Open,In progress,Blocked,Closed', prohibitInput: true, hintText: 'Use a governed action status.' });
+  const priority = buildDataVerification({ type: 'dropdown', value1: 'Critical,Watch,Ready', prohibitInput: true, hintText: 'Align priority with MRP Raw helper formulas.' });
+  sheets[2].dataVerification = {
+    '1_2': priority, '2_2': priority, '3_2': priority, '4_2': priority,
+    '1_4': actionStatus, '2_4': actionStatus, '3_4': actionStatus, '4_4': actionStatus,
+  };
+
+  return bookWithIndustrialMetadata(sheets, {
+    connectors: [connector],
+    tables: [{ name: 'MRP_SHORTAGES', sheetIndex: 1, range: 'A1:J5' }],
+    names: [
+      { name: 'MRP_SHORTAGE_QTY', sheetIndex: 1, range: 'E2:E5' },
+      { name: 'MRP_COVERAGE', sheetIndex: 1, range: 'H2:H5' },
+      { name: 'MRP_ACTIONS', sheetIndex: 2, range: 'A1:F5' },
+    ],
+    charts: [
+      chart('tpl_mrp_shortage_qty', 'MRP shortage by SKU', 'bar', 'A1:E5', { sheetIndex: 1, yTitle: 'Shortage qty', palette: 'sunset' }),
+      chart('tpl_mrp_coverage', 'MRP coverage by SKU', 'line', 'A1:H5', { sheetIndex: 1, yTitle: 'Coverage', palette: 'forest' }),
+    ],
+    comments: [{
+      id: 'sc_tpl_mrp_contract',
+      sheetIndex: 3,
+      range: 'A3',
+      text: 'This workbook uses the existing MRP shortages connector metadata. Replace starter rows through governed AXOS connector refresh when the tenant-safe endpoint is live.',
+      author: 'AXOS',
+      createdAt: '2026-06-29T00:00:00.000Z',
+    }],
+    printLayout: { orientation: 'landscape', paperSize: 'Letter', printArea: 'A1:D7', fitToWidth: true, fitToPage: false, showGridlines: false },
+  });
+}
 
 // Styled header cell (dark band + white bold) for a "designed" look out of the box.
 const H = (v: string, a: 'l' | 'c' | 'r' = 'l'): CellSpec => ({ v, b: true, bg: '#1f2937', fc: '#ffffff', a });
@@ -1115,6 +1229,12 @@ const SHEET_TEMPLATES: TemplateDef[] = [
         chart('tpl_supplier_radar', 'Supplier capabilities', 'radar', 'A1:E4', { legend: 'right', palette: 'brand' }),
       ]);
     },
+  },
+
+
+  {
+    id: 'mrp-shortages-control-room', title: 'MRP Shortages Control Room', description: 'Dashboard conectado al conector MRP: faltantes, cobertura, acciones y readiness de exportación.', category: 'Manufactura / MES', accent: '#dc2626',
+    build: buildMrpShortagesControlRoom,
   },
 
 
