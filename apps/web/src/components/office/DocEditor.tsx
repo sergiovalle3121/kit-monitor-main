@@ -59,7 +59,7 @@ import { SearchHighlight } from './docs/searchHighlight';
 import { MathInline, MathBlock, MathCommands } from './docs/mathExtension';
 import { FootnoteRef, FootnoteList, EndnoteRef, EndnoteList } from './docs/footnotes';
 import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef, AxosRef, DocField } from './docs/insertNodes';
-import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
+import { InsertionMark, DeletionMark, FormatChangeMark, TrackChanges } from './docs/trackChanges';
 import { FocusLine } from './docs/focusLine';
 import { SignatureLine } from './docs/signatureLine';
 import { Citation, Bibliography } from './docs/citations';
@@ -178,6 +178,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       DocField,
       InsertionMark,
       DeletionMark,
+      FormatChangeMark,
       TrackChanges.configure({ author: author ?? '' }),
       FocusLine,
       SignatureLine,

@@ -1,5 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
+import { Brackets, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { LedgerEvent, EventDomain } from './entities/ledger-event.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
@@ -14,7 +19,7 @@ export interface CreateLedgerEventDto {
   action: string;
   referenceType?: string;
   referenceId?: string;
-  
+
   plant?: string;
   warehouse?: string;
   line?: string;
@@ -46,6 +51,34 @@ export interface CreateLedgerEventDto {
   };
 }
 
+export interface QueryLedgerEventsDto {
+  actor?: string;
+  actorId?: string;
+  actorName?: string;
+  domain?: string;
+  action?: string;
+  referenceType?: string;
+  referenceId?: string;
+  workOrder?: string;
+  from?: string;
+  to?: string;
+  page?: string | number;
+  pageSize?: string | number;
+  limit?: string | number;
+}
+
+export interface LedgerEventQueryResult {
+  items: LedgerEvent[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
 @Injectable()
 export class EventLedgerService {
   private readonly logger = new Logger(EventLedgerService.name);
@@ -64,6 +97,46 @@ export class EventLedgerService {
     if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
     else qb.andWhere(`${alias}.tenant_id IS NULL`);
     return qb;
+  }
+
+  private scalar(value: unknown): string | undefined {
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (raw === undefined || raw === null) return undefined;
+    const text = String(raw).trim();
+    return text.length > 0 ? text : undefined;
+  }
+
+  private boundedInt(
+    value: unknown,
+    fallback: number,
+    min: number,
+    max: number,
+  ): number {
+    const raw = this.scalar(value);
+    if (!raw) return fallback;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(Math.max(Math.trunc(n), min), max);
+  }
+
+  private parseDate(value: unknown, name: string): Date | undefined {
+    const raw = this.scalar(value);
+    if (!raw) return undefined;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException(`${name} must be a valid ISO-8601 date`);
+    }
+    return date;
+  }
+
+  private normalizeDomain(value: unknown): EventDomain | undefined {
+    const raw = this.scalar(value);
+    if (!raw) return undefined;
+    const domain = raw.toUpperCase();
+    if (!Object.values(EventDomain).includes(domain as EventDomain)) {
+      throw new BadRequestException(`Unsupported ledger domain: ${raw}`);
+    }
+    return domain as EventDomain;
   }
 
   async recordEvent(dto: CreateLedgerEventDto): Promise<LedgerEvent> {
@@ -106,7 +179,81 @@ export class EventLedgerService {
     });
   }
 
-  async getEventsByReference(referenceType: string, referenceId: string): Promise<LedgerEvent[]> {
+  async queryEvents(
+    query: QueryLedgerEventsDto = {},
+  ): Promise<LedgerEventQueryResult> {
+    const page = this.boundedInt(query.page, 1, 1, 10_000);
+    const pageSize = this.boundedInt(query.pageSize ?? query.limit, 50, 1, 200);
+    const domain = this.normalizeDomain(query.domain);
+    const actor = this.scalar(query.actor);
+    const actorId = this.scalar(query.actorId);
+    const actorName = this.scalar(query.actorName);
+    const action = this.scalar(query.action);
+    const referenceType = this.scalar(query.referenceType)?.toUpperCase();
+    const referenceId = this.scalar(query.referenceId);
+    const workOrder = this.scalar(query.workOrder);
+    const from = this.parseDate(query.from, 'from');
+    const to = this.parseDate(query.to, 'to');
+
+    if (from && to && from.getTime() > to.getTime()) {
+      throw new BadRequestException('from must be earlier than or equal to to');
+    }
+
+    const qb = this.ledgerRepository
+      .createQueryBuilder('event')
+      .orderBy('event.timestamp', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
+
+    this.applyScope(qb, 'event');
+
+    if (domain) qb.andWhere('event.domain = :domain', { domain });
+    if (action) qb.andWhere('event.action = :action', { action });
+    if (referenceType)
+      qb.andWhere('event.referenceType = :referenceType', { referenceType });
+    if (referenceId)
+      qb.andWhere('event.referenceId = :referenceId', { referenceId });
+    if (workOrder) qb.andWhere('event.workOrder = :workOrder', { workOrder });
+    if (actorId) qb.andWhere('event.actorId = :actorId', { actorId });
+    if (actorName) {
+      qb.andWhere('LOWER(event.actorName) LIKE :actorName', {
+        actorName: `%${actorName.toLowerCase()}%`,
+      });
+    }
+    if (actor) {
+      qb.andWhere(
+        new Brackets((scoped) => {
+          scoped
+            .where('event.actorId = :actor', { actor })
+            .orWhere('LOWER(event.actorName) LIKE :actorLike', {
+              actorLike: `%${actor.toLowerCase()}%`,
+            });
+        }),
+      );
+    }
+    if (from) qb.andWhere('event.timestamp >= :from', { from });
+    if (to) qb.andWhere('event.timestamp <= :to', { to });
+
+    const [items, total] = await qb.getManyAndCount();
+    const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+
+    return {
+      items,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async getEventsByReference(
+    referenceType: string,
+    referenceId: string,
+  ): Promise<LedgerEvent[]> {
     return this.ledgerRepository.find({
       where: { referenceType, referenceId },
       order: { timestamp: 'DESC' },

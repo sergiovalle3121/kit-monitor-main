@@ -13,8 +13,9 @@ const workbook: any = {
     { r: 1, c: 0, v: { f: '=SUM(A1:B1)', v: 30, m: '30' } },
   ], dataVerification: { A1: { type: 'number' } }, config: { merge: { A3: { r: 2, c: 0, rs: 1, cs: 2 } } }, axosProtection: { ranges: [{ range: 'A1:B1', locked: true }] } }],
   charts: [{ id: 'c1' }], pivots: [{ id: 'p1' }], names: [{ name: 'Revenue', range: 'Ops!A1:B1' }],
-  comments: [{ id: 'cm1', sheetIndex: 0, range: 'A1:B1', resolved: false }],
-  connectors: [{ id: 'x1', type: 'inventory_snapshot', label: 'Inventory', sheetIndex: 0, range: 'A1:G5', lastRefreshedAt: '2026-06-28T00:00:00.000Z', readOnly: true }],
+  comments: [{ id: 'cm1', sheetIndex: 0, range: 'A1:B1', resolved: false, assignee: 'QA' }, { id: 'cm2', sheetIndex: 0, range: 'A2', resolved: true }],
+  approvals: [{ status: 'pending' }, { status: 'approved' }], exportWarnings: ['controlled copy watermark missing'], sharedWith: [{ email: 'qa@example.com', access: 'view' }],
+  connectors: [{ id: 'x1', type: 'inventory_snapshot', label: 'Inventory', sheetIndex: 0, range: 'A1:G5', lastRefreshedAt: '2026-06-28T00:00:00.000Z', readOnly: true, status: 'failed', lastError: 'Timeout' }],
 };
 
 eq(formatSheetRange({ r1: 0, c1: 0, r2: 9, c2: 2 }), 'A1:C10', 'formatea rango A1');
@@ -32,8 +33,18 @@ eq(summary.charts, 1, 'summary charts');
 eq(summary.pivots, 1, 'summary pivots');
 eq(summary.validations, 1, 'summary validations');
 eq(summary.protectedRanges, 1, 'summary protection');
+eq(summary.protectedSheets, 0, 'summary hojas protegidas');
+eq(summary.unprotectedFormulas, 1, 'summary fórmulas sin proteger');
+eq(summary.failedQueries, 1, 'summary consultas fallidas');
 const health = deriveWorkbookHealth(workbook, new Date('2026-06-28T01:00:00.000Z'));
 eq(health.connectors, 1, 'health conectores');
+eq(health.openComments, 1, 'health comentarios abiertos');
+eq(health.resolvedComments, 1, 'health comentarios resueltos');
+eq(health.assignedComments, 1, 'health comentarios asignados');
+eq(health.pendingApprovals, 1, 'health aprobaciones pendientes');
+eq(health.exportWarnings, 1, 'health export warnings');
+eq(health.sharingStatus, 'shared', 'health sharing status');
+ok(health.findings.some((f) => f.code === 'failed-queries'), 'health consultas fallidas');
 ok(health.score <= 100, 'health score válido');
 const compat = scanXlsxCompatibility({ ...workbook, macros: true, unsupportedXlsxFeatures: ['ole'] });
 ok(compat.features.some((f) => f.key === 'macros' && f.severity === 'unsupported'), 'detecta macros no soportadas');

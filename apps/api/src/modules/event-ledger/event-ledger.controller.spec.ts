@@ -1,30 +1,66 @@
 import { EventLedgerController } from './event-ledger.controller';
 import { EventLedgerService } from './event-ledger.service';
 
-/**
- * Unit del controller del Event Ledger con el servicio simulado. Verifica que
- * `reference/:type/:id` normaliza el tipo a MAYÚSCULAS y que `work-order/:wo`
- * delega tal cual.
- */
 describe('EventLedgerController', () => {
   let controller: EventLedgerController;
-  let service: { getEventsByReference: jest.Mock; getEventsByWorkOrder: jest.Mock };
+  let service: {
+    findRecent: jest.Mock;
+    queryEvents: jest.Mock;
+    getEventsByReference: jest.Mock;
+    getEventsByWorkOrder: jest.Mock;
+  };
 
   beforeEach(() => {
     service = {
+      findRecent: jest.fn().mockResolvedValue([{ id: 'e0' }]),
+      queryEvents: jest.fn().mockResolvedValue({
+        items: [{ id: 'e1' }],
+        pagination: {
+          page: 1,
+          pageSize: 50,
+          total: 1,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      }),
       getEventsByReference: jest.fn().mockResolvedValue([{ id: 'e1' }]),
       getEventsByWorkOrder: jest.fn().mockResolvedValue([{ id: 'e2' }]),
     };
-    controller = new EventLedgerController(service as unknown as EventLedgerService);
+    controller = new EventLedgerController(
+      service as unknown as EventLedgerService,
+    );
   });
 
-  it('getByReference normaliza el tipo a mayúsculas', async () => {
+  it('list sanitizes limit and delegates to the recent feed', async () => {
+    const res = await controller.list('25');
+    expect(service.findRecent).toHaveBeenCalledWith(25);
+    expect(res).toEqual([{ id: 'e0' }]);
+  });
+
+  it('query delegates composable filters to the service', async () => {
+    const res = await controller.query({
+      domain: 'production',
+      referenceType: 'work_order',
+      referenceId: 'WO-123',
+      page: '2',
+    });
+    expect(service.queryEvents).toHaveBeenCalledWith({
+      domain: 'production',
+      referenceType: 'work_order',
+      referenceId: 'WO-123',
+      page: '2',
+    });
+    expect(res.items).toEqual([{ id: 'e1' }]);
+  });
+
+  it('getByReference uppercases the reference type', async () => {
     const res = await controller.getByReference('kit', 'K-1');
     expect(service.getEventsByReference).toHaveBeenCalledWith('KIT', 'K-1');
     expect(res).toEqual([{ id: 'e1' }]);
   });
 
-  it('getByWorkOrder delega el folio sin transformar', async () => {
+  it('getByWorkOrder delegates the WO unchanged', async () => {
     const res = await controller.getByWorkOrder('WO-123');
     expect(service.getEventsByWorkOrder).toHaveBeenCalledWith('WO-123');
     expect(res).toEqual([{ id: 'e2' }]);

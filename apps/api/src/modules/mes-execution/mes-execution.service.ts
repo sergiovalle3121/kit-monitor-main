@@ -25,7 +25,11 @@ import { ExecutionStepMaterial } from './entities/execution-step-material.entity
 import { ExecutionEvent } from './entities/execution-event.entity';
 import { StationIncident } from './entities/station-incident.entity';
 import { AndonCall } from './entities/andon-call.entity';
-import { MesDowntime, DowntimeReason } from './entities/mes-downtime.entity';
+import {
+  DOWNTIME_REASONS,
+  MesDowntime,
+  DowntimeReason,
+} from './entities/mes-downtime.entity';
 import { StationAssignment } from './entities/station-assignment.entity';
 
 import { Plan } from '../plans/entities/plan.entity';
@@ -72,6 +76,7 @@ const MES_ANDON_TYPES = [
   'engineering',
   'tooling',
 ] as const;
+const DOWNTIME_REASON_SET = new Set<string>(DOWNTIME_REASONS);
 const REVERT_WINDOW_MS = 180_000; // 3 min undo window for a confirmed advance
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
 
@@ -1136,6 +1141,15 @@ export class MesExecutionService {
     if (!MES_ANDON_TYPES.includes(dto.type)) {
       throw new BadRequestException('type de andon inválido.');
     }
+    if (dto.downtimeReason && dto.type !== 'stop') {
+      throw new BadRequestException('downtimeReason solo aplica a paros de línea.');
+    }
+    if (dto.type === 'stop' && !dto.downtimeReason) {
+      throw new BadRequestException('Selecciona un código de razón antes de detener la línea.');
+    }
+    if (dto.downtimeReason && !DOWNTIME_REASON_SET.has(dto.downtimeReason)) {
+      throw new BadRequestException('Código de razón de paro inválido.');
+    }
     const execution = await this.findExecution(executionId);
     const raisedBy = dto.raisedBy || actor;
     let execStep: ExecutionStep | null = null;
@@ -1157,11 +1171,31 @@ export class MesExecutionService {
     );
 
     if (dto.type === 'stop') {
-      await this.openDowntime(executionId, execStep?.id ?? null, 'andon_stop', {
-        triggeredBy: raisedBy,
-        andonId: andon.id,
-        notes: dto.note ?? null,
-      });
+      const downtimeReason = dto.downtimeReason as DowntimeReason;
+      const downtime = await this.openDowntime(
+        executionId,
+        execStep?.id ?? null,
+        downtimeReason,
+        {
+          triggeredBy: raisedBy,
+          andonId: andon.id,
+          notes: dto.note ?? null,
+        },
+      );
+      await this.recordLedger(
+        'MES_DOWNTIME_OPENED',
+        'DOWNTIME',
+        String(downtime.id),
+        execution,
+        raisedBy,
+        {
+          metadata: {
+            reasonCode: downtime.reason,
+            andonId: andon.id,
+            note: dto.note ?? null,
+          },
+        },
+      );
     }
 
     this.signals.emitToTenant(DEFAULT_TENANT, 'mes:andon', {
@@ -1184,6 +1218,8 @@ export class MesExecutionService {
         metadata: {
           type: andon.type,
           responseRole: this.andonResponseRole(andon.type),
+          downtimeReason: dto.downtimeReason ?? null,
+          note: dto.note ?? null,
         },
       },
     );
@@ -1562,7 +1598,34 @@ export class MesExecutionService {
         endedAt: IsNull(),
       },
     });
-    if (open) return open;
+    if (open) {
+      let changed = false;
+      if (extra.triggeredBy && !open.triggeredBy) {
+        open.triggeredBy = extra.triggeredBy;
+        changed = true;
+      }
+      if (extra.partNumber !== undefined && !open.partNumber) {
+        open.partNumber = extra.partNumber ?? null;
+        changed = true;
+      }
+      if (extra.materialRequestId !== undefined && !open.materialRequestId) {
+        open.materialRequestId = extra.materialRequestId ?? null;
+        changed = true;
+      }
+      if (extra.andonId !== undefined && !open.andonId) {
+        open.andonId = extra.andonId ?? null;
+        changed = true;
+      }
+      if (extra.incidentId !== undefined && !open.incidentId) {
+        open.incidentId = extra.incidentId ?? null;
+        changed = true;
+      }
+      if (extra.notes && !open.notes) {
+        open.notes = extra.notes;
+        changed = true;
+      }
+      return changed ? this.downtimeRepo.save(open) : open;
+    }
     return this.downtimeRepo.save(
       this.downtimeRepo.create({
         executionId,

@@ -7,12 +7,14 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
  * Control de cambios / modo sugerencias — versión mínima ESTABLE.
  *
  * Qué hace (estable, sin interceptar todo el motor):
- *   • Marcas `insertion` / `deletion` (con autor + fecha) que se pintan como
+ *   • Marcas `insertion` / `deletion` / `formatChange` (con autor + fecha) que se pintan como
  *     subrayado verde / tachado rojo.
  *   • «Modo sugerencias»: el texto que se ESCRIBE se marca como inserción
  *     automáticamente (vía `handleTextInput`, robusto y acotado).
  *   • «Proponer eliminación»: marca la selección como borrado propuesto sin
  *     quitar el texto.
+ *   • «Marcar cambio de formato»: ancla una sugerencia de formato con
+ *     metadatos before/after para que la revisión pueda aceptarla o quitarla.
  *   • Aceptar / rechazar (todo o el cambio actual): aceptar quita el texto
  *     borrado y desmarca inserciones; rechazar quita el texto insertado y
  *     desmarca borrados.
@@ -38,17 +40,36 @@ export const DeletionMark = Mark.create({
   renderHTML({ HTMLAttributes }: any) { return ['span', mergeAttributes(HTMLAttributes, { 'data-del': 'true', class: 'doc-del' }), 0]; },
 });
 
-export interface ChangeRange { type: 'insertion' | 'deletion'; from: number; to: number; author: string; date: number | null }
+export const FormatChangeMark = Mark.create({
+  name: 'formatChange',
+  inclusive: false,
+  addAttributes() {
+    return {
+      author: { default: '' },
+      date: { default: null },
+      before: { default: null },
+      after: { default: null },
+      property: { default: 'formatting' },
+    };
+  },
+  parseHTML() { return [{ tag: 'span[data-format-change]' }]; },
+  renderHTML({ HTMLAttributes }: any) {
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-format-change': 'true', class: 'doc-format-change' }), 0];
+  },
+});
+
+export type ChangeType = 'insertion' | 'deletion' | 'formatChange';
+export interface ChangeRange { type: ChangeType; from: number; to: number; author: string; date: number | null; before?: string | null; after?: string | null; property?: string | null }
 
 /** Rangos contiguos que llevan una marca dada. */
-function markRanges(doc: any, markName: string): ChangeRange[] {
+function markRanges(doc: any, markName: ChangeType): ChangeRange[] {
   const ranges: ChangeRange[] = [];
   let cur: ChangeRange | null = null;
   doc.descendants((node: any, pos: number) => {
     const m = node.isText ? node.marks.find((mk: any) => mk.type.name === markName) : null;
     if (m) {
       if (cur) cur.to = pos + node.nodeSize;
-      else cur = { type: markName as any, from: pos, to: pos + node.nodeSize, author: m.attrs.author || '', date: m.attrs.date ?? null };
+      else cur = { type: markName, from: pos, to: pos + node.nodeSize, author: m.attrs.author || '', date: m.attrs.date ?? null, before: m.attrs.before ?? null, after: m.attrs.after ?? null, property: m.attrs.property ?? null };
     } else if (cur) { ranges.push(cur); cur = null; }
   });
   if (cur) ranges.push(cur);
@@ -57,7 +78,7 @@ function markRanges(doc: any, markName: string): ChangeRange[] {
 
 /** Todos los cambios del documento, ordenados por posición. */
 export function collectChanges(doc: any): ChangeRange[] {
-  return [...markRanges(doc, 'insertion'), ...markRanges(doc, 'deletion')].sort((a, b) => a.from - b.from);
+  return [...markRanges(doc, 'insertion'), ...markRanges(doc, 'deletion'), ...markRanges(doc, 'formatChange')].sort((a, b) => a.from - b.from);
 }
 
 /** Autores distintos presentes en los cambios (orden de aparición). */
@@ -74,12 +95,17 @@ function resolveChanges(state: any, changes: ChangeRange[], accept: boolean): an
   const tr = state.tr;
   const insType = state.schema.marks.insertion;
   const delType = state.schema.marks.deletion;
+  const fmtType = state.schema.marks.formatChange;
   for (const ch of ordered) {
     const from = tr.mapping.map(ch.from);
     const to = tr.mapping.map(ch.to);
     if (accept) {
-      if (ch.type === 'deletion') tr.delete(from, to); else tr.removeMark(from, to, insType);
-    } else if (ch.type === 'insertion') tr.delete(from, to); else tr.removeMark(from, to, delType);
+      if (ch.type === 'deletion') tr.delete(from, to);
+      else if (ch.type === 'formatChange') tr.removeMark(from, to, fmtType);
+      else tr.removeMark(from, to, insType);
+    } else if (ch.type === 'insertion') tr.delete(from, to);
+    else if (ch.type === 'formatChange') tr.removeMark(from, to, fmtType);
+    else tr.removeMark(from, to, delType);
   }
   tr.setMeta('trackSkip', true);
   return tr;
@@ -88,7 +114,7 @@ function resolveChanges(state: any, changes: ChangeRange[], accept: boolean): an
 /** ¿Un nodo (o su descendencia) contiene texto con marcas de cambio? */
 function nodeHasChange(node: any): boolean {
   let found = false;
-  const test = (n: any) => n.isText && n.marks.some((m: any) => m.type.name === 'insertion' || m.type.name === 'deletion');
+  const test = (n: any) => n.isText && n.marks.some((m: any) => m.type.name === 'insertion' || m.type.name === 'deletion' || m.type.name === 'formatChange');
   if (test(node)) return true;
   node.descendants?.((child: any) => { if (!found && test(child)) found = true; });
   return found;
@@ -157,6 +183,11 @@ export const TrackChanges = Extension.create({
         if (from === to) return false;
         return chain().setMark('deletion', { author, date: Date.now() }).run();
       },
+      markFormattingChange: (property = 'formatting', before: string | null = null, after = 'Formato propuesto') => ({ state, chain }: any) => {
+        const { from, to } = state.selection;
+        if (from === to) return false;
+        return chain().setMark('formatChange', { author, date: Date.now(), property, before, after }).run();
+      },
 
       acceptAllChanges: () => ({ state, dispatch }: any) => {
         const changes = collectChanges(state.doc);
@@ -183,17 +214,19 @@ export const TrackChanges = Extension.create({
         return true;
       },
 
-      acceptChange: (from: number, to: number, type: 'insertion' | 'deletion') => ({ state, dispatch }: any) => {
+      acceptChange: (from: number, to: number, type: ChangeType) => ({ state, dispatch }: any) => {
         const tr = state.tr;
         if (type === 'deletion') tr.delete(from, to);
+        else if (type === 'formatChange') tr.removeMark(from, to, state.schema.marks.formatChange);
         else tr.removeMark(from, to, state.schema.marks.insertion);
         tr.setMeta('trackSkip', true);
         if (dispatch) dispatch(tr);
         return true;
       },
-      rejectChange: (from: number, to: number, type: 'insertion' | 'deletion') => ({ state, dispatch }: any) => {
+      rejectChange: (from: number, to: number, type: ChangeType) => ({ state, dispatch }: any) => {
         const tr = state.tr;
         if (type === 'insertion') tr.delete(from, to);
+        else if (type === 'formatChange') tr.removeMark(from, to, state.schema.marks.formatChange);
         else tr.removeMark(from, to, state.schema.marks.deletion);
         tr.setMeta('trackSkip', true);
         if (dispatch) dispatch(tr);
