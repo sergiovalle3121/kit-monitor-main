@@ -27,6 +27,7 @@ import { useDashboardSession } from "@/hooks/useDashboardSession";
 import {
   buildOperatorConfirmationSummary,
   classifyScan,
+  deriveMaterialRequestReadiness,
   type OperatorConfirmationSummary,
   type OfflineAction,
   type ScanResult,
@@ -57,6 +58,7 @@ const API_BASE = (
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
 const GRAY = "#6b7280";
+type OperatorSheet = "confirm" | "incident" | "andon" | "material";
 
 // ── Types mirroring the /mes board response ────────────────────────────────
 type StepStatus = "pending" | "in_process" | "blocked" | "completed";
@@ -136,6 +138,7 @@ interface Downtime {
 interface Board {
   execution: {
     id: number;
+    kitId: number | null;
     workOrder: string;
     model: string;
     revision: string;
@@ -304,6 +307,7 @@ function useOperatorShortcuts({
   onConfirm,
   onIncident,
   onAndon,
+  onMaterial,
   onRefresh,
   onCancel,
 }: {
@@ -311,6 +315,7 @@ function useOperatorShortcuts({
   onConfirm: () => void;
   onIncident: () => void;
   onAndon: () => void;
+  onMaterial: () => void;
   onRefresh: () => void;
   onCancel: () => void;
 }) {
@@ -338,7 +343,7 @@ function useOperatorShortcuts({
       event.preventDefault();
       if (event.key === "F2") onIncident();
       if (event.key === "F3") onConfirm();
-      if (event.key === "F4") onAndon();
+      if (event.key === "F4") onMaterial();
       if (event.key === "F5") onRefresh();
       if (event.key === "F6") onAndon();
       if (event.key === "F7") onIncident();
@@ -347,7 +352,15 @@ function useOperatorShortcuts({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [enabled, onAndon, onCancel, onConfirm, onIncident, onRefresh]);
+  }, [
+    enabled,
+    onAndon,
+    onCancel,
+    onConfirm,
+    onIncident,
+    onMaterial,
+    onRefresh,
+  ]);
 }
 
 function useOfflineActionQueue() {
@@ -413,9 +426,7 @@ export default function OperadorPage() {
 
   const [executionId, setExecutionId] = useState<number | null>(null);
   const [stepId, setStepId] = useState<number | null>(null);
-  const [sheet, setSheet] = useState<"confirm" | "incident" | "andon" | null>(
-    null,
-  );
+  const [sheet, setSheet] = useState<OperatorSheet | null>(null);
 
   const {
     data: execList,
@@ -446,6 +457,7 @@ export default function OperadorPage() {
     onConfirm: () => setSheet("confirm"),
     onIncident: () => setSheet("incident"),
     onAndon: () => setSheet("andon"),
+    onMaterial: () => setSheet("material"),
     onRefresh: () => {
       mutateList();
       if (executionId) mutateBoard();
@@ -554,6 +566,18 @@ export default function OperadorPage() {
                 board={board}
                 operator={operator}
                 onQueueAction={offlineQueue.enqueue}
+                onDone={() => {
+                  setSheet(null);
+                  mutateBoard();
+                }}
+              />
+            )}
+            {sheet === "material" && (
+              <MaterialRequestForm
+                board={board}
+                operator={operator}
+                onQueueAction={offlineQueue.enqueue}
+                onCancel={() => setSheet(null)}
                 onDone={() => {
                   setSheet(null);
                   mutateBoard();
@@ -750,7 +774,7 @@ function BoardView({
   operator: string;
   position: string | null;
   onSelectStep: (stepId: number) => void;
-  onOpenSheet: (s: "confirm" | "incident" | "andon") => void;
+  onOpenSheet: (s: OperatorSheet) => void;
   refresh: () => void;
   offlineQueue: OfflineAction[];
   clearOfflineQueue: () => void;
@@ -1354,6 +1378,216 @@ function IncidentForm({
           )}
           Reportar incidente
         </button>
+      </div>
+    </div>
+  );
+}
+
+function MaterialRequestForm({
+  board,
+  operator,
+  onQueueAction,
+  onCancel,
+  onDone,
+}: {
+  board: Board;
+  operator: string;
+  onQueueAction: (
+    action: Omit<OfflineAction, "id" | "createdAt" | "attempts">,
+  ) => void;
+  onCancel: () => void;
+  onDone: () => void;
+}) {
+  const materials = board.currentStepDetail?.materials ?? [];
+  const attentionMaterials = materials.filter(
+    (material) =>
+      material.short ||
+      material.availableQty <= 0 ||
+      material.availableQty < material.qtyPerUnit,
+  );
+  const defaultMaterial = attentionMaterials[0] ?? materials[0] ?? null;
+  const [partNumber, setPartNumber] = useState(defaultMaterial?.partNumber ?? "");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const readiness = deriveMaterialRequestReadiness({
+    kitId: board.execution.kitId,
+    requests: board.materialRequests,
+  });
+  const selectedMaterial =
+    materials.find((material) => material.partNumber === partNumber) ?? null;
+  const stepName =
+    board.currentStepDetail?.name ?? board.currentStep?.name ?? "estacion";
+
+  function buildNote(): string {
+    return [
+      `MES manual · Linea ${board.execution.line ?? "?"} · ${stepName}`,
+      `WO ${board.execution.workOrder}`,
+      partNumber ? `Parte ${partNumber}` : "Solicitud general",
+      selectedMaterial
+        ? `Disponible ${selectedMaterial.availableQty}/${selectedMaterial.remaining} ${selectedMaterial.unit}`
+        : null,
+      note.trim() || null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  async function submit() {
+    const kitId = board.execution.kitId;
+    if (!kitId || !readiness.canRequest) {
+      setError(readiness.message);
+      return;
+    }
+
+    const payload = {
+      kitId,
+      requestedBy: operator,
+      note: buildNote(),
+    };
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`${API_BASE}/material-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as {
+          message?: string | string[];
+        };
+        const message = Array.isArray(j.message)
+          ? j.message.join(", ")
+          : j.message;
+        setError(
+          message ||
+            "No se pudo crear la solicitud. Verifica permisos y kit publicado.",
+        );
+        return;
+      }
+      toast.success("Solicitud enviada a materiales.", "Material");
+      onDone();
+    } catch {
+      onQueueAction({
+        type: "material",
+        label: `Material ${partNumber || "kit"} · ${board.execution.workOrder}`,
+        payload,
+      });
+      setError("Sin conexion: solicitud guardada en cola local.");
+      toast.error("Sin conexion: solicitud guardada en cola local.", "Material");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <SheetHeader title="Solicitar material" subtitle={stepName} />
+      <div className="space-y-4">
+        <div
+          className={`rounded-2xl border p-3 text-sm ${
+            readiness.status === "ready"
+              ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
+              : "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+          }`}
+        >
+          <p className="font-black">{readiness.primaryLabel}</p>
+          <p className="mt-1 text-xs leading-relaxed opacity-90">
+            {readiness.message}
+          </p>
+        </div>
+
+        {materials.length > 0 ? (
+          <div>
+            <div className="mb-2 text-xs font-black uppercase tracking-widest text-gray-500">
+              Parte del paso
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {materials.map((material) => {
+                const active = partNumber === material.partNumber;
+                const needsAttention =
+                  material.short ||
+                  material.availableQty <= 0 ||
+                  material.availableQty < material.qtyPerUnit;
+                return (
+                  <button
+                    key={material.id}
+                    onClick={() => setPartNumber(material.partNumber)}
+                    className={`rounded-2xl border px-3 py-3 text-left transition-all ${
+                      active
+                        ? "border-amber-500 bg-amber-500 text-white"
+                        : "border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-sm font-black">
+                        {material.partNumber}
+                      </span>
+                      {needsAttention && (
+                        <span
+                          className={`rounded-full px-2 py-1 text-[10px] font-black ${
+                            active
+                              ? "bg-white/20 text-white"
+                              : "bg-amber-500/10 text-amber-700"
+                          }`}
+                        >
+                          Revisar
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`mt-1 block text-[11px] ${
+                        active ? "text-white/80" : "text-gray-500"
+                      }`}
+                    >
+                      Disponible {material.availableQty} · restante{" "}
+                      {material.remaining} {material.unit}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-gray-100 px-3 py-3 text-xs font-bold text-gray-500 dark:bg-white/5 dark:text-gray-400">
+            Esta estacion no trae materiales detallados; se levantara una
+            solicitud general contra el kit.
+          </div>
+        )}
+
+        <textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="Nota para almacen / materialista"
+          rows={3}
+          className="w-full rounded-2xl bg-gray-100 px-4 py-3 text-sm outline-none dark:bg-white/5"
+        />
+
+        {error && <p className="text-sm font-semibold text-rose-500">{error}</p>}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="w-full rounded-2xl bg-gray-100 py-4 text-base font-bold text-gray-700 transition-all hover:bg-gray-200 active:scale-[0.98] disabled:opacity-40 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy || !readiness.canRequest}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 py-4 text-base font-black text-white transition-all hover:bg-amber-600 active:scale-[0.98] disabled:opacity-40"
+          >
+            {busy ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Package className="h-5 w-5" />
+            )}
+            {readiness.primaryLabel}
+          </button>
+        </div>
       </div>
     </div>
   );
