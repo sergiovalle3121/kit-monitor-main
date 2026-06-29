@@ -185,8 +185,14 @@ Migrados al primitivo: **portal + `bg-popover` opaco + flip/clamp al viewport**.
 
 ## 8. Gates
 
-`npm run build` (web) ✅ · `lint` (web) ✅ · `typecheck` ✅ · tests (golden +
-primitivos) ✅ — verificados por **CI** (`Build · Test · Lint · Smoke` en verde) y
-localmente. Cero `console.*` nuevos en código de app; sin `localStorage` que rompa
-SSR. El check `auto-merge` quedó **skipped** en `ux/visual-sweep` (cero
-interferencia con la tarea de Codex).
+- **CI** (`Build · Test · Lint · Smoke`) en **verde**: build web, lint web, build
+  API, unit tests API y smoke de bootstrap. (CI no corre el e2e de Playwright.)
+- **typecheck** (`tsc --noEmit`) ✅ · **lint web** ✅ localmente.
+- **e2e Playwright (local):** primitivos **3/3 ✅**. La suite golden tiene **4
+  specs que fallan también en `main`** (login, NPI, NCR, flujo end-to-end) —
+  **pre-existentes**, no introducidos por esta rama (verificado revirtiendo el
+  `src` a `origin/main` y re-corriendo: mismos 4 fallos). Tocan flujos de
+  formulario/datos ajenos al alcance visual-frontend, así que **no se tocaron**.
+- Cero `console.*` nuevos en código de app; sin `localStorage` que rompa SSR.
+- El check `auto-merge` quedó **skipped** en `ux/visual-sweep` (cero interferencia
+  con la tarea de Codex).
