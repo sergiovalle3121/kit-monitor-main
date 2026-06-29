@@ -50,6 +50,15 @@ This run adds an editable CAD template workflow:
 
 The workflow is visible in `Layout3DEditor` and reuses the current editable layout model. It does not introduce a parallel editor, duplicate symbol systems, duplicate flow scoring, or a new persistence path.
 
+This run adds a command-dock line balance workflow:
+
+- `line-balance.ts` computes takt load, bottleneck, missing cycle-time metadata, over-takt stations, balance efficiency, and a deterministic score.
+- `analyze_line_balance` is registered in the existing CAD command registry, parser, palette, and CIDE/OpenAI-compatible schema path.
+- The current `Layout3DEditor` command preview already renders `report` operations, so users can type `analiza balanceo de linea takt 45s` and see the balance report without a new editor surface.
+- The command is honest about partial data: station labels like `CT=42s` are supported, explicit tool metadata is supported, and missing takt/cycle times produce warnings instead of fabricated capacity data.
+
+The workflow does not introduce a parallel Yamazumi panel, backend endpoint, or fake production routing integration. It reuses the command dock, command palette, selected-object context, and report operation rendering that already exist.
+
 ## Phase evidence
 
 | Backlog phase | Status | Evidence | Next step |
@@ -65,6 +74,7 @@ The workflow is visible in `Layout3DEditor` and reuses the current editable layo
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, and command workflows | Add richer flow recommendations and before/after preview cards. |
 | Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus a reachable command workflow | Keep audit current as PRs land. |
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, `arrange_flow_line`, and template-seeded flow health | Add richer flow recommendations and before/after preview cards. |
+| Phase 18 - Line balance / capacity overlay | Partial | `line-balance.ts`, `analyze_line_balance`, command-dock report rows | Wire load colors/Yamazumi overlay into the analysis panel after editor conflicts settle. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |

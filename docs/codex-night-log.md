@@ -234,3 +234,12 @@
 - Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
 - Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
 - Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
+
+## 2026-06-29 - CAD line balance command
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open PR #746 before selecting a command-dock-only slice.
+- Avoided `Layout3DEditor.tsx`, minimap, scale bar, DXF, layers, validation center, and template UI because main/open PRs already own those areas.
+- Added `apps/web/src/lib/cad/line-balance.ts` to derive cycle-time metadata from explicit command input or station labels such as `CT=42s`.
+- Registered `analyze_line_balance` in the existing CAD command registry/parser so the current command dock and palette can preview takt load, bottleneck, overloads, missing metadata, balance efficiency, and score through existing report rows.
+- Added pure smoke coverage in `line-balance.spec.ts` and command-registry coverage for parser routing and over-takt warnings.
+- Pending: visual Yamazumi/load overlay in the analysis panel after active `Layout3DEditor.tsx` conflicts settle.
