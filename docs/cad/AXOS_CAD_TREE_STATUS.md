@@ -50,6 +50,14 @@ This run adds an editable CAD template workflow:
 
 The workflow is visible in `Layout3DEditor` and reuses the current editable layout model. It does not introduce a parallel editor, duplicate symbol systems, duplicate flow scoring, or a new persistence path.
 
+This run hardens the existing CAD plot/export package:
+
+- `plot-sheet.ts` now includes package metadata rows for connectors, dimensions, labels, visible/locked layers, active layer, validation severity, DXF warnings, package target, and approval state.
+- `Layout3DEditor.tsx` passes current CAD state into the existing PDF exporter, so the toolbar's print/PDF button produces a richer title block without a new export modal.
+- `plot-sheet.spec.ts` covers default package rows, warning metadata, layer summaries, and defensive clamping.
+
+The workflow is visible through the existing PDF export button. It reuses the current plot helper, validation state, layer state, annotations, connectors, approval state, and DXF warning state instead of creating a second plot/export system.
+
 ## Phase evidence
 
 | Backlog phase | Status | Evidence | Next step |
@@ -67,6 +75,7 @@ The workflow is visible in `Layout3DEditor` and reuses the current editable layo
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, `arrange_flow_line`, and template-seeded flow health | Add richer flow recommendations and before/after preview cards. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
+| Phase 22 - Plot / sheet / title block | Advanced | `plot-sheet.ts`, `plot-sheet.spec.ts`, and the existing `Layout3DEditor.tsx` PDF export button | Add vector paper-space drawing and title-block revision metadata. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
 ## Next CAD PR
@@ -88,3 +97,4 @@ Recommended next phase: add an editable connector workflow or validation issue a
 
 PR #796 advances the existing validation center by making the design-check modal use the shared CAD validation report for collisions, clearances, safety, and flow. User-visible additions are clearance warning rows, selection/highlight on clearance issues, CAD validation severity in the status bar, and release-readiness counts that distinguish blockers from warnings. It does not add a parallel validation engine, collision helper, CAD shell, or flow model.
 Recommended next phase: add a parametric rack row or SMT line generator with user inputs, building on `templates.ts` and the existing editable asset/connector model.
+Recommended next phase: add vector paper-space drawing from `plot-scale.ts`, or wait for PR #746 to land before adding viewport-aware sheet previews.

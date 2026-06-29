@@ -3105,10 +3105,31 @@ export default function Layout3DEditor({
       const centers: Record<string, FlowCenter> = {};
       placementsRef.current.forEach((p, id) => { centers[id] = { x: p.x + p.w / 2, y: p.y + p.h / 2 }; });
       const flow = flowMetrics(connectorsRef.current, centers);
+      const annotations = [...annotationsRef.current.values()];
+      const dimensionCount = annotations.filter((item) => item.type === 'dim').length;
+      const labelCount = annotations.filter((item) => item.type === 'text').length;
+      const validationIssueCount = cadValidationReport
+        ? cadValidationReport.collisions.length + cadValidationReport.clearances.length + cadValidationReport.safety.length
+        : 0;
+      const activeLayerLabel = cadLayers.find((layer) => layer.id === activeCadLayer)?.label ?? activeCadLayer;
+      const approvalLabel = approval ? APPROVAL_META[approval.status].label : 'Borrador';
       const sheet = plotSheetModel({
         model, revision, unit: fp.unit || 'mm', footprintW: fp.footprintW, footprintH: fp.footprintH,
         placedStations: placements.length, totalStations: data!.stations.length, equipmentCount: assets.length,
         utilPct: util, flowLen: flow.totalLen, date: new Date(),
+        sheetSize: 'A4 landscape',
+        exportFormat: 'PDF',
+        approvalStatus: approvalLabel,
+        activeLayer: activeLayerLabel,
+        layerCount: cadLayers.length,
+        visibleLayerCount: cadLayers.filter((layer) => layer.visible).length,
+        lockedLayerCount: cadLayers.filter((layer) => layer.locked).length,
+        connectorCount: connectorsRef.current.length,
+        dimensionCount,
+        labelCount,
+        validationSeverity: cadValidationReport?.severity ?? 'pending',
+        validationIssueCount,
+        dxfWarningCount: dxfWarnings.length,
       });
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });

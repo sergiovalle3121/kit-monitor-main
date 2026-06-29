@@ -234,3 +234,12 @@
 - Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
 - Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
 - Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
+
+## 2026-06-29 - CAD plot package metadata
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `plot-sheet.ts`, `plot-scale.ts`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open CAD PRs #839, #838, and #746.
+- Avoided generator, command-registry, validation-center, minimap/scale-bar, layer-manager, and DXF internals because active PRs own those areas.
+- Reused the existing `Layout3DEditor` PDF export button and `plotSheetModel` title-block helper instead of adding another plot/export workflow.
+- Extended exported CAD PDF title blocks with connectors, dimensions, labels, layer visibility/locks, active layer, validation severity, DXF warnings, package target, and approval state.
+- Added `plot-sheet.spec.ts` for default package rows, warning metadata, layer summaries, and defensive clamping.
+- Pending: vector paper-space output using `plot-scale.ts` after viewport/minimap PRs settle.
