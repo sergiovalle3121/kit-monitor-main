@@ -3126,8 +3126,6 @@ export default function Layout3DEditor({
           case 'duplicate':
             if (hasSel) { e.preventDefault(); duplicateSelected(); }
             return;
-          case 'palette':
-            return;
         }
       }
       if (e.key === '?' || (e.key === '/' && e.shiftKey)) { e.preventDefault(); setShowHelp((v) => !v); }
