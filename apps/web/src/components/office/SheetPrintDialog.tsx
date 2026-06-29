@@ -1,8 +1,8 @@
 'use client';
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Printer } from 'lucide-react';
-import { printOptsFromLayout, type PrintOpts, type SheetPrintLayout, type SheetPrintPaperSize } from '@/lib/office/sheetOps';
+import { AlertTriangle, ShieldCheck, X, Printer } from 'lucide-react';
+import { analyzeSheetPrintReadiness, printOptsFromLayout, type PrintOpts, type SheetPrintLayout, type SheetPrintPaperSize } from '@/lib/office/sheetOps';
 
 /** Diálogo de impresión / diseño de página con vista previa. */
 export function SheetPrintDialog({
@@ -33,6 +33,15 @@ export function SheetPrintDialog({
   const currentLayout: SheetPrintLayout = { orientation, paperSize, printArea: range.trim() || undefined, fitToWidth, fitToPage, showGridlines: gridlines };
   const opts = printOptsFromLayout(currentLayout, { title: title.trim() || undefined, header: header.trim() || undefined, footer: footer.trim() || undefined });
   const html = useMemo(() => getHtml(sheetIndex, opts), [getHtml, sheetIndex, range, title, header, footer, orientation, paperSize, gridlines, fitToWidth, fitToPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  const readiness = useMemo(() => analyzeSheetPrintReadiness(null, {
+    orientation, paperSize, printArea: range.trim() || undefined, fitToWidth, fitToPage, showGridlines: gridlines,
+  }, { title: title.trim(), header: header.trim(), footer: footer.trim(), usedRange: defaultRange }), [defaultRange, range, title, header, footer, orientation, paperSize, gridlines, fitToWidth, fitToPage]);
+  const readinessTone = readiness.status === 'blocked'
+    ? 'border-red-500/20 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100'
+    : readiness.status === 'review'
+      ? 'border-amber-500/20 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100'
+      : 'border-emerald-500/20 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100';
+  const ReadinessIcon = readiness.status === 'ready' ? ShieldCheck : AlertTriangle;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -82,6 +91,26 @@ export function SheetPrintDialog({
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={gridlines} onChange={(e) => { setGridlines(e.target.checked); onLayoutChange({ ...currentLayout, showGridlines: e.target.checked }); }} /> Líneas de cuadrícula</label>
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={fitToWidth} onChange={(e) => { setFitToWidth(e.target.checked); onLayoutChange({ ...currentLayout, fitToWidth: e.target.checked }); }} /> Ajustar al ancho</label>
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={fitToPage} onChange={(e) => { setFitToPage(e.target.checked); onLayoutChange({ ...currentLayout, fitToPage: e.target.checked }); }} /> Ajustar a una página</label>
+            <div className={`rounded-xl border px-3 py-2 text-xs leading-snug ${readinessTone}`}>
+              <div className="mb-1 flex items-center justify-between gap-2 font-semibold">
+                <span className="inline-flex items-center gap-1.5">
+                  <ReadinessIcon className="h-3.5 w-3.5" />
+                  Reporte {readiness.score}/100
+                </span>
+                <span>{readiness.range ?? 'Sin rango'}</span>
+              </div>
+              <p className="mb-1 text-[11px] opacity-85">{readiness.rows} filas x {readiness.columns} columnas</p>
+              {readiness.issues.length ? (
+                <div className="space-y-1">
+                  {readiness.issues.slice(0, 4).map((issue) => (
+                    <p key={issue.key}>- {issue.label}{issue.count ? ` (${issue.count})` : ''}</p>
+                  ))}
+                  {readiness.issues.length > 4 && <p>- {readiness.issues.length - 4} alerta(s) mas.</p>}
+                </div>
+              ) : (
+                <p>Area y pagina listas para reporte controlado.</p>
+              )}
+            </div>
             <button onClick={() => onPrint(html)} className="w-full h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90 inline-flex items-center justify-center gap-2"><Printer className="w-4 h-4" /> Imprimir</button>
           </div>
           {/* Vista previa */}
