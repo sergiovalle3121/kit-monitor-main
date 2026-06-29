@@ -1,4 +1,6 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { createApiSuccessEnvelope } from '@axos/contracts';
+import type { ApiSuccessEnvelope } from '@axos/contracts';
 import { EventLedgerService } from './event-ledger.service';
 import type {
   LedgerEventQueryResult,
@@ -26,6 +28,22 @@ export class EventLedgerController {
     @Query() query: QueryLedgerEventsDto,
   ): Promise<LedgerEventQueryResult> {
     return this.ledgerService.queryEvents(query);
+  }
+
+  /** Response-envelope adoption path; keeps the legacy query shape unchanged. */
+  @Get('query/envelope')
+  async queryEnvelope(
+    @Query() query: QueryLedgerEventsDto,
+  ): Promise<
+    ApiSuccessEnvelope<
+      LedgerEventQueryResult,
+      { envelope: 'api-response-v1' }
+    >
+  > {
+    const result = await this.ledgerService.queryEvents(query);
+    return createApiSuccessEnvelope(result, {
+      meta: { envelope: 'api-response-v1' },
+    });
   }
 
   @Get('reference/:type/:id')
