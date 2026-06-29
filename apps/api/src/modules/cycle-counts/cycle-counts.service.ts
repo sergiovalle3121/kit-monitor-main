@@ -18,6 +18,10 @@ import {
   TransitionCycleCountDto,
 } from './dto/cycle-counts.dto';
 import { assertTransition, CycleCountStatus } from './count-state';
+import {
+  buildCycleCountDiscrepancyMonitor,
+  CycleCountDiscrepancyMonitor,
+} from './discrepancy-monitor';
 
 export interface CycleCountKpis {
   total: number;
@@ -93,9 +97,18 @@ export class CycleCountsService {
   }
 
   async getOne(id: string): Promise<CycleCount> {
-    const found = await this.repo.findOne({ where: { id } });
+    const qb = this.repo.createQueryBuilder('cc').where('cc.id = :id', { id });
+    this.applyScope(qb, 'cc');
+    const found = await qb.getOne();
     if (!found) throw new NotFoundException('Conteo no encontrado.');
     return found;
+  }
+
+  async discrepancyMonitor(limit = 25): Promise<CycleCountDiscrepancyMonitor> {
+    const parsedLimit = Number.isFinite(limit) ? Math.floor(limit) : 25;
+    const safeLimit = Math.min(Math.max(parsedLimit, 1), 100);
+    const counted = await this.list({ status: 'COUNTED' });
+    return buildCycleCountDiscrepancyMonitor(counted, safeLimit);
   }
 
   /** Record the physical count: computes variance and moves OPEN → COUNTED. */

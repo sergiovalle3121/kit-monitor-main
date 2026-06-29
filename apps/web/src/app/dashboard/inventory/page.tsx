@@ -92,6 +92,40 @@ interface ConsumptionEvent {
   createdAt?: string | null;
 }
 
+interface CycleCountDiscrepancyItem {
+  id: string;
+  folio: string | null;
+  partNumber: string;
+  location: string | null;
+  programId: string | null;
+  uom: string;
+  systemQty: number;
+  countedQty: number;
+  variance: number;
+  absVariance: number;
+  relativeVariancePct: number | null;
+  direction: "SHORTAGE" | "OVERAGE";
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  recommendedAction: "INVESTIGATE_SHORTAGE" | "RECONCILE_OVERAGE";
+  countedBy: string | null;
+  countedAt: string | null;
+}
+
+interface CycleCountDiscrepancyMonitor {
+  generatedAt: string;
+  summary: {
+    total: number;
+    high: number;
+    medium: number;
+    low: number;
+    shortages: number;
+    overages: number;
+    totalAbsVariance: number;
+    netVariance: number;
+  };
+  items: CycleCountDiscrepancyItem[];
+}
+
 const HOLD_META: Record<string, { label: string; color: string }> = {
   available: { label: "Disponible", color: "#16a394" },
   hold: { label: "Retenido", color: "#f59e0b" },
@@ -118,6 +152,17 @@ const MOVE_META: Record<MovementType, { label: string; dir: "in" | "out" | "move
   HOLD: { label: "Retención", dir: "neutral", color: "#f59e0b" },
 };
 
+const DISCREPANCY_SEVERITY_META: Record<CycleCountDiscrepancyItem["severity"], { label: string; color: string }> = {
+  HIGH: { label: "Alta", color: "#ef4444" },
+  MEDIUM: { label: "Media", color: "#f59e0b" },
+  LOW: { label: "Baja", color: "#16a394" },
+};
+
+const DISCREPANCY_ACTION_LABEL: Record<CycleCountDiscrepancyItem["recommendedAction"], string> = {
+  INVESTIGATE_SHORTAGE: "Investigar faltante antes de ajustar",
+  RECONCILE_OVERAGE: "Revisar sobrante y conciliar",
+};
+
 const GREEN = "#16a394";
 const RED = "#ef4444";
 const AMBER = "#f59e0b";
@@ -141,7 +186,7 @@ function timeAgo(iso?: string | null): string {
   return d.toLocaleDateString();
 }
 
-type Tab = "positions" | "shortage" | "movements" | "replenishment" | "traceability";
+type Tab = "positions" | "shortage" | "discrepancies" | "movements" | "replenishment" | "traceability";
 
 export default function InventoryPage() {
   const [tab, setTab] = useState<Tab>("positions");
@@ -155,6 +200,8 @@ export default function InventoryPage() {
   // Demanda real: líneas de surtido de las WO (solo al ver Escasez).
   const { data: stagingData, isLoading: stagingLoading } =
     useApi<StagingLine[]>(tab === "shortage" ? "/material-staging" : null);
+  const { data: discrepancyData, isLoading: discrepancyLoading, forbidden: discrepancyForbidden } =
+    useApi<CycleCountDiscrepancyMonitor>(tab === "discrepancies" ? "/cycle-counts/discrepancies?limit=25" : null);
 
   const [q, setQ] = useState("");
   const [tracePart, setTracePart] = useState("");
@@ -192,6 +239,10 @@ export default function InventoryPage() {
   const movements = useMemo(() => (Array.isArray(movData) ? movData : []), [movData]);
   const rules = useMemo(() => (Array.isArray(ruleData) ? ruleData : []), [ruleData]);
   const staging = useMemo(() => (Array.isArray(stagingData) ? stagingData : []), [stagingData]);
+  const discrepancyItems = useMemo(
+    () => (Array.isArray(discrepancyData?.items) ? discrepancyData.items : []),
+    [discrepancyData],
+  );
 
   // ── Existencias agrupadas por parte (con detalle por ubicación) ─────────────
   const partGroups = useMemo(() => {
@@ -292,6 +343,23 @@ export default function InventoryPage() {
     confirmed: shortageRows.filter((r) => r.confirmed).length,
   }), [shortageRows]);
 
+  const discrepancyRows = useMemo(() => {
+    if (!q) return discrepancyItems;
+    const needle = q.toLowerCase();
+    return discrepancyItems.filter((item) =>
+      `${item.partNumber} ${item.folio ?? ""} ${item.location ?? ""} ${item.countedBy ?? ""}`.toLowerCase().includes(needle),
+    );
+  }, [discrepancyItems, q]);
+
+  const discrepancySummary = useMemo(() => ({
+    total: discrepancyRows.length,
+    high: discrepancyRows.filter((item) => item.severity === "HIGH").length,
+    shortages: discrepancyRows.filter((item) => item.direction === "SHORTAGE").length,
+    overages: discrepancyRows.filter((item) => item.direction === "OVERAGE").length,
+    totalAbsVariance: discrepancyRows.reduce((sum, item) => sum + item.absVariance, 0),
+    netVariance: discrepancyRows.reduce((sum, item) => sum + item.variance, 0),
+  }), [discrepancyRows]);
+
   const movRows = q
     ? movements.filter((m) => `${m.partNumber} ${m.referenceId ?? ""} ${m.actorName ?? ""}`.toLowerCase().includes(q.toLowerCase()))
     : movements;
@@ -336,6 +404,7 @@ export default function InventoryPage() {
   const showSearch =
     tab === "positions" ? positions.length > 0 :
     tab === "shortage" ? true :
+    tab === "discrepancies" ? discrepancyItems.length > 0 :
     tab === "movements" ? movements.length > 0 :
     tab === "replenishment" ? rules.length > 0 : false;
 
@@ -348,6 +417,7 @@ export default function InventoryPage() {
         <div className={`${glass} inline-flex items-center gap-1 p-1 rounded-2xl mb-5 flex-wrap`}>
           <TabBtn active={tab === "positions"} onClick={() => setTab("positions")} icon={<SlidersHorizontal className="w-4 h-4" />}>Existencias</TabBtn>
           <TabBtn active={tab === "shortage"} onClick={() => setTab("shortage")} icon={<AlertTriangle className="w-4 h-4" />}>Escasez</TabBtn>
+          <TabBtn active={tab === "discrepancies"} onClick={() => setTab("discrepancies")} icon={<ClipboardCheck className="w-4 h-4" />}>Discrepancias</TabBtn>
           <TabBtn active={tab === "movements"} onClick={() => setTab("movements")} icon={<ArrowLeftRight className="w-4 h-4" />}>Movimientos</TabBtn>
           <TabBtn active={tab === "replenishment"} onClick={() => setTab("replenishment")} icon={<Repeat className="w-4 h-4" />}>Resurtido</TabBtn>
           <TabBtn active={tab === "traceability"} onClick={() => setTab("traceability")} icon={<GitBranch className="w-4 h-4" />}>Trazabilidad</TabBtn>
@@ -427,6 +497,79 @@ export default function InventoryPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </>
+          )
+        )}
+
+        {tab === "discrepancies" && (
+          (discrepancyForbidden || forbidden) ? (
+            <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API este conectado." />
+          ) : discrepancyLoading ? (
+            <Spinner />
+          ) : discrepancyRows.length === 0 ? (
+            <Empty
+              icon={<ClipboardCheck className="w-6 h-6" />}
+              title={q ? "Sin coincidencias" : "Sin discrepancias abiertas"}
+              body={q ? "Ninguna discrepancia abierta coincide con la busqueda." : "No hay conteos ya capturados con varianza pendiente de conciliacion o ajuste."}
+            />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <FlowKpi label="Discrepancias" value={String(discrepancySummary.total)} icon={<ClipboardCheck className="w-3.5 h-3.5" />} color={discrepancySummary.total > 0 ? RED : GREEN} />
+                <FlowKpi label="Alta severidad" value={String(discrepancySummary.high)} icon={<AlertTriangle className="w-3.5 h-3.5" />} color={discrepancySummary.high > 0 ? RED : GREEN} />
+                <FlowKpi label="Faltantes" value={String(discrepancySummary.shortages)} icon={<ArrowUpRight className="w-3.5 h-3.5" />} color={discrepancySummary.shortages > 0 ? RED : GREEN} />
+                <FlowKpi label="Varianza neta" value={`${discrepancySummary.netVariance > 0 ? "+" : ""}${fmtQty(discrepancySummary.netVariance)}`} icon={<ArrowLeftRight className="w-3.5 h-3.5" />} color={discrepancySummary.netVariance < 0 ? RED : discrepancySummary.netVariance > 0 ? AMBER : GREEN} />
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between`}>
+                <p className="text-[12px] text-gray-500 dark:text-gray-400">
+                  Fuente: conteos ciclicos en estado COUNTED con varianza distinta de cero. Resolver aqui requiere revisar el bin y cerrar el conteo.
+                </p>
+                <Link href="/dashboard/cycle-counts" className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-white flex-shrink-0" style={{ background: GREEN }}>
+                  Abrir conteos
+                </Link>
+              </div>
+              <div className={`${glass} rounded-2xl p-2`}>
+                <div className="divide-y divide-gray-100 dark:divide-white/5">
+                  {discrepancyRows.map((item) => {
+                    const severity = DISCREPANCY_SEVERITY_META[item.severity];
+                    const over = item.direction === "OVERAGE";
+                    return (
+                      <div key={item.id} className="flex items-start gap-3 px-3 py-3">
+                        <span className="text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0" style={{ background: `${severity.color}1f`, color: severity.color }}>
+                          {severity.label}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {item.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{item.folio}</span>}
+                            <button onClick={() => goPositions(item.partNumber)} className="font-mono font-semibold text-sm truncate hover:underline" title="Ver existencias de esta parte">
+                              {item.partNumber}
+                            </button>
+                            {item.location && <span className="text-[11px] text-gray-400">{item.location}</span>}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${over ? AMBER : RED}1f`, color: over ? AMBER : RED }}>
+                              {over ? "sobrante" : "faltante"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                            sistema {fmtQty(item.systemQty)} {item.uom} · contado {fmtQty(item.countedQty)} {item.uom}
+                            {item.relativeVariancePct !== null ? ` · ${item.relativeVariancePct}%` : ""}
+                            {item.countedBy ? ` · ${item.countedBy}` : ""}
+                            {item.countedAt ? ` · ${timeAgo(item.countedAt)}` : ""}
+                          </p>
+                          <p className="text-[11px] mt-1" style={{ color: severity.color }}>
+                            {DISCREPANCY_ACTION_LABEL[item.recommendedAction]}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="font-semibold tabular-nums" style={{ color: over ? AMBER : RED }}>
+                            {item.variance > 0 ? "+" : ""}{fmtQty(item.variance)}
+                          </p>
+                          <p className="text-[10px] text-gray-400">{fmtQty(item.absVariance)} abs</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </>

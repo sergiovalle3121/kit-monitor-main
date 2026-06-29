@@ -30,6 +30,14 @@ export class CycleCountsController {
     return this.service.kpis();
   }
 
+  @Get('discrepancies')
+  @ApiOperation({
+    summary: 'Monitor de discrepancias abiertas por conteo ciclico.',
+  })
+  discrepancies(@Query('limit') limit?: string) {
+    return this.service.discrepancyMonitor(limit ? Number(limit) : undefined);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Lista conteos cíclicos (con filtros).' })
   list(
