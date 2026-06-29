@@ -254,3 +254,18 @@ sin conflictos:
 - **Drafts** — `#746`, `#780` (mío), `#792` (este).
 
 **Total esta sesión: 3 PRs verdes mergeados, 0 violaciones de la regla de oro, 0 a `main` por fuera de merges aprobados.**
+
+### Actualización — rebases solicitados completados
+
+A petición del owner, los dos frontend conflictivos se rebasaron contra `main`,
+se resolvieron a mano (keep-both) y se verificaron localmente (typecheck + lint +
+build + specs) antes de mergear:
+
+| Original | Rebase PR | Feature | Resultado |
+|---|---|---|---|
+| #753 | **#802** | Sheets workbook approval/signoff (union con governance/slicers ya en main) | ✅ merged `4ad0c24` · #753 cerrado |
+| #790 | **#806** | Operador material-request sheet (union con #782) | ✅ merged `1822c2f` · #790 cerrado |
+
+**Tally de la sesión:** 6 PRs mergeados (#765, #789, #794, #782, #802, #806),
+3 cerrados por duplicado/superseded (#788, #753, #790). 0 violaciones de la regla
+de oro. Backend (apps/api) y RED (#762, #786) intactos para el owner/Codex.
