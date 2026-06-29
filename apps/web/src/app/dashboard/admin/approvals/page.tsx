@@ -88,7 +88,7 @@ export default function ApprovalsPage() {
       <nav className="fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center backdrop-blur-md bg-white/70 dark:bg-black/70 border-b border-gray-200/50 dark:border-white/5">
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition"
+          className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-foreground transition"
         >
           <ChevronLeft className="w-4 h-4" />
           Dashboard
