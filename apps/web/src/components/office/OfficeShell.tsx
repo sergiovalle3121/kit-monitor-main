@@ -108,7 +108,7 @@ export function OfficeShell({
       <header className="flex items-center gap-2 px-3 h-12 flex-shrink-0 border-b border-black/5 dark:border-white/10 bg-white/80 dark:bg-[#111]/80 backdrop-blur">
         <button
           onClick={() => (onBack ? onBack() : router.push('/dashboard/office'))}
-          className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors flex-shrink-0 pr-1"
+          className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-foreground transition-colors flex-shrink-0 pr-1"
           title="Volver a Office"
         >
           <ChevronLeft className="w-4 h-4" />

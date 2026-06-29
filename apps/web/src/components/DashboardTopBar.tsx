@@ -501,7 +501,7 @@ export function DashboardTopBar() {
                             setNameDraft(session?.name ?? "");
                             setEditingName(true);
                           }}
-                          className="p-1 rounded-md text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 flex-shrink-0"
+                          className="p-1 rounded-md text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10 flex-shrink-0"
                           aria-label="Editar nombre"
                         >
                           <Pencil className="w-3.5 h-3.5" />

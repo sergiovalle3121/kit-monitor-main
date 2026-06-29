@@ -93,7 +93,7 @@ export function ErpHeader({
       <div className="flex items-center gap-3 min-w-0">
         <Link
           href="/dashboard/erp"
-          className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-foreground transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> ERP
         </Link>
@@ -272,7 +272,7 @@ export function DataTable({
                       className={`inline-flex items-center gap-1 ${
                         c.sortable === false
                           ? 'cursor-default'
-                          : 'hover:text-black dark:hover:text-white'
+                          : 'hover:text-foreground'
                       }`}
                     >
                       {c.label}

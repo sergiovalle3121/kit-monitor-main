@@ -167,7 +167,7 @@ export default function MrpPage() {
                             <div className="flex items-center gap-2">
                               <span title={r.makeBuy === 'MAKE' ? 'Fabricar' : 'Comprar'} className="shrink-0">
                                 {r.makeBuy === 'MAKE'
-                                  ? <Factory className="w-3.5 h-3.5 text-violet-500" />
+                                  ? <Factory className="w-3.5 h-3.5 text-primary" />
                                   : <ShoppingCart className="w-3.5 h-3.5 text-blue-500" />}
                               </span>
                               <span className="font-mono text-xs text-gray-500">{r.partNumber}</span>

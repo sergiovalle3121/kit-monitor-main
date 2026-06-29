@@ -177,7 +177,7 @@ export default function QualityHoldsPage() {
 
             {/* Disposiciones */}
             <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2"><Gavel className="w-4 h-4 text-violet-500" /><h3 className="font-semibold">Disposiciones</h3></div>
+              <div className="flex items-center gap-2"><Gavel className="w-4 h-4 text-primary" /><h3 className="font-semibold">Disposiciones</h3></div>
               <button onClick={() => setDispoFor({})} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background: "#7c3aed1f", color: "#7c3aed" }}><Plus className="w-4 h-4" /> Proponer</button>
             </div>
             {dispos.length === 0 ? (

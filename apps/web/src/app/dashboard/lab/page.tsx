@@ -8,7 +8,7 @@ import { DepartmentWorkspace } from '@/components/DepartmentWorkspace';
 interface Ncr { id: number | string; status?: string; severity?: string }
 
 export default function LabPage() {
-  const { data } = useApi<Ncr[]>('/ncr');
+  const { data, isLoading } = useApi<Ncr[]>('/ncr');
   const ncrs = Array.isArray(data) ? data : [];
   const open = ncrs.filter((n) => (n.status || '').toLowerCase() !== 'closed').length;
   const critical = ncrs.filter((n) => (n.severity || '').toLowerCase() === 'critical' && (n.status || '').toLowerCase() !== 'closed').length;
@@ -20,6 +20,7 @@ export default function LabPage() {
       icon={FlaskConical}
       iconClass="text-teal-500"
       iconTint="bg-teal-50 dark:bg-teal-500/10"
+      loading={isLoading}
       kpis={[
         { label: 'NCR abiertas', value: open, color: '#f43f5e' },
         { label: 'Críticas', value: critical, color: '#ef4444' },
