@@ -11,13 +11,15 @@ export interface SheetTransformApplyPayload extends SheetTransformConfig {
   targetCell?: string;
 }
 
-type TransformPreset = 'clean' | 'filter_sort' | 'group' | 'calculated' | 'select_rename';
+type TransformPreset = 'clean' | 'filter_sort' | 'group' | 'calculated' | 'split_column' | 'unpivot' | 'select_rename';
 
 const PRESETS: { value: TransformPreset; label: string }[] = [
   { value: 'clean', label: 'Clean table' },
   { value: 'filter_sort', label: 'Filter + sort' },
   { value: 'group', label: 'Group summary' },
   { value: 'calculated', label: 'Calculated column' },
+  { value: 'split_column', label: 'Split column' },
+  { value: 'unpivot', label: 'Unpivot columns' },
   { value: 'select_rename', label: 'Select + rename' },
 ];
 
@@ -81,6 +83,15 @@ function buildSteps({
   calcFormula,
   calcLeft,
   calcRight,
+  splitColumn,
+  splitDelimiter,
+  splitInto,
+  splitReplace,
+  unpivotKeyColumns,
+  unpivotValueColumns,
+  unpivotNameColumn,
+  unpivotValueColumn,
+  unpivotSkipBlanks,
 }: {
   preset: TransformPreset;
   selectColumns: string;
@@ -98,6 +109,15 @@ function buildSteps({
   calcFormula: SheetTransformCalculatedFormula;
   calcLeft: string;
   calcRight: string;
+  splitColumn: string;
+  splitDelimiter: string;
+  splitInto: string;
+  splitReplace: boolean;
+  unpivotKeyColumns: string;
+  unpivotValueColumns: string;
+  unpivotNameColumn: string;
+  unpivotValueColumn: string;
+  unpivotSkipBlanks: boolean;
 }): SheetTransformStep[] {
   if (preset === 'clean') {
     return [
@@ -123,6 +143,30 @@ function buildSteps({
     return [
       { type: 'normalize_number', columns: [calcLeft, calcRight] },
       { type: 'add_calculated_column', name: calcName, formula: calcFormula, left: calcLeft, right: calcRight },
+    ];
+  }
+  if (preset === 'split_column') {
+    return [
+      {
+        type: 'split_column',
+        column: splitColumn,
+        delimiter: splitDelimiter,
+        into: splitList(splitInto),
+        removeSource: splitReplace,
+        trim: true,
+      },
+    ];
+  }
+  if (preset === 'unpivot') {
+    return [
+      {
+        type: 'unpivot_columns',
+        keyColumns: splitList(unpivotKeyColumns),
+        valueColumns: splitList(unpivotValueColumns),
+        nameColumn: unpivotNameColumn,
+        valueColumn: unpivotValueColumn,
+        skipBlanks: unpivotSkipBlanks,
+      },
     ];
   }
   return [
@@ -165,6 +209,15 @@ export function SheetTransformDialog({
   const [calcFormula, setCalcFormula] = useState<SheetTransformCalculatedFormula>('difference');
   const [calcLeft, setCalcLeft] = useState('Demand');
   const [calcRight, setCalcRight] = useState('Available');
+  const [splitColumn, setSplitColumn] = useState('SKU');
+  const [splitDelimiter, setSplitDelimiter] = useState('-');
+  const [splitInto, setSplitInto] = useState('Family, Variant, Revision');
+  const [splitReplace, setSplitReplace] = useState(false);
+  const [unpivotKeyColumns, setUnpivotKeyColumns] = useState('SKU, Supplier');
+  const [unpivotValueColumns, setUnpivotValueColumns] = useState('Week 1, Week 2, Week 3');
+  const [unpivotNameColumn, setUnpivotNameColumn] = useState('Bucket');
+  const [unpivotValueColumn, setUnpivotValueColumn] = useState('Demand');
+  const [unpivotSkipBlanks, setUnpivotSkipBlanks] = useState(true);
   const [outputMode, setOutputMode] = useState<'new-sheet' | 'cell'>('new-sheet');
   const [targetCell, setTargetCell] = useState('H1');
   const field = 'w-full h-9 rounded-xl bg-gray-100 px-3 text-sm outline-none ring-emerald-500/40 focus:ring-2 dark:bg-white/10';
@@ -185,7 +238,16 @@ export function SheetTransformDialog({
     calcFormula,
     calcLeft,
     calcRight,
-  }), [aggregateColumn, aggregateName, aggregateOp, calcFormula, calcLeft, calcName, calcRight, filterColumn, filterOp, filterValue, groupBy, preset, renamePairs, selectColumns, sortColumn, sortOrder]);
+    splitColumn,
+    splitDelimiter,
+    splitInto,
+    splitReplace,
+    unpivotKeyColumns,
+    unpivotValueColumns,
+    unpivotNameColumn,
+    unpivotValueColumn,
+    unpivotSkipBlanks,
+  }), [aggregateColumn, aggregateName, aggregateOp, calcFormula, calcLeft, calcName, calcRight, filterColumn, filterOp, filterValue, groupBy, preset, renamePairs, selectColumns, sortColumn, sortOrder, splitColumn, splitDelimiter, splitInto, splitReplace, unpivotKeyColumns, unpivotValueColumns, unpivotNameColumn, unpivotValueColumn, unpivotSkipBlanks]);
   const config = useMemo(() => ({ range, sheetIndex, hasHeader, steps }), [hasHeader, range, sheetIndex, steps]);
   const preview = useMemo(() => runSheetTransform(sheets[sheetIndex], config), [config, sheetIndex, sheets]);
   const sampleRows = preview.rows.slice(0, 6);
@@ -298,6 +360,49 @@ export function SheetTransformDialog({
                     <input value={calcRight} onChange={(event) => setCalcRight(event.target.value)} className={field} />
                   </label>
                 </div>
+              </div>
+            )}
+
+            {preset === 'split_column' && (
+              <div className="space-y-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+                <label className="block text-xs text-gray-500">Source column
+                  <input value={splitColumn} onChange={(event) => setSplitColumn(event.target.value)} className={field} />
+                </label>
+                <div className="grid grid-cols-[96px_1fr] gap-2">
+                  <label className="text-xs text-gray-500">Delimiter
+                    <input value={splitDelimiter} onChange={(event) => setSplitDelimiter(event.target.value)} className={field} />
+                  </label>
+                  <label className="text-xs text-gray-500">Output columns
+                    <input value={splitInto} onChange={(event) => setSplitInto(event.target.value)} className={field} />
+                  </label>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-gray-500">
+                  <input type="checkbox" checked={splitReplace} onChange={(event) => setSplitReplace(event.target.checked)} />
+                  Replace source column
+                </label>
+              </div>
+            )}
+
+            {preset === 'unpivot' && (
+              <div className="space-y-2 rounded-2xl border border-black/10 p-3 dark:border-white/10">
+                <label className="block text-xs text-gray-500">Key columns
+                  <input value={unpivotKeyColumns} onChange={(event) => setUnpivotKeyColumns(event.target.value)} className={field} />
+                </label>
+                <label className="block text-xs text-gray-500">Value columns
+                  <input value={unpivotValueColumns} onChange={(event) => setUnpivotValueColumns(event.target.value)} className={field} />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs text-gray-500">Name column
+                    <input value={unpivotNameColumn} onChange={(event) => setUnpivotNameColumn(event.target.value)} className={field} />
+                  </label>
+                  <label className="text-xs text-gray-500">Value column
+                    <input value={unpivotValueColumn} onChange={(event) => setUnpivotValueColumn(event.target.value)} className={field} />
+                  </label>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-gray-500">
+                  <input type="checkbox" checked={unpivotSkipBlanks} onChange={(event) => setUnpivotSkipBlanks(event.target.checked)} />
+                  Skip blank measure cells
+                </label>
               </div>
             )}
 
