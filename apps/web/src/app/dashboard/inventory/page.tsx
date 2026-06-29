@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Loader2, Lock, Inbox, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight,
   SlidersHorizontal, Repeat, AlertTriangle, ChevronRight, GitBranch, MapPin,
-  PackageSearch, ClipboardCheck,
+  PackageSearch, ClipboardCheck, X,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { glass } from "@/lib/glass";
@@ -145,7 +145,15 @@ type Tab = "positions" | "shortage" | "movements" | "replenishment" | "traceabil
 
 export default function InventoryPage() {
   const [tab, setTab] = useState<Tab>("positions");
-  const { data, isLoading, forbidden } = useApi<Position[]>("/inventory/positions");
+  const [locationFilter, setLocationFilter] = useState("");
+  const activeLocationFilter = locationFilter.trim();
+  const positionsPath = useMemo(() => {
+    const params = new URLSearchParams();
+    if (activeLocationFilter) params.set("location", activeLocationFilter);
+    const query = params.toString();
+    return query ? `/inventory/positions?${query}` : "/inventory/positions";
+  }, [activeLocationFilter]);
+  const { data, isLoading, forbidden } = useApi<Position[]>(positionsPath);
   // El ledger de movimientos solo se pide cuando la pestaña está activa.
   const { data: movData, isLoading: movLoading, forbidden: movForbidden } =
     useApi<Movement[]>(tab === "movements" ? "/inventory/movements" : null);
@@ -334,7 +342,7 @@ export default function InventoryPage() {
   }, [movements]);
 
   const showSearch =
-    tab === "positions" ? positions.length > 0 :
+    tab === "positions" ? positions.length > 0 || Boolean(q || activeLocationFilter) :
     tab === "shortage" ? true :
     tab === "movements" ? movements.length > 0 :
     tab === "replenishment" ? rules.length > 0 : false;
@@ -354,7 +362,8 @@ export default function InventoryPage() {
         </div>
 
         {showSearch && (
-          <div className={`${glass} flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-5`}>
+          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_18rem] mb-5">
+            <div className={`${glass} flex items-center gap-2 px-4 py-2.5 rounded-2xl`}>
             <Search className="w-4 h-4 text-gray-400" />
             <input
               value={q}
@@ -367,6 +376,27 @@ export default function InventoryPage() {
               }
               className="bg-transparent outline-none text-sm w-full"
             />
+            </div>
+            {tab === "positions" && (
+              <div className={`${glass} flex items-center gap-2 px-4 py-2.5 rounded-2xl`}>
+                <MapPin className="w-4 h-4 text-gray-400" />
+                <input
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  placeholder="Filtrar ubicacion / rack"
+                  className="bg-transparent outline-none text-sm w-full font-mono"
+                />
+                {activeLocationFilter && (
+                  <button
+                    onClick={() => setLocationFilter("")}
+                    title="Limpiar filtro de ubicacion"
+                    className="p-1 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -376,7 +406,11 @@ export default function InventoryPage() {
           ) : isLoading ? (
             <Spinner />
           ) : partGroups.length === 0 ? (
+            activeLocationFilter ? (
+              <Empty icon={<Inbox className="w-6 h-6" />} title="Sin coincidencias" body={`No hay existencias en ubicaciones que coincidan con "${activeLocationFilter}".`} />
+            ) : (
             <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin existencias"} body={q ? "Ninguna parte coincide con la búsqueda." : "Aún no hay inventario registrado. Se irá poblando con las recepciones y movimientos de almacén."} />
+            )
           ) : (
             <div className="space-y-2">
               {partGroups.map((g) => <PartGroupCard key={g.partNumber} g={g} onTrace={goTrace} onCount={countBin} busyCount={busyCount} />)}

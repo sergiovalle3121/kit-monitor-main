@@ -9,8 +9,15 @@ import { InventoryService } from './inventory.service';
  */
 describe('InventoryService', () => {
   let service: InventoryService;
+  let positionRepo: { createQueryBuilder: jest.Mock };
   let materialRepo: { findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
+  let warehouseRepo: { find: jest.Mock };
   let audit: { recordAction: jest.Mock; recordException: jest.Mock };
+  let positionsQb: {
+    leftJoinAndSelect: jest.Mock;
+    andWhere: jest.Mock;
+    getMany: jest.Mock;
+  };
   let qrManager: { findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
   let queryRunner: {
     connect: jest.Mock;
@@ -23,10 +30,21 @@ describe('InventoryService', () => {
   let dataSource: { createQueryRunner: jest.Mock };
 
   beforeEach(() => {
+    positionsQb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+    positionRepo = {
+      createQueryBuilder: jest.fn().mockReturnValue(positionsQb),
+    };
     materialRepo = {
       findOne: jest.fn(),
       create: jest.fn((x) => x),
       save: jest.fn(async (x) => ({ ...x })),
+    };
+    warehouseRepo = {
+      find: jest.fn().mockResolvedValue([]),
     };
     audit = {
       recordAction: jest.fn().mockResolvedValue(undefined),
@@ -56,6 +74,50 @@ describe('InventoryService', () => {
       dataSource as never,
       { getTenantId: () => null } as never, // tenantCtx
     );
+  });
+
+  describe('findAllPositions', () => {
+    function makeReadService() {
+      return new InventoryService(
+        positionRepo as never,
+        {} as never,
+        materialRepo as never,
+        warehouseRepo as never,
+        audit as never,
+        dataSource as never,
+        { getTenantId: () => null } as never,
+      );
+    }
+
+    it('aplica filtro de location sin perder scope de tenant', async () => {
+      await makeReadService().findAllPositions({ scopes: {} } as never, { location: ' Rack-A1 ' });
+
+      expect(positionRepo.createQueryBuilder).toHaveBeenCalledWith('pos');
+      expect(positionsQb.leftJoinAndSelect).toHaveBeenCalledWith('pos.material', 'material');
+      expect(positionsQb.leftJoinAndSelect).toHaveBeenCalledWith('pos.warehouse', 'warehouse');
+      expect(positionsQb.andWhere).toHaveBeenCalledWith('pos.tenant_id IS NULL');
+      expect(positionsQb.andWhere).toHaveBeenCalledWith('LOWER(pos.location) LIKE :location', {
+        location: '%rack-a1%',
+      });
+      expect(positionsQb.getMany).toHaveBeenCalled();
+    });
+
+    it('compone scope por edificio y location', async () => {
+      warehouseRepo.find.mockResolvedValue([{ id: 'WH-1' }, { id: 'WH-2' }]);
+
+      await makeReadService().findAllPositions(
+        { scopes: { buildings: ['B1'] } } as never,
+        { location: 'SMT' },
+      );
+
+      expect(warehouseRepo.find).toHaveBeenCalled();
+      expect(positionsQb.andWhere).toHaveBeenCalledWith('pos.warehouseId IN (:...scopeWhIds)', {
+        scopeWhIds: ['WH-1', 'WH-2'],
+      });
+      expect(positionsQb.andWhere).toHaveBeenCalledWith('LOWER(pos.location) LIKE :location', {
+        location: '%smt%',
+      });
+    });
   });
 
   describe('recordTransaction', () => {

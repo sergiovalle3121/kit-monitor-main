@@ -41,7 +41,7 @@ export class InventoryService {
     return qb;
   }
 
-  async findAllPositions(user: User, filters: { warehouseId?: string; partNumber?: string; programId?: string }): Promise<InventoryPosition[]> {
+  async findAllPositions(user: User, filters: { warehouseId?: string; partNumber?: string; programId?: string; location?: string }): Promise<InventoryPosition[]> {
     const qb = this.positionRepo.createQueryBuilder('pos')
       .leftJoinAndSelect('pos.material', 'material')
       .leftJoinAndSelect('pos.warehouse', 'warehouse');
@@ -62,6 +62,8 @@ export class InventoryService {
     if (filters.warehouseId) qb.andWhere('pos.warehouseId = :wh', { wh: filters.warehouseId });
     if (filters.partNumber) qb.andWhere('pos.partNumber LIKE :pn', { pn: `%${filters.partNumber}%` });
     if (filters.programId) qb.andWhere('pos.programId = :prog', { prog: filters.programId });
+    const location = filters.location?.trim().toLowerCase();
+    if (location) qb.andWhere('LOWER(pos.location) LIKE :location', { location: `%${location}%` });
 
     return qb.getMany();
   }

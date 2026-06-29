@@ -17,8 +17,9 @@ export class InventoryController {
     @Query('warehouseId') warehouseId?: string,
     @Query('partNumber') partNumber?: string,
     @Query('programId') programId?: string,
+    @Query('location') location?: string,
   ): Promise<InventoryPosition[]> {
-    return this.inventoryService.findAllPositions(req.user, { warehouseId, partNumber, programId });
+    return this.inventoryService.findAllPositions(req.user, { warehouseId, partNumber, programId, location });
   }
 
   @Get('movements')
