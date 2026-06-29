@@ -294,3 +294,22 @@ rápido de lo que se integra a mano.
 
 **Fuera de alcance/quarantine (sin cambios):** 5 RED (#762, #786, #824, #807, #797) y
 ~13 backend `apps/api` — para el owner/Codex.
+
+---
+
+## 9. Cierre final — integración completa (ventana Codex-pausa)
+
+Con Codex en pausa, se drenó la cola **completa** de PRs *ready* (frontend, backend y RED verificados). `main` avanzó **49 commits** en el día.
+
+**Integrados a `main` (~37 features):**
+- Frontend limpio (disjoint): #765 #789 #794 #782 #808 #795 #820 #810 #800 #813 #803 #816 #823 #799 #827 #811 #830
+- Frontend rebaseado a mano (keep-both, build+CI verde): #802 (←#753), #806 (←#790), #832 (←#821/#814/#826 CAD), #836 (←#796/#812 CAD)
+- Backend (CI-gated, no-RED): #777 #778 #779 #781 #784 #793 #825 + #835 (←#791/#783/#828, con fix de integración `targetLabel.MODEL`)
+- RED **verificados schema-safe** y mergeados: #786 (synchronize de test), #824 #807 (uso correcto de `getTenantId`, sin cambio de esquema)
+
+**Cerrados como superseded/competing/duplicado (~15)** — iteraciones que reescriben un componente ya evolucionado en `main`; rebasearlas regresaría trabajo mergeado. Con comentario para re-aplicar sobre el componente actual:
+#788 #804 #822 #798 #805 #801 #785 #787 #797 #762 #809 #818 #819 #751 #829
+
+**Regla de oro:** 0 violaciones. Ningún PR con migración nueva / entidad nueva / columna/enum nuevo / cambio del *core* de tenancy fue mergeado. Las 5 "RED" resultaron falsos positivos del path-flag (uso correcto del patrón tenant, o `synchronize` de test) y se verificaron una por una antes de mergear.
+
+**Quedan abiertos sólo DRAFTS** (no auto-mergeables; revisión del owner): #780 (visual-sweep mío), #792 (este triaje), #831/#834/#746 (drafts de otras sesiones).
