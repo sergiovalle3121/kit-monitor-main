@@ -3,7 +3,8 @@
 .report/
 .cache/
 
-# Barrido visual: los screenshots (pesados) quedan fuera de git; el JSON de
-# hallazgos (visual-findings.json) y las muestras curadas SÍ se versionan.
-__visual__/*.png
-__visual__/*.jpeg
+# Barrido visual: los screenshots (pesados, a cualquier profundidad) quedan
+# fuera de git; el JSON de hallazgos (visual-findings.json) SÍ se versiona. Las
+# muestras antes/después curadas se versionan aparte en docs/visual-qa/.
+__visual__/**/*.png
+__visual__/**/*.jpeg

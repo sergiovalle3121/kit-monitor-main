@@ -45,14 +45,39 @@ export function domDetectors(vp: { w: number; h: number }): DomFinding[] {
     return `${tag}${id}${cls}${tid ? `[data-testid="${tid}"]` : ''}`.slice(0, 160);
   };
 
+  // Parser de color robusto vía canvas: el navegador resuelve CUALQUIER sintaxis
+  // CSS (rgb/rgba/hsl/oklch/oklab/color()/named). Imprescindible porque Tailwind
+  // v4 serializa la paleta en `oklch(...)`, que un regex `rgba()` no entiende
+  // (eso producía falsos "texto invisible" de botones con fondo oklch).
+  const _cv = document.createElement('canvas');
+  _cv.width = _cv.height = 1;
+  const _cx = _cv.getContext('2d', { willReadFrequently: true });
   const parseColor = (c: string): { r: number; g: number; b: number; a: number } | null => {
-    const m = c.match(/rgba?\(([^)]+)\)/);
-    if (!m) return null;
-    const parts = m[1].split(',').map((p) => parseFloat(p.trim()));
-    const [r, g, b] = parts;
-    const a = parts.length >= 4 ? parts[3] : 1;
-    if ([r, g, b].some((n) => Number.isNaN(n))) return null;
-    return { r, g, b, a };
+    if (!c || !_cx) return null;
+    try {
+      _cx.clearRect(0, 0, 1, 1);
+      _cx.fillStyle = 'rgba(0,0,0,0)';
+      _cx.fillStyle = c; // si `c` es inválido, fillStyle queda en el valor previo (transparente)
+      _cx.fillRect(0, 0, 1, 1);
+      const d = _cx.getImageData(0, 0, 1, 1).data;
+      return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 };
+    } catch {
+      return null;
+    }
+  };
+
+  // ¿Hay un background-image (gradiente/imagen) entre el texto y el primer fondo
+  // opaco? Si sí, el contraste real no se puede medir por color sólido → no marcar.
+  const hasBackingImage = (el: Element): boolean => {
+    let node: Element | null = el;
+    while (node) {
+      const s = getComputedStyle(node);
+      if (s.backgroundImage && s.backgroundImage !== 'none') return true;
+      const c = parseColor(s.backgroundColor);
+      if (c && c.a >= 0.95) return false;
+      node = node.parentElement;
+    }
+    return false;
   };
 
   const lum = (r: number, g: number, b: number): number => {
@@ -132,6 +157,7 @@ export function domDetectors(vp: { w: number; h: number }): DomFinding[] {
       if (!hasDirectText(el) || !isVisible(el)) continue;
       const cs = getComputedStyle(el);
       if (isClippedGradientText(cs)) continue; // gradiente recortado = visible
+      if (hasBackingImage(el)) continue; // fondo con gradiente/imagen: contraste no medible
       const fg = parseColor(cs.color);
       if (!fg) continue;
       if (fg.a < 0.1) {

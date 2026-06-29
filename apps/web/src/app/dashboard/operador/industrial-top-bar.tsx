@@ -143,14 +143,17 @@ function StatusPill({
   label: string;
   tone: "green" | "amber" | "red" | "neutral";
 }) {
+  // Texto con contraste en AMBOS temas: el header usa `glass` (blanco translúcido
+  // en claro), así que el texto claro -300/-200 quedaba invisible en modo claro.
+  // -700 en claro / -300 en oscuro; el neutral pasa a tokens (`text-foreground`).
   const cls =
     tone === "green"
-      ? "bg-emerald-500/15 text-emerald-300"
+      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
       : tone === "amber"
-        ? "bg-amber-500/15 text-amber-300"
+        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
         : tone === "red"
-          ? "bg-rose-500/15 text-rose-300"
-          : "bg-white/10 text-slate-200";
+          ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+          : "bg-foreground/5 text-foreground";
   return (
     <span
       className={`min-h-10 px-3 rounded-2xl flex items-center gap-2 text-xs font-black ${cls}`}
