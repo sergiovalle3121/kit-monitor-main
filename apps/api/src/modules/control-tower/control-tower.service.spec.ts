@@ -18,6 +18,7 @@ describe('ControlTowerService', () => {
       workforceOverview: async () => ({ headcount: 24, turnoverPct: 8, absenteeismPct: 2, openOpenings: 0 }),
       staffingRisk: async () => [{ band: 'LOW' }, { band: 'MEDIUM' }],
     };
+    const quality = kpi({ openHolds: 0, overdue: 0, scrapQty: 0, reworkHours: 0 });
     return new ControlTowerService(
       overrides.improvement ?? (improvement as any),
       overrides.ehs ?? (ehs as any),
@@ -27,12 +28,13 @@ describe('ControlTowerService', () => {
       overrides.procurement ?? (procurement as any),
       overrides.people ?? (people as any),
       overrides.hr ?? (hr as any),
+      overrides.quality ?? (quality as any),
     );
   }
 
   it('aggregates all areas with green overall when healthy', async () => {
     const summary = await build().summary();
-    expect(summary.areas.length).toBe(8);
+    expect(summary.areas.length).toBe(9);
     expect(summary.overall).toBe('green');
     const ehsCard = summary.areas.find((a) => a.key === 'ehs');
     expect(ehsCard?.headline).toMatch(/120 días/);
@@ -61,8 +63,8 @@ describe('ControlTowerService', () => {
   it('survives a failing area (defensive) without breaking the rest', async () => {
     const ehs = { kpis: async () => { throw new Error('boom'); } };
     const summary = await build({ ehs }).summary();
-    // EHS card is dropped, the other seven remain.
+    // EHS card is dropped, the other eight remain.
     expect(summary.areas.find((a) => a.key === 'ehs')).toBeUndefined();
-    expect(summary.areas.length).toBe(7);
+    expect(summary.areas.length).toBe(8);
   });
 });

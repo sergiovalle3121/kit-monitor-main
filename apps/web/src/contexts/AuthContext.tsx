@@ -200,7 +200,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+      // Same-origin Next route handler (apps/web/src/app/api/auth/login/route.ts),
+      // matching the real login page. Avoids the `/api/api/...` double-prefix that
+      // results from concatenating `/api/...` onto NEXT_PUBLIC_API_URL when it
+      // already ends in `/api` (prod).
+      const response = await fetch(`/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
