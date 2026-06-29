@@ -33,6 +33,11 @@ This slice starts the AXOS MES operator terminal redesign on the connected `plan
 - Downtime reason capture slice: line-stop Andon now requires a downtime reason
   code, opens `mes_downtime_events` with that reason, and writes
   `MES_DOWNTIME_OPENED` evidence to the Event Ledger.
+- Operator material request slice: the terminal now exposes a one-tap Material
+  action that creates a real `material_requests` record for the active
+  execution kit through the existing request workflow, preserves pending-state
+  feedback on the board, and queues the request locally when the terminal is
+  offline.
 
 ### Next slices
 

@@ -23,6 +23,8 @@ export interface OfflineAction {
   type: "confirm" | "incident" | "andon" | "material";
   label: string;
   payload: Record<string, unknown>;
+  endpoint?: string;
+  method?: "POST";
   createdAt: string;
   attempts: number;
 }

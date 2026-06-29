@@ -257,7 +257,7 @@ export function ExecutionCommandCenter({
               "F1 Ayuda",
               "F2 Scrap",
               "F3 Retrabajo",
-              "F4 Material",
+              "F4 Andon",
               "F5 Refresh",
               "F6 Supervisor",
               "F7 Calidad",

@@ -71,6 +71,148 @@ describe('MesExecutionService — operator↔station gate (ENFORCE_CERT_GATE)', 
   });
 });
 
+describe('MesExecutionService - operator material request', () => {
+  const execution = {
+    id: 1,
+    kitId: 22,
+    workOrder: 'WO-100',
+    model: 'AX-MODEL',
+    line: 2,
+  };
+  const execRepo = { findOne: jest.fn().mockResolvedValue(execution) };
+  const stepRepo = {
+    findOne: jest.fn().mockResolvedValue({ id: 33, stepId: 7, name: 'ICT' }),
+  };
+  const stepMatRepo = {
+    find: jest.fn().mockResolvedValue([
+      {
+        partNumber: 'P1',
+        unit: 'EA',
+        availableQty: 0,
+        lowStockThreshold: 1,
+      },
+      {
+        partNumber: 'P2',
+        unit: 'EA',
+        availableQty: 10,
+        lowStockThreshold: 1,
+      },
+    ]),
+  };
+  const materialRequests = {
+    create: jest.fn().mockResolvedValue({
+      id: 99,
+      kitId: 22,
+      status: 'pending',
+      note: 'created note',
+    }),
+  };
+  const signals = { emitToTenant: jest.fn() };
+  const tenantCtx = { getTenantId: () => null };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const any = (v: unknown): any => v;
+
+  function makeService(): MesExecutionService {
+    return new MesExecutionService(
+      any(execRepo),
+      any(stepRepo),
+      any(stepMatRepo),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any(signals),
+      any(materialRequests),
+      any({}),
+      any({}),
+      any(tenantCtx),
+    );
+  }
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    execRepo.findOne.mockResolvedValue(execution);
+    stepRepo.findOne.mockResolvedValue({ id: 33, stepId: 7, name: 'ICT' });
+    stepMatRepo.find.mockResolvedValue([
+      {
+        partNumber: 'P1',
+        unit: 'EA',
+        availableQty: 0,
+        lowStockThreshold: 1,
+      },
+      {
+        partNumber: 'P2',
+        unit: 'EA',
+        availableQty: 10,
+        lowStockThreshold: 1,
+      },
+    ]);
+  });
+
+  it('creates a real material request for the active execution kit and station', async () => {
+    const result = await makeService().requestMaterial(
+      1,
+      any({ stepId: 7, partNumbers: ['P1'], operator: 'Ana' }),
+      'supervisor@axos.test',
+    );
+
+    expect(materialRequests.create).toHaveBeenCalledWith(
+      {
+        kitId: 22,
+        note: expect.stringContaining('P1 (0 EA disponible)'),
+      },
+      'Ana',
+    );
+    expect(materialRequests.create.mock.calls[0][0].note).toContain('WO-100');
+    expect(materialRequests.create.mock.calls[0][0].note).toContain('ICT');
+    expect(signals.emitToTenant).toHaveBeenCalledWith(
+      'default',
+      'mes:material-requested',
+      expect.objectContaining({
+        executionId: 1,
+        stepId: 7,
+        materialRequestId: 99,
+        workOrder: 'WO-100',
+        line: 2,
+        requestedBy: 'Ana',
+        parts: ['P1'],
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 99,
+        kitId: 22,
+        status: 'pending',
+        workOrder: 'WO-100',
+        line: 2,
+        stepId: 7,
+        parts: ['P1'],
+      }),
+    );
+  });
+
+  it('rejects material requests when the execution has no published kit', async () => {
+    execRepo.findOne.mockResolvedValueOnce({ ...execution, kitId: null });
+
+    await expect(
+      makeService().requestMaterial(
+        1,
+        any({ stepId: 7, partNumbers: ['P1'] }),
+        'ana@axos.test',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(materialRequests.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('MesExecutionService — line-stop downtime reason', () => {
   const execution = {
     id: 1,

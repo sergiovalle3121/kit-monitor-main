@@ -136,6 +136,8 @@ interface Downtime {
 interface Board {
   execution: {
     id: number;
+    planId: number | null;
+    kitId: number | null;
     workOrder: string;
     model: string;
     revision: string;
@@ -509,6 +511,7 @@ export default function OperadorPage() {
             onSelectStep={(sid) => setStepId(sid)}
             onOpenSheet={setSheet}
             refresh={mutateBoard}
+            onQueueAction={offlineQueue.enqueue}
             offlineQueue={offlineQueue.queue}
             clearOfflineQueue={offlineQueue.clear}
             markOfflineAttempt={offlineQueue.markAttempt}
@@ -742,6 +745,7 @@ function BoardView({
   onSelectStep,
   onOpenSheet,
   refresh,
+  onQueueAction,
   offlineQueue,
   clearOfflineQueue,
   markOfflineAttempt,
@@ -752,6 +756,9 @@ function BoardView({
   onSelectStep: (stepId: number) => void;
   onOpenSheet: (s: "confirm" | "incident" | "andon") => void;
   refresh: () => void;
+  onQueueAction: (
+    action: Omit<OfflineAction, "id" | "createdAt" | "attempts">,
+  ) => void;
   offlineQueue: OfflineAction[];
   clearOfflineQueue: () => void;
   markOfflineAttempt: (id: string) => void;
@@ -761,6 +768,92 @@ function BoardView({
   const totalTarget = execution.quantity * (steps.length || 1);
   const overall = totalTarget ? totalDone / totalTarget : 0;
   const blocked = currentStep?.status === "blocked";
+  const toast = useToast();
+  const [materialRequestBusy, setMaterialRequestBusy] = useState(false);
+  const [materialRequestError, setMaterialRequestError] = useState<
+    string | null
+  >(null);
+  const pendingMaterialRequest = board.materialRequests.find(
+    (request) => request.status === "pending",
+  );
+  const materialRequestDisabled =
+    materialRequestBusy || !execution.kitId || !!pendingMaterialRequest;
+  const requestMaterial = useCallback(async () => {
+    if (!currentStep) return;
+    if (!execution.kitId) {
+      const message = "La WO activa no tiene kit publicado para solicitar material.";
+      setMaterialRequestError(message);
+      toast.error(message, "Materiales");
+      return;
+    }
+
+    const endpoint = `/mes/executions/${execution.id}/material-request`;
+    const shortParts =
+      currentStepDetail?.materials
+        .filter((material) => material.short)
+        .map((material) => material.partNumber) ?? [];
+    const payload = {
+      stepId: currentStep.stepId,
+      partNumbers: shortParts,
+      operator,
+      note: shortParts.length
+        ? undefined
+        : "Solicitud manual desde terminal de operador.",
+    };
+
+    setMaterialRequestBusy(true);
+    setMaterialRequestError(null);
+    try {
+      const res = await apiFetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { message?: string };
+        const message =
+          typeof j.message === "string"
+            ? j.message
+            : "No se pudo solicitar material.";
+        setMaterialRequestError(message);
+        toast.error(message, "Materiales");
+        return;
+      }
+      const created = (await res.json().catch(() => null)) as {
+        id?: number;
+      } | null;
+      toast.success(
+        created?.id
+          ? `Solicitud de material #${created.id} enviada.`
+          : "Solicitud de material enviada.",
+        "Materiales",
+      );
+      refresh();
+    } catch {
+      onQueueAction({
+        type: "material",
+        label: `Material - ${execution.workOrder}`,
+        endpoint,
+        method: "POST",
+        payload,
+      });
+      const message = "Sin conexion: solicitud guardada en cola local.";
+      setMaterialRequestError(message);
+      toast.error(message, "Materiales");
+    } finally {
+      setMaterialRequestBusy(false);
+    }
+  }, [
+    currentStep,
+    currentStepDetail?.materials,
+    execution.id,
+    execution.kitId,
+    execution.workOrder,
+    onQueueAction,
+    operator,
+    refresh,
+    toast,
+  ]);
 
   return (
     <div>
@@ -790,6 +883,18 @@ function BoardView({
       {board.openDowntime.some((d) => d.reason === "material_shortage") && (
         <Banner color={AMBER} icon={<Package className="w-5 h-5" />}>
           Faltante de material reportado a almacén · midiendo tiempo caído.
+        </Banner>
+      )}
+
+      {pendingMaterialRequest && (
+        <Banner color={AMBER} icon={<Package className="w-5 h-5" />}>
+          Solicitud de material #{pendingMaterialRequest.id} pendiente para esta
+          WO.
+        </Banner>
+      )}
+      {materialRequestError && (
+        <Banner color={RED} icon={<AlertTriangle className="w-5 h-5" />}>
+          {materialRequestError}
         </Banner>
       )}
 
@@ -851,6 +956,9 @@ function BoardView({
         blocked={blocked}
         currentStepStatus={currentStep?.status ?? null}
         onOpenSheet={onOpenSheet}
+        onRequestMaterial={requestMaterial}
+        materialRequestBusy={materialRequestBusy}
+        materialRequestDisabled={materialRequestDisabled}
       />
       <input type="hidden" value={`${operator}/${position ?? ""}`} readOnly />
     </div>

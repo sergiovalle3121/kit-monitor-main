@@ -1,14 +1,26 @@
-import { AlertTriangle, Bell, CheckCircle2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  Loader2,
+  PackagePlus,
+} from "lucide-react";
 import { glass } from "@/lib/glass";
 
 export function OperatorActionBar({
   blocked,
   currentStepStatus,
   onOpenSheet,
+  onRequestMaterial,
+  materialRequestBusy = false,
+  materialRequestDisabled = false,
 }: {
   blocked: boolean;
   currentStepStatus: string | null;
   onOpenSheet: (sheet: "confirm" | "incident" | "andon") => void;
+  onRequestMaterial: () => void;
+  materialRequestBusy?: boolean;
+  materialRequestDisabled?: boolean;
 }) {
   const confirmDisabled = blocked || currentStepStatus === "completed";
 
@@ -29,6 +41,18 @@ export function OperatorActionBar({
       >
         <AlertTriangle className="w-5 h-5" />{" "}
         <span className="hidden sm:inline">Incidente</span>
+      </button>
+      <button
+        onClick={onRequestMaterial}
+        disabled={materialRequestBusy || materialRequestDisabled}
+        className="flex items-center justify-center gap-2 bg-sky-500/10 text-sky-700 text-base font-black px-5 py-6 rounded-3xl hover:bg-sky-500/20 active:scale-95 transition-all disabled:opacity-40"
+      >
+        {materialRequestBusy ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <PackagePlus className="w-5 h-5" />
+        )}{" "}
+        <span className="hidden sm:inline">Material</span>
       </button>
       <button
         onClick={() => onOpenSheet("andon")}

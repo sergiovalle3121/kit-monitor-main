@@ -57,13 +57,24 @@ export class RaiseAndonDto {
   downtimeReason?: DowntimeReason;
 }
 
+export class RequestMaterialDto {
+  stepId?: number;
+  partNumbers?: string[];
+  note?: string;
+  operator?: string;
+}
+
 export class AssignStationDto {
   stepId: number;
   operatorName: string;
   operatorId?: string;
 }
 
-export type ReplayableMesActionType = 'confirm' | 'incident' | 'andon';
+export type ReplayableMesActionType =
+  | 'confirm'
+  | 'incident'
+  | 'andon'
+  | 'material';
 
 export class ReplayOfflineActionDto {
   id: string;

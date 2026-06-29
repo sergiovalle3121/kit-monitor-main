@@ -60,6 +60,7 @@ import {
   EscalateFollowUpDto,
   OpenExecutionDto,
   RaiseAndonDto,
+  RequestMaterialDto,
   ReplayOfflineActionDto,
   ReplayOfflineQueueDto,
   ReportIncidentDto,
@@ -1119,6 +1120,19 @@ export class MesExecutionService {
         return { id: action.id, type: action.type, ok: true, result };
       }
 
+      if (action.type === 'material') {
+        const match = action.endpoint.match(
+          /^\/mes\/executions\/(\d+)\/material-request$/,
+        );
+        if (!match) throw new BadRequestException('Endpoint material invalido.');
+        const result = await this.requestMaterial(
+          Number(match[1]),
+          action.payload as unknown as RequestMaterialDto,
+          actor,
+        );
+        return { id: action.id, type: action.type, ok: true, result };
+      }
+
       throw new BadRequestException(`Tipo offline no soportado: ${action.type}`);
     } catch (error) {
       return {
@@ -1136,6 +1150,100 @@ export class MesExecutionService {
   // ──────────────────────────────────────────────────────────────────────────
   // Andon
   // ──────────────────────────────────────────────────────────────────────────
+
+  async requestMaterial(
+    executionId: number,
+    dto: RequestMaterialDto,
+    actor: string,
+  ) {
+    const execution = await this.findExecution(executionId);
+    if (!execution.kitId) {
+      throw new BadRequestException(
+        `La WO ${execution.workOrder} no tiene kit publicado para solicitar material.`,
+      );
+    }
+
+    const requestedBy = dto.operator?.trim() || actor;
+    let execStep: ExecutionStep | null = null;
+    let materials: ExecutionStepMaterial[] = [];
+    if (dto.stepId) {
+      execStep = await this.findStep(executionId, dto.stepId);
+      materials = await this.stepMatRepo.find({
+        where: { executionId, executionStepId: execStep.id },
+        order: { partNumber: 'ASC' },
+      });
+    }
+
+    const rawPartNumbers = Array.isArray(dto.partNumbers)
+      ? dto.partNumbers
+      : [];
+    const requestedParts = Array.from(
+      new Set(
+        rawPartNumbers
+          .map((part) => String(part).trim())
+          .filter(Boolean),
+      ),
+    ).slice(0, 12);
+    if (requestedParts.length && materials.length) {
+      const known = new Set(materials.map((material) => material.partNumber));
+      const unknown = requestedParts.filter((part) => !known.has(part));
+      if (unknown.length) {
+        throw new BadRequestException(
+          `Material no asignado a la estacion: ${unknown.join(', ')}.`,
+        );
+      }
+    }
+
+    const shortParts = materials
+      .filter((material) => material.availableQty <= material.lowStockThreshold)
+      .map((material) => material.partNumber);
+    const partsForNote = requestedParts.length ? requestedParts : shortParts;
+    const materialSummary = partsForNote.length
+      ? partsForNote
+          .map((part) => {
+            const material = materials.find((m) => m.partNumber === part);
+            if (!material) return part;
+            return `${part} (${round6(material.availableQty)} ${material.unit} disponible)`;
+          })
+          .join(', ')
+      : 'material de la estacion';
+    const note = [
+      `MES - Linea ${execution.line ?? '?'} - ${
+        execStep?.name ?? 'estacion actual'
+      }: solicitud de material para ${materialSummary}.`,
+      `WO ${execution.workOrder} - Modelo ${execution.model}.`,
+      dto.note?.trim() ? `Nota operador: ${dto.note.trim()}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const request = await this.materialRequests.create(
+      { kitId: execution.kitId, note },
+      requestedBy,
+    );
+
+    this.signals.emitToTenant(DEFAULT_TENANT, 'mes:material-requested', {
+      executionId,
+      stepId: dto.stepId ?? null,
+      materialRequestId: request.id,
+      workOrder: execution.workOrder,
+      model: execution.model,
+      line: execution.line,
+      requestedBy,
+      parts: partsForNote,
+    });
+
+    return {
+      id: request.id,
+      kitId: execution.kitId,
+      status: request.status,
+      note: request.note,
+      workOrder: execution.workOrder,
+      line: execution.line,
+      stepId: dto.stepId ?? null,
+      parts: partsForNote,
+    };
+  }
 
   async raiseAndon(executionId: number, dto: RaiseAndonDto, actor: string) {
     if (!MES_ANDON_TYPES.includes(dto.type)) {

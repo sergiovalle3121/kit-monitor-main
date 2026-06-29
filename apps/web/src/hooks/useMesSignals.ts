@@ -10,6 +10,7 @@ export type MesEventName =
   | 'mes:incident-raised'
   | 'mes:incident-dispositioned'
   | 'mes:andon'
+  | 'mes:material-requested'
   | 'mes:shortage'
   | 'mes:event-reverted'
   | 'mes:assignment';
@@ -33,6 +34,7 @@ const MES_EVENTS: MesEventName[] = [
   'mes:incident-raised',
   'mes:incident-dispositioned',
   'mes:andon',
+  'mes:material-requested',
   'mes:shortage',
   'mes:event-reverted',
   'mes:assignment',

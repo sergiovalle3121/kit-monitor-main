@@ -22,6 +22,7 @@ import {
   EscalateFollowUpDto,
   OpenExecutionDto,
   RaiseAndonDto,
+  RequestMaterialDto,
   ReplayOfflineQueueDto,
   ReportIncidentDto,
 } from './dto/mes.dto';
@@ -132,6 +133,17 @@ export class MesExecutionController {
     @Request() req: AuthRequest,
   ) {
     return this.service.raiseAndon(id, dto, this.actor(req));
+  }
+
+  /** Operator material pull from the active WO/line into the existing request flow. */
+  @Post('executions/:id/material-request')
+  @RequirePermissions('production:write')
+  requestMaterial(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RequestMaterialDto,
+    @Request() req: AuthRequest,
+  ) {
+    return this.service.requestMaterial(id, dto, this.actor(req));
   }
 
   @Post('offline/replay')
