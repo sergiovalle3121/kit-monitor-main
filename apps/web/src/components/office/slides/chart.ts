@@ -19,6 +19,31 @@ export interface ChartSpec {
   stacked?: boolean;
   legend?: boolean;    // mostrar leyenda (def. true)
   showValues?: boolean; // etiquetas de valor
+  presetId?: string;
+  presetLabel?: string;
+  presetCategory?: string;
+  sourceStatus?: 'static' | 'contract-pending' | 'live';
+}
+
+export interface IndustrialChartPreset {
+  id: string;
+  label: string;
+  category: 'production' | 'quality' | 'supplier' | 'inventory' | 'npi' | 'review';
+  description: string;
+  spec: ChartSpec;
+}
+
+export type ChartHealthSeverity = 'info' | 'warning' | 'critical';
+export interface ChartHealthIssue { severity: ChartHealthSeverity; message: string }
+export interface ChartHealth {
+  status: 'ready' | 'review' | 'blocked';
+  nativePptx: boolean;
+  usesFirstSeriesOnly: boolean;
+  pointCount: number;
+  seriesCount: number;
+  labelCount: number;
+  issues: ChartHealthIssue[];
+  exportSummary: string;
 }
 
 export const CHART_PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#7c3aed', '#ec4899', '#14b8a6', '#f97316'];
@@ -28,6 +53,9 @@ export const CHART_PALETTES: { id: string; colors: string[] }[] = [
   { id: 'Atardecer', colors: ['#f97316', '#ef4444', '#f59e0b', '#ec4899', '#e11d48', '#fb7185', '#fbbf24', '#f43f5e'] },
   { id: 'Bosque', colors: ['#16a34a', '#65a30d', '#10b981', '#84cc16', '#15803d', '#22c55e', '#4d7c0f', '#34d399'] },
   { id: 'Mono', colors: ['#111827', '#374151', '#6b7280', '#9ca3af', '#4b5563', '#1f2937', '#d1d5db', '#e5e7eb'] },
+  { id: 'AXOS Produccion', colors: ['#2563eb', '#14b8a6', '#f59e0b', '#64748b', '#0f766e', '#38bdf8', '#334155', '#f97316'] },
+  { id: 'Calidad', colors: ['#ef4444', '#f59e0b', '#2563eb', '#10b981', '#7c3aed', '#64748b', '#fb7185', '#22c55e'] },
+  { id: 'Proveedor', colors: ['#7c3aed', '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#14b8a6', '#64748b', '#a855f7'] },
 ];
 
 export const CHART_TYPES: { value: ChartType; label: string }[] = [
@@ -55,6 +83,305 @@ export function defaultChartSpec(): ChartSpec {
       { name: 'Serie 2', data: [8, 11, 14, 6] },
     ],
   };
+}
+
+export const INDUSTRIAL_CHART_PRESETS: IndustrialChartPreset[] = [
+  {
+    id: 'oee-trend',
+    label: 'OEE trend',
+    category: 'production',
+    description: 'Disponibilidad, rendimiento y calidad por turno.',
+    spec: {
+      type: 'line',
+      title: 'OEE trend por turno',
+      labels: ['Lun', 'Mar', 'Mie', 'Jue', 'Vie'],
+      series: [
+        { name: 'OEE', data: [78, 82, 80, 85, 87] },
+        { name: 'Target', data: [85, 85, 85, 85, 85] },
+      ],
+      palette: CHART_PALETTES.find((p) => p.id === 'AXOS Produccion')?.colors,
+      legend: true,
+      showValues: true,
+      presetId: 'oee-trend',
+      presetLabel: 'OEE trend',
+      presetCategory: 'production',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'pareto-defects',
+    label: 'Pareto defectos',
+    category: 'quality',
+    description: 'Defectos ordenados con acumulado para quality review.',
+    spec: {
+      type: 'pareto',
+      title: 'Pareto de defectos',
+      labels: ['Soldadura', 'Componente', 'Polaridad', 'ICT', 'Etiqueta', 'Mecanico'],
+      series: [{ name: 'Defectos', data: [42, 28, 18, 11, 7, 4] }],
+      palette: CHART_PALETTES.find((p) => p.id === 'Calidad')?.colors,
+      legend: true,
+      showValues: true,
+      presetId: 'pareto-defects',
+      presetLabel: 'Pareto defectos',
+      presetCategory: 'quality',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'supplier-score-radar',
+    label: 'Radar proveedor',
+    category: 'supplier',
+    description: 'Scorecard de calidad, entrega, costo y respuesta.',
+    spec: {
+      type: 'radar',
+      title: 'Supplier scorecard',
+      labels: ['Calidad', 'OTD', 'Costo', 'Respuesta', 'PPAP', 'Riesgo'],
+      series: [
+        { name: 'Proveedor A', data: [92, 86, 78, 84, 90, 72] },
+        { name: 'Target', data: [90, 90, 85, 85, 90, 80] },
+      ],
+      palette: CHART_PALETTES.find((p) => p.id === 'Proveedor')?.colors,
+      legend: true,
+      showValues: false,
+      presetId: 'supplier-score-radar',
+      presetLabel: 'Radar proveedor',
+      presetCategory: 'supplier',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'inventory-abc',
+    label: 'Inventory ABC',
+    category: 'inventory',
+    description: 'Valor de inventario por clasificacion ABC.',
+    spec: {
+      type: 'doughnut',
+      title: 'Inventario ABC',
+      labels: ['A', 'B', 'C', 'Exceso', 'Obsoleto'],
+      series: [{ name: 'Valor', data: [62, 21, 9, 6, 2] }],
+      palette: ['#2563eb', '#14b8a6', '#f59e0b', '#ef4444', '#64748b'],
+      legend: true,
+      showValues: true,
+      presetId: 'inventory-abc',
+      presetLabel: 'Inventory ABC',
+      presetCategory: 'inventory',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'plan-vs-actual',
+    label: 'Plan vs actual',
+    category: 'production',
+    description: 'Produccion planeada contra salida real por dia.',
+    spec: {
+      type: 'bar',
+      title: 'Plan vs actual',
+      labels: ['Lun', 'Mar', 'Mie', 'Jue', 'Vie'],
+      series: [
+        { name: 'Plan', data: [1200, 1250, 1300, 1280, 1320] },
+        { name: 'Actual', data: [1160, 1215, 1270, 1305, 1290] },
+      ],
+      palette: CHART_PALETTES.find((p) => p.id === 'AXOS Produccion')?.colors,
+      legend: true,
+      showValues: false,
+      presetId: 'plan-vs-actual',
+      presetLabel: 'Plan vs actual',
+      presetCategory: 'production',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'test-yield',
+    label: 'Test yield',
+    category: 'quality',
+    description: 'Yield de prueba por estacion o familia.',
+    spec: {
+      type: 'area',
+      title: 'Test yield',
+      labels: ['ICT', 'FCT', 'Burn-in', 'Final'],
+      series: [
+        { name: 'Yield %', data: [96.4, 94.8, 97.1, 98.2] },
+        { name: 'Target', data: [97, 97, 97, 97] },
+      ],
+      palette: ['#10b981', '#2563eb', '#f59e0b', '#ef4444'],
+      legend: true,
+      showValues: true,
+      presetId: 'test-yield',
+      presetLabel: 'Test yield',
+      presetCategory: 'quality',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'downtime-breakdown',
+    label: 'Downtime',
+    category: 'production',
+    description: 'Minutos de paro por causa principal.',
+    spec: {
+      type: 'hbar',
+      title: 'Downtime por causa',
+      labels: ['Cambio modelo', 'Material', 'Equipo', 'Calidad', 'Mantenimiento'],
+      series: [{ name: 'Minutos', data: [65, 44, 38, 24, 18] }],
+      palette: ['#f59e0b', '#2563eb', '#ef4444', '#10b981', '#64748b'],
+      legend: false,
+      showValues: true,
+      presetId: 'downtime-breakdown',
+      presetLabel: 'Downtime',
+      presetCategory: 'production',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'npi-readiness-gauge',
+    label: 'NPI readiness',
+    category: 'npi',
+    description: 'Indicador ejecutivo de readiness contra gate objetivo.',
+    spec: {
+      type: 'gauge',
+      title: 'NPI launch readiness',
+      labels: ['Readiness'],
+      series: [{ name: 'Readiness', data: [82, 100] }],
+      palette: ['#10b981', '#e5e7eb', '#f59e0b', '#ef4444'],
+      legend: false,
+      showValues: true,
+      presetId: 'npi-readiness-gauge',
+      presetLabel: 'NPI readiness',
+      presetCategory: 'npi',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'quality-cost-waterfall',
+    label: 'Costo calidad',
+    category: 'quality',
+    description: 'Impacto acumulado por scrap, retrabajo y contencion.',
+    spec: {
+      type: 'waterfall',
+      title: 'Costo de calidad',
+      labels: ['Base', 'Scrap', 'Retrabajo', 'Sorting', 'Recuperacion', 'Total'],
+      series: [{ name: 'USD k', data: [18, 9, 6, 4, -5, 32] }],
+      palette: CHART_PALETTES.find((p) => p.id === 'Calidad')?.colors,
+      legend: true,
+      showValues: true,
+      presetId: 'quality-cost-waterfall',
+      presetLabel: 'Costo calidad',
+      presetCategory: 'quality',
+      sourceStatus: 'contract-pending',
+    },
+  },
+  {
+    id: 'mrp-shortage-burn',
+    label: 'MRP shortage',
+    category: 'inventory',
+    description: 'Shortages abiertos y comprometidos por semana.',
+    spec: {
+      type: 'bar',
+      title: 'MRP shortage burn-down',
+      labels: ['W1', 'W2', 'W3', 'W4'],
+      series: [
+        { name: 'Abiertos', data: [46, 34, 22, 14] },
+        { name: 'Comprometidos', data: [18, 21, 16, 10] },
+      ],
+      stacked: true,
+      palette: ['#ef4444', '#f59e0b', '#2563eb', '#10b981'],
+      legend: true,
+      showValues: true,
+      presetId: 'mrp-shortage-burn',
+      presetLabel: 'MRP shortage',
+      presetCategory: 'inventory',
+      sourceStatus: 'contract-pending',
+    },
+  },
+];
+
+const FIRST_SERIES_TYPES = new Set<ChartType>(['pie', 'doughnut', 'pareto', 'waterfall', 'gauge']);
+const NATIVE_PPTX_TYPES = new Set<ChartType>(['bar', 'hbar', 'line', 'area', 'pie', 'doughnut']);
+const APPROXIMATED_PPTX_TYPES = new Set<ChartType>(['scatter', 'bubble', 'radar', 'pareto', 'waterfall', 'gauge']);
+
+export function cloneChartSpec(spec: ChartSpec): ChartSpec {
+  return {
+    type: spec.type,
+    title: spec.title,
+    labels: spec.labels.slice(),
+    series: spec.series.map((x) => ({ name: x.name, data: x.data.slice() })),
+    palette: spec.palette?.slice(),
+    stacked: spec.stacked,
+    legend: spec.legend,
+    showValues: spec.showValues,
+    presetId: spec.presetId,
+    presetLabel: spec.presetLabel,
+    presetCategory: spec.presetCategory,
+    sourceStatus: spec.sourceStatus,
+  };
+}
+
+export function getIndustrialChartPreset(id?: string): IndustrialChartPreset | undefined {
+  return INDUSTRIAL_CHART_PRESETS.find((preset) => preset.id === id);
+}
+
+export function chartPresetSpec(id: string): ChartSpec | undefined {
+  const preset = getIndustrialChartPreset(id);
+  return preset ? cloneChartSpec(preset.spec) : undefined;
+}
+
+export function analyzeChartSpec(spec: ChartSpec): ChartHealth {
+  const issues: ChartHealthIssue[] = [];
+  const seriesCount = spec.series.length;
+  const labelCount = spec.labels.length;
+  const pointCount = spec.series.reduce((sum, series) => sum + series.data.length, 0);
+  const usesFirstSeriesOnly = FIRST_SERIES_TYPES.has(spec.type);
+  const nativePptx = NATIVE_PPTX_TYPES.has(spec.type);
+
+  if (!labelCount) issues.push({ severity: 'critical', message: 'Agrega al menos una categoria para que el grafico pueda renderizarse.' });
+  if (!seriesCount) issues.push({ severity: 'critical', message: 'Agrega al menos una serie de datos.' });
+  if (seriesCount > 0 && pointCount === 0) issues.push({ severity: 'critical', message: 'Las series no contienen valores numericos.' });
+
+  if (usesFirstSeriesOnly && seriesCount > 1) {
+    issues.push({ severity: 'warning', message: 'Este tipo usa solo la primera serie; las series adicionales no se veran en canvas ni PPTX.' });
+  }
+  if (APPROXIMATED_PPTX_TYPES.has(spec.type)) {
+    issues.push({ severity: 'warning', message: 'PPTX exportara este grafico como una aproximacion editable, no como el tipo exacto de PowerPoint.' });
+  }
+
+  const labelSet = new Set(spec.labels.map((label) => normalizeChartLabel(label)));
+  if (labelSet.size < spec.labels.length) issues.push({ severity: 'info', message: 'Hay categorias duplicadas; revisa si el resumen ejecutivo debe consolidarlas.' });
+  if (labelCount > 8 && ['bar', 'hbar', 'line', 'area', 'pareto'].includes(spec.type)) {
+    issues.push({ severity: 'info', message: 'Muchas categorias pueden saturar el slide; considera agrupar el resto.' });
+  }
+  for (const series of spec.series) {
+    if (series.data.length !== labelCount) {
+      issues.push({ severity: 'warning', message: `La serie "${series.name || 'sin nombre'}" no coincide con el numero de categorias.` });
+    }
+    if (!series.name.trim()) issues.push({ severity: 'info', message: 'Hay una serie sin nombre; PowerPoint mostrara una leyenda generica.' });
+  }
+
+  const firstSeriesValues = spec.series[0]?.data ?? [];
+  if (['pie', 'doughnut', 'gauge', 'pareto', 'radar'].includes(spec.type) && firstSeriesValues.some((value) => value < 0)) {
+    issues.push({ severity: 'warning', message: 'Este tipo no representa valores negativos con fidelidad; usa barras o waterfall.' });
+  }
+  if (spec.sourceStatus === 'contract-pending') {
+    issues.push({ severity: 'info', message: 'Preset AXOS con contrato pendiente: los datos son editables hasta conectar la fuente real.' });
+  }
+
+  const status = issues.some((issue) => issue.severity === 'critical')
+    ? 'blocked'
+    : issues.some((issue) => issue.severity === 'warning')
+      ? 'review'
+      : 'ready';
+  return {
+    status,
+    nativePptx,
+    usesFirstSeriesOnly,
+    pointCount,
+    seriesCount,
+    labelCount,
+    issues,
+    exportSummary: nativePptx ? 'PPTX nativo editable' : 'PPTX editable aproximado',
+  };
+}
+
+function normalizeChartLabel(label: string): string {
+  return String(label).trim().toLowerCase();
 }
 
 export function isChart(o: any): boolean {
