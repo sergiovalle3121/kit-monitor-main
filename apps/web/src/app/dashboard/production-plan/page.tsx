@@ -62,6 +62,16 @@ const TERMINAL: Status[] = ['COMPLETED', 'CANCELLED'];
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 const bySequence = (a: WO, b: WO) => a.sequence - b.sequence;
 
+function unsafeCancelReason(wo: WO): string | null {
+  if (wo.status === 'STAGED' || wo.materialReady) {
+    return 'No se puede cancelar: material ya montado. Retira staging primero.';
+  }
+  if (wo.status === 'IN_EXECUTION' || wo.quantityCompleted > 0 || !!wo.startedAt) {
+    return 'No se puede cancelar: la WO ya tiene ejecucion registrada.';
+  }
+  return null;
+}
+
 const SCHEDULE_META: Record<ScheduleInfo['state'], { color: string }> = {
   late: { color: RED },
   'due-today': { color: AMBER },
@@ -419,6 +429,7 @@ function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize 
   const ctb = useMemo(() => computeClearToBuild(wo, board.bomByModel, board.invByPart), [wo, board]);
   const [openCtb, setOpenCtb] = useState(false);
   const clear = CLEAR_META[ctb.status];
+  const cancelBlocked = unsafeCancelReason(wo);
 
   return (
     <div data-testid="wo-card" data-model={wo.model} data-folio={wo.folio ?? ''} className={`${glass} rounded-2xl p-4`}>
@@ -512,13 +523,21 @@ function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize 
             </span>
           </span>
         )}
-        {NEXT[wo.status].map((to) => (
-          <button key={to} onClick={() => onTransition(wo, to)} disabled={busy === wo.id}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50"
-            style={{ background: `${STATUS_META[to].color}1f`, color: STATUS_META[to].color }}>
-            {to === 'CANCELLED' ? <X className="w-3 h-3" /> : <ArrowRight className="w-3 h-3" />} {STATUS_META[to].label}
-          </button>
-        ))}
+        {NEXT[wo.status].map((to) => {
+          const disabledReason = to === 'CANCELLED' ? cancelBlocked : null;
+          return (
+            <button
+              key={to}
+              onClick={() => onTransition(wo, to)}
+              disabled={busy === wo.id || !!disabledReason}
+              title={disabledReason ?? undefined}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50"
+              style={{ background: `${STATUS_META[to].color}1f`, color: STATUS_META[to].color }}
+            >
+              {to === 'CANCELLED' ? <X className="w-3 h-3" /> : <ArrowRight className="w-3 h-3" />} {STATUS_META[to].label}
+            </button>
+          );
+        })}
         <button onClick={() => onAuthorize(wo)} disabled={busy === wo.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: 'rgba(0,0,0,0.05)' }}>
           <UserCheck className="w-3 h-3" /> Autorizar operador
         </button>

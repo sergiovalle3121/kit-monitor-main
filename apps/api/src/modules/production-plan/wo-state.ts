@@ -3,7 +3,7 @@
  *
  * RELEASED ─▶ STAGED ─▶ IN_EXECUTION ─▶ COMPLETED
  *    │           │            │
- *    └───────────┴────────────┴─▶ CANCELLED   (from any non-terminal state)
+ *    └───────────┴────────────┴─▶ CANCELLED   (state-allowed; service blocks unsafe cancels)
  *    ▲           │
  *    └───────────┘  (material pulled back: STAGED → RELEASED)
  *
