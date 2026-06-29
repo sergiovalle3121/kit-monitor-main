@@ -22,6 +22,7 @@ interface Receipt {
   partNumber: string;
   lotNumber?: string | null;
   serialNumber?: string | null;
+  expiresAt?: string | null;
   quantity: number;
   warehouseId?: string | null;
   location?: string | null;
@@ -62,6 +63,7 @@ export default function ReceivingPage() {
     location: "DOCK",
     supplierCode: "",
     lotNumber: "",
+    expiresAt: "",
     poNumber: "",
   });
 
@@ -94,6 +96,7 @@ export default function ReceivingPage() {
           // supplierCode es NOT NULL en la entidad → nunca lo mandamos vacío.
           supplierCode: form.supplierCode.trim() || "N/A",
           lotNumber: form.lotNumber.trim() || undefined,
+          expiresAt: form.expiresAt || undefined,
           poNumber: form.poNumber.trim() || undefined,
           receivedBy: user?.email || "operador",
         }),
@@ -106,7 +109,7 @@ export default function ReceivingPage() {
       const saved = await res.json().catch(() => null);
       toast.success(`Recibo ${saved?.receiptNumber || ""} registrado → inventario (IQC pendiente).`, "Recibo");
       setShowForm(false);
-      setForm({ partNumber: "", quantity: 0, warehouseId: form.warehouseId, location: "DOCK", supplierCode: "", lotNumber: "", poNumber: "" });
+      setForm({ partNumber: "", quantity: 0, warehouseId: form.warehouseId, location: "DOCK", supplierCode: "", lotNumber: "", expiresAt: "", poNumber: "" });
       mutate();
     } catch {
       toast.error("Error de red.", "Recibo");
@@ -192,6 +195,10 @@ export default function ReceivingPage() {
                 <span className="block text-[12px] font-medium text-gray-500 mb-1">Lote</span>
                 <input value={form.lotNumber} onChange={(e) => setForm({ ...form, lotNumber: e.target.value })} placeholder="LOT-…" className="rc-input" />
               </label>
+              <label className="block md:col-span-2">
+                <span className="block text-[12px] font-medium text-gray-500 mb-1">Caducidad del lote</span>
+                <input type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} className="rc-input" />
+              </label>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
@@ -222,6 +229,7 @@ export default function ReceivingPage() {
                     <p className="text-[11px] text-gray-400 truncate mt-0.5">
                       {r.supplierCode ? `${r.supplierCode} · ` : ""}{r.warehouseId || "—"}{r.location ? ` / ${r.location}` : ""}
                       {r.lotNumber ? ` · Lote ${r.lotNumber}` : ""}{r.poNumber ? ` · ${r.poNumber}` : ""}
+                      {r.expiresAt ? ` · vence ${new Date(r.expiresAt).toLocaleDateString()}` : ""}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">

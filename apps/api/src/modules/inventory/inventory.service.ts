@@ -111,12 +111,15 @@ export class InventoryService {
     holdStatus?: 'available' | 'hold' | 'quarantine' | 'expired' | 'pending_iqc' | 'pending_oqc' | 'staged_for_shipping' | 'shipped';
     lotNumber?: string;
     serialNumber?: string;
+    expiresAt?: Date | string | null;
   }): Promise<InventoryMovement> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      const expiresAt = this.normalizeExpiry(dto.expiresAt);
+
       // 1. Validate Material
       const material = await this.materialRepo.findOne({ where: { partNumber: dto.partNumber } });
       if (!material) throw new NotFoundException(`Material ${dto.partNumber} not found in Master Data`);
@@ -191,11 +194,13 @@ export class InventoryService {
             lotNumber: dto.lotNumber,
             serialNumber: dto.serialNumber,
             onHand: 0,
-            holdStatus: dto.holdStatus || 'available'
+            holdStatus: dto.holdStatus || 'available',
+            expiresAt,
           });
         } else {
           // If position exists, update its status if explicitly provided
           if (dto.holdStatus) destPos.holdStatus = dto.holdStatus;
+          if (dto.expiresAt !== undefined) destPos.expiresAt = expiresAt;
         }
 
         destPos.onHand += dto.quantity;
@@ -231,6 +236,15 @@ export class InventoryService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private normalizeExpiry(value: Date | string | null | undefined): Date | null {
+    if (value === undefined || value === null || value === '') return null;
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('expiresAt must be a valid date.');
+    }
+    return date;
   }
 
   // Helper to ensure material exists in master data (used for auto-receiving/demos)
