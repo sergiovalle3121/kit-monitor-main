@@ -227,3 +227,10 @@
 - Added coverage for clearance warnings in `validation-report.spec.ts`.
 - Added `docs/cad/AXOS_CAD_CAPABILITY_AUDIT.md` and `docs/cad/AXOS_CAD_TREE_STATUS.md`.
 - Pending: add viewport issue badges and zoom-to-issue behavior from the same shared validation report.
+## 2026-06-29 — Editable CAD layout templates
+
+- Added pure CAD layout templates for EMS mini factory, SMT line, warehouse racks, and packing/shipping cell.
+- Wired templates into the existing `Layout3DEditor` equipment rail as "Plantillas CAD".
+- Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
+- Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
+- Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
