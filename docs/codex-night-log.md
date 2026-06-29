@@ -210,3 +210,10 @@
 - Wired the existing `Layout3DEditor` right inspector to show local notes, DXF/source metadata, safety classification, object center, multi-selection bounds, layer spread, and locked/hidden object counts.
 - Added `object-properties.spec.ts` for source metadata, safety tag parsing, single-object properties, and multi-selection summaries.
 - Pending: notes/tags/source metadata remain local-only until the layout API metadata contract is approved.
+## 2026-06-29 - DXF footprint label export
+
+- Reused the existing `exportCadLayoutDxf` path that the `Layout3DEditor.tsx` DXF modal already calls.
+- Extended `exportCadDxf` so non-text primitives with `text` export a centered DXF `TEXT` label after valid geometry.
+- Added deterministic layer color definitions in `layout-export-adapter.ts` for Layout, Equipment, Flow, Aisles, Measurements, Safety, and Text.
+- Added smoke coverage for primitive labels, layout box labels, layer colors, and updated entity counts.
+- Pending: add export preflight warnings for empty selection, hidden-layer exports, and unlabeled critical footprints.

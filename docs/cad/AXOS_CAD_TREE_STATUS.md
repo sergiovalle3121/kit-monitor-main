@@ -32,6 +32,14 @@ This run upgrades the existing object properties inspector:
 - The helper is covered by a pure smoke spec.
 
 The workflow is visible through the existing `Layout3DEditor` properties panel. It does not introduce a parallel inspector, object model, layer model, or DXF metadata path.
+This run hardens the professional DXF export path:
+
+- Layout footprint boxes now export their `text` labels as centered DXF `TEXT` entities.
+- The existing `Layout3DEditor.tsx` export modal benefits without a new UI path because it already calls `exportCadLayoutDxf`.
+- Exported layer tables now receive deterministic AutoCAD color codes for Layout, Equipment, Flow, Aisles, Measurements, Safety, and Text.
+- Entity counts include generated footprint labels, so the existing export toast remains honest.
+
+The workflow does not introduce a parallel exporter, a second export modal, or a new geometry model. It reuses `CadDxfPrimitive.text`, `cadLayoutToDxfExportModel`, and `exportCadDxf`.
 
 ## Phase evidence
 
@@ -43,6 +51,9 @@ The workflow is visible through the existing `Layout3DEditor` properties panel. 
 | Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus a visible export modal improvement | Keep audit current as PRs land. |
 | Phase 7 - DXF Export Pro Workflow | Advanced | `dxf-export.ts`, `layout-export-adapter.ts`, `dxf-export-readiness.ts`, and the visible DXF export modal | Add optional validation report attachment/package metadata after export contract review. |
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, and command-registry flow workflows | Add richer flow recommendations and before/after preview cards. |
+| Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus a reachable export workflow | Keep audit current as PRs land. |
+| Phase 7 - DXF Export Pro Workflow | Advanced | Export modal, `layout-export-adapter.ts`, `dxf-export.ts`, footprint labels, layer colors | Add export preflight warnings and selected-layer export. |
+| Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, and command workflows | Add richer flow recommendations and before/after preview cards. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
@@ -58,3 +69,4 @@ Recommended next phase: add a layer-selective DXF import review or a validation-
 ## Next CAD PR
 
 Recommended next phase: persist object notes/tags/source metadata through the layout API after the object metadata contract is reviewed, or move to editable connector actions if `Layout3DEditor.tsx` churn remains high.
+Recommended next phase: add DXF export preflight warnings for empty selection, hidden layers, missing footprint labels, and unsupported converted DXF entities once the active editor PRs settle.
