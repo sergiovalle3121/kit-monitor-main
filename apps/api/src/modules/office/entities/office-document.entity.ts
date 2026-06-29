@@ -54,6 +54,26 @@ export class OfficeDocument {
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   sharedWith: OfficeShare[] | null;
 
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  @Index()
+  space: string | null;
+
+  @Column({ type: 'varchar', length: 240, nullable: true, name: 'folder_path' })
+  @Index()
+  folderPath: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  collection: string | null;
+
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  tags: string[] | null;
+
+  @Column({ type: 'boolean', default: false })
+  favorite: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  pinned: boolean;
+
   /** Controlled-document lifecycle for governed SOP/WI/quality records. */
   @Column({ type: 'varchar', length: 24, name: 'lifecycle_state', default: 'draft' })
   @Index()
@@ -80,6 +100,17 @@ export class OfficeDocument {
 
   @Column({ type: 'timestamp', nullable: true })
   obsoletedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'next_review_at' })
+  @Index()
+  nextReviewAt: Date | null;
+
+  @Column({ type: 'int', nullable: true, name: 'review_interval_days' })
+  reviewIntervalDays: number | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true, name: 'review_owner' })
+  @Index()
+  reviewOwner: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

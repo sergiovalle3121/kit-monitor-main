@@ -275,7 +275,7 @@ function Row({
         <p className="text-[11px] text-gray-400 mt-1">{n.source} · {timeAgo(n.at)}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0 pt-1">
-        {!n.read && <span className="h-2 w-2 rounded-full bg-violet-500" title="No leída" />}
+        {!n.read && <span className="h-2 w-2 rounded-full bg-primary" title="No leída" />}
         <button
           onClick={(e) => { e.stopPropagation(); if (n.read) onUnread(n.id); else onToggle(n.id); }}
           className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"

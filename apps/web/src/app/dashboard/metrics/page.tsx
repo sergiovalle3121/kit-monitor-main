@@ -26,14 +26,14 @@ const fmtMoney = (n: number) =>
   n.toLocaleString('es-MX', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 export default function MetricsPage() {
-  const { data: plansData } = useApi<PlanRow[]>('/plans');
+  const { data: plansData, isLoading: plansLoading } = useApi<PlanRow[]>('/plans');
   const plans = Array.isArray(plansData) ? plansData : [];
   const norm = (s?: string) => (s || '').toLowerCase();
   const open = plans.filter((p) => ['pending', 'active'].includes(norm(p.status))).length;
   const published = plans.filter((p) => ['published', 'released', 'active'].includes(norm(p.status))).length;
   const completed = plans.filter((p) => norm(p.status) === 'completed').length;
 
-  const { data: cost } = useCostRollup();
+  const { data: cost, isLoading: costLoading } = useCostRollup();
   const totalCost = cost?.totalCost ?? 0;
   const breakdown = cost?.breakdown ?? [];
 
@@ -44,6 +44,7 @@ export default function MetricsPage() {
       icon={Activity}
       iconClass="text-cyan-600"
       iconTint="bg-cyan-50 dark:bg-cyan-500/10"
+      loading={plansLoading || costLoading}
       kpis={[
         { label: 'Costo total', value: fmtMoney(totalCost), color: '#0891b2' },
         { label: 'WOs abiertas', value: open, color: '#f59e0b' },
@@ -53,7 +54,7 @@ export default function MetricsPage() {
       tools={[
         { title: 'Costeo por orden', desc: 'Desglose por WO (MO, material, energía, fijos)', href: '/dashboard/finance/cost-rollup', icon: Calculator, color: 'text-emerald-500', tint: 'bg-emerald-50 dark:bg-emerald-500/10' },
         { title: 'Mission Control', desc: 'OEE, throughput, paros y cuellos en vivo', href: '/dashboard/mission-control', icon: RadioTower, color: 'text-cyan-500', tint: 'bg-cyan-50 dark:bg-cyan-500/10' },
-        { title: 'Forecast y simulación', desc: 'Escenarios y Monte Carlo', href: '/dashboard/forecast', icon: LineChart, color: 'text-violet-500', tint: 'bg-violet-50 dark:bg-violet-500/10' },
+        { title: 'Forecast y simulación', desc: 'Escenarios y Monte Carlo', href: '/dashboard/forecast', icon: LineChart, color: 'text-primary', tint: 'bg-primary dark:bg-primary/10' },
         { title: 'Piso de producción', desc: 'Avance y paros por línea', href: '/dashboard/production', icon: Factory, color: 'text-amber-500', tint: 'bg-amber-50 dark:bg-amber-500/10' },
       ]}
     >

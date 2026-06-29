@@ -14,7 +14,9 @@ import { CreatePlantDto, UpdatePlantDto } from '../dto/plant.dto';
  * Read operations require 'settings:read' permission.
  * Write operations require 'settings:write' permission.
  */
-@Controller('api/plants')
+// Global prefix `api` is applied in main.ts; `'api/plants'` would double-mount at
+// `/api/api/plants`. The intended surface is `/api/plants`.
+@Controller('plants')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PlantsController {
   constructor(

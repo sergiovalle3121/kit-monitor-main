@@ -142,7 +142,7 @@ export default function AlmacenPage() {
                 <Radio className={`w-3.5 h-3.5 ${pulse ? 'animate-ping' : ''}`} />
                 {socketStatus === 'connected' ? 'En vivo' : 'Conectando…'}
               </span>
-              <Link href="/dashboard/planning" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-violet-500 hover:text-violet-700 transition-colors">
+              <Link href="/dashboard/planning" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary transition-colors">
                 <LineChart className="w-4 h-4" /> Planeación
               </Link>
             </>
@@ -266,7 +266,7 @@ function RequestCard({ r, busy, muted, children, pickLocations }: { r: MaterialR
       {/* Materials to pick (from the kit, exploded from the model BOM) */}
       {r.kitId ? (
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/10">
-          <button onClick={() => setOpen((o) => !o)} className="text-xs font-medium text-gray-500 hover:text-black dark:hover:text-white flex items-center gap-1.5">
+          <button onClick={() => setOpen((o) => !o)} className="text-xs font-medium text-gray-500 hover:text-foreground flex items-center gap-1.5">
             <PackageCheck className="w-3.5 h-3.5" /> {open ? 'Ocultar materiales' : 'Ver materiales del kit'}
           </button>
           {open && (
