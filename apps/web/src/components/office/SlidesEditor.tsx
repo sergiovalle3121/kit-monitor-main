@@ -51,6 +51,8 @@ import { SlideFindReplace } from './SlideFindReplace';
 import { SlideOutline } from './SlideOutline';
 import { SlideReusePanel, type ReuseItem } from './SlideReusePanel';
 import { SlideCommentsPanel, type SlideComment } from './SlideCommentsPanel';
+import { SlideInspectorPanel, type SlideInspectorHealth, type SlideInspectorSelection } from './SlideInspectorPanel';
+import { SlideStatusBar } from './SlideStatusBar';
 import { SlideAssetLibrary, type SlideAssetSymbol } from './slides/AssetLibrary';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
@@ -82,6 +84,7 @@ function typeName(o: any): string {
   return 'Forma';
 }
 function objLabel(o: any): string {
+  if (o?.label) return String(o.label).slice(0, 40);
   if (isChart(o)) return o.chartSpec?.title || 'Gráfico';
   if (isSmartObject(o)) return o.smartObject?.title || 'Smart Object';
   if (isSmart(o)) return `SmartArt · ${o.smart?.kind ?? ''}`;
@@ -485,14 +488,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     for (const ph of layout.build()) {
       if (ph.kind === 'bar' || ph.kind === 'accentBar') {
         c.add(new Rect({ left: ph.left, top: ph.top, width: ph.width, height: ph.height || 8, fill: t.accent, rx: ph.kind === 'accentBar' ? 4 : 0, ry: ph.kind === 'accentBar' ? 4 : 0, ph: ph.kind } as any));
+      } else if (['chart', 'image', 'kpi', 'timeline', 'riskMatrix', 'actionRegister'].includes(ph.kind)) {
+        const h = ph.height || (ph.kind === 'kpi' ? 110 : 180);
+        c.add(new Rect({ left: ph.left, top: ph.top, width: ph.width, height: h, fill: ph.kind === 'kpi' ? t.surface : 'transparent', stroke: t.accent, strokeWidth: ph.kind === 'kpi' ? 1.5 : 2, strokeDashArray: ph.kind === 'kpi' ? undefined : [8, 6], rx: 16, ry: 16, ph: ph.kind } as any));
+        c.add(new Textbox(ph.text || ph.kind, { left: ph.left + 14, top: ph.top + 14, width: Math.max(40, ph.width - 28), fontSize: ph.kind === 'kpi' ? 22 : 18, fontWeight: ph.kind === 'kpi' ? 'bold' : 'normal', fill: ph.kind === 'kpi' ? t.text : t.muted, textAlign: ph.align || 'center', fontFamily: ph.kind === 'kpi' ? themeHeading(t) : t.font, ph: ph.kind } as any));
       } else {
         // Los marcadores de título/subtítulo usan la tipografía de títulos del
         // tema (mayor); el cuerpo usa la de cuerpo (menor). `ph` marca el rol.
-        const heading = ph.kind === 'title' || ph.kind === 'subtitle';
+        const heading = ph.kind === 'title' || ph.kind === 'subtitle' || ph.kind === 'logo';
         c.add(new Textbox(ph.text || '', { left: ph.left, top: ph.top, width: ph.width, fontSize: ph.fontSize || 28, fontWeight: ph.bold ? 'bold' : 'normal', fill: ph.muted ? t.muted : t.text, textAlign: ph.align || 'left', fontFamily: heading ? themeHeading(t) : t.font, ph: ph.kind } as any));
       }
     }
     c.backgroundColor = t.bg;
+    (c as any).layoutId = id;
     loadingRef.current = false;
     c.requestRenderAll(); capture(); sync();
   }
@@ -723,6 +731,21 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     const radius = r === 'pill' ? (Math.min(o.width, o.height) / 2) : r;
     o.set({ rx: radius, ry: radius }); c.requestRenderAll(); capture(); sync();
   }
+  function ensureCurrentTitle() {
+    const c = fabricRef.current; if (!c) return;
+    if (labelOf(slidesRef.current[curRef.current])) { toast.info('Esta diapositiva ya tiene título.'); return; }
+    const t = theme();
+    const title = new Textbox('Título de la diapositiva', {
+      left: 56, top: 64, width: 840, fontSize: 40, fontWeight: 'bold',
+      fill: t.text, fontFamily: themeHeading(t), label: 'Título', ph: 'title',
+    } as any);
+    c.add(title); c.setActiveObject(title); c.requestRenderAll(); capture(); sync();
+  }
+  function ensureCurrentLayout() {
+    const current = slidesRef.current[curRef.current];
+    if ((current?.objects || []).length > 0) { toast.info('La diapositiva ya tiene contenido. Usa Diseño para reemplazarlo.'); return; }
+    void applyLayout('titleBody');
+  }
   // ── Dibujo libre (lápiz) en el lienzo ───────────────────────────────────────
   function toggleDraw() {
     const c = fabricRef.current; if (!c) return;
@@ -887,10 +910,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
   function capture() {
     const c = fabricRef.current; if (!c) return;
-    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'animRepeat', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'smartObject', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph', 'assetId', 'assetCategory', 'masterRole']);
+    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'animRepeat', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'smartObject', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph', 'assetId', 'assetCategory', 'masterRole', 'label', 'commentId']);
     // El patrón se compone como backgroundImage en modo normal: no debe quedar
     // guardado dentro del JSON de la diapositiva.
     delete data.backgroundImage; delete data.overlayImage;
+    if ((c as any).layoutId) data.layoutId = (c as any).layoutId;
     if (masterModeRef.current) masterRef.current = data;
     else slidesRef.current[curRef.current] = data;
   }
@@ -1104,6 +1128,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     try {
       const json = slidesRef.current[i] || blank();
       await c.loadFromJSON(json);
+      (c as any).layoutId = json.layoutId;
       c.backgroundColor = (json.background as string) || '#ffffff';
       c.forEachObject((o: any) => {
         if (o.type === 'image' && o.imgFx) applyImageEffects(o, readImgFx(o));
@@ -1328,8 +1353,58 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   }
   function setOpacity(v: number) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
-    if (c && o) { o.set('opacity', v); c.requestRenderAll(); capture(); sync(); }
+    if (c && o) { o.set('opacity', v); setSelOpacity(v); c.requestRenderAll(); capture(); sync(); }
   }
+
+  function setObjectLabel(label: string) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set?.('label', label);
+    if (isSmartObject(o)) o.smartObject = { ...o.smartObject, title: label || o.smartObject?.title };
+    if (isChart(o)) o.chartSpec = { ...o.chartSpec, title: label || o.chartSpec?.title };
+    c.requestRenderAll(); capture(); sync();
+  }
+  function toggleHidden() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set('visible', o.visible === false);
+    c.discardActiveObject(); c.requestRenderAll(); capture(); sync();
+    setHasSel(false); setSelType(''); setSelCount(0);
+  }
+  function patchSmartObject(patch: Partial<any>) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o || !isSmartObject(o)) return;
+    const nextSpec = { ...o.smartObject, ...patch, binding: { ...(o.smartObject?.binding || {}), source: patch.source ?? o.smartObject?.source ?? 'manual', lastUpdatedAt: patch.lastUpdatedAt ?? o.smartObject?.binding?.lastUpdatedAt } };
+    const pos = { left: o.left, top: o.top, scaleX: o.scaleX || 1, scaleY: o.scaleY || 1, angle: o.angle || 0 };
+    const next = buildSmartObjectGroup(nextSpec, { left: pos.left, top: pos.top, accent: theme().accent });
+    next.set({ scaleX: pos.scaleX, scaleY: pos.scaleY, angle: pos.angle, label: o.label, commentId: o.commentId });
+    c.remove(o); c.add(next); c.setActiveObject(next); c.requestRenderAll(); capture(); sync();
+  }
+  function refreshSmartObjectSnapshot() {
+    patchSmartObject({ lastUpdatedAt: new Date().toISOString(), refreshMode: 'manual' });
+  }
+
+  function materializePlaceholder(kind: string) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    const box = { left: o.left || 120, top: o.top || 120, w: Math.max(160, o.getScaledWidth?.() || o.width || 300), h: Math.max(100, o.getScaledHeight?.() || o.height || 180) };
+    c.remove(o);
+    let next: any;
+    if (kind === 'chart') next = buildChartGroup(defaultChartSpec(), { left: box.left, top: box.top, width: box.w, height: box.h });
+    else if (kind === 'riskMatrix') next = buildSmartObjectGroup(defaultSmartObject('riskMatrix'), { left: box.left, top: box.top, accent: theme().accent });
+    else if (kind === 'timeline') next = buildSmartObjectGroup(defaultSmartObject('gantt'), { left: box.left, top: box.top, accent: theme().accent });
+    else if (kind === 'actionRegister') next = buildSmartObjectGroup(defaultSmartObject('kanbanBoard'), { left: box.left, top: box.top, accent: theme().accent });
+    else next = buildSmartObjectGroup(defaultSmartObject('kpiCard'), { left: box.left, top: box.top, accent: theme().accent });
+    next.set?.({ ph: undefined, label: kind === 'chart' ? 'Chart placeholder' : next.smartObject?.title });
+    c.add(next); c.setActiveObject(next); c.requestRenderAll(); capture(); sync();
+  }
+  async function resetCurrentLayout() {
+    const id = slidesRef.current[curRef.current]?.layoutId;
+    if (!id) { toast.info('Esta diapositiva no tiene layout guardado.'); return; }
+    await applyLayout(id);
+  }
+
+
   // ── Agrupar / desagrupar (Fabric v7: removeAll restaura coords absolutas) ───
   function groupSel() {
     const c = fabricRef.current; const sel = c?.getActiveObject() as any;
@@ -1635,6 +1710,56 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     return { x: Math.round(o.left || 0), y: Math.round(o.top || 0), w: Math.round(o.getScaledWidth?.() || 0), h: Math.round(o.getScaledHeight?.() || 0), angle: Math.round(o.angle || 0) };
   })();
 
+  const inspectorSelection: SlideInspectorSelection | null = (() => {
+    const o = fabricRef.current?.getActiveObject() as any;
+    if (!o || !selGeom) return null;
+    return {
+      label: objLabel(o), type: typeName(o), count: selCount || 1,
+      x: selGeom.x, y: selGeom.y, w: selGeom.w, h: selGeom.h, angle: selGeom.angle,
+      opacity: Math.round(((o.opacity ?? 1) as number) * 100) / 100,
+      locked: !!o.locked, hidden: o.visible === false,
+      objectId: o.id || o.name, chartType: o.chartSpec?.type, assetId: o.assetId, assetCategory: o.assetCategory,
+      commentId: o.commentId, smartObject: o.smartObject, placeholder: o.ph,
+      animation: { effect: o.anim || 'none', order: o.animOrder ?? 0, duration: o.animDur ?? 500, delay: o.animDelay ?? 0, start: o.animStart || DEFAULT_ANIM_START, repeat: o.animRepeat ?? 1 },
+      fill: typeof o.fill === 'string' ? o.fill : undefined,
+      stroke: typeof o.stroke === 'string' ? o.stroke : undefined,
+      strokeWidth: typeof o.strokeWidth === 'number' ? o.strokeWidth : undefined,
+      cornerRadius: o.type === 'rect' && typeof o.rx === 'number' ? Math.round(o.rx) : undefined,
+      hasShadow: !!o.shadow,
+    };
+  })();
+  const inspectorHealth: SlideInspectorHealth = (() => {
+    const objects = slidesRef.current.reduce((sum, s) => sum + ((s.objects || []) as any[]).length, 0);
+    const emptySlides = slidesRef.current.filter((s) => ((s.objects || []) as any[]).length === 0).length;
+    const currentEmpty = ((slidesRef.current[cur]?.objects || []) as any[]).length === 0;
+    const missingTitles = slidesRef.current.filter((s) => !labelOf(s)).length;
+    const currentHasTitle = !!labelOf(slidesRef.current[cur]);
+    const smartObjects = slidesRef.current.reduce((sum, s) => sum + ((s.objects || []) as any[]).filter((o) => !!o.smartObject).length, 0);
+    const open = commentsRef.current.filter((c) => !c.resolved && !c.parentId).length;
+    const resolved = commentsRef.current.filter((c) => c.resolved && !c.parentId).length;
+    const pptxIssues = Array.isArray(value?.pptxCompatibility?.issues) ? value.pptxCompatibility.issues.length : 0;
+    const readinessScore = Math.max(0, Math.min(100, 100 - (emptySlides * 8) - (missingTitles * 5) - (open * 3) - (pptxIssues * 2)));
+    return {
+      slideCount: slidesRef.current.length,
+      objectCount: objects,
+      commentsOpen: open,
+      commentsResolved: resolved,
+      pptxIssues,
+      pptxIssueMessages: Array.isArray(value?.pptxCompatibility?.issues) ? value.pptxCompatibility.issues.map((x: any) => String(x.message || x.code || 'Aviso PPTX')) : [],
+      emptySlides,
+      currentEmpty,
+      missingTitles,
+      currentHasTitle,
+      smartObjects,
+      readinessScore,
+      master: !!masterRef.current?.objects?.length,
+      theme: theme().name,
+      ratio,
+      layout: slidesRef.current[cur]?.layoutId,
+    };
+  })();
+
+
   return (
     <div className="flex flex-col gap-3 h-full p-3">
       <OfficeRibbon storageKey="ribbon:slides">
@@ -1702,6 +1827,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           <RibbonTab id="design" label="Diseño">
             <RibbonGroup label="Diseños">
               <RibbonMenuButton icon={LayoutTemplate} label="Diseño" menuWidth={220} items={SLIDE_LAYOUTS.map((l) => ({ label: l.name, onClick: () => applyLayout(l.id) }))} />
+              <RibbonButton icon={RefreshCw} label="Restablecer layout" hideLabel={false} onClick={resetCurrentLayout} />
               <RibbonButton icon={LayoutGrid} label="Plantillas" hideLabel={false} onClick={() => setShowTemplates(true)} />
               <RibbonMenuButton icon={Stamp} label={masterMode ? 'Patrón ✦' : 'Patrón'} menuWidth={250} items={[
                 { label: masterMode ? '✕ Salir del patrón' : '✎ Editar patrón de diapositivas', onClick: () => (masterMode ? exitMasterMode() : enterMasterMode()) },
@@ -2054,8 +2180,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           {!readOnly && (
           <>
           <div className="flex gap-2">
-            <button onClick={addSlide} title="Nueva" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"><Plus className="w-5 h-5" /></button>
-            <button onClick={dupSlide} title="Duplicar" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"><Copy className="w-5 h-5" /></button>
+            <button onClick={addSlide} title="Nueva" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-foreground transition-colors"><Plus className="w-5 h-5" /></button>
+            <button onClick={dupSlide} title="Duplicar" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-foreground transition-colors"><Copy className="w-5 h-5" /></button>
           </div>
           <button onClick={addSection} title="Agregar sección en la diapositiva actual" className="w-full text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 border border-dashed border-gray-300 dark:border-white/20 rounded-lg py-1 flex items-center justify-center gap-1"><FolderPlus className="w-3.5 h-3.5" /> Sección</button>
           </>
@@ -2116,7 +2242,41 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
             onClose={() => setShowComments(false)}
           />
         )}
+        <SlideInspectorPanel
+          selection={inspectorSelection}
+          health={inspectorHealth}
+          readOnly={readOnly}
+          onGeom={setGeom}
+          onOpacity={setOpacity}
+          onLabel={setObjectLabel}
+          onToggleLock={toggleLock}
+          onToggleHidden={toggleHidden}
+          onFill={setColor}
+          onStroke={setOutlineColor}
+          onStrokeWidth={setOutlineWidth}
+          onCornerRadius={(v) => setCorners(Math.max(0, v))}
+          onToggleShadow={toggleShadow}
+          onFixCurrentTitle={ensureCurrentTitle}
+          onFixCurrentEmpty={ensureCurrentLayout}
+          onSmartObject={patchSmartObject}
+          onRefreshSmartObject={refreshSmartObjectSnapshot}
+          onMaterializePlaceholder={materializePlaceholder}
+          onOpenComments={() => setShowComments(true)}
+          onOpenLayers={() => { setShowLayers(true); setShowAnimPanel(false); }}
+          onOpenAnimations={() => { setShowAnimPanel(true); setShowLayers(false); }}
+        />
       </div>
+      <SlideStatusBar
+        current={cur}
+        zoom={zoom}
+        health={inspectorHealth}
+        selection={inspectorSelection}
+        readOnly={readOnly}
+        onOpenComments={() => setShowComments(true)}
+        onOpenLayers={() => { setShowLayers(true); setShowAnimPanel(false); }}
+        onOpenAnimations={() => { setShowAnimPanel(true); setShowLayers(false); }}
+        onPresentFromHere={() => { capture(); presentStartRef.current = cur; setPresenterMode(true); setPresenting(true); }}
+      />
 
       {cropping && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-3 py-2 rounded-2xl bg-white dark:bg-[#1a1a1a] border border-black/10 dark:border-white/10 shadow-2xl">
@@ -2326,15 +2486,17 @@ function Present({
   const aspect = ratio === '4:3' ? '4 / 3' : '16 / 9';
   const stageW = ratio === '4:3' ? 'min(100vw, 133.33vh)' : 'min(100vw, 177.78vh)';
   const vbH = ratio === '4:3' ? 75 : 56.25; // alto del viewBox del SVG (ancho 100)
-  // Herramientas de presentación pro: puntero láser, lápiz/tinta, pantalla en
-  // negro y navegador de miniaturas.
-  const [tool, setTool] = useState<'none' | 'laser' | 'pen'>('none');
+  // Herramientas de presentación pro: puntero láser, lápiz/tinta, resaltador,
+  // pantalla en negro/blanco y navegador de miniaturas.
+  type PresenterInkStroke = { points: number[]; color: string; width: number; opacity: number };
+  const [tool, setTool] = useState<'none' | 'laser' | 'pen' | 'highlighter'>('none');
   const [blacked, setBlacked] = useState(false);
   const [whited, setWhited] = useState(false);
   const [gridNav, setGridNav] = useState(false);
   const [navQuery, setNavQuery] = useState('');
   const [laser, setLaser] = useState<{ x: number; y: number } | null>(null);
-  const [ink, setInk] = useState<Record<number, number[][]>>({});
+  const [ink, setInk] = useState<Record<number, PresenterInkStroke[]>>({});
+  const [inkColor, setInkColor] = useState('#ef4444');
   // Paso de animación revelado (construcción por clic, tipo PowerPoint). Se
   // deriva de { i, step } para que al cambiar de diapositiva valga 0 de inmediato
   // (sin un render intermedio que muestre el paso de la diapositiva anterior).
@@ -2346,7 +2508,7 @@ function Present({
   const revealedRef = useRef(0);
   const maxStepRef = useRef(0);
   const loopRef = useRef(loop);
-  const drawRef = useRef<number[] | null>(null);
+  const drawRef = useRef<PresenterInkStroke | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const iRef = useRef(0);
   const gridRef = useRef(false);
@@ -2401,6 +2563,7 @@ function Present({
       if (k === 'w') { setBlacked(false); setWhited((v) => !v); }
       if (k === 'l') setTool((t) => (t === 'laser' ? 'none' : 'laser'));
       if (k === 'p') setTool((t) => (t === 'pen' ? 'none' : 'pen'));
+      if (k === 'h') setTool((t) => (t === 'highlighter' ? 'none' : 'highlighter'));
       if (k === 'e') setInk((p) => ({ ...p, [iRef.current]: [] }));
       if (k === 'g' || k === '/') setGridNav((v) => !v);
       if (k === 'k') setPaused((v) => !v);
@@ -2512,6 +2675,9 @@ function Present({
           <button onClick={() => setElapsed(0)} title="Reiniciar el temporizador" className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20">Reiniciar</button>
           <span className="font-mono text-base text-white/70 tabular-nums" title="Hora actual">{clock}</span>
           <span className="ml-auto text-sm text-white/60">Diapositiva {i + 1} de {slides.length}</span>
+          <button onClick={() => setGridNav((v) => !v)} title="Buscar / saltar a diapositiva (G o /)" className={`text-xs px-2.5 py-1.5 rounded-lg ${gridNav ? 'bg-rose-500 text-white' : 'bg-white/10 hover:bg-white/20'}`}>Navegador</button>
+          <button onClick={() => { setWhited(false); setBlacked((v) => !v); }} title="Pantalla en negro (B)" className={`text-xs px-2.5 py-1.5 rounded-lg ${blacked ? 'bg-rose-500 text-white' : 'bg-white/10 hover:bg-white/20'}`}>Negro</button>
+          <button onClick={() => { setBlacked(false); setWhited((v) => !v); }} title="Pantalla en blanco (W)" className={`text-xs px-2.5 py-1.5 rounded-lg ${whited ? 'bg-white text-black' : 'bg-white/10 hover:bg-white/20'}`}>Blanco</button>
           <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 hover:bg-white/30"><X className="w-5 h-5" /></button>
         </div>
         <div className="flex-1 min-h-0 flex gap-4 p-4">
@@ -2525,6 +2691,9 @@ function Present({
             <div className="flex items-center justify-center gap-3 pt-3">
               <button onClick={() => { if (revealed > 0) setReveal({ i, step: revealed - 1 }); else prevSlide(); }} disabled={i === 0 && revealed === 0} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20" title="Anterior (←)">‹</button>
               <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep && !loop} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20" title="Siguiente (→)">›</button>
+            </div>
+            <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-white/45">
+              <span>Atajos:</span><b>←/→</b><span>navegar</span><b>N</b><span>notas</span><b>G</b><span>saltador</span><b>B/W</b><span>pantallas</span>
             </div>
           </div>
           <div className="w-80 flex-shrink-0 flex flex-col gap-3">
@@ -2540,6 +2709,21 @@ function Present({
                 </div>
               )}
             </div>
+            <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-white/50">Saltos rápidos</p>
+                <button onClick={() => setGridNav(true)} className="text-[11px] px-2 py-1 rounded bg-white/10 hover:bg-white/20">Buscar</button>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5 max-h-24 overflow-y-auto pr-1">
+                {slides.map((s, idx) => (
+                  <button key={idx} onClick={() => { setI(idx); setReveal({ i: idx, step: 0 }); }}
+                    title={labelOf(s) || `Diapositiva ${idx + 1}`}
+                    className={`h-7 rounded-md text-[11px] font-semibold border ${idx === i ? 'bg-rose-500 border-rose-400 text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}>
+                    {idx + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex-1 min-h-0 rounded-lg bg-white/5 border border-white/10 p-3 overflow-y-auto">
               <div className="flex items-center justify-between mb-1">
                 <p className="text-xs text-white/50">Notas</p>
@@ -2552,11 +2736,34 @@ function Present({
             </div>
           </div>
         </div>
+        {gridNav && (
+          <div className="absolute inset-0 z-40 bg-black/88 backdrop-blur-sm overflow-y-auto p-8" onClick={() => setGridNav(false)}>
+            <div className="max-w-6xl mx-auto mb-5 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                <input autoFocus value={navQuery} onChange={(e) => setNavQuery(e.target.value)} placeholder="Buscar diapositiva por título o notas…" className="w-full h-10 rounded-xl bg-white/10 border border-white/15 pl-9 pr-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/40" />
+              </div>
+              <span className="text-xs text-white/50">{navMatches.length} resultado(s)</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto" onClick={(e) => e.stopPropagation()}>
+              {navMatches.map(({ d, j, label }) => (
+                <button key={j} onClick={() => { setI(j); setReveal({ i: j, step: 0 }); setGridNav(false); }}
+                  className={`relative rounded-xl overflow-hidden border-2 transition-all ${j === i ? 'border-rose-500 scale-[1.02]' : 'border-white/15 hover:border-white/40'}`} style={{ aspectRatio: aspect }}>
+                  <StaticDeck deck={d} master={master} />
+                  <span className="absolute top-1.5 left-2 text-xs font-bold text-white bg-black/50 rounded px-1.5">{j + 1}</span>
+                  <span className="absolute left-2 right-2 bottom-2 text-[11px] font-semibold text-white text-left bg-black/55 rounded px-2 py-1 truncate">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {blacked && <button aria-label="Cerrar pantalla negra" onClick={() => setBlacked(false)} className="absolute inset-0 z-50 bg-black" />}
+        {whited && <button aria-label="Cerrar pantalla blanca" onClick={() => setWhited(false)} className="absolute inset-0 z-50 bg-white" />}
       </div>
     );
   }
 
-  const inkColor = '#ef4444';
+  const presenterInkPresets = ['#ef4444', '#f59e0b', '#22c55e', '#38bdf8'];
   return (
     <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center"
       onClick={(e) => { if (e.target === e.currentTarget) advance(); }}>
@@ -2570,7 +2777,12 @@ function Present({
         {!previewOne && <>
         <button onClick={() => setTool((t) => (t === 'laser' ? 'none' : 'laser'))} title="Puntero láser (L)" className={`p-2 rounded-full text-white transition-colors ${tool === 'laser' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pointer className="w-5 h-5" /></button>
         <button onClick={() => setTool((t) => (t === 'pen' ? 'none' : 'pen'))} title="Lápiz (P)" className={`p-2 rounded-full text-white transition-colors ${tool === 'pen' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pencil className="w-5 h-5" /></button>
-        <button onClick={clearInk} title="Borrar tinta (E)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><Eraser className="w-5 h-5" /></button>
+        <button onClick={() => setTool((t) => (t === 'highlighter' ? 'none' : 'highlighter'))} title="Resaltador (H)" className={`p-2 rounded-full text-white transition-colors ${tool === 'highlighter' ? 'bg-amber-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Paintbrush className="w-5 h-5" /></button>
+        <div className="hidden md:flex items-center gap-1 rounded-full bg-white/10 px-1.5 py-1">
+          {presenterInkPresets.map((c) => <button key={c} onClick={() => setInkColor(c)} title={`Tinta ${c}`} className={`w-5 h-5 rounded-full border ${inkColor === c ? 'border-white ring-2 ring-white/50' : 'border-white/30'}`} style={{ backgroundColor: c }} />)}
+        </div>
+        <button onClick={clearInk} title="Borrar tinta de esta diapositiva (E)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><Eraser className="w-5 h-5" /></button>
+        <button onClick={() => setInk({})} title="Borrar tinta de toda la presentación" className="hidden md:inline-flex px-2.5 py-2 rounded-full bg-white/15 text-white hover:bg-white/30 text-xs font-semibold">Limpiar todo</button>
         <button onClick={() => { setWhited(false); setBlacked((v) => !v); }} title="Pantalla en negro (B)" className={`p-2 rounded-full text-white transition-colors ${blacked ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Moon className="w-5 h-5" /></button>
         <button onClick={() => { setBlacked(false); setWhited((v) => !v); }} title="Pantalla en blanco (W)" className={`p-2 rounded-full transition-colors ${whited ? 'bg-white text-black' : 'bg-white/15 hover:bg-white/30 text-white'}`}><SunMedium className="w-5 h-5" /></button>
         <button onClick={() => setGridNav((v) => !v)} title="Miniaturas (G)" className={`p-2 rounded-full text-white transition-colors ${gridNav ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><LayoutGrid className="w-5 h-5" /></button>
@@ -2586,15 +2798,22 @@ function Present({
       {stage}
 
       {/* Capa de interacción: tinta del lápiz + punto láser (sobre la diapositiva). */}
-      <div ref={boxRef} className="absolute z-30" style={{ width: stageW, aspectRatio: aspect, pointerEvents: tool === 'none' ? 'none' : 'auto', cursor: tool === 'pen' ? 'crosshair' : tool === 'laser' ? 'none' : 'default' }}
-        onPointerDown={(e) => { if (tool !== 'pen') return; (e.target as HTMLElement).setPointerCapture?.(e.pointerId); const [x, y] = slidePt(e); const stroke = [x, y]; drawRef.current = stroke; setInk((p) => ({ ...p, [i]: [...(p[i] || []), stroke] })); }}
-        onPointerMove={(e) => { const [x, y] = slidePt(e); if (tool === 'laser') setLaser({ x, y }); else if (tool === 'pen' && drawRef.current) { drawRef.current.push(x, y); setInk((p) => ({ ...p })); } }}
+      <div ref={boxRef} className="absolute z-30" style={{ width: stageW, aspectRatio: aspect, pointerEvents: tool === 'none' ? 'none' : 'auto', cursor: tool === 'pen' || tool === 'highlighter' ? 'crosshair' : tool === 'laser' ? 'none' : 'default' }}
+        onPointerDown={(e) => {
+          if (tool !== 'pen' && tool !== 'highlighter') return;
+          (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+          const [x, y] = slidePt(e);
+          const stroke: PresenterInkStroke = { points: [x, y], color: tool === 'highlighter' ? '#facc15' : inkColor, width: tool === 'highlighter' ? 1.45 : 0.55, opacity: tool === 'highlighter' ? 0.42 : 0.95 };
+          drawRef.current = stroke;
+          setInk((p) => ({ ...p, [i]: [...(p[i] || []), stroke] }));
+        }}
+        onPointerMove={(e) => { const [x, y] = slidePt(e); if (tool === 'laser') setLaser({ x, y }); else if ((tool === 'pen' || tool === 'highlighter') && drawRef.current) { drawRef.current.points.push(x, y); setInk((p) => ({ ...p })); } }}
         onPointerUp={() => { drawRef.current = null; }}
         onPointerLeave={() => { if (tool === 'laser') setLaser(null); }}>
         <svg viewBox={`0 0 100 ${vbH}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
           {(ink[i] || []).map((stroke, si) => (
-            <polyline key={si} fill="none" stroke={inkColor} strokeWidth={0.55} strokeLinecap="round" strokeLinejoin="round"
-              points={stroke.reduce((acc: string, n, idx) => acc + (idx % 2 === 0 ? `${n * 100},` : `${n * vbH} `), '')} />
+            <polyline key={si} fill="none" stroke={stroke.color} strokeWidth={stroke.width} opacity={stroke.opacity} strokeLinecap="round" strokeLinejoin="round"
+              points={stroke.points.reduce((acc: string, n, idx) => acc + (idx % 2 === 0 ? `${n * 100},` : `${n * vbH} `), '')} />
           ))}
         </svg>
         {tool === 'laser' && laser && (

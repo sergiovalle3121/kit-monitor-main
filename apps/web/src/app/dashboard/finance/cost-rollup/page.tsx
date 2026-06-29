@@ -85,7 +85,7 @@ const CATEGORY_META: Record<CostCategory, CategoryMeta> = {
   gastos_fijos: {
     label: 'Gastos fijos',
     color: '#8b5cf6',
-    tint: 'text-violet-500',
+    tint: 'text-primary',
     Icon: Building2,
   },
 };
@@ -253,7 +253,7 @@ function MetricTile({
           </p>
         </div>
         <div className="rounded-2xl bg-black/5 p-3 dark:bg-white/5">
-          <Icon className="h-5 w-5 text-violet-500" strokeWidth={1.5} />
+          <Icon className="h-5 w-5 text-primary" strokeWidth={1.5} />
         </div>
       </div>
       <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">{detail}</p>
@@ -488,7 +488,7 @@ export default function CostRollupPage() {
             </label>
             <div className="flex items-center gap-2">
               <Search
-                className="ml-2 h-5 w-5 shrink-0 text-violet-500"
+                className="ml-2 h-5 w-5 shrink-0 text-primary"
                 strokeWidth={1.5}
               />
               <input

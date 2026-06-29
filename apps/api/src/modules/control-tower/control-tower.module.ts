@@ -9,6 +9,7 @@ import { TestingModule } from '../testing/testing.module';
 import { ProcurementModule } from '../procurement/procurement.module';
 import { PeopleModule } from '../people/people.module';
 import { HrModule } from '../hr/hr.module';
+import { FloorQualityModule } from '../floor-quality/floor-quality.module';
 
 /**
  * Control Tower / Executive Cockpit — read-only cross-area aggregator. Owns no
@@ -25,6 +26,7 @@ import { HrModule } from '../hr/hr.module';
     ProcurementModule,
     PeopleModule,
     HrModule,
+    FloorQualityModule,
   ],
   controllers: [ControlTowerController],
   providers: [ControlTowerService],

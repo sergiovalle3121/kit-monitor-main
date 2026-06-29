@@ -266,7 +266,7 @@ function WhereUsedTool({ materials }: { materials: Material[] }) {
   return (
     <div className={`${glass} rounded-2xl p-4 mb-6`}>
       <div className="flex items-center gap-2 mb-3">
-        <GitBranch className="w-4 h-4 text-violet-500" />
+        <GitBranch className="w-4 h-4 text-primary" />
         <h3 className="font-semibold text-sm">¿Dónde se usa un material?</h3>
       </div>
       <select className={field} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>

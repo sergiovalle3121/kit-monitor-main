@@ -214,7 +214,7 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 function Money({ label, value, accent, color }: { label: string; value: string; accent?: boolean; color?: string }) {
   return (
-    <div className={`${glass} rounded-2xl p-3.5 ${accent ? 'ring-1 ring-violet-500/30' : ''}`}>
+    <div className={`${glass} rounded-2xl p-3.5 ${accent ? 'ring-1 ring-primary/30' : ''}`}>
       <div className="text-[10px] uppercase tracking-wide text-gray-400 truncate">{label}</div>
       <div className="text-base font-semibold mt-0.5 tabular-nums truncate" style={{ color: color || (accent ? VIOLET : undefined) }}>{value}</div>
     </div>
