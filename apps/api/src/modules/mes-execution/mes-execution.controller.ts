@@ -55,6 +55,20 @@ export class MesExecutionController {
     return this.service.listExecutions({ line, status, model });
   }
 
+  @Get('andons')
+  @RequirePermissions('production:read')
+  listAndons(
+    @Query('status') status?: string,
+    @Query('line') line?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.listAndons({
+      status,
+      line,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   /** The operator board (by workOrder or executionId, optionally a station). */
   @Get('board')
   @RequirePermissions('production:read')

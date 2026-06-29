@@ -71,6 +71,171 @@ describe('MesExecutionService — operator↔station gate (ENFORCE_CERT_GATE)', 
   });
 });
 
+describe('MesExecutionService - Andon supervisor actions', () => {
+  const createdAt = new Date('2026-06-29T09:00:00Z');
+  const execution = {
+    id: 8,
+    workOrder: 'WO-ANDON',
+    model: 'AX-CTRL',
+    line: 4,
+  };
+  const baseAndon = {
+    id: 77,
+    tenant_id: null,
+    executionId: 8,
+    executionStepId: 12,
+    stepName: 'AOI',
+    type: 'maintenance',
+    status: 'open',
+    note: 'Sensor blocked',
+    raisedBy: 'operator@axos.test',
+    acknowledgedBy: null,
+    acknowledgedAt: null,
+    resolvedBy: null,
+    resolvedAt: null,
+    createdAt,
+  };
+  const execRepo = {
+    findOne: jest.fn().mockResolvedValue(execution),
+    find: jest.fn().mockResolvedValue([execution]),
+  };
+  const andonRepo = {
+    find: jest.fn().mockResolvedValue([baseAndon]),
+    findOne: jest.fn().mockResolvedValue({ ...baseAndon }),
+    save: jest.fn(async (x: Record<string, unknown>) => x),
+  };
+  const downtimeRepo = {
+    find: jest.fn().mockResolvedValue([]),
+    save: jest.fn(async (x: Record<string, unknown>) => x),
+  };
+  const ledger = { recordEvent: jest.fn().mockResolvedValue({}) };
+  const signals = { emitToTenant: jest.fn() };
+  const tenantCtx = { getTenantId: () => null };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const any = (v: unknown): any => v;
+
+  function makeService(): MesExecutionService {
+    return new MesExecutionService(
+      any(execRepo),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any(andonRepo),
+      any(downtimeRepo),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any(ledger),
+      any(signals),
+      any({}),
+      any({}),
+      any({}),
+      any(tenantCtx),
+    );
+  }
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    execRepo.findOne.mockResolvedValue(execution);
+    execRepo.find.mockResolvedValue([execution]);
+    andonRepo.find.mockResolvedValue([baseAndon]);
+    andonRepo.findOne.mockResolvedValue({ ...baseAndon });
+    downtimeRepo.find.mockResolvedValue([]);
+  });
+
+  it('lists active andons with WO and line context for the live board', async () => {
+    const result = await makeService().listAndons();
+
+    expect(andonRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: { createdAt: 'DESC' },
+        take: 50,
+      }),
+    );
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 77,
+        executionId: 8,
+        workOrder: 'WO-ANDON',
+        model: 'AX-CTRL',
+        line: 4,
+        status: 'open',
+      }),
+    ]);
+  });
+
+  it('acknowledges an open andon and records ledger evidence', async () => {
+    const result = await makeService().updateAndon(
+      77,
+      'ack',
+      'supervisor@axos.test',
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 77,
+        status: 'ack',
+        acknowledgedBy: 'supervisor@axos.test',
+        workOrder: 'WO-ANDON',
+      }),
+    );
+    expect(ledger.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'MES_ANDON_ACKNOWLEDGED',
+        referenceType: 'ANDON',
+        referenceId: '77',
+        actorName: 'supervisor@axos.test',
+        metadata: expect.objectContaining({
+          beforeStatus: 'open',
+          afterStatus: 'ack',
+        }),
+      }),
+    );
+    expect(signals.emitToTenant).toHaveBeenCalledWith(
+      'default',
+      'mes:andon',
+      expect.objectContaining({ andonId: 77, status: 'ack' }),
+    );
+  });
+
+  it('resolves a stop andon and closes its downtime clock', async () => {
+    andonRepo.findOne.mockResolvedValueOnce({
+      ...baseAndon,
+      type: 'stop',
+      status: 'ack',
+    });
+
+    const result = await makeService().updateAndon(
+      77,
+      'resolve',
+      'lead@axos.test',
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'resolved',
+        resolvedBy: 'lead@axos.test',
+      }),
+    );
+    expect(downtimeRepo.find).toHaveBeenCalledWith({
+      where: expect.objectContaining({ andonId: 77 }),
+    });
+    expect(ledger.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'MES_ANDON_RESOLVED',
+        metadata: expect.objectContaining({
+          beforeStatus: 'ack',
+          afterStatus: 'resolved',
+        }),
+      }),
+    );
+  });
+});
+
 describe('MesExecutionService — line-stop downtime reason', () => {
   const execution = {
     id: 1,

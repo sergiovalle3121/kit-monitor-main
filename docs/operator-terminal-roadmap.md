@@ -33,6 +33,10 @@ This slice starts the AXOS MES operator terminal redesign on the connected `plan
 - Downtime reason capture slice: line-stop Andon now requires a downtime reason
   code, opens `mes_downtime_events` with that reason, and writes
   `MES_DOWNTIME_OPENED` evidence to the Event Ledger.
+- Supervisor Andon action slice: `/dashboard/live` now consumes `GET /mes/andons`
+  and lets supervisors acknowledge or resolve active Andons through the existing
+  `/mes/andon/:id/ack|resolve` endpoints; both transitions write Event Ledger
+  evidence and stop-Andon resolution closes the linked downtime clock.
 
 ### Next slices
 

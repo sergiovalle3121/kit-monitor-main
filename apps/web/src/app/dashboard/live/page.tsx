@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
@@ -9,6 +9,7 @@ import {
   WifiOff, Factory, Radio,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
+import { apiFetch } from '@/lib/apiFetch';
 import { useApi } from '@/hooks/useApi';
 import { useLiveEvents } from '@/hooks/useLiveEvents';
 import {
@@ -19,6 +20,7 @@ import {
 const GREEN = '#10b981';
 const AMBER = '#f59e0b';
 const RED = '#ef4444';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 type Light = 'green' | 'amber' | 'red';
 const LIGHT: Record<Light, { color: string; label: string }> = {
@@ -51,6 +53,23 @@ interface Hold {
   id: string; folio: string | null; part: string; status: string; severity: string;
   defectType: string | null; woFolio: string | null; station: string | null; raisedAt: string | null;
 }
+interface LiveAndon {
+  id: number;
+  executionId: number;
+  executionStepId: number | null;
+  workOrder: string | null;
+  model: string | null;
+  line: number | string | null;
+  type: string;
+  status: 'open' | 'ack' | 'resolved';
+  stepName: string | null;
+  note: string | null;
+  raisedBy: string | null;
+  acknowledgedBy: string | null;
+  acknowledgedAt: string | null;
+  responseRole: string;
+  createdAt: string;
+}
 
 const ACTIVE_HOLD = (s: string) => s !== 'CLOSED' && s !== 'CANCELLED';
 
@@ -67,18 +86,46 @@ export default function LiveFloorPage() {
   const summary = useApi<Summary>('/line-control-tower/summary', { refreshInterval: 15000 });
   const oee = useApi<OeeFeed>('/oee/control-tower', { refreshInterval: 20000 });
   const holds = useApi<Hold[]>('/floor-quality/holds', { refreshInterval: 20000 });
+  const andons = useApi<LiveAndon[]>('/mes/andons?limit=20', { refreshInterval: 15000 });
   const snap = useApi<LiveSnapshot>('/live/snapshot?limit=30', { refreshInterval: 30000 });
+  const [transitioningAndon, setTransitioningAndon] = useState<string | null>(null);
+  const [andonActionError, setAndonActionError] = useState<string | null>(null);
 
   // Live stream nudges the aggregates so the board "breathes" on real events.
   const onEvent = useCallback(
     (e: LiveEvent) => {
       summary.mutate();
+      if (e.channel === 'andon') andons.mutate();
       if (e.channel === 'oee' || e.channel === 'andon' || e.channel === 'production') oee.mutate();
       if (e.channel === 'quality') holds.mutate();
     },
-    [summary, oee, holds],
+    [summary, oee, holds, andons],
   );
   const live = useLiveEvents(LIVE_CHANNELS, { onEvent, max: 60 });
+
+  const transitionAndon = useCallback(
+    async (andonId: number, action: 'ack' | 'resolve') => {
+      const key = `${andonId}:${action}`;
+      setTransitioningAndon(key);
+      setAndonActionError(null);
+      try {
+        const res = await apiFetch(`${API_BASE}/mes/andon/${andonId}/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(typeof body.message === 'string' ? body.message : 'No se pudo actualizar el Andon.');
+        }
+        await Promise.all([andons.mutate(), summary.mutate(), oee.mutate(), snap.mutate()]);
+      } catch (err) {
+        setAndonActionError(err instanceof Error ? err.message : 'No se pudo actualizar el Andon.');
+      } finally {
+        setTransitioningAndon(null);
+      }
+    },
+    [andons, oee, snap, summary],
+  );
 
   // Merge the line truth (control tower) with live OEE by line name.
   const lines = useMemo<MergedLine[]>(() => {
@@ -126,6 +173,7 @@ export default function LiveFloorPage() {
   }, [live.events, snap.data]);
 
   const activeHolds = (holds.data ?? []).filter((h) => ACTIVE_HOLD(h.status));
+  const activeAndons = (andons.data ?? []).filter((a) => a.status !== 'resolved');
 
   if (summary.forbidden) {
     return (
@@ -155,7 +203,7 @@ export default function LiveFloorPage() {
             <p className="text-[12px] text-gray-400 leading-tight">La planta respirando — estado de línea, avance, OEE, holds y eventos, actualizándose solo.</p>
           </div>
           <LivePill status={live.status} reduce={!!reduce} />
-          <button onClick={() => { summary.mutate(); oee.mutate(); holds.mutate(); snap.mutate(); }} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10" title="Refrescar"><RefreshCw className="w-4 h-4" /></button>
+          <button onClick={() => { summary.mutate(); oee.mutate(); holds.mutate(); andons.mutate(); snap.mutate(); }} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10" title="Refrescar"><RefreshCw className="w-4 h-4" /></button>
         </div>
       </div>
 
@@ -190,6 +238,35 @@ export default function LiveFloorPage() {
             ))}
           </div>
         )}
+
+        <section className="mt-10">
+          <SectionTitle icon={Siren} title="Andons activos" hint="confirmar respuesta y cerrar desde supervisión" />
+          {andons.forbidden ? (
+            <Empty icon={Lock} title="Sin acceso a Andons" hint="Necesitas permiso de producción para responder llamadas del piso." />
+          ) : andons.isLoading && !andons.data ? (
+            <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+          ) : activeAndons.length === 0 ? (
+            <Empty icon={CheckCircle2} title="Sin Andons activos" hint="No hay llamadas abiertas o en atención." tone={GREEN} />
+          ) : (
+            <>
+              {andonActionError && (
+                <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+                  {andonActionError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {activeAndons.map((andon) => (
+                  <AndonCard
+                    key={andon.id}
+                    andon={andon}
+                    busyKey={transitioningAndon}
+                    onTransition={transitionAndon}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
 
         {/* Quality holds + ticker */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-10">
@@ -302,6 +379,102 @@ function LineCard({ l, oeeForbidden }: { l: MergedLine; oeeForbidden: boolean })
       ) : (
         <div className="mt-3 text-[12px] flex items-center gap-1.5" style={{ color: GREEN }}><CheckCircle2 className="w-3.5 h-3.5" /> Lista para correr</div>
       )}
+    </div>
+  );
+}
+
+const ANDON_TYPE_LABEL: Record<string, string> = {
+  material: 'Material',
+  materialist: 'Materialista',
+  quality: 'Calidad',
+  maintenance: 'Mantenimiento',
+  stop: 'Paro',
+  supervisor: 'Supervisor',
+  engineering: 'Ingeniería',
+  tooling: 'Tooling',
+};
+
+function AndonCard({
+  andon,
+  busyKey,
+  onTransition,
+}: {
+  andon: LiveAndon;
+  busyKey: string | null;
+  onTransition: (id: number, action: 'ack' | 'resolve') => Promise<void>;
+}) {
+  const acknowledged = andon.status === 'ack';
+  const tone = acknowledged ? AMBER : RED;
+  const ackBusy = busyKey === `${andon.id}:ack`;
+  const resolveBusy = busyKey === `${andon.id}:resolve`;
+  const busy = Boolean(busyKey?.startsWith(`${andon.id}:`));
+  const context = [
+    andon.workOrder ? `WO ${andon.workOrder}` : null,
+    andon.line ? `Línea ${andon.line}` : null,
+    andon.stepName,
+  ].filter(Boolean);
+
+  return (
+    <div className={`${glass} rounded-2xl p-4`} style={{ borderTop: `3px solid ${tone}` }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${tone}1f`, color: tone }}>
+              <Siren className="h-3 w-3" />
+              {ANDON_TYPE_LABEL[andon.type] ?? andon.type}
+            </span>
+            <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-white/10">
+              {acknowledged ? 'En atención' : 'Abierto'}
+            </span>
+          </div>
+          <div className="mt-2 text-sm font-semibold truncate">
+            {context.join(' · ') || `Ejecución ${andon.executionId}`}
+          </div>
+          <div className="mt-1 text-[12px] text-gray-400">
+            {andon.model ?? 'Modelo sin dato'} · {timeAgo(andon.createdAt)}
+          </div>
+        </div>
+        {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gray-400" />}
+      </div>
+
+      {andon.note && (
+        <p className="mt-3 line-clamp-2 text-sm text-gray-600 dark:text-gray-300">
+          {andon.note}
+        </p>
+      )}
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-gray-500">
+        <div className="rounded-xl bg-black/[0.03] px-2 py-1.5 dark:bg-white/[0.04]">
+          <div className="uppercase tracking-wide text-gray-400">Respondedor</div>
+          <div className="truncate font-medium">{andon.responseRole}</div>
+        </div>
+        <div className="rounded-xl bg-black/[0.03] px-2 py-1.5 dark:bg-white/[0.04]">
+          <div className="uppercase tracking-wide text-gray-400">Confirmado por</div>
+          <div className="truncate font-medium">{andon.acknowledgedBy ?? 'Pendiente'}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void onTransition(andon.id, 'ack')}
+          disabled={andon.status !== 'open' || busy}
+          className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-black/[0.04] px-3 text-sm font-semibold text-gray-700 transition hover:bg-black/[0.07] disabled:cursor-not-allowed disabled:opacity-45 dark:bg-white/[0.08] dark:text-gray-100 dark:hover:bg-white/[0.12]"
+        >
+          {ackBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          Confirmar
+        </button>
+        <button
+          type="button"
+          onClick={() => void onTransition(andon.id, 'resolve')}
+          disabled={busy}
+          className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+          style={{ background: GREEN }}
+        >
+          {resolveBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          Resolver
+        </button>
+      </div>
     </div>
   );
 }
