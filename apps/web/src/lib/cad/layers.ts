@@ -108,6 +108,15 @@ export function isObjectLayerLocked(
   return isLayerLocked(layers, layerForObject(assignments, objectId, fallback));
 }
 
+export function isObjectLayerVisible(
+  layers: CadLayer[],
+  assignments: CadLayerAssignments,
+  objectId: string,
+  fallback: CadLayerId,
+): boolean {
+  return isLayerVisible(layers, layerForObject(assignments, objectId, fallback));
+}
+
 export function editableObjectIds(
   layers: CadLayer[],
   assignments: CadLayerAssignments,
@@ -122,6 +131,23 @@ export function editableObjectIds(
           object.id,
           object.fallbackLayer,
         ),
+    )
+    .map((object) => object.id);
+}
+
+export function visibleObjectIds(
+  layers: CadLayer[],
+  assignments: CadLayerAssignments,
+  objects: Array<{ id: string; fallbackLayer: CadLayerId }>,
+): string[] {
+  return objects
+    .filter((object) =>
+      isObjectLayerVisible(
+        layers,
+        assignments,
+        object.id,
+        object.fallbackLayer,
+      ),
     )
     .map((object) => object.id);
 }

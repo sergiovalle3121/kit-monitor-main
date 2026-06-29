@@ -18,11 +18,21 @@ This run adds a compound command-engine workflow:
 
 The workflow is visible through the existing CAD command dock because the editor already previews and applies command registry operations. It does not introduce a parallel editor, duplicate flow scoring, duplicate connector logic, or a new UI surface.
 
+## Follow-up run: CAD layer visibility
+
+This follow-up hardens the existing local CAD layer system without adding a second editor or a second layer model:
+
+- Hidden CAD layers now hide station meshes and labels, equipment assets, flow connectors, and permanent dimensions in the workbench.
+- Viewport hit-testing, Ctrl/Cmd+A, command context, and DXF export now skip hidden-layer objects unless export explicitly includes hidden layers.
+- Creation and assignment actions now warn instead of creating objects into hidden or locked CAD layers.
+- Copies created by duplicate, array, mirror, and offset keep the source object's CAD layer assignment.
+
 ## Phase evidence
 
 | Backlog phase | Status | Evidence | Next step |
 | --- | --- | --- | --- |
 | Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus a reachable command workflow | Keep audit current as PRs land. |
+| Phase 8 - Layers Pro | Advanced | CAD layer visibility/locks now affect rendering, selection, commands, and DXF export | Persist layer metadata once API contract is approved. |
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, and `arrange_flow_line` | Add richer flow recommendations and before/after preview cards. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |

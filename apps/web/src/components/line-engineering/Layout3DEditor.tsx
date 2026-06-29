@@ -42,6 +42,8 @@ import { snapScalarToGrid } from '@/lib/cad/snapping';
 import {
   assignObjectsToLayer,
   DEFAULT_CAD_LAYERS,
+  isLayerVisible,
+  isObjectLayerVisible,
   isObjectLayerLocked,
   toggleCadLayerLocked,
   toggleCadLayerVisible,
@@ -587,6 +589,7 @@ function buildDim(a: Ann, s: number, W: number, H: number, unit: string): THREE.
   label.position.set((ax + bx) / 2, y + 0.85, (az + bz) / 2);
   label.userData.dimId = a.id;
   out.push(label);
+  out.forEach((object) => { object.userData.isDimension = true; });
   return out;
 }
 
@@ -774,6 +777,45 @@ export default function Layout3DEditor({
   }, []);
   useEffect(() => { sunRef.current = sun; applySun(); }, [sun, applySun]);
 
+  const isCadObjectVisible = useCallback((id: string, fallback: CadLayerId) => (
+    isObjectLayerVisible(cadLayersRef.current, layerAssignmentsRef.current, id, fallback)
+  ), []);
+  const isRenderedObjectVisible = useCallback((item: SelItem) => (
+    item.type === 'station'
+      ? isCadObjectVisible(item.id, 'layout')
+      : isCadObjectVisible(item.id, 'equipment')
+  ), [isCadObjectVisible]);
+  const isConnectorEndpointVisible = useCallback((id: string) => {
+    if (placementsRef.current.has(id)) return isCadObjectVisible(id, 'layout');
+    if (assetsRef.current.has(id)) return isCadObjectVisible(id, 'equipment');
+    return false;
+  }, [isCadObjectVisible]);
+  const applyCadObjectVisibility = useCallback(() => {
+    blocksRef.current?.traverse((object) => {
+      const id =
+        typeof object.userData?.stationId === 'string'
+          ? object.userData.stationId
+          : typeof object.userData?.labelFor === 'string'
+            ? object.userData.labelFor
+            : undefined;
+      if (id) object.visible = isCadObjectVisible(id, 'layout') && (!object.userData?.isLabel || layersRef.current.labels);
+    });
+    assetsGroupRef.current?.traverse((object) => {
+      const id = typeof object.userData?.assetId === 'string' ? object.userData.assetId : undefined;
+      if (id) object.visible = isCadObjectVisible(id, 'equipment');
+    });
+    const flowVisible = layersRef.current.connectors && isLayerVisible(cadLayersRef.current, 'flow');
+    connsGroupRef.current?.traverse((object) => {
+      const from = typeof object.userData?.connectorFrom === 'string' ? object.userData.connectorFrom : undefined;
+      const to = typeof object.userData?.connectorTo === 'string' ? object.userData.connectorTo : undefined;
+      if (from && to) object.visible = flowVisible && isConnectorEndpointVisible(from) && isConnectorEndpointVisible(to);
+    });
+    const measurementsVisible = layersRef.current.dims && isLayerVisible(cadLayersRef.current, 'measurements');
+    dimsGroupRef.current?.traverse((object) => {
+      if (object.userData?.isDimension) object.visible = measurementsVisible && (!object.userData?.isLabel || layersRef.current.labels);
+    });
+  }, [isCadObjectVisible, isConnectorEndpointVisible]);
+
   // ---- layer visibility (cheap: toggles group/label visibility, no rebuild) ----
   const applyLayers = useCallback(() => {
     const L = layersRef.current;
@@ -785,11 +827,12 @@ export default function Layout3DEditor({
     if (dxfGroupRef.current) dxfGroupRef.current.visible = L.dxf;
     if (gridGroupRef.current) gridGroupRef.current.visible = L.grid;
     sceneRef.current?.traverse((o) => { if (o.userData?.isLabel) o.visible = L.labels; });
-  }, []);
+    applyCadObjectVisibility();
+  }, [applyCadObjectVisibility]);
   useEffect(() => { applyLayersRef.current = applyLayers; }, [applyLayers]);
   useEffect(() => { layersRef.current = layers; applyLayers(); }, [layers, applyLayers]);
-  useEffect(() => { cadLayersRef.current = cadLayers; }, [cadLayers]);
-  useEffect(() => { layerAssignmentsRef.current = layerAssignments; }, [layerAssignments]);
+  useEffect(() => { cadLayersRef.current = cadLayers; applyLayers(); }, [cadLayers, applyLayers]);
+  useEffect(() => { layerAssignmentsRef.current = layerAssignments; applyLayers(); }, [layerAssignments, applyLayers]);
 
   // close the view/layers popover when clicking outside it
   useEffect(() => {
@@ -849,6 +892,23 @@ export default function Layout3DEditor({
   }, [computeSnap]);
   const refreshSnap = useCallback(() => setSelSnap(selRef.current.length === 1 ? computeSnap(selRef.current[0]) : null), [computeSnap]);
   const getPlaceRef = useCallback((it: SelItem) => (it.type === 'station' ? placementsRef.current.get(it.id) : assetsRef.current.get(it.id)), []);
+  useEffect(() => {
+    if (!selRef.current.length) return;
+    const visible = selRef.current.filter(isRenderedObjectVisible);
+    if (visible.length !== selRef.current.length) select(visible);
+  }, [cadLayers, layerAssignments, isRenderedObjectVisible, select]);
+  const canCreateOnCadLayer = (layerId: CadLayerId, action: string) => {
+    const layer = cadLayersRef.current.find((item) => item.id === layerId);
+    if (layer?.locked) {
+      toast.error(`${layer.label} estÃ¡ bloqueada; desbloquÃ©ala antes de ${action}.`, 'Capas');
+      return false;
+    }
+    if (layer && !layer.visible) {
+      toast.error(`${layer.label} estÃ¡ oculta; actÃ­vala antes de ${action}.`, 'Capas');
+      return false;
+    }
+    return true;
+  };
 
   // ---- first-person walkthrough: drop to eye level, look by dragging, WASD ----
   const toggleWalk = useCallback(() => {
@@ -992,6 +1052,8 @@ export default function Layout3DEditor({
         new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(start, mid, end), 24, 0.09, 7, false),
         new THREE.MeshStandardMaterial({ color: cn.kind === 'conveyor' ? 0x7c3aed : cn.kind === 'return' ? 0x94a3b8 : 0x3b82f6, roughness: 0.4 }),
       );
+      tube.userData.connectorFrom = cn.from;
+      tube.userData.connectorTo = cn.to;
       (conns ?? blocks).add(tube);
     });
     applyLayersRef.current();
@@ -1010,6 +1072,7 @@ export default function Layout3DEditor({
       group.add(g);
       groupByAssetRef.current.set(a.id, g);
     });
+    applyLayersRef.current();
   }, []);
 
   // ---- (re)build the dimension/cota overlay (preserves the live preview line) ----
@@ -1029,6 +1092,7 @@ export default function Layout3DEditor({
       buildDim(a, s, W, H, unit).forEach((o) => group.add(o));
     });
     if (preview && !group.children.includes(preview)) group.add(preview);
+    applyLayersRef.current();
   }, [data]);
   const refreshMeasurementRows = useCallback(() => {
     const unit = data?.footprint.unit || 'mm';
@@ -1056,6 +1120,7 @@ export default function Layout3DEditor({
       lab.userData.noteId = a.id;
       group.add(lab);
     });
+    applyLayersRef.current();
   }, []);
 
   // ---- (re)build the read-only DXF floor-plan overlay (lines on the floor) ----
@@ -1521,10 +1586,12 @@ export default function Layout3DEditor({
       }
       const stationHits = raycaster.intersectObjects(blocks.children, false)
         .filter((h) => (h.object as THREE.Mesh).userData?.stationId)
+        .filter((h) => isCadObjectVisible((h.object as THREE.Mesh).userData.stationId as string, 'layout'))
         .map((h) => ({ d: h.distance, type: 'station' as const, id: (h.object as THREE.Mesh).userData.stationId as string, obj: h.object }));
       const assetHits = raycaster.intersectObjects(assetsGroup.children, true)
         .map((h) => ({ d: h.distance, id: resolveAssetId(h.object) }))
         .filter((h) => h.id)
+        .filter((h) => isCadObjectVisible(h.id as string, 'equipment'))
         .map((h) => ({ d: h.d, type: 'asset' as const, id: h.id as string, obj: groupByAssetRef.current.get(h.id as string)! }));
       const all = [...stationHits, ...assetHits].sort((a, b) => a.d - b.d);
       if (all.length) {
@@ -1648,6 +1715,11 @@ export default function Layout3DEditor({
             else {
               const a = measureARef.current;
               if (Math.hypot(pt.wx - a.wx, pt.wy - a.wy) > 1) {
+                if (!canCreateOnCadLayer('measurements', 'crear cotas')) {
+                  measureARef.current = null; setMeasureLive(null);
+                  if (previewLineRef.current) previewLineRef.current.visible = false;
+                  return;
+                }
                 pushHistory();
                 const id = newId('dim');
                 annotationsRef.current.set(id, { id, type: 'dim', x: a.wx, y: a.wy, x2: pt.wx, y2: pt.wy });
@@ -2011,6 +2083,7 @@ export default function Layout3DEditor({
   // ---- actions ----
   const placeStation = (st: St) => {
     const ctx = ctxRef.current; if (!ctx || !data) return;
+    if (!canCreateOnCadLayer('layout', 'colocar estaciones')) return;
     pushHistory();
     const w = Math.round(data.footprint.footprintW * 0.06);
     const h = Math.round(data.footprint.footprintH * 0.08);
@@ -2021,8 +2094,10 @@ export default function Layout3DEditor({
     select([{ type: 'station', id: st.id }]);
     setDirty(true); rebuildAll();
   };
-  const addAsset = (kind: string, overrides?: { label?: string; w?: number; h?: number }) => {
+  const addAsset = (kind: string, overrides?: { label?: string; w?: number; h?: number; layer?: CadLayerId }) => {
     const ctx = ctxRef.current; if (!ctx) return null;
+    const targetLayer = overrides?.layer ?? activeCadLayer;
+    if (!canCreateOnCadLayer(targetLayer, 'insertar equipo')) return null;
     pushHistory();
     const def = assetMeta(kind);
     const w = overrides?.w ?? def.w; const h = overrides?.h ?? def.h;
@@ -2031,7 +2106,7 @@ export default function Layout3DEditor({
     const id = newId('as');
     assetsRef.current.set(id, { id, kind, x, y, w, h, rotation: 0, label: overrides?.label });
     setAssetIds((prev) => new Set(prev).add(id));
-    setLayerAssignments((cur) => assignObjectsToLayer(cur, [id], activeCadLayer));
+    setLayerAssignments((cur) => assignObjectsToLayer(cur, [id], targetLayer));
     select([{ type: 'asset', id }]);
     setDirty(true); rebuildAll();
     return id;
@@ -2043,10 +2118,9 @@ export default function Layout3DEditor({
       'smt-line': 'conveyor', inspection: 'machine', aoi: 'aoi', 'warehouse-rack': 'rack', packing: 'workbench', 'forklift-path': 'agvpath', 'operator-station': 'operator', 'esd-area': 'zone', 'safety-zone': 'zone', conveyor: 'conveyor', 'test-station': 'machine', 'rework-station': 'workbench',
     };
     const kind = kindBySymbol[symbol.id] ?? 'machine';
-    const id = addAsset(kind, { label: symbol.label, w: symbol.defaultWidth, h: symbol.defaultHeight });
+    const layer: CadLayerId = symbol.layer === 'Safety' ? 'safety' : symbol.layer === 'Flow' ? 'flow' : symbol.layer === 'Aisles' ? 'aisles' : 'equipment';
+    const id = addAsset(kind, { label: symbol.label, w: symbol.defaultWidth, h: symbol.defaultHeight, layer });
     if (id) {
-      const layer = symbol.layer as CadLayerId;
-      if (DEFAULT_CAD_LAYERS.some((item) => item.id === layer)) setLayerAssignments((cur) => assignObjectsToLayer(cur, [id], layer));
       toast.success(`${symbol.label} agregado al layout.`, 'Símbolos CAD');
     }
   };
@@ -2083,13 +2157,16 @@ export default function Layout3DEditor({
     const off = data?.footprint.gridSize || 200;
     pushHistory();
     const created: SelItem[] = [];
+    const layerUpdates: Record<string, CadLayerId> = {};
     assets.forEach((it) => {
       const src = assetsRef.current.get(it.id); if (!src) return;
       const id = newId('as');
       assetsRef.current.set(id, { ...src, id, x: Math.max(0, Math.min(ctx.W - src.w, src.x + off)), y: Math.max(0, Math.min(ctx.H - src.h, src.y + off)) });
+      layerUpdates[id] = layerAssignmentsRef.current[it.id] ?? 'equipment';
       created.push({ type: 'asset', id });
     });
     setAssetIds(new Set(assetsRef.current.keys()));
+    if (Object.keys(layerUpdates).length) setLayerAssignments((cur) => ({ ...cur, ...layerUpdates }));
     if (created.length) select(created);
     setDirty(true); rebuildAll();
   };
@@ -2200,6 +2277,7 @@ export default function Layout3DEditor({
   // encadenadas centro a centro, fuera del recuadro — un plano acotado de un clic.
   const autoDimension = () => {
     const ctx = ctxRef.current; if (!ctx) return;
+    if (!canCreateOnCadLayer('measurements', 'crear cotas')) return;
     const sel = selRef.current;
     const boxes: DimBox[] = [];
     const add = (b: { x: number; y: number; w: number; h: number } | undefined) => { if (b) boxes.push({ x: b.x, y: b.y, w: b.w, h: b.h }); };
@@ -2250,6 +2328,7 @@ export default function Layout3DEditor({
   // Crea un conector de cada estación a la siguiente en secuencia, fusionando con
   // los conectores existentes (sin duplicar) — el flujo de la línea de un clic.
   const connectLineLayout = () => {
+    if (!canCreateOnCadLayer('flow', 'crear conectores')) return;
     const list: ConnStation[] = [];
     data?.stations.forEach((st, idx) => { if (placementsRef.current.has(st.id)) list.push({ id: st.id, sequence: idx }); });
     if (list.length < 2) { toast.error('Coloca al menos 2 estaciones para conectar la línea.', '3D'); return; }
@@ -2439,12 +2518,13 @@ export default function Layout3DEditor({
     toast.success('Estaciones exportadas (CSV).', '3D');
   };
   const arrayAssets = (cols: number, rows: number, gap: number) => {
-    const sel = selRef.current.filter((s) => s.type === 'asset');
+    const sel = editableItems(selRef.current.filter((s) => s.type === 'asset'), 'crear arreglos');
     const c = Math.max(1, Math.min(50, Math.round(cols))), r = Math.max(1, Math.min(50, Math.round(rows)));
     if (!sel.length || c * r <= 1) return;
     const ctx = ctxRef.current!; const g = Math.max(0, Math.round(gap) || 0);
     pushHistory();
     const created: SelItem[] = [];
+    const layerUpdates: Record<string, CadLayerId> = {};
     sel.forEach((it) => {
       const src = assetsRef.current.get(it.id); if (!src) return;
       for (let i = 0; i < c; i++) for (let j = 0; j < r; j++) {
@@ -2453,9 +2533,11 @@ export default function Layout3DEditor({
         if (nx + src.w > ctx.W || ny + src.h > ctx.H) continue; // skip copies off the plan
         const id = newId('as');
         assetsRef.current.set(id, { ...src, id, x: nx, y: ny });
+        layerUpdates[id] = layerAssignmentsRef.current[it.id] ?? 'equipment';
         created.push({ type: 'asset', id });
       }
     });
+    if (Object.keys(layerUpdates).length) setLayerAssignments((cur) => ({ ...cur, ...layerUpdates }));
     commitCreated(created, 'copia(s) en arreglo.');
   };
   const mirrorAssets = (axis: 'h' | 'v') => {
@@ -2464,6 +2546,7 @@ export default function Layout3DEditor({
     const ctx = ctxRef.current!;
     pushHistory();
     const created: SelItem[] = [];
+    const layerUpdates: Record<string, CadLayerId> = {};
     sel.forEach((it) => {
       const src = assetsRef.current.get(it.id); if (!src) return;
       const id = newId('as');
@@ -2471,8 +2554,10 @@ export default function Layout3DEditor({
       const ny = axis === 'v' ? ctx.H - src.y - src.h : src.y;
       const rot = axis === 'h' ? (180 - src.rotation + 360) % 360 : (360 - src.rotation) % 360;
       assetsRef.current.set(id, { ...src, id, x: Math.max(0, Math.min(ctx.W - src.w, nx)), y: Math.max(0, Math.min(ctx.H - src.h, ny)), rotation: rot });
+      layerUpdates[id] = layerAssignmentsRef.current[it.id] ?? 'equipment';
       created.push({ type: 'asset', id });
     });
+    if (Object.keys(layerUpdates).length) setLayerAssignments((cur) => ({ ...cur, ...layerUpdates }));
     commitCreated(created, 'copia(s) en espejo.');
   };
   const offsetAssets = (dx: number, dy: number) => {
@@ -2482,12 +2567,15 @@ export default function Layout3DEditor({
     const ctx = ctxRef.current!;
     pushHistory();
     const created: SelItem[] = [];
+    const layerUpdates: Record<string, CadLayerId> = {};
     sel.forEach((it) => {
       const src = assetsRef.current.get(it.id); if (!src) return;
       const id = newId('as');
       assetsRef.current.set(id, { ...src, id, x: Math.max(0, Math.min(ctx.W - src.w, src.x + ox)), y: Math.max(0, Math.min(ctx.H - src.h, src.y + oy)) });
+      layerUpdates[id] = layerAssignmentsRef.current[it.id] ?? 'equipment';
       created.push({ type: 'asset', id });
     });
+    if (Object.keys(layerUpdates).length) setLayerAssignments((cur) => ({ ...cur, ...layerUpdates }));
     commitCreated(created, 'copia(s) desfasada(s).');
   };
   const nudgeSelected = (dx: number, dy: number) => {
@@ -2510,6 +2598,7 @@ export default function Layout3DEditor({
     };
   };
   const createSelectionMeasurement = (mode: CadMeasureMode = 'direct') => {
+    if (!canCreateOnCadLayer('measurements', 'crear cotas')) return;
     if (selRef.current.length !== 2) { toast.error('Selecciona exactamente 2 objetos para crear una cota centro-a-centro.', 'Medición'); return; }
     const [aItem, bItem] = selRef.current;
     const a = selectedMeasureBox(aItem); const b = selectedMeasureBox(bItem);
@@ -2549,6 +2638,7 @@ export default function Layout3DEditor({
   };
 
   const createAisleBetweenSelection = () => {
+    if (!canCreateOnCadLayer('aisles', 'crear pasillos')) return;
     if (selRef.current.length !== 2) { toast.error('Selecciona 2 objetos para crear un pasillo entre ellos.', 'Pasillos'); return; }
     const [aItem, bItem] = selRef.current;
     const a = selectedMeasureBox(aItem); const b = selectedMeasureBox(bItem);
@@ -2572,6 +2662,7 @@ export default function Layout3DEditor({
   };
   const createSafetyZoneAsset = (kind: 'no-go' | 'restricted') => {
     const ctx = ctxRef.current; const ctrl = controlsRef.current; if (!ctx) return;
+    if (!canCreateOnCadLayer('safety', 'crear zonas de seguridad')) return;
     const w = kind === 'no-go' ? 2400 : 3000; const h = kind === 'no-go' ? 1800 : 2200;
     const cx = ctrl ? ctrl.target.x / ctx.s + ctx.W / 2 : ctx.W / 2;
     const cy = ctrl ? ctrl.target.z / ctx.s + ctx.H / 2 : ctx.H / 2;
@@ -2679,14 +2770,16 @@ export default function Layout3DEditor({
     unit: data?.footprint.unit || 'mm',
     footprintW: data?.footprint.footprintW || ctxRef.current?.W || 0,
     footprintH: data?.footprint.footprintH || ctxRef.current?.H || 0,
-    selectedIds: selRef.current.map((it) => it.id),
-    connectors: connectorsRef.current.map((c) => ({ ...c })),
+    selectedIds: selRef.current.filter(isRenderedObjectVisible).map((it) => it.id),
+    connectors: isLayerVisible(cadLayersRef.current, 'flow')
+      ? connectorsRef.current.filter((c) => isConnectorEndpointVisible(c.from) && isConnectorEndpointVisible(c.to)).map((c) => ({ ...c }))
+      : [],
     objects: [
-      ...[...placementsRef.current.entries()].map(([id, p]) => {
+      ...[...placementsRef.current.entries()].filter(([id]) => isCadObjectVisible(id, 'layout')).map(([id, p]) => {
         const st = stationsByIdRef.current.get(id);
         return { id, type: 'station' as const, label: st?.station ?? id, x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation, sequence: data?.stations.findIndex((s) => s.id === id) ?? 0 };
       }),
-      ...[...assetsRef.current.values()].map((a) => ({ id: a.id, type: 'asset' as const, label: a.label || assetMeta(a.kind).label, x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation })),
+      ...[...assetsRef.current.values()].filter((a) => isCadObjectVisible(a.id, 'equipment')).map((a) => ({ id: a.id, type: 'asset' as const, label: a.label || assetMeta(a.kind).label, x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation })),
     ],
   });
   const interpretCommand = () => {
@@ -2714,6 +2807,7 @@ export default function Layout3DEditor({
       const a = assetsRef.current.get(op.objectId);
       if (a) { a.x = op.after.x; a.y = op.after.y; a.w = op.after.w; a.h = op.after.h; a.rotation = op.after.rotation ?? a.rotation; return true; }
     } else if (op.type === 'connect') {
+      if (!canCreateOnCadLayer('flow', 'crear conectores')) return false;
       if (!connectorsRef.current.some((c) => c.from === op.from && c.to === op.to && (c.kind ?? 'flow') === op.kind)) connectorsRef.current = [...connectorsRef.current, { from: op.from, to: op.to, kind: op.kind }];
       return true;
     } else if (op.type === 'focus') {
@@ -2754,10 +2848,6 @@ export default function Layout3DEditor({
   };
   const toggleCadLayerVisibility = (id: CadLayerId) => {
     setCadLayers((cur) => toggleCadLayerVisible(cur, id));
-    if (id === 'layout') setLayers((cur) => ({ ...cur, stations: !cur.stations }));
-    else if (id === 'equipment') setLayers((cur) => ({ ...cur, equipment: !cur.equipment }));
-    else if (id === 'flow') setLayers((cur) => ({ ...cur, connectors: !cur.connectors }));
-    else if (id === 'measurements') setLayers((cur) => ({ ...cur, dims: !cur.dims }));
   };
   const updateCadLayerLabel = (id: CadLayerId, label: string) => setCadLayers((cur) => cur.map((layer) => layer.id === id ? { ...layer, label } : layer));
   const updateCadLayerColor = (id: CadLayerId, color: string) => setCadLayers((cur) => cur.map((layer) => layer.id === id ? { ...layer, color } : layer));
@@ -2766,12 +2856,17 @@ export default function Layout3DEditor({
     toast.success('Capas CAD restauradas a la presentación estándar.', 'Capas');
   };
   const assignSelectionToCadLayer = (id: CadLayerId) => {
+    if (!canCreateOnCadLayer(id, 'asignar objetos')) return;
     const ids = selRef.current.map((it) => it.id);
     if (!ids.length) { toast.error('Selecciona objetos para asignarlos a una capa.', 'Capas'); return; }
     setLayerAssignments((cur) => assignObjectsToLayer(cur, ids, id));
     toast.success(`${ids.length} objeto(s) asignados a ${cadLayers.find((l) => l.id === id)?.label ?? id}.`, 'Capas');
   };
   const selectCadLayerObjects = (id: CadLayerId) => {
+    if (!isLayerVisible(cadLayersRef.current, id)) {
+      toast.error('La capa estÃ¡ oculta; muÃ©strala antes de seleccionar sus objetos.', 'Capas');
+      return;
+    }
     const items: SelItem[] = [];
     placementsRef.current.forEach((_, objectId) => { if ((layerAssignmentsRef.current[objectId] ?? 'layout') === id) items.push({ type: 'station', id: objectId }); });
     assetsRef.current.forEach((_, objectId) => { if ((layerAssignmentsRef.current[objectId] ?? 'equipment') === id) items.push({ type: 'asset', id: objectId }); });
@@ -2782,17 +2877,20 @@ export default function Layout3DEditor({
   const isolateCadLayer = (id: CadLayerId) => {
     setLayers((cur) => ({
       ...cur,
-      stations: id === 'layout',
-      equipment: id === 'equipment' || id === 'aisles' || id === 'safety',
-      connectors: id === 'flow',
-      dims: id === 'measurements',
+      stations: true,
+      equipment: true,
+      connectors: true,
+      dims: true,
     }));
     setCadLayers((cur) => cur.map((layer) => ({ ...layer, visible: layer.id === id })));
     toast.success(`Capa ${cadLayers.find((layer) => layer.id === id)?.label ?? id} aislada.`, 'Capas');
   };
   const defaultLayerFor = (item: SelItem): CadLayerId => item.type === 'station' ? 'layout' : 'equipment';
   const selectionLayer = (item: SelItem): CadLayerId => layerAssignments[item.id] ?? defaultLayerFor(item);
-  const setSelectionLayer = (item: SelItem, layerId: CadLayerId) => setLayerAssignments((cur) => assignObjectsToLayer(cur, [item.id], layerId));
+  const setSelectionLayer = (item: SelItem, layerId: CadLayerId) => {
+    if (!canCreateOnCadLayer(layerId, 'asignar objetos')) return;
+    setLayerAssignments((cur) => assignObjectsToLayer(cur, [item.id], layerId));
+  };
   const runToolbarAction = (id: CadToolbarActionId) => {
     if (id === 'select' || id === 'pan') setToolMode('select');
     else if (id === 'measure') setToolMode('measure');
@@ -2832,8 +2930,8 @@ export default function Layout3DEditor({
   };
   const selectAll = () => {
     const items: SelItem[] = [
-      ...[...placementsRef.current.keys()].map((id) => ({ type: 'station' as const, id })),
-      ...[...assetsRef.current.keys()].map((id) => ({ type: 'asset' as const, id })),
+      ...[...placementsRef.current.keys()].filter((id) => isCadObjectVisible(id, 'layout')).map((id) => ({ type: 'station' as const, id })),
+      ...[...assetsRef.current.keys()].filter((id) => isCadObjectVisible(id, 'equipment')).map((id) => ({ type: 'asset' as const, id })),
     ];
     select(items); rebuildAll();
   };
@@ -2965,13 +3063,24 @@ export default function Layout3DEditor({
   };
   const computeDxfExportSummary = (options: DxfExportOptions): DxfExportSummary => {
     const selectedIds = new Set(selRef.current.map((item) => item.id));
-    const inScope = (id: string) => options.scope === 'all' || selectedIds.has(id);
-    const objects = options.scope === 'selection' ? selRef.current.length : placementsRef.current.size + assetsRef.current.size;
-    const connectors = connectorsRef.current.filter((conn) => inScope(conn.from) && inScope(conn.to)).length;
+    const includeObject = (id: string, fallback: CadLayerId) => {
+      if (options.scope === 'selection' && !selectedIds.has(id)) return false;
+      return options.includeHidden || isObjectLayerVisible(cadLayersRef.current, layerAssignmentsRef.current, id, fallback);
+    };
+    const includeEndpoint = (id: string) => {
+      if (placementsRef.current.has(id)) return includeObject(id, 'layout');
+      if (assetsRef.current.has(id)) return includeObject(id, 'equipment');
+      return false;
+    };
+    const objects =
+      [...placementsRef.current.keys()].filter((id) => includeObject(id, 'layout')).length +
+      [...assetsRef.current.keys()].filter((id) => includeObject(id, 'equipment')).length;
+    const includeFlow = options.includeHidden || isLayerVisible(cadLayersRef.current, 'flow');
+    const connectors = includeFlow ? connectorsRef.current.filter((conn) => includeEndpoint(conn.from) && includeEndpoint(conn.to)).length : 0;
     return {
       objects,
       connectors,
-      measurements: options.includeMeasurements ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'dim').length : 0,
+      measurements: options.includeMeasurements && (options.includeHidden || isLayerVisible(cadLayersRef.current, 'measurements')) ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'dim').length : 0,
       labels: options.includeLabels ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'text').length : 0,
       layers: cadLayers.filter((layer) => options.includeHidden || layer.visible).length,
     };
@@ -3001,9 +3110,7 @@ export default function Layout3DEditor({
       const selectedIds = new Set(selRef.current.map((item) => item.id));
       const includeObject = (id: string, fallback: CadLayerId) => {
         if (options.scope === 'selection' && !selectedIds.has(id)) return false;
-        if (options.includeHidden) return true;
-        const layerId = layerAssignments[id] ?? fallback;
-        return cadLayers.find((layer) => layer.id === layerId)?.visible ?? true;
+        return options.includeHidden || isObjectLayerVisible(cadLayersRef.current, layerAssignmentsRef.current, id, fallback);
       };
       const boxes = [
         ...[...placementsRef.current.entries()]
@@ -3013,13 +3120,17 @@ export default function Layout3DEditor({
           .filter((asset) => includeObject(asset.id, 'equipment'))
           .map((asset) => ({ id: asset.id, label: asset.label || assetMeta(asset.kind).label, x: asset.x, y: asset.y, width: asset.w, height: asset.h, layer: cadLayers.find((layer) => layer.id === (layerAssignments[asset.id] ?? 'equipment'))?.label ?? 'Equipment' })),
       ];
+      const includeFlow = options.includeHidden || isLayerVisible(cadLayersRef.current, 'flow');
       const connectors = connectorsRef.current.map((conn) => {
+        if (!includeFlow) return null;
         if (options.scope === 'selection' && (!selectedIds.has(conn.from) || !selectedIds.has(conn.to))) return null;
+        if (!options.includeHidden && (!includeObject(conn.from, placementsRef.current.has(conn.from) ? 'layout' : 'equipment') || !includeObject(conn.to, placementsRef.current.has(conn.to) ? 'layout' : 'equipment'))) return null;
         const from = centerFor(conn.from); const to = centerFor(conn.to);
         return from && to ? { from, to, layer: 'Flow' } : null;
       }).filter((conn): conn is { from: { x: number; y: number }; to: { x: number; y: number }; layer: string } => !!conn);
       const labels = options.includeLabels ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'text').map((ann) => ({ text: ann.text || 'Nota', x: ann.x, y: ann.y, layer: 'Text' })) : [];
-      const measurements = options.includeMeasurements ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'dim' && ann.x2 != null && ann.y2 != null).map((ann) => ({ from: { x: ann.x, y: ann.y }, to: { x: ann.x2!, y: ann.y2! }, label: ann.text, layer: 'Measurements' })) : [];
+      const includeMeasurements = options.includeMeasurements && (options.includeHidden || isLayerVisible(cadLayersRef.current, 'measurements'));
+      const measurements = includeMeasurements ? [...annotationsRef.current.values()].filter((ann) => ann.type === 'dim' && ann.x2 != null && ann.y2 != null).map((ann) => ({ from: { x: ann.x, y: ann.y }, to: { x: ann.x2!, y: ann.y2! }, label: ann.text, layer: 'Measurements' })) : [];
       const exported = exportCadLayoutDxf({ boxes, connectors, labels, measurements }, { units: options.units, fileComment: `AXOS CAD ${model} ${revision}` });
       const blob = new Blob([exported.content], { type: 'application/dxf' });
       const url = URL.createObjectURL(blob);
@@ -3116,6 +3227,8 @@ export default function Layout3DEditor({
   const cadLayerCounts = cadLayers.reduce<Record<CadLayerId, number>>((acc, layer) => ({ ...acc, [layer.id]: 0 }), {} as Record<CadLayerId, number>);
   placedIds.forEach((id) => { cadLayerCounts[layerAssignments[id] ?? 'layout'] += 1; });
   assetIds.forEach((id) => { cadLayerCounts[layerAssignments[id] ?? 'equipment'] += 1; });
+  const activeLayerMeta = cadLayers.find((layer) => layer.id === activeCadLayer);
+  const hiddenCadLayerCount = cadLayers.filter((layer) => !layer.visible).length;
   const releaseBlockers = (report?.errors ?? 0) + collisionHits.length + safetyIssues.length;
   const releaseWarnings = (report?.warnings ?? 0) + dxfWarnings.length + (flowHealth && flowHealth.score < 80 ? 1 : 0);
   const releaseState = !report ? 'Sin validar' : releaseBlockers > 0 ? 'Bloqueado' : releaseWarnings > 0 ? 'Con avisos' : 'Listo';
@@ -3489,7 +3602,8 @@ export default function Layout3DEditor({
               <span className="text-cyan-200">Tool: {tool}</span>
               <span>{selList.length} sel</span>
               <span>{data?.footprint.unit ?? 'mm'}</span>
-              <span>Layer {cadLayers.find((layer) => layer.id === activeCadLayer)?.label ?? activeCadLayer}</span>
+              <span className={activeLayerMeta?.locked ? 'text-amber-300' : activeLayerMeta?.visible === false ? 'text-gray-500' : undefined}>Layer {activeLayerMeta?.label ?? activeCadLayer}{activeLayerMeta?.locked ? ' lock' : ''}{activeLayerMeta?.visible === false ? ' hidden' : ''}</span>
+              {hiddenCadLayerCount > 0 && <span className="text-gray-400">{hiddenCadLayerCount} hidden layer(s)</span>}
               <span>Snap {snap ? 'grid' : 'off'} / {osnap ? 'obj' : 'obj off'}</span>
               <button onClick={openChecks} className={`${releaseTone} hover:text-white`}>Release {releaseState}</button>
               {report && <span className={report.score === 'error' ? 'text-rose-300' : report.score === 'warn' ? 'text-amber-300' : 'text-emerald-300'}>Validación {report.score}</span>}
@@ -3683,7 +3797,7 @@ export default function Layout3DEditor({
                     <label className="block text-[11px] text-gray-400">
                       <span className="block mb-1">Capa</span>
                       <select value={selectionLayer(selList[0])} onChange={(e) => setSelectionLayer(selList[0], e.target.value as CadLayerId)} className="w-full rounded-lg border border-white/10 bg-gray-950/70 px-2 py-1.5 text-[12px] text-white outline-none">
-                        {cadLayers.map((layer) => <option key={layer.id} value={layer.id} className="text-gray-900">{layer.label}{layer.locked ? ' (lock)' : ''}</option>)}
+                        {cadLayers.map((layer) => <option key={layer.id} value={layer.id} className="text-gray-900">{layer.label}{layer.locked ? ' (lock)' : ''}{!layer.visible ? ' (hidden)' : ''}</option>)}
                       </select>
                     </label>
                     <label className="block text-[11px] text-gray-400">

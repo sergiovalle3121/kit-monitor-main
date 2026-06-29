@@ -1,5 +1,13 @@
 # Codex Night Log
 
+## 2026-06-29 — CAD layer visibility PR
+
+- Reused the existing CAD layer model and `Layout3DEditor.tsx` layer panel instead of adding another layer manager.
+- Added pure layer visibility helpers and specs for object-level visibility.
+- Made hidden CAD layers affect rendered stations, labels, equipment, flow connectors, measurements, hit-testing, command context, Ctrl/Cmd+A selection, and DXF export counts/content.
+- Added visible warnings for creation or assignment into hidden/locked CAD layers, and preserved layer assignments across duplicate/array/mirror/offset copies.
+- Updated CAD audit/status docs with the Phase 8 layer hardening evidence.
+
 ## 2026-06-27 — CAD command-bar scaffold
 
 - Read the repository/AXOS agent rules and frontend architecture docs.

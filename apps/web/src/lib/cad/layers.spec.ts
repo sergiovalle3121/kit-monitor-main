@@ -5,11 +5,13 @@ import {
   DEFAULT_CAD_LAYERS,
   editableObjectIds,
   isLayerLocked,
+  isObjectLayerVisible,
   isObjectLayerLocked,
   isLayerVisible,
   layerForObject,
   toggleCadLayerLocked,
   toggleCadLayerVisible,
+  visibleObjectIds,
 } from "./layers";
 
 let layers = DEFAULT_CAD_LAYERS;
@@ -39,6 +41,11 @@ assert.equal(
   false,
   "object on unlocked safety layer can be edited",
 );
+assert.equal(
+  isObjectLayerVisible(layers, assignments, "a", "layout"),
+  true,
+  "object on visible assigned layer can be shown",
+);
 layers = toggleCadLayerLocked(layers, "safety");
 assert.equal(
   isObjectLayerLocked(layers, assignments, "a", "layout"),
@@ -52,5 +59,19 @@ assert.deepEqual(
   ]),
   ["x"],
   "editableObjectIds filters locked objects",
+);
+layers = toggleCadLayerVisible(layers, "safety");
+assert.equal(
+  isObjectLayerVisible(layers, assignments, "a", "layout"),
+  false,
+  "object on hidden assigned layer is hidden",
+);
+assert.deepEqual(
+  visibleObjectIds(layers, assignments, [
+    { id: "a", fallbackLayer: "layout" },
+    { id: "x", fallbackLayer: "equipment" },
+  ]),
+  ["x"],
+  "visibleObjectIds filters hidden objects",
 );
 console.log("cad layer specs passed");
