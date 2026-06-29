@@ -51,3 +51,17 @@ PR 746 edits `Layout3DEditor.tsx`, `PlantMinimap.tsx`, `ScaleBar.tsx`, and new C
 
 The next non-redundant CAD gap selected for PR #796 is visible clearance validation. The clearance helper already existed in `apps/web/src/lib/cad/collisions.ts` and was aggregated by `apps/web/src/lib/cad/validation-report.ts`, but the design-check modal only surfaced collisions and safety-zone issues. The PR wires that existing report into `Layout3DEditor.tsx` so release readiness, highlights, and modal rows share one validation source.
 Open CAD PRs touched validation, layers, shortcuts, and command-registry workflows, so this run avoided those primary areas. The selected improvement adds pure CAD layout templates in `apps/web/src/lib/cad/templates.ts` and wires them into the existing equipment rail in `Layout3DEditor.tsx`. The templates instantiate current editable assets, connectors, annotations, layer assignments, tags, local snapshots, and Flow Health state instead of introducing a parallel editor or persistence model.
+
+## 2026-06-29 validation quick fixes update
+
+Open CAD PRs #853, #850, #847, #844, #839, and #838 touch templates, flow, plot/DXF package metadata, warehouse/rack generators, and command registry work. This run avoided those primary ownership areas and extended the existing validation path instead.
+
+Inspected files included `Layout3DEditor.tsx`, `validation-report.ts`, `collisions.ts`, `safety-zones.ts`, `flow-optimization.ts`, `commands/*`, DXF helpers, layer/object-property helpers, templates, symbols, keyboard/toolbar helpers, route chrome, CAD docs, and design docs.
+
+Existing capability found: `buildCadValidationReport` already aggregates collisions, clearance issues, safety-zone issues, and flow score, and `Layout3DEditor.tsx` already opens a visible design-check modal from that report.
+
+What was reused: existing collision/clearance/safety/flow helpers, existing validation state, existing selection/rebuild/toast paths, and the existing Flow Health modal handoff.
+
+What was extended: `CadValidationReport` now includes normalized issue rows with severity, affected object ids, action labels, and suggested fixes. The validation modal now shows those quick-fix rows without adding a new validation engine.
+
+What was intentionally not duplicated: no new CAD editor, validation center, collision helper, safety helper, flow model, command registry branch, DXF workflow, or layer model.

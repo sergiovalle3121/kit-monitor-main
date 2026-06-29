@@ -68,7 +68,11 @@ import {
   type CadPropertyObject,
   type CadSelectionProperties,
 } from '@/lib/cad/object-properties';
-import { buildCadValidationReport, type CadValidationReport } from '@/lib/cad/validation-report';
+import {
+  buildCadValidationReport,
+  type CadValidationIssueRow,
+  type CadValidationReport,
+} from '@/lib/cad/validation-report';
 import dynamic from 'next/dynamic';
 
 // Analysis panels — the same modal components the 2D host shipped, lazy-loaded so
@@ -2020,6 +2024,29 @@ export default function Layout3DEditor({
     select(items);
     rebuildAll();
     toast.success('Issue de seguridad seleccionado.', 'Safety');
+  };
+  const selectValidationIssue = (issue: CadValidationIssueRow) => {
+    if (issue.category === 'flow') {
+      if (cadValidationReport?.flow) {
+        setFlowHealth(cadValidationReport.flow);
+        setReport(null);
+        toast.success('Flow Health abierto desde validacion.', 'CAD validation');
+      }
+      return;
+    }
+    const items: SelItem[] = issue.affectedObjectIds
+      .map((id) =>
+        placementsRef.current.has(id)
+          ? { type: 'station' as const, id }
+          : assetsRef.current.has(id)
+            ? { type: 'asset' as const, id }
+            : null,
+      )
+      .filter((item): item is SelItem => !!item);
+    if (!items.length) return;
+    select(items);
+    rebuildAll();
+    toast.success(issue.actionLabel, 'CAD validation');
   };
   const analyzeFlowHealth = () => {
     const nodes = currentFlowNodes();
@@ -4394,6 +4421,25 @@ export default function Layout3DEditor({
                     <div className="rounded-lg bg-gray-950/50 px-2 py-1.5"><span className="text-gray-500">Safety</span><b className="ml-2 tabular-nums text-white">{cadValidationReport.safety.length}</b></div>
                     <div className="rounded-lg bg-gray-950/50 px-2 py-1.5"><span className="text-gray-500">Flow</span><b className="ml-2 tabular-nums text-white">{cadValidationReport.flow ? `${cadValidationReport.flow.score}/100` : 'n/a'}</b></div>
                   </div>
+                  {cadValidationReport.issues.length > 0 && (
+                    <div className="mt-2 space-y-1.5">
+                      {cadValidationReport.issues.slice(0, 4).map((issue) => (
+                        <button
+                          key={issue.id}
+                          onClick={() => selectValidationIssue(issue)}
+                          className={`w-full rounded-lg border px-2 py-1.5 text-left text-[11.5px] transition ${issue.severity === 'critical' ? 'border-rose-400/20 bg-rose-400/10 hover:bg-rose-400/15' : 'border-amber-400/20 bg-amber-400/10 hover:bg-amber-400/15'}`}
+                        >
+                          <span
+                            className={issue.severity === 'critical' ? 'block font-medium text-rose-100' : 'block font-medium text-amber-100'}
+                          >
+                            {issue.title}
+                          </span>
+                          <span className="block text-gray-300">{issue.suggestedFix}</span>
+                          <span className="block pt-0.5 text-[10.5px] text-gray-500">{issue.actionLabel}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {collisionHits.length > 0 && (

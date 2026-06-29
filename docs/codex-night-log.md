@@ -234,3 +234,12 @@
 - Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
 - Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
 - Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
+
+## 2026-06-29 - CAD validation quick fixes
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and open CAD PRs #853/#850/#847/#844/#839/#838.
+- Avoided active template, flow-reorder, plot package, warehouse/rack generator, DXF, and command-registry ownership areas.
+- Reused the existing `buildCadValidationReport`, collision/clearance/safety/flow helpers, editor validation state, selection/rebuild path, and Flow Health modal.
+- Extended `CadValidationReport` with normalized issue rows that include severity, affected objects, action labels, and suggested fixes.
+- Wired the existing design-check modal in `Layout3DEditor.tsx` to show top validation quick fixes and select affected objects from those rows.
+- Added focused validation-report coverage for collision, clearance, and safety issue rows.

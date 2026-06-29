@@ -88,3 +88,17 @@ Recommended next phase: add an editable connector workflow or validation issue a
 
 PR #796 advances the existing validation center by making the design-check modal use the shared CAD validation report for collisions, clearances, safety, and flow. User-visible additions are clearance warning rows, selection/highlight on clearance issues, CAD validation severity in the status bar, and release-readiness counts that distinguish blockers from warnings. It does not add a parallel validation engine, collision helper, CAD shell, or flow model.
 Recommended next phase: add a parametric rack row or SMT line generator with user inputs, building on `templates.ts` and the existing editable asset/connector model.
+
+## 2026-06-29 - Validation quick fixes
+
+This run hardens the visible CAD validation center:
+
+- `validation-report.ts` now emits normalized issue rows for collisions, clearances, safety-zone issues, and poor flow score.
+- Each issue row carries severity, affected object ids, a suggested fix, and a user action label.
+- The existing `Layout3DEditor` design-check modal now shows the top validation quick fixes inside the CAD validation card.
+- Clicking a collision, clearance, or safety quick fix reuses the current select/rebuild path to select the affected objects.
+- Clicking a flow quick fix reuses the existing Flow Health modal instead of adding another flow panel.
+
+The workflow is visible through the existing `Shift+V`/design-check validation path. It does not introduce a second validation engine, validation modal, collision helper, safety helper, flow model, or command registry path.
+
+Recommended next phase: add zoom-to-issue or one-click safe remediation after the active editor/generator PRs settle.
