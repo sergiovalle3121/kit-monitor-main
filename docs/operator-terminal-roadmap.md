@@ -30,6 +30,9 @@ This slice starts the AXOS MES operator terminal redesign on the connected `plan
 - Combined Fases 135-144 material-consumption maintainability slice: split the live step-material consumption card into a colocated module, preserving shortage/low-stock indicators while preparing richer Kanban and material ETA contracts.
 - Combined Fases 145-154 incident-disposition maintainability slice: split open-quality incident disposition controls into a colocated module so NCR disposition and audit requirements can evolve independently.
 - Combined Fases 155-164 work-order-summary maintainability slice: split the WO summary/progress banner into a colocated module, preparing richer model/revision/lot/serial context without growing the board page.
+- Downtime reason capture slice: line-stop Andon now requires a downtime reason
+  code, opens `mes_downtime_events` with that reason, and writes
+  `MES_DOWNTIME_OPENED` evidence to the Event Ledger.
 
 ### Next slices
 

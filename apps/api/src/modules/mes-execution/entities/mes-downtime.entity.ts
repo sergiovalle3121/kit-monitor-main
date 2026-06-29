@@ -7,12 +7,19 @@ import {
 } from 'typeorm';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
-export type DowntimeReason =
-  | 'material_shortage'
-  | 'quality_block'
-  | 'andon_stop'
-  | 'changeover'
-  | 'other';
+export const DOWNTIME_REASONS = [
+  'material_shortage',
+  'quality_block',
+  'andon_stop',
+  'changeover',
+  'equipment_failure',
+  'process_block',
+  'safety_stop',
+  'staffing_gap',
+  'other',
+] as const;
+
+export type DowntimeReason = (typeof DOWNTIME_REASONS)[number];
 
 /**
  * Measured line downtime ("tiempo caído") for OEE availability. Opened when a
