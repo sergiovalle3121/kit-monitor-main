@@ -363,7 +363,7 @@ export function DataTable<T>({
                           type="button"
                           onClick={h.column.getToggleSortingHandler()}
                           className={clsx(
-                            'inline-flex items-center gap-1 transition-colors hover:text-black dark:hover:text-white',
+                            'inline-flex items-center gap-1 transition-colors hover:text-foreground',
                             align === 'right' && 'flex-row-reverse',
                           )}
                         >

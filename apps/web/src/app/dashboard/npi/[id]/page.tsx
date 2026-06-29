@@ -1012,7 +1012,7 @@ function GateRow({
   return (
     <div
       className={`${glass} rounded-2xl p-4 flex items-center gap-3 ${
-        isCurrent ? 'ring-1 ring-violet-400/40' : ''
+        isCurrent ? 'ring-1 ring-primary/40' : ''
       }`}
     >
       <div className="w-20 shrink-0">

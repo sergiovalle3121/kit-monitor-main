@@ -168,7 +168,7 @@ export default function ImportPage() {
         {step === 'map' && (
           <div className="space-y-4">
             <div className={`${glass} rounded-2xl p-4 flex items-center gap-3 text-sm`}>
-              <FileUp className="w-4 h-4 text-violet-500" />
+              <FileUp className="w-4 h-4 text-primary" />
               <span className="font-medium">{fileName}</span>
               <span className="text-gray-400">{rows.length} filas · {headers.length} columnas</span>
               <span className="ml-auto text-gray-400">{TARGET_META[target].label}</span>
@@ -228,7 +228,7 @@ function Stepper({ step }: { step: Step }) {
       {steps.map((s, i) => (
         <React.Fragment key={s.key}>
           <div className={`flex items-center gap-2 text-sm ${i <= idx ? 'text-foreground font-medium' : 'text-gray-400'}`}>
-            <span className={`w-6 h-6 rounded-full grid place-items-center text-xs ${i < idx ? 'bg-emerald-500 text-white' : i === idx ? 'bg-violet-500 text-white' : 'bg-gray-100 dark:bg-white/10'}`}>
+            <span className={`w-6 h-6 rounded-full grid place-items-center text-xs ${i < idx ? 'bg-emerald-500 text-white' : i === idx ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/10'}`}>
               {i < idx ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </span>
             {s.label}
@@ -253,8 +253,8 @@ function SetupStep({ target, setTarget, source, setSource, busy, fileRef, onFile
           {(Object.keys(TARGET_META) as Target[]).map((t) => {
             const m = TARGET_META[t]; const Icon = m.icon; const active = target === t;
             return (
-              <button key={t} onClick={() => setTarget(t)} className={`rounded-xl p-4 text-left border transition-all ${active ? 'border-violet-500 ring-2 ring-violet-500/20' : 'border-gray-100 dark:border-white/10 hover:border-gray-200'}`}>
-                <Icon className={`w-5 h-5 mb-2 ${active ? 'text-violet-500' : 'text-gray-400'}`} />
+              <button key={t} onClick={() => setTarget(t)} className={`rounded-xl p-4 text-left border transition-all ${active ? 'border-primary ring-2 ring-primary/20' : 'border-gray-100 dark:border-white/10 hover:border-gray-200'}`}>
+                <Icon className={`w-5 h-5 mb-2 ${active ? 'text-primary' : 'text-gray-400'}`} />
                 <div className="font-semibold text-sm">{m.label}</div>
                 <div className="text-[11px] text-gray-400">{m.desc}</div>
               </button>
@@ -267,7 +267,7 @@ function SetupStep({ target, setTarget, source, setSource, busy, fileRef, onFile
         <h3 className="font-semibold mb-3">Origen de datos</h3>
         <div className="flex flex-wrap gap-2 mb-4">
           {([['CSV', 'CSV', FileUp], ['EXCEL', 'Excel', FileUp], ['SQL_STAGING', 'Staging SQL', Database], ['IDOC_API', 'IDoc / API', Plug]] as [Source, string, typeof FileUp][]).map(([s, label, Icon]) => (
-            <button key={s} onClick={() => setSource(s)} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm border ${source === s ? 'border-violet-500 bg-violet-500/10 text-violet-600 dark:text-violet-300' : 'border-gray-200 dark:border-white/10'}`}>
+            <button key={s} onClick={() => setSource(s)} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm border ${source === s ? 'border-primary bg-primary/10 text-primary dark:text-primary' : 'border-gray-200 dark:border-white/10'}`}>
               <Icon className="w-4 h-4" /> {label}
             </button>
           ))}
@@ -276,7 +276,7 @@ function SetupStep({ target, setTarget, source, setSource, busy, fileRef, onFile
         {(source === 'CSV' || source === 'EXCEL') && (
           <div>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.tsv,text/csv" onChange={onFile} className="hidden" />
-            <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border-2 border-dashed border-gray-200 dark:border-white/15 hover:border-violet-400 w-full justify-center">
+            <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border-2 border-dashed border-gray-200 dark:border-white/15 hover:border-primary w-full justify-center">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Subir archivo {source === 'EXCEL' ? '.xlsx' : '.csv'}
             </button>
             <p className="text-[11px] text-gray-400 mt-2">La primera fila debe ser el encabezado. Se lee la primera hoja.</p>

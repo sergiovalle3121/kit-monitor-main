@@ -250,7 +250,7 @@ export function TimelineView({
                 className={`px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors ${
                   preset === p
                     ? 'bg-white text-black shadow-sm dark:bg-white/15 dark:text-white'
-                    : 'text-gray-500 hover:text-black dark:hover:text-white'
+                    : 'text-gray-500 hover:text-foreground'
                 }`}
               >
                 {p === 'today' ? 'Hoy' : p === '7d' ? '7 días' : p === '30d' ? '30 días' : 'Todo'}
