@@ -316,6 +316,27 @@ const TOOLBAR_SHORTCUT_IDS = new Set<CadToolbarActionId>([
   'redo',
 ]);
 
+const DXF_LABEL_REQUIRED_ASSET_KINDS = new Set([
+  'workbench',
+  'conveyor',
+  'rack',
+  'robot',
+  'aoi',
+  'oven',
+  'printer',
+  'machine',
+  'gantry',
+  'cabinet',
+  'pallet',
+  'desk',
+  'bin',
+  'safety',
+  'fence',
+  'agv',
+  'agvpath',
+  'zone',
+]);
+
 function disposeObject(o: THREE.Object3D) {
   o.traverse((c) => {
     const mesh = c as THREE.Mesh & { material?: THREE.Material | THREE.Material[] };
@@ -3178,11 +3199,27 @@ export default function Layout3DEditor({
     const entities: CadDxfExportReadinessEntity[] = [
       ...[...placementsRef.current.keys()].map((id) => {
         const layerId = layerAssignments[id] ?? 'layout';
-        return { id, kind: 'object' as const, layer: layerLabel(layerId), selected: selectedIds.has(id), visible: layerVisible(layerId) };
+        return {
+          id,
+          kind: 'object' as const,
+          layer: layerLabel(layerId),
+          label: stationsByIdRef.current.get(id)?.station,
+          requiresLabel: true,
+          selected: selectedIds.has(id),
+          visible: layerVisible(layerId),
+        };
       }),
       ...[...assetsRef.current.values()].map((asset) => {
         const layerId = layerAssignments[asset.id] ?? 'equipment';
-        return { id: asset.id, kind: 'object' as const, layer: layerLabel(layerId), selected: selectedIds.has(asset.id), visible: layerVisible(layerId) };
+        return {
+          id: asset.id,
+          kind: 'object' as const,
+          layer: layerLabel(layerId),
+          label: asset.label,
+          requiresLabel: DXF_LABEL_REQUIRED_ASSET_KINDS.has(asset.kind),
+          selected: selectedIds.has(asset.id),
+          visible: layerVisible(layerId),
+        };
       }),
       ...connectorsRef.current.map((conn) => ({
         id: `${conn.from}:${conn.to}`,
@@ -3193,10 +3230,10 @@ export default function Layout3DEditor({
       })),
       ...[...annotationsRef.current.values()]
         .filter((ann) => ann.type === 'dim' && ann.x2 != null && ann.y2 != null)
-        .map((ann) => ({ id: ann.id, kind: 'measurement' as const, layer: layerLabel('measurements'), selected: true, visible: layerVisible('measurements') })),
+        .map((ann) => ({ id: ann.id, kind: 'measurement' as const, layer: layerLabel('measurements'), label: ann.text, selected: true, visible: layerVisible('measurements') })),
       ...[...annotationsRef.current.values()]
         .filter((ann) => ann.type === 'text')
-        .map((ann) => ({ id: ann.id, kind: 'label' as const, layer: 'Text', selected: true, visible: layersRef.current.notes })),
+        .map((ann) => ({ id: ann.id, kind: 'label' as const, layer: 'Text', label: ann.text, selected: true, visible: layersRef.current.notes })),
     ];
     const readiness = evaluateCadDxfExportReadiness({
       scope: options.scope,

@@ -234,3 +234,12 @@
 - Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
 - Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
 - Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
+
+## 2026-06-29 - DXF critical label preflight
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and open CAD PRs #858/#853/#850/#847/#844/#839/#838.
+- Avoided active dimensions, generator/template, flow, plot metadata, warehouse, rack-row, and command-registry ownership areas.
+- Reused the existing `dxf-export-readiness.ts` helper and the existing `Layout3DEditor.tsx` Exportar DXF modal instead of adding another exporter or panel.
+- Extended readiness entities with optional labels and a critical-label marker so the modal warns when included industrial footprints have no visible user label.
+- Wired station names and asset user labels into the existing DXF export summary builder; hidden/unselected objects only warn if export options include them.
+- Added focused readiness coverage for included, hidden, and selection-scoped missing-label cases.

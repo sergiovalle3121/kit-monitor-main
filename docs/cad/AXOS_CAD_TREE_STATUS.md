@@ -88,3 +88,19 @@ Recommended next phase: add an editable connector workflow or validation issue a
 
 PR #796 advances the existing validation center by making the design-check modal use the shared CAD validation report for collisions, clearances, safety, and flow. User-visible additions are clearance warning rows, selection/highlight on clearance issues, CAD validation severity in the status bar, and release-readiness counts that distinguish blockers from warnings. It does not add a parallel validation engine, collision helper, CAD shell, or flow model.
 Recommended next phase: add a parametric rack row or SMT line generator with user inputs, building on `templates.ts` and the existing editable asset/connector model.
+
+## DXF critical label preflight
+
+This run hardens the existing DXF export preflight:
+
+- `dxf-export-readiness.ts` now accepts optional export labels and a `requiresLabel` marker on readiness entities.
+- The existing `Layout3DEditor.tsx` DXF summary builder passes station names and asset labels into that helper.
+- The current Exportar DXF modal now surfaces a warning when included critical industrial footprints have no visible user label.
+- Hidden or unselected critical footprints only warn when the user includes them through export options.
+- The readiness spec covers included, hidden, and selection-scoped missing-label cases.
+
+The workflow remains on the existing export path: no second exporter, no new modal, no parallel geometry model, and no backend contract change.
+
+## Next CAD PR
+
+Recommended next phase: layer-selective editable DXF import review, or selected-layer DXF export after the active `Layout3DEditor.tsx` PRs settle.

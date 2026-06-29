@@ -51,3 +51,17 @@ PR 746 edits `Layout3DEditor.tsx`, `PlantMinimap.tsx`, `ScaleBar.tsx`, and new C
 
 The next non-redundant CAD gap selected for PR #796 is visible clearance validation. The clearance helper already existed in `apps/web/src/lib/cad/collisions.ts` and was aggregated by `apps/web/src/lib/cad/validation-report.ts`, but the design-check modal only surfaced collisions and safety-zone issues. The PR wires that existing report into `Layout3DEditor.tsx` so release readiness, highlights, and modal rows share one validation source.
 Open CAD PRs touched validation, layers, shortcuts, and command-registry workflows, so this run avoided those primary areas. The selected improvement adds pure CAD layout templates in `apps/web/src/lib/cad/templates.ts` and wires them into the existing equipment rail in `Layout3DEditor.tsx`. The templates instantiate current editable assets, connectors, annotations, layer assignments, tags, local snapshots, and Flow Health state instead of introducing a parallel editor or persistence model.
+
+## DXF critical label preflight update
+
+Open CAD PRs #858, #853, #850, #847, #844, #839, and #838 already touch dimensions, templates/generators, flow, plot metadata, `Layout3DEditor.tsx`, and command registry areas. This run avoided creating another exporter, validation surface, or layout model. It extends the existing `dxf-export-readiness.ts` helper and passes label metadata from the existing `Layout3DEditor.tsx` export summary so the current DXF modal warns when included industrial footprints need visible labels before release.
+
+The capability reused:
+
+- `apps/web/src/lib/cad/dxf-export-readiness.ts`
+- `apps/web/src/components/line-engineering/Layout3DEditor.tsx`
+- `apps/web/src/lib/cad/layout-export-adapter.ts`
+- `apps/web/src/lib/cad/dxf-export.ts`
+- `apps/web/src/lib/cad/layers.ts`
+
+The non-redundant gap closed is export readiness for unlabeled critical footprints. The next DXF PR should focus on layer-selective editable import review or selected-layer export after active editor PRs settle.
