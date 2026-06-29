@@ -25,6 +25,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useMesSignals } from "@/hooks/useMesSignals";
 import { useDashboardSession } from "@/hooks/useDashboardSession";
 import {
+  buildOperatorActionSignature,
   buildOperatorConfirmationSummary,
   classifyScan,
   type OperatorConfirmationSummary,
@@ -963,7 +964,14 @@ function ConfirmForm({
   const [armedSignature, setArmedSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const confirmationSignature = `${step.stepId}:${qty}:${scrap}:${serial.trim()}`;
+  const confirmationSignature = buildOperatorActionSignature({
+    action: "confirm-advance",
+    workOrder: board.execution.workOrder,
+    stepId: step.stepId,
+    quantity: qty,
+    scrap,
+    serial,
+  });
   const armed = armedSignature === confirmationSignature;
   const summary = buildOperatorConfirmationSummary({
     action: "confirm-advance",
@@ -977,11 +985,27 @@ function ConfirmForm({
   const scanner = useIndustrialScanner((scan) => {
     if (["serial", "qr", "datamatrix", "code128"].includes(scan.kind)) {
       setSerial(scan.normalized);
+      setArmedSignature(null);
       setError(null);
     } else {
       setError(`${scan.message} Se esperaba serial, QR, DataMatrix o Code128.`);
     }
   });
+
+  function updateQty(nextQty: number) {
+    setQty(nextQty);
+    setArmedSignature(null);
+  }
+
+  function updateScrap(nextScrap: number) {
+    setScrap(nextScrap);
+    setArmedSignature(null);
+  }
+
+  function updateSerial(nextSerial: string) {
+    setSerial(nextSerial);
+    setArmedSignature(null);
+  }
 
   async function submit() {
     if (!armed) {
@@ -1036,14 +1060,14 @@ function ConfirmForm({
         <Stepper
           label="Unidades buenas"
           value={qty}
-          setValue={setQty}
+          setValue={updateQty}
           min={0}
           max={max}
         />
         <Stepper
           label="Scrap (merma)"
           value={scrap}
-          setValue={setScrap}
+          setValue={updateScrap}
           min={0}
         />
         <ScannerPanel
@@ -1059,7 +1083,7 @@ function ConfirmForm({
           </label>
           <input
             value={serial}
-            onChange={(e) => setSerial(e.target.value)}
+            onChange={(e) => updateSerial(e.target.value)}
             placeholder="SN-…"
             className="mt-1 w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 font-mono outline-none"
           />
@@ -1376,6 +1400,9 @@ function AndonForm({
   const [stopPickerOpen, setStopPickerOpen] = useState(false);
   const [stopReason, setStopReason] = useState<DowntimeReasonCode | "">("");
   const [stopNote, setStopNote] = useState("");
+  const [stopArmedSignature, setStopArmedSignature] = useState<string | null>(
+    null,
+  );
   const toast = useToast();
   const stopSummary = buildOperatorConfirmationSummary({
     action: "line-stop",
@@ -1383,6 +1410,14 @@ function AndonForm({
     stepName: board.currentStep?.name,
     operator,
   });
+  const stopSignature = buildOperatorActionSignature({
+    action: "line-stop",
+    workOrder: board.execution.workOrder,
+    stepId: board.currentStep?.stepId,
+    downtimeReason: stopReason || null,
+    note: stopNote,
+  });
+  const stopArmed = stopArmedSignature === stopSignature;
 
   async function call(type: string, downtimeReason?: DowntimeReasonCode) {
     if (type === "stop" && !downtimeReason) {
@@ -1449,6 +1484,38 @@ function AndonForm({
     void call(type);
   }
 
+  function updateStopReason(reason: DowntimeReasonCode) {
+    setStopReason(reason);
+    setStopArmedSignature(null);
+  }
+
+  function updateStopNote(note: string) {
+    setStopNote(note);
+    setStopArmedSignature(null);
+  }
+
+  function cancelStop() {
+    setStopPickerOpen(false);
+    setStopReason("");
+    setStopNote("");
+    setStopArmedSignature(null);
+  }
+
+  function confirmStop() {
+    if (!stopReason) {
+      toast.error(
+        "Selecciona una razón de paro antes de detener la línea.",
+        "Andon",
+      );
+      return;
+    }
+    if (!stopArmed) {
+      setStopArmedSignature(stopSignature);
+      return;
+    }
+    void call("stop", stopReason);
+  }
+
   return (
     <div>
       <SheetHeader title="Andon" subtitle="Llama a soporte a tu estación" />
@@ -1473,7 +1540,7 @@ function AndonForm({
       {stopPickerOpen && (
         <div className="mt-5 rounded-3xl border border-rose-500/20 bg-rose-500/10 p-4">
           <div className="mb-3">
-            <ConfirmationReview summary={stopSummary} armed />
+            <ConfirmationReview summary={stopSummary} armed={stopArmed} />
           </div>
           <div className="mb-3">
             <div className="text-sm font-black text-rose-600">
@@ -1487,7 +1554,7 @@ function AndonForm({
             {DOWNTIME_REASON_OPTIONS.map((reason) => (
               <button
                 key={reason.code}
-                onClick={() => setStopReason(reason.code)}
+                onClick={() => updateStopReason(reason.code)}
                 className={`rounded-2xl px-3 py-3 text-left transition-all ${
                   stopReason === reason.code
                     ? "bg-rose-500 text-white"
@@ -1509,13 +1576,20 @@ function AndonForm({
           </div>
           <textarea
             value={stopNote}
-            onChange={(event) => setStopNote(event.target.value)}
+            onChange={(event) => updateStopNote(event.target.value)}
             placeholder="Nota opcional para supervisor / mantenimiento"
             rows={2}
             className="mt-3 w-full rounded-2xl bg-white/80 px-4 py-3 text-sm outline-none dark:bg-white/10"
           />
           <button
-            onClick={() => call("stop", stopReason || undefined)}
+            onClick={cancelStop}
+            disabled={busy === "stop"}
+            className="mt-3 flex w-full items-center justify-center rounded-2xl bg-white/70 py-4 text-base font-black text-gray-700 transition-all hover:bg-white active:scale-[0.98] disabled:opacity-40 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
+          >
+            Cancelar paro
+          </button>
+          <button
+            onClick={confirmStop}
             disabled={busy === "stop" || !stopReason}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-500 py-4 text-base font-black text-white transition-all hover:bg-rose-600 active:scale-[0.98] disabled:opacity-40"
           >
@@ -1524,7 +1598,7 @@ function AndonForm({
             ) : (
               <ShieldAlert className="h-5 w-5" />
             )}
-            Detener línea
+            {stopArmed ? "Detener línea" : "Revisar paro"}
           </button>
         </div>
       )}
