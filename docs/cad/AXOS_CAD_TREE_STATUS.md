@@ -8,6 +8,15 @@ AXOS CAD is beyond seed state. The active workbench already includes a unified 2
 
 ## This run
 
+This run upgrades the existing professional dimensioning workflow:
+
+- `measurements.ts` now supports `edge-horizontal` and `edge-vertical` modes for selected-object clearance dimensions.
+- Edge dimensions use the same saved `dim` annotation model as existing measurements, so undo, editable labels, visibility, and DXF export continue through the current path.
+- The `Layout3DEditor` two-object dimension panel now exposes `Borde H` and `Borde V` actions alongside direct, horizontal, and vertical center measurements.
+- Overlapping objects are labeled as overlap measurements rather than pretending there is usable clearance.
+
+The workflow is visible in the CAD right inspector when exactly two objects are selected. It does not introduce a parallel dimension model, exporter, annotation store, or measurement panel.
+
 This run hardens the existing CAD keyboard shortcut path:
 
 - `keyboard-shortcuts.ts` now includes draw/insert/productivity actions for aisle, connector, zone, equipment, text, fit view, grid, object snap, validation, and DXF export.
@@ -67,6 +76,7 @@ The workflow is visible in `Layout3DEditor` and reuses the current editable layo
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, `arrange_flow_line`, and template-seeded flow health | Add richer flow recommendations and before/after preview cards. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
+| Phase 4 - Professional dimensioning system | Advanced | `measurements.ts`, saved dimension annotations, DXF export, and `Borde H`/`Borde V` in the right inspector | Add dimension styles and critical-measurement validation rules. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
 ## Next CAD PR

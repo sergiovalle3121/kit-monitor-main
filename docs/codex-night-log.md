@@ -234,3 +234,12 @@
 - Applying a template creates editable assets, connectors, text annotations, layer assignments, object tags, and a local snapshot before mutation.
 - Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
 - Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
+
+## 2026-06-29 — Edge clearance dimensions
+
+- Inspected required CAD docs, `Layout3DEditor.tsx`, existing measurement/annotation/DXF helpers, CAD docs, route chrome, and open CAD PRs #850/#847/#844/#839/#838.
+- Avoided active flow, plot package, warehouse/rack generator, and command-registry ownership areas.
+- Extended the existing `measurements.ts` helper with `edge-horizontal` and `edge-vertical` clearance dimensions, including overlap labeling.
+- Wired the existing two-object dimension panel in `Layout3DEditor.tsx` with `Borde H` and `Borde V` actions that create saved `dim` annotations.
+- Reused current undo history, editable measurement labels, layer visibility, and DXF export instead of creating another dimension model.
+- Added focused smoke coverage in `measurements.spec.ts`.

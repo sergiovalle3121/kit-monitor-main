@@ -2702,7 +2702,8 @@ export default function Layout3DEditor({
     };
   };
   const createSelectionMeasurement = (mode: CadMeasureMode = 'direct') => {
-    if (selRef.current.length !== 2) { toast.error('Selecciona exactamente 2 objetos para crear una cota centro-a-centro.', 'Medición'); return; }
+    const dimensionKind = mode.startsWith('edge-') ? 'borde-a-borde' : 'centro-a-centro';
+    if (selRef.current.length !== 2) { toast.error(`Selecciona exactamente 2 objetos para crear una cota ${dimensionKind}.`, 'Medición'); return; }
     const [aItem, bItem] = selRef.current;
     const a = selectedMeasureBox(aItem); const b = selectedMeasureBox(bItem);
     if (!a || !b) { toast.error('No pude medir la selección actual.', 'Medición'); return; }
@@ -3933,7 +3934,7 @@ export default function Layout3DEditor({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] leading-relaxed text-gray-500">Selecciona dos objetos y usa “Cota entre objetos” para guardar distancias centro-a-centro. Las cotas exportan a DXF cuando la opción está activa.</p>
+                    <p className="text-[11px] leading-relaxed text-gray-500">Selecciona dos objetos y usa “Cota entre objetos” para guardar distancias centro-a-centro o borde-a-borde. Las cotas exportan a DXF cuando la opción está activa.</p>
                   )}
                 </div>
               </div>
@@ -3974,10 +3975,12 @@ export default function Layout3DEditor({
                 {selList.length === 2 && (
                   <div className="mb-3 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-2.5">
                     <div className="mb-2 text-[10px] uppercase tracking-wide text-cyan-200">Cota entre objetos</div>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
                       <button onClick={() => createSelectionMeasurement('direct')} className="rounded-lg bg-white/[0.06] px-2 py-1.5 text-[11px] text-gray-200 hover:bg-white/[0.12]">Directa</button>
                       <button onClick={() => createSelectionMeasurement('horizontal')} className="rounded-lg bg-white/[0.06] px-2 py-1.5 text-[11px] text-gray-200 hover:bg-white/[0.12]">Horizontal</button>
                       <button onClick={() => createSelectionMeasurement('vertical')} className="rounded-lg bg-white/[0.06] px-2 py-1.5 text-[11px] text-gray-200 hover:bg-white/[0.12]">Vertical</button>
+                      <button onClick={() => createSelectionMeasurement('edge-horizontal')} className="rounded-lg bg-white/[0.06] px-2 py-1.5 text-[11px] text-gray-200 hover:bg-white/[0.12]">Borde H</button>
+                      <button onClick={() => createSelectionMeasurement('edge-vertical')} className="rounded-lg bg-white/[0.06] px-2 py-1.5 text-[11px] text-gray-200 hover:bg-white/[0.12]">Borde V</button>
                     </div>
                   </div>
                 )}
