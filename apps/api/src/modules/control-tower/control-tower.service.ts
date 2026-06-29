@@ -7,6 +7,7 @@ import { TestingService } from '../testing/testing.service';
 import { ProcurementService } from '../procurement/procurement.service';
 import { PeopleService } from '../people/people.service';
 import { HrService } from '../hr/hr.service';
+import { FloorQualityService } from '../floor-quality/floor-quality.service';
 
 export type Health = 'green' | 'amber' | 'red';
 
@@ -43,6 +44,7 @@ export class ControlTowerService {
     private readonly procurement: ProcurementService,
     private readonly people: PeopleService,
     private readonly hr: HrService,
+    private readonly floorQuality: FloorQualityService,
   ) {}
 
   private worst(a: Health, b: Health): Health {
@@ -52,7 +54,7 @@ export class ControlTowerService {
 
   /** Each card is computed defensively so one failing area never breaks the view. */
   async summary(): Promise<ControlTowerSummary> {
-    const [improvement, ehs, maintenance, legal, testing, procurement, people, workforce, staffing] =
+    const [improvement, ehs, maintenance, legal, testing, procurement, people, workforce, staffing, quality] =
       await Promise.all([
         this.safe(() => this.improvement.kpis()),
         this.safe(() => this.ehs.kpis()),
@@ -63,6 +65,7 @@ export class ControlTowerService {
         this.safe(() => this.people.kpis()),
         this.safe(() => this.hr.workforceOverview()),
         this.safe(() => this.hr.staffingRisk()),
+        this.safe(() => this.floorQuality.kpis()),
       ]);
 
     const areas: AreaCard[] = [];
@@ -87,6 +90,27 @@ export class ControlTowerService {
           { label: 'Abiertos', value: ehs.open },
           { label: 'Registrables', value: ehs.recordableCount },
           { label: 'Días perdidos', value: ehs.totalLostDays },
+        ],
+      });
+    }
+
+    if (quality) {
+      // Floor quality (MRB holds): overdue holds → red, any open hold → amber.
+      const health: Health =
+        quality.overdue > 0 ? 'red' : quality.openHolds > 0 ? 'amber' : 'green';
+      areas.push({
+        key: 'quality',
+        label: 'Calidad · Piso (MRB)',
+        href: '/dashboard/floor-quality',
+        health,
+        headline:
+          quality.openHolds === 0
+            ? 'Sin holds abiertos'
+            : `${quality.openHolds} holds abiertos`,
+        metrics: [
+          { label: 'Vencidos', value: quality.overdue },
+          { label: 'Scrap (qty)', value: quality.scrapQty },
+          { label: 'Retrabajo (h)', value: quality.reworkHours },
         ],
       });
     }

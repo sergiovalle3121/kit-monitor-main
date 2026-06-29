@@ -77,7 +77,7 @@ export default function ErpSdPage() {
 
   return (
     <div className="min-h-screen text-foreground font-sans pb-24">
-      <ErpHeader title="Ventas" subtitle="SD" icon={<ShoppingCart className="w-5 h-5 text-violet-500" />} />
+      <ErpHeader title="Ventas" subtitle="SD" icon={<ShoppingCart className="w-5 h-5 text-primary" />} />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6">
         <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
@@ -107,7 +107,7 @@ export default function ErpSdPage() {
                     <button
                       onClick={() => advance(Number(r.id), next.path)}
                       disabled={busy === Number(r.id)}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 transition disabled:opacity-50"
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition disabled:opacity-50"
                     >
                       {busy === Number(r.id) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                       {next.label}

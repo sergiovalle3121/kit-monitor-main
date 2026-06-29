@@ -246,8 +246,8 @@ function HuRow({ hu, onEdit, onLabel, onChanged }: { hu: HandlingUnit; onEdit: (
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={onLabel} title="Etiqueta ZPL" className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-500/10"><Tag className="w-4 h-4" /></button>
-        <button onClick={regen} disabled={busy !== null} title="Regenerar SSCC" className="p-1.5 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10">{busy === "regen" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</button>
-        <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></button>
+        <button onClick={regen} disabled={busy !== null} title="Regenerar SSCC" className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">{busy === "regen" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</button>
+        <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></button>
         <button onClick={del} disabled={busy !== null} title="Eliminar" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10">{busy === "del" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}</button>
       </div>
     </div>
