@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React from 'react';
-import { Activity, AlertTriangle, Box, ChartNoAxesCombined, Database, EyeOff, Layers, Lock, MessageSquare, PanelRight, RefreshCw, Sparkles, Unlock } from 'lucide-react';
+import { Activity, AlertTriangle, Box, ChartNoAxesCombined, Database, EyeOff, Layers, Lock, MessageSquare, PanelRight, RefreshCw, Sparkles, StickyNote, Timer, Unlock } from 'lucide-react';
+import type { SlideDeckHealth } from './slides/deckHealth';
 import type { SmartObjectSpec } from './slides/smartObjects';
 
 export interface SlideInspectorSelection {
@@ -32,24 +33,7 @@ export interface SlideInspectorSelection {
   hasShadow?: boolean;
 }
 
-export interface SlideInspectorHealth {
-  slideCount: number;
-  objectCount: number;
-  commentsOpen: number;
-  commentsResolved: number;
-  pptxIssues: number;
-  pptxIssueMessages?: string[];
-  emptySlides: number;
-  currentEmpty: boolean;
-  missingTitles: number;
-  currentHasTitle: boolean;
-  smartObjects: number;
-  readinessScore: number;
-  master: boolean;
-  theme: string;
-  ratio: string;
-  layout?: string;
-}
+export type SlideInspectorHealth = SlideDeckHealth;
 
 export function SlideInspectorPanel({
   selection, health, readOnly, onGeom, onOpacity, onLabel, onToggleLock, onToggleHidden,
@@ -78,12 +62,7 @@ export function SlideInspectorPanel({
   onOpenAnimations: () => void;
 }) {
   const disabled = readOnly || !selection;
-  const readinessActions = [
-    health.emptySlides > 0 ? `${health.emptySlides} slide(s) vacía(s): aplica un layout o elimina contenido muerto.` : '',
-    health.missingTitles > 0 ? `${health.missingTitles} slide(s) sin título: agrega encabezados para navegación y PPTX export.` : '',
-    health.commentsOpen > 0 ? `${health.commentsOpen} comentario(s) abiertos: resuelve o asigna antes de presentar.` : '',
-    health.pptxIssues > 0 ? `${health.pptxIssues} aviso(s) PPTX: revisa compatibilidad antes de compartir.` : '',
-  ].filter(Boolean);
+  const readinessActions = health.readinessIssues;
   return (
     <aside className="w-72 flex-shrink-0 rounded-2xl border border-black/10 dark:border-white/10 bg-white/85 dark:bg-[#111]/85 backdrop-blur overflow-hidden flex flex-col min-h-0">
       <div className="h-11 px-3 flex items-center justify-between border-b border-black/5 dark:border-white/10">
@@ -110,19 +89,42 @@ export function SlideInspectorPanel({
             {!readOnly && health.currentEmpty && (
               <button onClick={onFixCurrentEmpty} className="mt-2 w-full rounded-lg bg-blue-600 px-2 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700">Aplicar layout base</button>
             )}
+            {!readOnly && !health.currentHasNotes && !health.currentEmpty && (
+              <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                <StickyNote className="mt-0.5 h-3 w-3 flex-shrink-0" /> Agrega notas del orador para este slide antes de presentar.
+              </p>
+            )}
+            <p className={`mt-2 rounded-lg px-2 py-1.5 text-[11px] font-semibold ${
+              health.exportReadiness === 'blocked'
+                ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'
+                : health.exportReadiness === 'review'
+                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+            }`}>
+              Export readiness: {health.exportSummary}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <Metric label="Slides" value={health.slideCount} />
+            <Metric label="Secciones" value={health.sectionCount} />
             <Metric label="Objetos" value={health.objectCount} />
+            <Metric label="Animaciones" value={health.animationCount} />
             <Metric label="Open comments" value={health.commentsOpen} tone={health.commentsOpen ? 'amber' : 'green'} />
             <Metric label="PPTX warnings" value={health.pptxIssues} tone={health.pptxIssues ? 'amber' : 'green'} />
-            <Metric label="Sin título" value={health.missingTitles} tone={health.missingTitles ? 'amber' : 'green'} />
-            <Metric label="Vacías" value={health.emptySlides} tone={health.emptySlides ? 'amber' : 'green'} />
+            <Metric label="Sin titulo" value={health.missingTitles} tone={health.missingTitles ? 'amber' : 'green'} />
+            <Metric label="Sin notas" value={health.missingNotes} tone={health.missingNotes ? 'amber' : 'green'} />
+            <Metric label="Vacias" value={health.emptySlides} tone={health.emptySlides ? 'amber' : 'green'} />
+            <Metric label="Off-canvas" value={health.offCanvasObjects} tone={health.offCanvasObjects ? 'rose' : 'green'} />
+            <Metric label="Alt text" value={health.imagesMissingAltText} tone={health.imagesMissingAltText ? 'amber' : 'green'} />
+            <Metric label="AXOS pending" value={health.smartObjectsContractPending} tone={health.smartObjectsContractPending ? 'amber' : 'green'} />
+            <Metric label="Ocultos/bloq." value={health.hiddenObjects + health.lockedObjects} tone={health.hiddenObjects + health.lockedObjects ? 'amber' : 'green'} />
           </div>
           <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 space-y-1">
             <p>Theme: <b>{health.theme}</b> · Ratio: <b>{health.ratio}</b></p>
             <p>Master: <b>{health.master ? 'activo' : 'sin patrón'}</b>{health.layout ? ` · Layout: ${health.layout}` : ''}</p>
             <p>Smart Objects: <b>{health.smartObjects}</b> · Review threads: <b>{health.commentsOpen + health.commentsResolved}</b></p>
+            <p><Timer className="mr-1 inline h-3 w-3" />Auto-advance: <b>{health.autoAdvanceSlides}</b> · Transition variants: <b>{health.transitionVariants}</b></p>
+            <p><Lock className="mr-1 inline h-3 w-3" />Locked: <b>{health.lockedObjects}</b> · Hidden: <b>{health.hiddenObjects}</b> · Animated slides: <b>{health.slidesWithAnimations}</b></p>
           </div>
           {health.pptxIssues > 0 && <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-300"><AlertTriangle className="w-3 h-3 mt-0.5" /> Revisa la compatibilidad PPTX antes de exportar o compartir.</p>}
         </Section>
@@ -228,7 +230,7 @@ const field = 'mt-1 w-full h-8 rounded-lg border border-black/10 dark:border-whi
 const button = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50';
 const quick = 'inline-flex items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10';
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) { return <section className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.015] dark:bg-white/[0.03] p-3"><h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{icon}{title}</h3>{children}</section>; }
-function Metric({ label, value, tone }: { label: string; value: number; tone?: 'green' | 'amber' }) { return <div className={`rounded-lg p-2 border ${tone === 'amber' ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300' : tone === 'green' ? 'border-emerald-300/50 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-black/10 dark:border-white/10'}`}><div className="text-lg font-bold leading-none">{value}</div><div className="text-[10px] opacity-70">{label}</div></div>; }
+function Metric({ label, value, tone }: { label: string; value: number; tone?: 'green' | 'amber' | 'rose' }) { return <div className={`rounded-lg p-2 border ${tone === 'rose' ? 'border-rose-300/50 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300' : tone === 'amber' ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300' : tone === 'green' ? 'border-emerald-300/50 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-black/10 dark:border-white/10'}`}><div className="text-lg font-bold leading-none">{value}</div><div className="text-[10px] opacity-70">{label}</div></div>; }
 function Read({ label, value }: { label: string; value: string }) { return <div className="text-[11px] text-gray-500"><span>{label}</span><p className="mt-1 truncate rounded-lg bg-black/[0.03] dark:bg-white/[0.05] px-2 py-1.5 text-xs font-medium text-gray-800 dark:text-gray-100">{value}</p></div>; }
 function Num({ label, value, disabled, onChange }: { label: string; value: number; disabled?: boolean; onChange: (v: number) => void }) { return <label className="text-[11px] text-gray-500">{label}<input type="number" value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} className={field} /></label>; }
 function Color({ label, value, disabled, onChange }: { label: string; value: string; disabled?: boolean; onChange: (v: string) => void }) {

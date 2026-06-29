@@ -47,6 +47,7 @@ import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slid
 import { SlideSmartArtEditor } from './SlideSmartArtEditor';
 import { SMART_OBJECTS, buildSmartObjectGroup, defaultSmartObject, isSmartObject } from './slides/smartObjects';
 import { makeConnector, refreshConnectors, pickTwo, isConnector } from './slides/connectors';
+import { analyzeSlideDeckHealth, getSlideTitle } from './slides/deckHealth';
 import { SlideFindReplace } from './SlideFindReplace';
 import { SlideOutline } from './SlideOutline';
 import { SlideReusePanel, type ReuseItem } from './SlideReusePanel';
@@ -67,8 +68,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').re
 
 function blank() { return { version: '7', objects: [], background: '#ffffff' }; }
 function labelOf(slide: any): string {
-  const t = slide?.objects?.find((o: any) => o.type === 'textbox' || o.type === 'i-text' || o.type === 'text');
-  return (t?.text || '').split('\n')[0] || '';
+  return getSlideTitle(slide);
 }
 function typeName(o: any): string {
   if (isChart(o)) return 'Gráfico';
@@ -1729,34 +1729,23 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     };
   })();
   const inspectorHealth: SlideInspectorHealth = (() => {
-    const objects = slidesRef.current.reduce((sum, s) => sum + ((s.objects || []) as any[]).length, 0);
-    const emptySlides = slidesRef.current.filter((s) => ((s.objects || []) as any[]).length === 0).length;
-    const currentEmpty = ((slidesRef.current[cur]?.objects || []) as any[]).length === 0;
-    const missingTitles = slidesRef.current.filter((s) => !labelOf(s)).length;
-    const currentHasTitle = !!labelOf(slidesRef.current[cur]);
-    const smartObjects = slidesRef.current.reduce((sum, s) => sum + ((s.objects || []) as any[]).filter((o) => !!o.smartObject).length, 0);
-    const open = commentsRef.current.filter((c) => !c.resolved && !c.parentId).length;
-    const resolved = commentsRef.current.filter((c) => c.resolved && !c.parentId).length;
-    const pptxIssues = Array.isArray(value?.pptxCompatibility?.issues) ? value.pptxCompatibility.issues.length : 0;
-    const readinessScore = Math.max(0, Math.min(100, 100 - (emptySlides * 8) - (missingTitles * 5) - (open * 3) - (pptxIssues * 2)));
-    return {
-      slideCount: slidesRef.current.length,
-      objectCount: objects,
-      commentsOpen: open,
-      commentsResolved: resolved,
-      pptxIssues,
-      pptxIssueMessages: Array.isArray(value?.pptxCompatibility?.issues) ? value.pptxCompatibility.issues.map((x: any) => String(x.message || x.code || 'Aviso PPTX')) : [],
-      emptySlides,
-      currentEmpty,
-      missingTitles,
-      currentHasTitle,
-      smartObjects,
-      readinessScore,
-      master: !!masterRef.current?.objects?.length,
+    return analyzeSlideDeckHealth({
+      slides: slidesRef.current,
+      notes: notesRef.current,
+      sections: sectionsRef.current,
+      transitions: transitionsRef.current,
+      advanceAfters: advanceRef.current,
+      comments: commentsRef.current,
+      pptxIssues: Array.isArray(value?.pptxCompatibility?.issues) ? value.pptxCompatibility.issues : [],
+      hasPptxDanger: !!value?.pptxCompatibility?.hasDanger,
+      current: cur,
       theme: theme().name,
       ratio,
       layout: slidesRef.current[cur]?.layoutId,
-    };
+      masterObjects: masterRef.current?.objects,
+      width: CW,
+      height: ch,
+    });
   })();
 
 
