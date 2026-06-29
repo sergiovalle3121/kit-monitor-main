@@ -2857,8 +2857,9 @@ export default function Layout3DEditor({
   };
   const assignSelectionToCadLayer = (id: CadLayerId) => {
     if (!canCreateOnCadLayer(id, 'asignar objetos')) return;
-    const ids = selRef.current.map((it) => it.id);
-    if (!ids.length) { toast.error('Selecciona objetos para asignarlos a una capa.', 'Capas'); return; }
+    const items = editableItems(selRef.current, 'asignar objetos');
+    const ids = items.map((it) => it.id);
+    if (!ids.length) { toast.error('Selecciona objetos editables para asignarlos a una capa.', 'Capas'); return; }
     setLayerAssignments((cur) => assignObjectsToLayer(cur, ids, id));
     toast.success(`${ids.length} objeto(s) asignados a ${cadLayers.find((l) => l.id === id)?.label ?? id}.`, 'Capas');
   };
@@ -2888,6 +2889,7 @@ export default function Layout3DEditor({
   const defaultLayerFor = (item: SelItem): CadLayerId => item.type === 'station' ? 'layout' : 'equipment';
   const selectionLayer = (item: SelItem): CadLayerId => layerAssignments[item.id] ?? defaultLayerFor(item);
   const setSelectionLayer = (item: SelItem, layerId: CadLayerId) => {
+    if (isItemLayerLocked(item)) { toast.error('La capa actual del objeto esta bloqueada. Desbloqueala antes de recategorizar.', 'Capas'); return; }
     if (!canCreateOnCadLayer(layerId, 'asignar objetos')) return;
     setLayerAssignments((cur) => assignObjectsToLayer(cur, [item.id], layerId));
   };
