@@ -54,6 +54,7 @@ import { SlideCommentsPanel, type SlideComment } from './SlideCommentsPanel';
 import { SlideInspectorPanel, type SlideInspectorHealth, type SlideInspectorSelection } from './SlideInspectorPanel';
 import { SlideStatusBar } from './SlideStatusBar';
 import { SlideAssetLibrary, type SlideAssetSymbol } from './slides/AssetLibrary';
+import { buildSlideDeckHealth, type SlideDeckHealthIssue } from './slides/deckHealth';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -745,6 +746,32 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     const current = slidesRef.current[curRef.current];
     if ((current?.objects || []).length > 0) { toast.info('La diapositiva ya tiene contenido. Usa Diseño para reemplazarlo.'); return; }
     void applyLayout('titleBody');
+  }
+  function jumpToHealthIssue(issue: SlideDeckHealthIssue) {
+    if (typeof issue.slideIndex === 'number' && slidesRef.current.length) {
+      loadInto(Math.max(0, Math.min(issue.slideIndex, slidesRef.current.length - 1)));
+    }
+    if (issue.action === 'comments') {
+      setShowComments(true);
+      return;
+    }
+    if (issue.action === 'layers' || issue.action === 'smartObject') {
+      setShowLayers(true);
+      setShowAnimPanel(false);
+      return;
+    }
+    if (issue.action === 'animations') {
+      setShowAnimPanel(true);
+      setShowLayers(false);
+      return;
+    }
+    if (issue.action === 'notes') {
+      toast.info('Revisa las notas del orador en el panel inferior.');
+      return;
+    }
+    if (issue.action === 'pptx') {
+      toast.info('Revisa el bloque PPTX review en el inspector.');
+    }
   }
   // ── Dibujo libre (lápiz) en el lienzo ───────────────────────────────────────
   function toggleDraw() {
@@ -1729,29 +1756,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     };
   })();
   const inspectorHealth: SlideInspectorHealth = (() => {
-    const objects = slidesRef.current.reduce((sum, s) => sum + ((s.objects || []) as any[]).length, 0);
-    const emptySlides = slidesRef.current.filter((s) => ((s.objects || []) as any[]).length === 0).length;
-    const currentEmpty = ((slidesRef.current[cur]?.objects || []) as any[]).length === 0;
-    const missingTitles = slidesRef.current.filter((s) => !labelOf(s)).length;
-    const currentHasTitle = !!labelOf(slidesRef.current[cur]);
-    const smartObjects = slidesRef.current.reduce((sum, s) => sum + ((s.objects || []) as any[]).filter((o) => !!o.smartObject).length, 0);
-    const open = commentsRef.current.filter((c) => !c.resolved && !c.parentId).length;
-    const resolved = commentsRef.current.filter((c) => c.resolved && !c.parentId).length;
-    const pptxIssues = Array.isArray(value?.pptxCompatibility?.issues) ? value.pptxCompatibility.issues.length : 0;
-    const readinessScore = Math.max(0, Math.min(100, 100 - (emptySlides * 8) - (missingTitles * 5) - (open * 3) - (pptxIssues * 2)));
+    const deckHealth = buildSlideDeckHealth({
+      slides: slidesRef.current,
+      notes: notesRef.current,
+      comments: commentsRef.current,
+      pptxCompatibility: value?.pptxCompatibility,
+      sections: sectionsRef.current,
+      transitions: transitionsRef.current,
+      currentIndex: cur,
+      slideWidth: CW,
+      slideHeight: ch,
+    });
     return {
-      slideCount: slidesRef.current.length,
-      objectCount: objects,
-      commentsOpen: open,
-      commentsResolved: resolved,
-      pptxIssues,
-      pptxIssueMessages: Array.isArray(value?.pptxCompatibility?.issues) ? value.pptxCompatibility.issues.map((x: any) => String(x.message || x.code || 'Aviso PPTX')) : [],
-      emptySlides,
-      currentEmpty,
-      missingTitles,
-      currentHasTitle,
-      smartObjects,
-      readinessScore,
+      ...deckHealth,
       master: !!masterRef.current?.objects?.length,
       theme: theme().name,
       ratio,
@@ -2264,6 +2281,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           onOpenComments={() => setShowComments(true)}
           onOpenLayers={() => { setShowLayers(true); setShowAnimPanel(false); }}
           onOpenAnimations={() => { setShowAnimPanel(true); setShowLayers(false); }}
+          onJumpToIssue={jumpToHealthIssue}
         />
       </div>
       <SlideStatusBar

@@ -2,8 +2,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React from 'react';
-import { Activity, AlertTriangle, Box, ChartNoAxesCombined, Database, EyeOff, Layers, Lock, MessageSquare, PanelRight, RefreshCw, Sparkles, Unlock } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, Box, ChartNoAxesCombined, CheckCircle2, Database, EyeOff, FileWarning, Layers, Lock, MessageSquare, PanelRight, RefreshCw, Sparkles, Unlock } from 'lucide-react';
 import type { SmartObjectSpec } from './slides/smartObjects';
+import type { SlideDeckHealthIssue, SlideDeckHealthReport } from './slides/deckHealth';
 
 export interface SlideInspectorSelection {
   label: string;
@@ -32,19 +33,7 @@ export interface SlideInspectorSelection {
   hasShadow?: boolean;
 }
 
-export interface SlideInspectorHealth {
-  slideCount: number;
-  objectCount: number;
-  commentsOpen: number;
-  commentsResolved: number;
-  pptxIssues: number;
-  pptxIssueMessages?: string[];
-  emptySlides: number;
-  currentEmpty: boolean;
-  missingTitles: number;
-  currentHasTitle: boolean;
-  smartObjects: number;
-  readinessScore: number;
+export interface SlideInspectorHealth extends SlideDeckHealthReport {
   master: boolean;
   theme: string;
   ratio: string;
@@ -53,7 +42,7 @@ export interface SlideInspectorHealth {
 
 export function SlideInspectorPanel({
   selection, health, readOnly, onGeom, onOpacity, onLabel, onToggleLock, onToggleHidden,
-  onFill, onStroke, onStrokeWidth, onCornerRadius, onToggleShadow, onFixCurrentTitle, onFixCurrentEmpty, onSmartObject, onRefreshSmartObject, onMaterializePlaceholder, onOpenComments, onOpenLayers, onOpenAnimations,
+  onFill, onStroke, onStrokeWidth, onCornerRadius, onToggleShadow, onFixCurrentTitle, onFixCurrentEmpty, onSmartObject, onRefreshSmartObject, onMaterializePlaceholder, onOpenComments, onOpenLayers, onOpenAnimations, onJumpToIssue,
 }: {
   selection: SlideInspectorSelection | null;
   health: SlideInspectorHealth;
@@ -76,6 +65,7 @@ export function SlideInspectorPanel({
   onOpenComments: () => void;
   onOpenLayers: () => void;
   onOpenAnimations: () => void;
+  onJumpToIssue?: (issue: SlideDeckHealthIssue) => void;
 }) {
   const disabled = readOnly || !selection;
   const readinessActions = [
@@ -84,6 +74,7 @@ export function SlideInspectorPanel({
     health.commentsOpen > 0 ? `${health.commentsOpen} comentario(s) abiertos: resuelve o asigna antes de presentar.` : '',
     health.pptxIssues > 0 ? `${health.pptxIssues} aviso(s) PPTX: revisa compatibilidad antes de compartir.` : '',
   ].filter(Boolean);
+  const topIssues = health.issues.slice(0, 6);
   return (
     <aside className="w-72 flex-shrink-0 rounded-2xl border border-black/10 dark:border-white/10 bg-white/85 dark:bg-[#111]/85 backdrop-blur overflow-hidden flex flex-col min-h-0">
       <div className="h-11 px-3 flex items-center justify-between border-b border-black/5 dark:border-white/10">
@@ -98,6 +89,10 @@ export function SlideInspectorPanel({
             </div>
             <div className="mt-1 h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
               <div className={`h-full rounded-full ${health.readinessScore >= 85 ? 'bg-emerald-500' : health.readinessScore >= 65 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${health.readinessScore}%` }} />
+            </div>
+            <div className={`mt-2 flex items-center justify-between rounded-lg px-2 py-1 text-[11px] font-bold ${health.exportReady ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : health.pptxDangerIssues ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'}`}>
+              <span className="inline-flex items-center gap-1">{health.exportReady ? <CheckCircle2 className="w-3 h-3" /> : <FileWarning className="w-3 h-3" />} Export {health.exportReady ? 'ready' : 'needs review'}</span>
+              <span>{health.exportWarnings} warning(s)</span>
             </div>
             {readinessActions.length > 0 && (
               <div className="mt-2 space-y-1">
@@ -116,6 +111,11 @@ export function SlideInspectorPanel({
             <Metric label="Objetos" value={health.objectCount} />
             <Metric label="Open comments" value={health.commentsOpen} tone={health.commentsOpen ? 'amber' : 'green'} />
             <Metric label="PPTX warnings" value={health.pptxIssues} tone={health.pptxIssues ? 'amber' : 'green'} />
+            <Metric label="Sin notas" value={health.missingNotes} tone={health.missingNotes ? 'amber' : 'green'} />
+            <Metric label="Secciones" value={health.sectionCount} />
+            <Metric label="Animaciones" value={health.animations} tone={health.animations ? 'amber' : undefined} />
+            <Metric label="Alt text" value={health.missingAltText} tone={health.missingAltText ? 'amber' : 'green'} />
+            <Metric label="Fuera slide" value={health.offCanvasObjects} tone={health.offCanvasObjects ? 'amber' : 'green'} />
             <Metric label="Sin título" value={health.missingTitles} tone={health.missingTitles ? 'amber' : 'green'} />
             <Metric label="Vacías" value={health.emptySlides} tone={health.emptySlides ? 'amber' : 'green'} />
           </div>
@@ -123,8 +123,37 @@ export function SlideInspectorPanel({
             <p>Theme: <b>{health.theme}</b> · Ratio: <b>{health.ratio}</b></p>
             <p>Master: <b>{health.master ? 'activo' : 'sin patrón'}</b>{health.layout ? ` · Layout: ${health.layout}` : ''}</p>
             <p>Smart Objects: <b>{health.smartObjects}</b> · Review threads: <b>{health.commentsOpen + health.commentsResolved}</b></p>
+            <p>Pending contracts: <b>{health.contractPendingSmartObjects}</b> · Hidden/locked: <b>{health.hiddenObjects}/{health.lockedObjects}</b></p>
           </div>
           {health.pptxIssues > 0 && <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-300"><AlertTriangle className="w-3 h-3 mt-0.5" /> Revisa la compatibilidad PPTX antes de exportar o compartir.</p>}
+        </Section>
+
+        <Section title="Release readiness" icon={<FileWarning className="w-3.5 h-3.5" />}>
+          {topIssues.length === 0 ? (
+            <p className="rounded-lg bg-emerald-50 px-2 py-2 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">No blocking release issues detected.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {topIssues.map((issue) => (
+                <div key={issue.id} className={`rounded-lg border px-2 py-1.5 ${issueTone(issue.severity)}`}>
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] font-bold">{issue.label}</p>
+                      <p className="text-[10px] leading-snug opacity-80">{issue.detail}</p>
+                      <p className="mt-0.5 text-[10px] opacity-70">{typeof issue.slideIndex === 'number' ? `Slide ${issue.slideIndex + 1}` : 'Deck level'}{issue.count ? ` · ${issue.count}` : ''}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onJumpToIssue?.(issue)}
+                      className="mt-0.5 inline-flex h-6 items-center gap-1 rounded-md border border-current/20 px-1.5 text-[10px] font-bold hover:bg-white/40 dark:hover:bg-black/20"
+                    >
+                      Go <ArrowRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {health.issues.length > topIssues.length && <p className="text-[10px] text-gray-400">+{health.issues.length - topIssues.length} additional readiness item(s).</p>}
+            </div>
+          )}
         </Section>
 
         {health.pptxIssues > 0 && (
@@ -228,6 +257,11 @@ const field = 'mt-1 w-full h-8 rounded-lg border border-black/10 dark:border-whi
 const button = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50';
 const quick = 'inline-flex items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10';
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) { return <section className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.015] dark:bg-white/[0.03] p-3"><h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{icon}{title}</h3>{children}</section>; }
+function issueTone(severity: SlideDeckHealthIssue['severity']) {
+  if (severity === 'danger') return 'border-rose-300/60 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300';
+  if (severity === 'warning') return 'border-amber-300/60 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300';
+  return 'border-blue-300/50 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300';
+}
 function Metric({ label, value, tone }: { label: string; value: number; tone?: 'green' | 'amber' }) { return <div className={`rounded-lg p-2 border ${tone === 'amber' ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300' : tone === 'green' ? 'border-emerald-300/50 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-black/10 dark:border-white/10'}`}><div className="text-lg font-bold leading-none">{value}</div><div className="text-[10px] opacity-70">{label}</div></div>; }
 function Read({ label, value }: { label: string; value: string }) { return <div className="text-[11px] text-gray-500"><span>{label}</span><p className="mt-1 truncate rounded-lg bg-black/[0.03] dark:bg-white/[0.05] px-2 py-1.5 text-xs font-medium text-gray-800 dark:text-gray-100">{value}</p></div>; }
 function Num({ label, value, disabled, onChange }: { label: string; value: number; disabled?: boolean; onChange: (v: number) => void }) { return <label className="text-[11px] text-gray-500">{label}<input type="number" value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} className={field} /></label>; }
