@@ -13,6 +13,57 @@ export const IMPORT_SOURCES: ImportSource[] = ['CSV', 'EXCEL', 'SQL_STAGING', 'I
 export type ImportTarget = 'MATERIAL' | 'BOM' | 'ROUTING';
 export const IMPORT_TARGETS: ImportTarget[] = ['MATERIAL', 'BOM', 'ROUTING'];
 
+export type ImportCapabilityStatus = 'READY' | 'CONFIG_REQUIRED' | 'MANUAL_LINK';
+
+export interface ImportCapabilitySource {
+  source: ImportSource;
+  label: string;
+  status: ImportCapabilityStatus;
+  detail: string;
+  supportedTargets: ImportTarget[];
+}
+
+export interface ImportCapabilityTarget {
+  target: ImportTarget;
+  label: string;
+  sapObjects: string[];
+  writesTo: string[];
+  route: string;
+  commitBehavior: string;
+  prerequisite: string;
+  downstream: string[];
+  requiredFields: string[];
+}
+
+export interface ImportCapabilityCell {
+  source: ImportSource;
+  target: ImportTarget;
+  status: ImportCapabilityStatus;
+  evidence: string;
+}
+
+export interface ImportFlowNode {
+  key: string;
+  label: string;
+  status: ImportCapabilityStatus;
+  route?: string;
+  detail: string;
+}
+
+export interface ImportCapabilityGap {
+  code: string;
+  label: string;
+  detail: string;
+}
+
+export interface ImportCapabilityMatrix {
+  sources: ImportCapabilitySource[];
+  targets: ImportCapabilityTarget[];
+  cells: ImportCapabilityCell[];
+  flow: ImportFlowNode[];
+  gaps: ImportCapabilityGap[];
+}
+
 export interface FieldSpec {
   field: string;
   label: string;
@@ -59,6 +110,163 @@ export const FIELD_SPECS: Record<ImportTarget, FieldSpec[]> = {
     { field: 'revision', label: 'Revisión', required: false, type: 'string', aliases: ['revision', 'rev'] },
   ],
 };
+
+const targetLabel: Record<ImportTarget, string> = {
+  MATERIAL: 'Material Master',
+  BOM: 'BOM multinivel',
+  ROUTING: 'Routing',
+};
+
+function requiredFields(target: ImportTarget): string[] {
+  return FIELD_SPECS[target].filter((field) => field.required).map((field) => field.field);
+}
+
+export function buildImportCapabilityMatrix(options: {
+  idocApiConfigured?: boolean;
+} = {}): ImportCapabilityMatrix {
+  const idocReady = options.idocApiConfigured === true;
+  const allTargets = [...IMPORT_TARGETS];
+  const sources: ImportCapabilitySource[] = [
+    {
+      source: 'CSV',
+      label: 'CSV',
+      status: 'READY',
+      detail: 'Browser upload parsed into rows, then validated and committed by import-data.',
+      supportedTargets: allTargets,
+    },
+    {
+      source: 'EXCEL',
+      label: 'Excel',
+      status: 'READY',
+      detail: 'First worksheet parsed into the same row contract used by CSV.',
+      supportedTargets: allTargets,
+    },
+    {
+      source: 'SQL_STAGING',
+      label: 'SQL staging',
+      status: 'READY',
+      detail: 'External jobs can post staging rows through the same preview and commit path.',
+      supportedTargets: allTargets,
+    },
+    {
+      source: 'IDOC_API',
+      label: 'SAP IDoc/API',
+      status: idocReady ? 'READY' : 'CONFIG_REQUIRED',
+      detail: idocReady
+        ? 'External feed adapter is configured and can supply rows to the shared mapper.'
+        : 'Adapter interface exists, but no live SAP connector is configured in this deployment.',
+      supportedTargets: allTargets,
+    },
+  ];
+
+  const targets: ImportCapabilityTarget[] = [
+    {
+      target: 'MATERIAL',
+      label: targetLabel.MATERIAL,
+      sapObjects: ['MATMAS', 'OData Material'],
+      writesTo: ['mm_material'],
+      route: '/dashboard/materials',
+      commitBehavior: 'Creates or updates material-master rows by partNumber.',
+      prerequisite: 'None beyond required mapped fields.',
+      downstream: ['Product models', 'BOM', 'Routing', 'MRP'],
+      requiredFields: requiredFields('MATERIAL'),
+    },
+    {
+      target: 'BOM',
+      label: targetLabel.BOM,
+      sapObjects: ['BOMMAT', 'STPO/STKO extract'],
+      writesTo: ['bom_headers', 'bom_components'],
+      route: '/dashboard/bom',
+      commitBehavior: 'Finds or creates the BOM node, then adds component lines idempotently by findNumber and material.',
+      prerequisite: 'Parent and component materials must exist, unless createMissingMaterials is explicitly enabled.',
+      downstream: ['MRP', 'Planning kit explosion', 'Cost rollup'],
+      requiredFields: requiredFields('BOM'),
+    },
+    {
+      target: 'ROUTING',
+      label: targetLabel.ROUTING,
+      sapObjects: ['Routing/CA01 extract', 'Operations extract'],
+      writesTo: ['rt_routings', 'rt_operations'],
+      route: '/dashboard/routing',
+      commitBehavior: 'Finds or creates the routing by assembly and revision, then adds missing operation sequences.',
+      prerequisite: 'Assembly material must exist, unless createMissingMaterials is explicitly enabled.',
+      downstream: ['Backflush preview', 'MES execution', 'Line engineering'],
+      requiredFields: requiredFields('ROUTING'),
+    },
+  ];
+
+  const cells = sources.flatMap((source) =>
+    targets.map((target) => ({
+      source: source.source,
+      target: target.target,
+      status: source.source === 'IDOC_API' && !idocReady ? 'CONFIG_REQUIRED' as const : 'READY' as const,
+      evidence: source.source === 'IDOC_API' && !idocReady
+        ? 'NotConfiguredFeedAdapter throws before commit; use CSV/Excel/staging until SAP credentials are wired.'
+        : `${source.label} rows use ${target.label} validation and commit through existing domain services.`,
+    })),
+  );
+
+  return {
+    sources,
+    targets,
+    cells,
+    flow: [
+      {
+        key: 'sap',
+        label: 'SAP payloads',
+        status: idocReady ? 'READY' : 'CONFIG_REQUIRED',
+        detail: idocReady ? 'IDoc/API feed can supply source rows.' : 'Use file/staging import until the SAP adapter is configured.',
+      },
+      {
+        key: 'import-data',
+        label: 'Import Data',
+        status: 'READY',
+        route: '/dashboard/import',
+        detail: 'Single mapper, preview, validation, commit, and ledger path.',
+      },
+      {
+        key: 'product-model',
+        label: 'Product Model',
+        status: 'MANUAL_LINK',
+        route: '/dashboard/models',
+        detail: 'No direct import target yet; models link to material/BOM after the master data lands.',
+      },
+      {
+        key: 'material-master',
+        label: 'Material Master',
+        status: 'READY',
+        route: '/dashboard/materials',
+        detail: 'MATERIAL target writes the canonical mm_material records.',
+      },
+      {
+        key: 'bom',
+        label: 'BOM',
+        status: 'READY',
+        route: '/dashboard/bom',
+        detail: 'BOM target writes through BomTreeService, using materials as parents/components.',
+      },
+      {
+        key: 'routing',
+        label: 'Routing',
+        status: 'READY',
+        route: '/dashboard/routing',
+        detail: 'ROUTING target writes through RoutingService for operations and timings.',
+      },
+    ],
+    gaps: [
+      ...(idocReady ? [] : [{
+        code: 'SAP_CONNECTOR_NOT_CONFIGURED',
+        label: 'SAP connector configuration',
+        detail: 'The adapter contract exists, but live SAP credentials/endpoints are intentionally not stored in the repo.',
+      }]),
+      {
+        code: 'PRODUCT_MODEL_IMPORT_TARGET',
+        label: 'Product model import target',
+        detail: 'Product models are present in AXOS, but import-data currently lands material, BOM, and routing only.',
+      },
+    ],
+  };
+}
 
 export interface RowError {
   field: string;

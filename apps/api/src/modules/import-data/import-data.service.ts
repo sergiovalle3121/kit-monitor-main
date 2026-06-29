@@ -11,6 +11,7 @@ import {
   type ExternalFeedAdapter,
 } from './external-feed.token';
 import {
+  buildImportCapabilityMatrix,
   FIELD_SPECS,
   FieldSpec,
   ImportTarget,
@@ -61,6 +62,12 @@ export class ImportDataService {
 
   suggest(target: ImportTarget, headers: string[]) {
     return suggestMapping(target, headers ?? []);
+  }
+
+  capabilities() {
+    return buildImportCapabilityMatrix({
+      idocApiConfigured: this.feed.isConfigured(),
+    });
   }
 
   private async resolveRows(dto: PreviewImportDto): Promise<Record<string, any>[]> {
