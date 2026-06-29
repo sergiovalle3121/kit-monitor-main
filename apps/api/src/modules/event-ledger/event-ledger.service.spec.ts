@@ -37,6 +37,13 @@ describe('EventLedgerService (integration)', () => {
       actorName: partial.actorName,
       referenceType: partial.referenceType,
       referenceId: partial.referenceId,
+      plant: partial.plant,
+      warehouse: partial.warehouse,
+      line: partial.line,
+      shift: partial.shift,
+      customer: partial.customer,
+      program: partial.program,
+      model: partial.model,
       workOrder: partial.workOrder,
       context: partial.context ?? {},
       transaction: partial.transaction ?? {},
@@ -141,6 +148,13 @@ describe('EventLedgerService (integration)', () => {
       actorName: 'Operator One',
       referenceType: 'WORK_ORDER',
       referenceId: 'WO-1',
+      plant: 'PLANT-1',
+      warehouse: 'WH-A',
+      line: 'LINE-1',
+      shift: 'T1',
+      customer: 'ACME',
+      program: 'EVT',
+      model: 'AX-100',
       workOrder: 'WO-1',
       timestamp: new Date('2026-06-02T12:00:00.000Z'),
     });
@@ -152,6 +166,13 @@ describe('EventLedgerService (integration)', () => {
       actorName: 'Operator One',
       referenceType: 'WORK_ORDER',
       referenceId: 'WO-1',
+      plant: 'PLANT-1',
+      warehouse: 'WH-A',
+      line: 'LINE-1',
+      shift: 'T1',
+      customer: 'ACME',
+      program: 'EVT',
+      model: 'AX-100',
       workOrder: 'WO-1',
       timestamp: new Date('2026-06-01T12:00:00.000Z'),
     });
@@ -163,6 +184,13 @@ describe('EventLedgerService (integration)', () => {
       actorName: 'Operator One',
       referenceType: 'WORK_ORDER',
       referenceId: 'WO-1',
+      plant: 'PLANT-1',
+      warehouse: 'WH-A',
+      line: 'LINE-1',
+      shift: 'T1',
+      customer: 'ACME',
+      program: 'EVT',
+      model: 'AX-100',
       workOrder: 'WO-1',
       timestamp: new Date('2026-06-02T13:00:00.000Z'),
     });
@@ -173,6 +201,10 @@ describe('EventLedgerService (integration)', () => {
       actorId: 'op-1',
       referenceType: 'WORK_ORDER',
       referenceId: 'WO-1',
+      plant: 'PLANT-2',
+      line: 'LINE-9',
+      program: 'OTHER',
+      model: 'AX-999',
       timestamp: new Date('2026-06-02T14:00:00.000Z'),
     });
 
@@ -183,6 +215,13 @@ describe('EventLedgerService (integration)', () => {
       domain: 'production',
       referenceType: 'work_order',
       referenceId: 'WO-1',
+      plant: 'PLANT-1',
+      warehouse: 'WH-A',
+      line: 'LINE-1',
+      shift: 'T1',
+      customer: 'ACME',
+      program: 'EVT',
+      model: 'AX-100',
       from: '2026-06-01T00:00:00.000Z',
       to: '2026-06-03T00:00:00.000Z',
       page: '1',
@@ -200,6 +239,44 @@ describe('EventLedgerService (integration)', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0].tenantId).toBe('TENANT_A');
     expect(result.items[0].action).toBe('UNIT_STOPPED');
+  });
+
+  it('getEventsByWorkOrder uses the indexed workOrder column and isolates by tenant', async () => {
+    await seedEvent({
+      tenantId: 'TENANT_A',
+      domain: EventDomain.PRODUCTION,
+      action: 'UNIT_STARTED',
+      referenceType: 'WORK_ORDER',
+      referenceId: 'WO-77',
+      workOrder: 'WO-77',
+      timestamp: new Date('2026-06-02T10:00:00.000Z'),
+    });
+    await seedEvent({
+      tenantId: 'TENANT_B',
+      domain: EventDomain.PRODUCTION,
+      action: 'UNIT_STOPPED',
+      referenceType: 'WORK_ORDER',
+      referenceId: 'WO-77',
+      workOrder: 'WO-77',
+      timestamp: new Date('2026-06-02T11:00:00.000Z'),
+    });
+    await seedEvent({
+      tenantId: 'TENANT_A',
+      domain: EventDomain.PRODUCTION,
+      action: 'OTHER_WO',
+      referenceType: 'WORK_ORDER',
+      referenceId: 'WO-88',
+      workOrder: 'WO-88',
+      timestamp: new Date('2026-06-02T12:00:00.000Z'),
+    });
+
+    activeTenant = 'TENANT_A';
+
+    const events = await service.getEventsByWorkOrder('WO-77');
+
+    expect(events).toHaveLength(1);
+    expect(events[0].tenantId).toBe('TENANT_A');
+    expect(events[0].action).toBe('UNIT_STARTED');
   });
 
   it('queryEvents rejects invalid domains and date ranges', async () => {

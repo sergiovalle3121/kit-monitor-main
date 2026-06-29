@@ -60,6 +60,13 @@ export interface QueryLedgerEventsDto {
   referenceType?: string;
   referenceId?: string;
   workOrder?: string;
+  plant?: string;
+  warehouse?: string;
+  line?: string;
+  shift?: string;
+  customer?: string;
+  program?: string;
+  model?: string;
   from?: string;
   to?: string;
   page?: string | number;
@@ -192,6 +199,13 @@ export class EventLedgerService {
     const referenceType = this.scalar(query.referenceType)?.toUpperCase();
     const referenceId = this.scalar(query.referenceId);
     const workOrder = this.scalar(query.workOrder);
+    const plant = this.scalar(query.plant);
+    const warehouse = this.scalar(query.warehouse);
+    const line = this.scalar(query.line);
+    const shift = this.scalar(query.shift);
+    const customer = this.scalar(query.customer);
+    const program = this.scalar(query.program);
+    const model = this.scalar(query.model);
     const from = this.parseDate(query.from, 'from');
     const to = this.parseDate(query.to, 'to');
 
@@ -214,6 +228,13 @@ export class EventLedgerService {
     if (referenceId)
       qb.andWhere('event.referenceId = :referenceId', { referenceId });
     if (workOrder) qb.andWhere('event.workOrder = :workOrder', { workOrder });
+    if (plant) qb.andWhere('event.plant = :plant', { plant });
+    if (warehouse) qb.andWhere('event.warehouse = :warehouse', { warehouse });
+    if (line) qb.andWhere('event.line = :line', { line });
+    if (shift) qb.andWhere('event.shift = :shift', { shift });
+    if (customer) qb.andWhere('event.customer = :customer', { customer });
+    if (program) qb.andWhere('event.program = :program', { program });
+    if (model) qb.andWhere('event.model = :model', { model });
     if (actorId) qb.andWhere('event.actorId = :actorId', { actorId });
     if (actorName) {
       qb.andWhere('LOWER(event.actorName) LIKE :actorName', {
@@ -262,7 +283,7 @@ export class EventLedgerService {
 
   async getEventsByWorkOrder(workOrder: string): Promise<LedgerEvent[]> {
     const qb = this.ledgerRepository.createQueryBuilder('event')
-      .where("event.context->>'workOrder' = :workOrder", { workOrder })
+      .where('event.workOrder = :workOrder', { workOrder })
       .orderBy('event.timestamp', 'DESC');
     this.applyScope(qb, 'event');
     return qb.getMany();
