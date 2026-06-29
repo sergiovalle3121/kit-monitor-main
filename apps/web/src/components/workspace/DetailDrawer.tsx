@@ -125,14 +125,14 @@ export function DetailDrawer({
                 <h2 id={titleId} className="text-base font-semibold leading-tight text-foreground">
                   {title}
                 </h2>
-                {subtitle && <p className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">{subtitle}</p>}
+                {subtitle && <p className="mt-0.5 text-[12px] text-muted-foreground dark:text-muted-foreground">{subtitle}</p>}
               </div>
               <button
                 ref={closeRef}
                 type="button"
                 onClick={onClose}
                 aria-label="Cerrar"
-                className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+                className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -161,7 +161,7 @@ export function DetailDrawer({
 export function DrawerSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-5 last:mb-0">
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{title}</h3>
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
       {children}
     </section>
   );
@@ -171,7 +171,7 @@ export function DrawerSection({ title, children }: { title: string; children: Re
 export function DrawerField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-black/5 py-2 text-sm last:border-0 dark:border-white/5">
-      <span className="shrink-0 text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="shrink-0 text-muted-foreground dark:text-muted-foreground">{label}</span>
       <span className="min-w-0 text-right font-medium text-foreground">{children}</span>
     </div>
   );

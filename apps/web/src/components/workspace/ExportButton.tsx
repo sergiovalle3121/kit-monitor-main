@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { saveAs } from 'file-saver';
 import { Download, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
+import { DropdownMenu, DropdownItem } from '@/components/ui';
 
 export interface ExportColumn<T> {
   /** Clave del campo en el registro (usada si no se pasa `value`). */
@@ -57,7 +57,6 @@ export function ExportButton<T>({
   formats = ['csv', 'xlsx'],
   className = '',
 }: ExportButtonProps<T>) {
-  const [open, setOpen] = useState(false);
   const disabled = rows.length === 0;
 
   function exportCsv() {
@@ -83,7 +82,6 @@ export function ExportButton<T>({
   }
 
   function run(fmt: ExportFormat) {
-    setOpen(false);
     if (fmt === 'csv') exportCsv();
     else void exportXlsx();
   }
@@ -105,50 +103,35 @@ export function ExportButton<T>({
     );
   }
 
+  // Menú portado + opaco + viewport-aware (primitivo compartido). Sustituye al
+  // dropdown ad-hoc `absolute` que podía recortarse u overflowear en móvil.
   return (
-    <div className={clsx('relative', className)}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="inline-flex h-9 items-center gap-2 rounded-xl border border-black/10 bg-black/[0.03] px-3 text-sm font-medium transition-colors hover:bg-black/[0.06] disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
-      >
-        <Download className="h-4 w-4" /> {label}
-        <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
-          <div
-            role="menu"
-            className="absolute right-0 z-50 mt-1 w-44 overflow-hidden rounded-xl border border-black/10 bg-white/95 p-1 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/95"
-          >
-            {formats.includes('csv') && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => run('csv')}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
-              >
-                <FileText className="h-4 w-4 text-gray-400" /> CSV (.csv)
-              </button>
-            )}
-            {formats.includes('xlsx') && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => run('xlsx')}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
-              >
-                <FileSpreadsheet className="h-4 w-4 text-emerald-500" /> Excel (.xlsx)
-              </button>
-            )}
-          </div>
-        </>
+    <DropdownMenu
+      align="end"
+      trigger={
+        <button
+          type="button"
+          disabled={disabled}
+          className={clsx(
+            'inline-flex h-9 items-center gap-2 rounded-xl border border-black/10 bg-black/[0.03] px-3 text-sm font-medium transition-colors hover:bg-black/[0.06] disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]',
+            className,
+          )}
+        >
+          <Download className="h-4 w-4" /> {label}
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        </button>
+      }
+    >
+      {formats.includes('csv') && (
+        <DropdownItem icon={<FileText className="h-4 w-4 text-muted-foreground" />} onSelect={() => run('csv')}>
+          CSV (.csv)
+        </DropdownItem>
       )}
-    </div>
+      {formats.includes('xlsx') && (
+        <DropdownItem icon={<FileSpreadsheet className="h-4 w-4 text-emerald-500" />} onSelect={() => run('xlsx')}>
+          Excel (.xlsx)
+        </DropdownItem>
+      )}
+    </DropdownMenu>
   );
 }

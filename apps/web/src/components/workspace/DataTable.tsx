@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { glass } from '@/lib/glass';
+import { Popover } from '@/components/ui';
 
 // Meta tipada por columna: alineación, si admite filtro de columna y su
 // placeholder. Augmentación recomendada por @tanstack/react-table.
@@ -80,7 +81,7 @@ export interface DataTableProps<T> {
 }
 
 const CONTROL =
-  'inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] text-gray-500 transition-colors hover:bg-black/5 hover:text-black dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white';
+  'inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] text-muted-foreground transition-colors hover:bg-black/5 hover:text-black dark:text-muted-foreground dark:hover:bg-white/10 dark:hover:text-white';
 
 function IndeterminateCheckbox({
   checked,
@@ -153,7 +154,6 @@ export function DataTable<T>({
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize });
   const [density, setDensity] = useState<Density>(initialDensity);
   const [showFilters, setShowFilters] = useState(false);
-  const [colsOpen, setColsOpen] = useState(false);
 
   const allColumns = useMemo<ColumnDef<T, unknown>[]>(() => {
     if (!enableSelection) return columns;
@@ -235,7 +235,7 @@ export function DataTable<T>({
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {searchable && (
             <div className="relative max-w-xs flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -261,46 +261,36 @@ export function DataTable<T>({
           )}
 
           {enableColumnVisibility && hideableColumns.length > 0 && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setColsOpen((o) => !o)}
-                className={CONTROL}
-                aria-haspopup="menu"
-                aria-expanded={colsOpen}
-                title="Columnas"
-              >
-                <Columns3 className="h-4 w-4" /> Columnas
-              </button>
-              {colsOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setColsOpen(false)} aria-hidden />
-                  <div
-                    role="menu"
-                    className="absolute right-0 z-50 mt-1 max-h-72 w-52 overflow-auto rounded-xl border border-black/10 bg-white/95 p-1 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/95"
+            // Popover portado + opaco + viewport-aware (primitivo compartido); no
+            // es `menu` para que marcar/desmarcar columnas no lo cierre.
+            <Popover
+              align="end"
+              className="max-h-72 w-52"
+              trigger={
+                <button type="button" className={CONTROL} title="Columnas">
+                  <Columns3 className="h-4 w-4" /> Columnas
+                </button>
+              }
+            >
+              {hideableColumns.map((col) => {
+                const header = col.columnDef.header;
+                const label = typeof header === 'string' ? header : col.id;
+                return (
+                  <label
+                    key={col.id}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-foreground hover:bg-muted"
                   >
-                    {hideableColumns.map((col) => {
-                      const header = col.columnDef.header;
-                      const label = typeof header === 'string' ? header : col.id;
-                      return (
-                        <label
-                          key={col.id}
-                          className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={col.getIsVisible()}
-                            onChange={col.getToggleVisibilityHandler()}
-                            className="h-3.5 w-3.5 accent-indigo-600"
-                          />
-                          {label}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
+                    <input
+                      type="checkbox"
+                      checked={col.getIsVisible()}
+                      onChange={col.getToggleVisibilityHandler()}
+                      className="h-3.5 w-3.5 accent-indigo-600"
+                    />
+                    {label}
+                  </label>
+                );
+              })}
+            </Popover>
           )}
 
           {enableDensityToggle && (
@@ -329,7 +319,7 @@ export function DataTable<T>({
             <button
               type="button"
               onClick={() => table.resetRowSelection()}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] text-gray-500 hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-black/5 dark:text-muted-foreground dark:hover:bg-white/10"
             >
               <X className="h-3.5 w-3.5" /> Limpiar
             </button>
@@ -354,7 +344,7 @@ export function DataTable<T>({
                       key={h.id}
                       style={size ? { width: size } : undefined}
                       className={clsx(
-                        'px-3 py-2.5 align-bottom text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400',
+                        'px-3 py-2.5 align-bottom text-[11px] font-medium uppercase tracking-wide text-muted-foreground dark:text-muted-foreground',
                         align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left',
                       )}
                     >
@@ -411,13 +401,13 @@ export function DataTable<T>({
               <tr>
                 <td colSpan={leafCount} className="p-0">
                   {emptyState ?? (
-                    <div className="p-12 text-center text-sm text-gray-400">Sin registros.</div>
+                    <div className="p-12 text-center text-sm text-muted-foreground">Sin registros.</div>
                   )}
                 </td>
               </tr>
             ) : noMatch ? (
               <tr>
-                <td colSpan={leafCount} className="p-10 text-center text-sm text-gray-400">
+                <td colSpan={leafCount} className="p-10 text-center text-sm text-muted-foreground">
                   Sin resultados para los filtros aplicados.
                 </td>
               </tr>
@@ -476,7 +466,7 @@ function PaginationBar<T>({ table, total }: { table: Table<T>; total: number }) 
   const pageCount = table.getPageCount();
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/5 px-3 py-2.5 text-[13px] text-gray-500 dark:border-white/10 dark:text-gray-400">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/5 px-3 py-2.5 text-[13px] text-muted-foreground dark:border-white/10 dark:text-muted-foreground">
       <div className="flex items-center gap-2">
         <span>
           {from}–{to} de {total}

@@ -43,7 +43,7 @@ export function StatCard({
   const body = (
     <div className={`${glass} group h-full rounded-2xl p-4 ${href ? 'transition-transform hover:-translate-y-0.5' : ''} ${className}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground dark:text-muted-foreground">
           {label}
         </div>
         {Icon ? (
@@ -64,7 +64,7 @@ export function StatCard({
         {value}
       </div>
       {sublabel != null && (
-        <div className="mt-0.5 text-[12px] text-gray-400">{sublabel}</div>
+        <div className="mt-0.5 text-[12px] text-muted-foreground">{sublabel}</div>
       )}
     </div>
   );

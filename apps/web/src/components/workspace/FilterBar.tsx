@@ -88,7 +88,7 @@ export function FilterBar({
           const v = (value[def.key] as DateRange) ?? {};
           return (
             <div key={def.key} className="flex items-center gap-1.5">
-              <span className="text-[12px] text-gray-400">{def.label}</span>
+              <span className="text-[12px] text-muted-foreground">{def.label}</span>
               <input
                 type="date"
                 value={v.from ?? ''}
@@ -96,7 +96,7 @@ export function FilterBar({
                 aria-label={`${def.label} desde`}
                 className={clsx(CTRL, 'w-[9.5rem]')}
               />
-              <span className="text-gray-400">–</span>
+              <span className="text-muted-foreground">–</span>
               <input
                 type="date"
                 value={v.to ?? ''}
@@ -128,7 +128,7 @@ export function FilterBar({
                   aria-pressed={on}
                   className={clsx(
                     'h-9 rounded-xl px-3 text-[13px] font-medium transition-colors',
-                    !on && 'text-gray-500 hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10',
+                    !on && 'text-muted-foreground hover:bg-black/5 dark:text-muted-foreground dark:hover:bg-white/10',
                   )}
                   style={on ? { background: `${color}22`, color } : undefined}
                 >
@@ -144,7 +144,7 @@ export function FilterBar({
         <button
           type="button"
           onClick={() => onChange({})}
-          className="inline-flex h-9 items-center gap-1 rounded-xl px-2.5 text-[13px] text-gray-500 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10"
+          className="inline-flex h-9 items-center gap-1 rounded-xl px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-black/5 dark:text-muted-foreground dark:hover:bg-white/10"
         >
           <X className="h-3.5 w-3.5" /> Limpiar
         </button>

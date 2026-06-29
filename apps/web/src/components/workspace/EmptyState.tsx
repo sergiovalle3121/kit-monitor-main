@@ -53,12 +53,12 @@ export function EmptyState({
       </span>
 
       <h3 className="text-lg font-semibold">{title}</h3>
-      <p className="mx-auto mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">{description}</p>
+      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground dark:text-muted-foreground">{description}</p>
 
       {hint && hint.length > 0 && (
         <ul className="mx-auto mt-5 max-w-sm space-y-1.5 text-left">
           {hint.map((h) => (
-            <li key={h} className="flex items-start gap-2 text-[13px] text-gray-500 dark:text-gray-400">
+            <li key={h} className="flex items-start gap-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
               <Check className="mt-0.5 h-4 w-4 shrink-0" style={{ color: accent }} strokeWidth={2.25} />
               <span>{h}</span>
             </li>
