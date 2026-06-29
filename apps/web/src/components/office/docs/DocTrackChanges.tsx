@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Editor } from '@tiptap/react';
-import { GitPullRequestArrow, Check, X, Trash2, Eraser, PenLine, Eye } from 'lucide-react';
+import { GitPullRequestArrow, Check, X, Trash2, Eraser, PenLine, Eye, Paintbrush } from 'lucide-react';
 import { RibbonGroup, RibbonSeparator, RibbonButton, RibbonSelect } from '../ribbon';
 import { collectChanges, changeAuthors, type ChangeRange } from './trackChanges';
 
@@ -27,6 +27,8 @@ export function DocTrackChanges({ editor, suggesting, setSuggesting, trackView, 
 
   const quoted = (c: ChangeRange) => { try { return editor.state.doc.textBetween(c.from, c.to, ' '); } catch { return ''; } };
   const goTo = (c: ChangeRange) => editor.chain().focus().setTextSelection({ from: c.from, to: c.to }).scrollIntoView().run();
+  const changeLabel = (c: ChangeRange) => c.type === 'insertion' ? 'Inserción' : c.type === 'deletion' ? 'Eliminación' : 'Formato';
+  const changeTone = (c: ChangeRange) => c.type === 'insertion' ? 'text-emerald-600' : c.type === 'deletion' ? 'text-red-500' : 'text-blue-500';
   const accept = (c: ChangeRange) => { (editor.chain().focus() as any).acceptChange(c.from, c.to, c.type).run(); refresh(); };
   const reject = (c: ChangeRange) => { (editor.chain().focus() as any).rejectChange(c.from, c.to, c.type).run(); refresh(); };
   const acceptAuthor = (a: string) => { (editor.chain().focus() as any).acceptChangesByAuthor(a).run(); refresh(); };
@@ -37,6 +39,7 @@ export function DocTrackChanges({ editor, suggesting, setSuggesting, trackView, 
       <RibbonGroup label="Seguimiento">
         <RibbonButton icon={PenLine} label="Modo sugerencias" hideLabel={false} active={suggesting} onClick={() => setSuggesting(!suggesting)} />
         <RibbonButton icon={Trash2} label="Proponer eliminación" onClick={() => (editor.chain().focus() as any).proposeDeletion().run()} />
+        <RibbonButton icon={Paintbrush} label="Marcar formato" onClick={() => (editor.chain().focus() as any).markFormattingChange('formatting', null, 'Formato propuesto').run()} />
       </RibbonGroup>
       <RibbonSeparator />
       <RibbonGroup label="Mostrar para revisión">
@@ -64,7 +67,7 @@ export function DocTrackChanges({ editor, suggesting, setSuggesting, trackView, 
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-3">
                 {changes.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-10 px-4">No hay cambios sugeridos. Activa «Modo sugerencias» y escribe, o selecciona texto y «Proponer eliminación».</p>
+                  <p className="text-sm text-gray-400 text-center py-10 px-4">No hay cambios sugeridos. Activa «Modo sugerencias» y escribe, o selecciona texto para proponer eliminación/formato.</p>
                 ) : authors.map((a) => {
                   const group = changes.filter((c) => (c.author || '') === a);
                   return (
@@ -80,8 +83,9 @@ export function DocTrackChanges({ editor, suggesting, setSuggesting, trackView, 
                       {group.map((c, i) => (
                         <div key={i} className="rounded-xl border border-black/10 dark:border-white/10 p-3">
                           <button onClick={() => goTo(c)} className="block w-full text-left">
-                            <span className={`text-[10px] font-bold uppercase tracking-wide ${c.type === 'insertion' ? 'text-emerald-600' : 'text-red-500'}`}>{c.type === 'insertion' ? 'Inserción' : 'Eliminación'}</span>
-                            <p className={`text-sm mt-0.5 ${c.type === 'deletion' ? 'line-through text-red-500' : 'text-emerald-700 dark:text-emerald-400'}`}>“{quoted(c) || '—'}”</p>
+                            <span className={`text-[10px] font-bold uppercase tracking-wide ${changeTone(c)}`}>{changeLabel(c)}</span>
+                            <p className={`text-sm mt-0.5 ${c.type === 'deletion' ? 'line-through text-red-500' : c.type === 'formatChange' ? 'text-blue-600 dark:text-blue-300 underline decoration-dotted underline-offset-4' : 'text-emerald-700 dark:text-emerald-400'}`}>“{quoted(c) || '—'}”</p>
+                            {c.type === 'formatChange' ? <p className="text-[11px] text-gray-500 mt-1">{c.after || c.property || 'Formato propuesto'}</p> : null}
                             {c.date ? <p className="text-[11px] text-gray-400 mt-1">{new Date(c.date).toLocaleDateString('es-ES')}</p> : null}
                           </button>
                           <div className="flex items-center gap-1 mt-2">

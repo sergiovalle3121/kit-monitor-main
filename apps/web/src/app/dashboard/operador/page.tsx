@@ -25,7 +25,9 @@ import { useToast } from "@/contexts/ToastContext";
 import { useMesSignals } from "@/hooks/useMesSignals";
 import { useDashboardSession } from "@/hooks/useDashboardSession";
 import {
+  buildOperatorConfirmationSummary,
   classifyScan,
+  type OperatorConfirmationSummary,
   type OfflineAction,
   type ScanResult,
   type ScanState,
@@ -525,6 +527,7 @@ export default function OperadorPage() {
                 operator={operator}
                 position={session?.position ?? null}
                 onQueueAction={offlineQueue.enqueue}
+                onCancel={() => setSheet(null)}
                 onDone={() => {
                   setSheet(null);
                   mutateBoard();
@@ -936,6 +939,7 @@ function ConfirmForm({
   operator,
   position,
   onQueueAction,
+  onCancel,
   onDone,
 }: {
   board: Board;
@@ -944,6 +948,7 @@ function ConfirmForm({
   onQueueAction: (
     action: Omit<OfflineAction, "id" | "createdAt" | "attempts">,
   ) => void;
+  onCancel: () => void;
   onDone: () => void;
 }) {
   const step = board.currentStep!;
@@ -951,8 +956,20 @@ function ConfirmForm({
   const [qty, setQty] = useState(Math.min(max || 1, 1));
   const [scrap, setScrap] = useState(0);
   const [serial, setSerial] = useState("");
+  const [armedSignature, setArmedSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const confirmationSignature = `${step.stepId}:${qty}:${scrap}:${serial.trim()}`;
+  const armed = armedSignature === confirmationSignature;
+  const summary = buildOperatorConfirmationSummary({
+    action: "confirm-advance",
+    workOrder: board.execution.workOrder,
+    stepName: step.name,
+    quantity: qty,
+    scrap,
+    operator,
+  });
+
   const scanner = useIndustrialScanner((scan) => {
     if (["serial", "qr", "datamatrix", "code128"].includes(scan.kind)) {
       setSerial(scan.normalized);
@@ -963,6 +980,12 @@ function ConfirmForm({
   });
 
   async function submit() {
+    if (!armed) {
+      setError(null);
+      setArmedSignature(confirmationSignature);
+      return;
+    }
+
     const payload = {
       quantity: qty,
       scrap,
@@ -1041,19 +1064,76 @@ function ConfirmForm({
           Disponible de la estación previa: {step.maxConfirmable} u. Al
           confirmar se descuenta el material del paso (backflush).
         </p>
+        <ConfirmationReview summary={summary} armed={armed} />
         {error && <p className="text-sm text-rose-500">{error}</p>}
-        <button
-          onClick={submit}
-          disabled={busy || qty + scrap <= 0}
-          className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-        >
-          {busy ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+        <div className="grid grid-cols-1 sm:grid-cols-[0.8fr_1.2fr] gap-3">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="w-full bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200 text-base font-bold py-4 rounded-2xl hover:bg-gray-200 dark:hover:bg-white/15 active:scale-[0.98] transition-all disabled:opacity-40"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy || qty + scrap <= 0}
+            className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            {busy ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5" />
+            )}
+            {armed
+              ? summary.primaryLabel
+              : `Revisar ${qty} u${scrap > 0 ? ` · ${scrap} scrap` : ""}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmationReview({
+  summary,
+  armed,
+}: {
+  summary: OperatorConfirmationSummary;
+  armed: boolean;
+}) {
+  const tone =
+    summary.tone === "rose"
+      ? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-200"
+      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200";
+
+  return (
+    <div className={`rounded-2xl border p-3 ${tone}`}>
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5">
+          {summary.tone === "rose" ? (
+            <AlertTriangle className="w-5 h-5" />
           ) : (
             <CheckCircle2 className="w-5 h-5" />
           )}
-          Confirmar {qty} u{scrap > 0 ? ` · ${scrap} scrap` : ""}
-        </button>
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-black">
+            {armed ? summary.title : "Revisión requerida"}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed opacity-90">
+            {summary.consequence}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {summary.details.map((detail) => (
+              <span
+                key={detail}
+                className="rounded-full bg-white/60 px-2 py-1 text-[10px] font-black text-gray-700 dark:bg-black/20 dark:text-white"
+              >
+                {detail}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1289,7 +1369,15 @@ function AndonForm({
   onDone: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [stopArmed, setStopArmed] = useState(false);
   const toast = useToast();
+  const stopSummary = buildOperatorConfirmationSummary({
+    action: "line-stop",
+    workOrder: board.execution.workOrder,
+    stepName: board.currentStep?.name,
+    operator,
+  });
+
   async function call(type: string) {
     const payload = {
       type,
@@ -1335,7 +1423,13 @@ function AndonForm({
         {ANDON_TYPES.map((a) => (
           <button
             key={a.id}
-            onClick={() => call(a.id)}
+            onClick={() => {
+              if (a.id === "stop") {
+                setStopArmed(true);
+                return;
+              }
+              void call(a.id);
+            }}
             disabled={!!busy}
             className={`${glass} rounded-3xl p-5 flex flex-col items-center gap-2 active:scale-95 transition-all disabled:opacity-50`}
             style={{ color: a.color }}
@@ -1348,6 +1442,32 @@ function AndonForm({
             <span className="font-bold text-sm">{a.label}</span>
           </button>
         ))}
+        {stopArmed && (
+          <div className="col-span-2 space-y-3">
+            <ConfirmationReview summary={stopSummary} armed />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => setStopArmed(false)}
+                disabled={!!busy}
+                className="rounded-2xl bg-gray-100 px-4 py-4 text-sm font-black text-gray-700 hover:bg-gray-200 active:scale-[0.98] transition-all disabled:opacity-50 dark:bg-white/10 dark:text-gray-100 dark:hover:bg-white/15"
+              >
+                Cancelar paro
+              </button>
+              <button
+                onClick={() => void call("stop")}
+                disabled={!!busy}
+                className="rounded-2xl bg-rose-500 px-4 py-4 text-sm font-black text-white hover:bg-rose-600 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {busy === "stop" ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5" />
+                )}
+                {stopSummary.primaryLabel}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

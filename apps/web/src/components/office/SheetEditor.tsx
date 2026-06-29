@@ -19,7 +19,7 @@ import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { SheetSlicer } from './sheets/SheetSlicer';
 import { slicerValues, applySlicers, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, rawOf, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, rawOf, normalizeSheetPrintLayout, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts, type SheetPrintLayout } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
 import { rangeToMarkdown } from '@/lib/office/sheetMarkdown';
 import { installFormulaEngine } from './sheets/formulaEngine';
@@ -104,6 +104,10 @@ async function fetchLiveAxosConnectorPreview(type: AxosConnectorType): Promise<A
     ]),
   };
 }
+
+function printLayoutOf(v: any): SheetPrintLayout {
+  return normalizeSheetPrintLayout(v?.printLayout);
+}
 type StoredTable = { name: string; sheetIndex: number; range: string };
 function tablesOf(v: any): StoredTable[] {
   return v && Array.isArray(v.tables) ? v.tables : [];
@@ -136,6 +140,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const wbRef = useRef<any>(null);
   const gridRef = useRef<HTMLDivElement>(null); // contenedor de la rejilla (foco/atajos)
   const chartsRef = useRef<ChartConfig[]>(chartsOf(value));
+  const printLayoutRef = useRef<SheetPrintLayout>(printLayoutOf(value));
+  const [printLayout, setPrintLayout] = useState<SheetPrintLayout>(printLayoutRef.current);
   const [charts, setCharts] = useState<ChartConfig[]>(chartsRef.current);
   const namesRef = useRef<NamedRange[]>(namesOf(value));
   const [names, setNames] = useState<NamedRange[]>(namesRef.current);
@@ -251,6 +257,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     tables: tablesRef.current,
     comments: commentsRef.current,
     connectors: connectorsRef.current,
+    printLayout: printLayoutRef.current,
   }), []);
 
   const emit = useCallback(() => {
@@ -714,6 +721,12 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const sheet = sheetsRef.current[sheetIndex] ?? sheetsRef.current[0];
     return sheet ? buildPrintHtml(sheet, opts) : '<p>Hoja vacía.</p>';
   }, []);
+  function updatePrintLayout(next: SheetPrintLayout) {
+    printLayoutRef.current = normalizeSheetPrintLayout(next);
+    setPrintLayout(printLayoutRef.current);
+    emit();
+  }
+
   function doPrint(html: string) {
     setShowPrint(false);
     const w = window.open('', '_blank');
@@ -1286,6 +1299,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <span>{selectionText}</span>
           {(() => { const s = selectionStats(); return <span className="truncate">Conteo {s.count} · Núm {s.nums} · Suma {s.sum.toLocaleString()} · Prom {s.average.toLocaleString()} · Min {s.min ?? '—'} · Max {s.max ?? '—'}</span>; })()}
           <span className="hidden lg:inline-flex rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 uppercase tracking-wide">{(() => { const p = currentWorkbookStats(); return `${p.label} · ${p.cells.toLocaleString()} celdas · ${(p.approxJsonBytes / 1024).toFixed(0)} KB`; })()}</span>
+          <span className="hidden xl:inline-flex rounded-full border border-amber-500/30 bg-amber-50 px-2 py-0.5 font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">{(() => { const h = deriveWorkbookHealth(workbookPayload()); return `Gov ${h.score}/100 · C ${h.openComments}/${h.resolvedComments} · F ${h.unprotectedFormulas} · Q ${h.failedQueries}`; })()}</span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setZoom((z) => Math.max(60, z - 10))} className="px-2 py-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10">−</button>
@@ -1382,7 +1396,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             defaultSheetIndex={activeIndex()}
             defaultRange={usedRange(sheetsRef.current[activeIndex()]) ?? ''}
             defaultTitle={sheetNames()[activeIndex()] ?? ''}
+            layout={printLayout}
             getHtml={printHtml}
+            onLayoutChange={updatePrintLayout}
             onPrint={doPrint}
             onClose={() => setShowPrint(false)}
           />
@@ -1453,7 +1469,7 @@ function SheetWorkbenchInspector({
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3 text-xs text-gray-600 dark:text-gray-300">
         {tab === 'workbook' && <Panel title="Workbook Health">
-          <Metric label="Hojas" value={health.sheets} /><Metric label="Celdas usadas" value={health.usedCells} /><Metric label="Fórmulas" value={health.formulas} /><Metric label="Charts" value={health.charts} /><Metric label="Pivots" value={health.pivots} /><Metric label="Validaciones" value={health.validations} /><Metric label="Comentarios" value={health.comments} /><Metric label="Rangos protegidos" value={health.protectedRanges} /><Metric label="Nombres definidos" value={health.namedRanges} /><Metric label="Warnings import/XLSX" value={health.importWarnings + health.unsupportedXlsxFeatures} />
+          <Metric label="Hojas" value={health.sheets} /><Metric label="Celdas usadas" value={health.usedCells} /><Metric label="Fórmulas" value={health.formulas} /><Metric label="Fórmulas sin proteger" value={health.unprotectedFormulas} /><Metric label="Charts" value={health.charts} /><Metric label="Pivots" value={health.pivots} /><Metric label="Validaciones" value={health.validations} /><Metric label="Comentarios abiertos/resueltos" value={`${health.openComments}/${health.resolvedComments}`} /><Metric label="Comentarios asignados" value={health.assignedComments} /><Metric label="Hojas protegidas" value={health.protectedSheets} /><Metric label="Rangos protegidos" value={health.protectedRanges} /><Metric label="Consultas stale/fallidas" value={`${health.staleAxosConnectors}/${health.failedQueries}`} /><Metric label="Aprobaciones pend/rech/aprob" value={`${health.pendingApprovals}/${health.rejectedApprovals}/${health.approvedApprovals}`} /><Metric label="Export warnings" value={health.exportWarnings} /><Metric label="Sharing" value={`${health.sharingStatus} · ${health.sharedPrincipals}`} /><Metric label="Nombres definidos" value={health.namedRanges} /><Metric label="Warnings import/XLSX" value={health.importWarnings + health.unsupportedXlsxFeatures} />
           <div className="mt-3 space-y-2">{health.findings.slice(0, 5).map((f: any) => <div key={f.code} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{f.severity}</b> · {f.message}</div>)}{!health.findings.length && <div className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]">Sin hallazgos relevantes para compartir/exportar.</div>}</div>
         </Panel>}
         {tab === 'cell' && <Panel title="Selección / celda">
@@ -1477,12 +1493,12 @@ function SheetWorkbenchInspector({
         </Panel>}
         {tab === 'comments' && <Panel title="Comments">
           <button disabled={readOnly} className={tool} onClick={onAddComment}>Agregar comentario a {selection.range}</button>
-          {openComments.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{sheets[c.sheetIndex]?.name || 'Hoja'}</b> · {c.range}<br />{c.text || c.messages?.[0]?.text || 'Comentario'}</div>)}{!openComments.length && <Empty text="No hay comentarios abiertos." />}
+          {openComments.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{sheets[c.sheetIndex]?.name || 'Hoja'}</b> · {c.range}<br />{c.text || c.messages?.[0]?.text || 'Comentario'}{(c.assignee || c.assignedTo || c.assigneeId) && <><br /><span className="text-gray-500">Asignado a {c.assignee || c.assignedTo || c.assigneeId}</span></>}</div>)}{!openComments.length && <Empty text="No hay comentarios abiertos." />}
         </Panel>}
         {tab === 'protection' && <Panel title="Protection">
           <button disabled={readOnly} className={tool} onClick={onProtectSelection}>Bloquear rango seleccionado</button>
           <button disabled={readOnly} className={tool} onClick={onProtectSheet}>Proteger hoja activa</button>
-          {protectedRanges.map((p: any, i: number) => <div key={i} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{p.sheet}</b> · {p.range}</div>)}{!protectedRanges.length && <Empty text="La hoja activa no tiene protección AXOS visible." />}
+          <Metric label="Fórmulas sin protección" value={health.unprotectedFormulas} />{protectedRanges.map((p: any, i: number) => <div key={i} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{p.sheet}</b> · {p.range}</div>)}{!protectedRanges.length && <Empty text="La hoja activa no tiene protección AXOS visible." />}
         </Panel>}
         {tab === 'xlsx' && <Panel title="XLSX Compatibility Review">
           <Metric label="Score" value={`${compatibility.score}/100`} /><Metric label="Revisión" value={compatibility.reviewCount} /><Metric label="No soportado" value={compatibility.unsupportedCount} />
@@ -1526,7 +1542,7 @@ function SheetWorkbenchInspector({
               );
             })}
           </div>
-          {connectors.map((c: any) => <div key={c.id} className="mt-2 rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{c.label}</b> · {c.range}<br />Último refresh {c.lastRefreshedAt || '—'}</div>)}
+          {connectors.map((c: any) => <div key={c.id} className="mt-2 rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{c.label}</b> · {c.range}<br />Último refresh {c.lastRefreshedAt || '—'}<br />Estado {c.status || c.lastStatus || (c.lastError || c.error ? 'failed' : 'ok')}{(c.lastError || c.error) ? ` · ${c.lastError || c.error}` : ''}</div>)}
         </Panel>}
       </div>
       <div className="border-t border-black/10 dark:border-white/10 p-3 text-[11px] text-gray-500">Hoja activa: {activeSheet.name || `Hoja ${activeSheetIndex + 1}`} · {names.length} nombres · {connectors.length} conectores</div>

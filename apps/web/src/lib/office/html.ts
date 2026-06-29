@@ -15,6 +15,7 @@ function marks(text: string, node: any): string {
     else if (m.type === 'comment') out = `<span class="comment" data-comment-id="${esc(m.attrs?.commentId)}">${out}</span>`;
     else if (m.type === 'insertion') out = `<ins data-author="${esc(m.attrs?.author)}">${out}</ins>`;
     else if (m.type === 'deletion') out = `<del data-author="${esc(m.attrs?.author)}">${out}</del>`;
+    else if (m.type === 'formatChange') out = `<span class="format-change" data-author="${esc(m.attrs?.author)}" data-property="${esc(m.attrs?.property)}" data-before="${esc(m.attrs?.before)}" data-after="${esc(m.attrs?.after)}">${out}</span>`;
   }
   return out;
 }

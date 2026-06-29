@@ -27,7 +27,7 @@ const DOCX_SUPPORTED_NODES = new Set([
 ]);
 
 const DOCX_SUPPORTED_MARKS = new Set([
-  'bold', 'italic', 'underline', 'strike', 'link', 'comment', 'insertion', 'deletion', 'textStyle',
+  'bold', 'italic', 'underline', 'strike', 'link', 'comment', 'insertion', 'deletion', 'formatChange', 'textStyle',
   'highlight', 'code', 'subscript', 'superscript',
 ]);
 
