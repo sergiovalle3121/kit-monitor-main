@@ -32,6 +32,11 @@ export interface AxosConnectorInstance {
   range: string;
   params?: Record<string, string>;
   lastRefreshedAt: string;
+  lastStatus?: 'api' | 'starter' | 'fallback' | 'failed';
+  lastError?: string;
+  rowCount?: number;
+  source?: string;
+  warnings?: string[];
   readOnly: true;
 }
 

@@ -16,6 +16,7 @@ import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './S
 import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
 import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
+import { SheetConnectorParams } from './SheetConnectorParams';
 import { SheetSlicer } from './sheets/SheetSlicer';
 import { slicerValues, applySlicers, applySlicersToPivotConfig, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
@@ -45,9 +46,8 @@ import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/f
 import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
 import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
-import { apiFetch } from '@/lib/apiFetch';
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+import { fetchAxosConnectorDataset } from '@/lib/office/axosConnectorApi';
+import { AXOS_SHEET_CONNECTOR_BY_TYPE as AXOS_CONTRACT_CONNECTOR_BY_TYPE } from '@axos/contracts';
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
 // carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
@@ -82,28 +82,14 @@ function connectorsOf(v: any): AxosConnectorInstance[] {
   return v && Array.isArray(v.connectors) ? v.connectors : [];
 }
 
-type AxosPreviewPayload = { rows: (string | number)[][]; receivedAt: string };
-
-async function fetchLiveAxosConnectorPreview(type: AxosConnectorType): Promise<AxosPreviewPayload> {
-  if (type !== 'supplier_scorecard') throw new Error('Contract pending');
-  const res = await apiFetch(`${API_BASE}/suppliers/scorecards`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  const json = await res.json();
-  const payload = json && typeof json === 'object' && 'data' in json && 'success' in json ? json.data : json;
-  const list = Array.isArray(payload) ? payload : [];
-  return {
-    receivedAt: new Date().toISOString(),
-    rows: list.slice(0, 12).map((item: any) => [
-      String(item?.supplier?.name ?? item?.name ?? item?.supplierName ?? 'Proveedor'),
-      Number(item?.otd ?? item?.otdPct ?? item?.supplier?.otdPct ?? 0),
-      Number(item?.quality ?? item?.qualityScore ?? item?.ppmScore ?? item?.supplier?.ppm ?? 0),
-      Number(item?.cost ?? item?.costScore ?? 0),
-      Number(item?.response ?? item?.responsiveness ?? item?.responseScore ?? 0),
-      Number(item?.score ?? item?.overallScore ?? 0),
-      String(item?.grade ?? item?.status ?? item?.supplier?.status ?? 'Sin estado'),
-    ]),
-  };
-}
+type AxosPreviewPayload = {
+  columns: string[];
+  rows: (string | number)[][];
+  receivedAt: string;
+  params: Record<string, string>;
+  source: string;
+  warnings: string[];
+};
 
 function printLayoutOf(v: any): SheetPrintLayout {
   return normalizeSheetPrintLayout(v?.printLayout);
@@ -402,7 +388,12 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     };
   }
 
-  function insertAxosConnector(type: AxosConnectorType, liveRows?: (string | number)[][]) {
+  function insertAxosConnector(
+    type: AxosConnectorType,
+    liveRows?: (string | number)[][],
+    params: Record<string, string> = {},
+    meta: Partial<AxosConnectorInstance> = {},
+  ) {
     if (readOnly) return;
     const sheets = clone(sheetsRef.current);
     const sheetIndex = activeIndex();
@@ -416,7 +407,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     sheet.celldata = [...occupied.values()];
     sheet.row = Math.max(sheet.row ?? 100, origin.r + built.nRows + 3);
     sheet.column = Math.max(sheet.column ?? 30, origin.c + built.nCols + 2);
-    const instance = createAxosConnectorInstance(type, sheetIndex, built.range);
+    const instance: AxosConnectorInstance = {
+      ...createAxosConnectorInstance(type, sheetIndex, built.range),
+      params,
+      lastStatus: liveRows ? 'api' : 'starter',
+      rowCount: liveRows?.length ?? connector?.rows.length ?? 0,
+      ...meta,
+    };
     upsertConnectorProtection(sheet, instance);
     const chartSuggestions = suggestedChartsForConnector(instance);
     if (chartSuggestions.length) {
@@ -1425,6 +1422,7 @@ function SheetWorkbenchInspector({
   const [preview, setPreview] = useState<Record<string, AxosPreviewPayload>>({});
   const [previewError, setPreviewError] = useState<Record<string, string>>({});
   const [previewLoading, setPreviewLoading] = useState<Record<string, boolean>>({});
+  const [connectorParamsType, setConnectorParamsType] = useState<AxosConnectorType | null>(null);
   const openComments = comments.filter((c: any) => !c.resolved);
   const activeSlicers = Array.isArray(activeSheet?.slicers) ? activeSheet.slicers : [];
   const activeTimelines = Array.isArray(activeSheet?.timelines) ? activeSheet.timelines : [];
@@ -1433,35 +1431,79 @@ function SheetWorkbenchInspector({
     ...(Array.isArray(s?.axosProtection?.ranges) ? s.axosProtection.ranges.map((r: any) => ({ ...r, sheet: s.name || `Hoja ${i + 1}` })) : []),
   ]);
   const tool = 'w-full rounded-xl border border-black/10 dark:border-white/10 px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40';
-  async function loadPreview(type: AxosConnectorType) {
+  const contractFor = (type: AxosConnectorType) => AXOS_CONTRACT_CONNECTOR_BY_TYPE[type];
+  const hasRequiredParams = (type: AxosConnectorType) => !!contractFor(type)?.params.some((param) => param.required);
+  const previewInstance = (type: AxosConnectorType, params: Record<string, string>): AxosConnectorInstance => {
     const def = AXOS_SHEET_CONNECTORS.find((item) => item.type === type);
+    return { id: `preview_${type}`, type, label: def?.label ?? type, sheetIndex: activeSheetIndex, range: 'A1:A1', params, lastRefreshedAt: new Date().toISOString(), readOnly: true };
+  };
+
+  async function loadPreview(type: AxosConnectorType, params: Record<string, string> = preview[type]?.params ?? {}) {
+    const contract = contractFor(type);
     setPreviewType(type);
-    if (!def?.endpoint) {
+    if (!contract?.endpoint) {
       setPreviewError((prev) => ({ ...prev, [type]: 'Contract pending: no hay endpoint tenant-safe publicado para este conector.' }));
-      return;
+      return null;
     }
     setPreviewLoading((prev) => ({ ...prev, [type]: true }));
     setPreviewError((prev) => ({ ...prev, [type]: '' }));
     try {
-      const data = await fetchLiveAxosConnectorPreview(type);
-      setPreview((prev) => ({ ...prev, [type]: data }));
+      const data = await fetchAxosConnectorDataset(previewInstance(type, params));
+      const payload: AxosPreviewPayload = {
+        columns: data.columns,
+        rows: data.rows,
+        receivedAt: data.asOf || new Date().toISOString(),
+        params: data.params ?? params,
+        source: data.source,
+        warnings: data.warnings ?? [],
+      };
+      setPreview((prev) => ({ ...prev, [type]: payload }));
+      return payload;
     } catch (error) {
       setPreviewError((prev) => ({ ...prev, [type]: `No disponible: ${error instanceof Error ? error.message : 'endpoint rechazado'}` }));
+      return null;
     } finally {
       setPreviewLoading((prev) => ({ ...prev, [type]: false }));
     }
   }
 
+  async function insertConfiguredConnector(type: AxosConnectorType, params: Record<string, string>) {
+    setConnectorParamsType(null);
+    const data = await loadPreview(type, params);
+    if (!data) return;
+    onInsertConnector(type, data.rows, data.params, {
+      lastStatus: 'api',
+      lastRefreshedAt: data.receivedAt,
+      source: data.source,
+      warnings: data.warnings,
+      rowCount: data.rows.length,
+      lastError: undefined,
+    });
+  }
+
   function insertConnectorFromPanel(type: AxosConnectorType) {
-    const def = AXOS_SHEET_CONNECTORS.find((item) => item.type === type);
-    if (def?.endpoint && preview[type]?.rows.length) {
-      onInsertConnector(type, preview[type].rows);
+    const cached = preview[type];
+    if (cached?.rows.length) {
+      onInsertConnector(type, cached.rows, cached.params, {
+        lastStatus: 'api',
+        lastRefreshedAt: cached.receivedAt,
+        source: cached.source,
+        warnings: cached.warnings,
+        rowCount: cached.rows.length,
+        lastError: undefined,
+      });
       return;
     }
-    onInsertConnector(type);
+    if (contractFor(type)?.params.length) {
+      setPreviewType(type);
+      setConnectorParamsType(type);
+      return;
+    }
+    void insertConfiguredConnector(type, {});
   }
 
   return (
+    <>
     <aside className="hidden xl:flex w-[340px] shrink-0 flex-col border-l border-black/10 dark:border-white/10 bg-gray-50/80 dark:bg-[#101010]">
       <div className="border-b border-black/10 dark:border-white/10 p-3">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">AXOS Sheets Workbench v2</div>
@@ -1518,12 +1560,13 @@ function SheetWorkbenchInspector({
         </Panel>}
         {tab === 'axos' && <Panel title="AXOS Data">
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[11px] text-emerald-900 dark:text-emerald-100">
-            Galería de conectores AXOS para Sheets. Los conectores con endpoint real permiten preview antes de insertar; los demás muestran <b>Contract pending</b> y solo insertan starter tables gobernadas, sin simular éxito de API.
+            Galería de conectores AXOS para Sheets. El preview usa el contrato read-only de Office, muestra source/warnings y no simula éxito ERP/MES si el backend rechaza parámetros.
           </div>
           <button className={tool} onClick={onRefreshConnectors}>Refrescar conectores insertados</button>
           <div className="grid grid-cols-1 gap-2">
             {AXOS_SHEET_CONNECTORS.map((c) => {
-              const isLive = c.contractStatus === 'live' && Boolean(c.endpoint);
+              const contract = contractFor(c.type);
+              const isContractReady = Boolean(contract?.endpoint);
               const selected = previewType === c.type;
               return (
                 <div key={c.type} className={`rounded-2xl border p-3 shadow-sm ${selected ? 'border-emerald-500/40 bg-white dark:bg-white/[0.06]' : 'border-black/10 bg-white/80 dark:border-white/10 dark:bg-white/[0.04]'}`}>
@@ -1532,33 +1575,43 @@ function SheetWorkbenchInspector({
                       <b className="text-foreground">{c.label}</b>
                       <div className="mt-0.5 text-[11px] text-gray-500">{c.domain} · {c.refreshPolicy}</div>
                     </div>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isLive ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-200' : 'bg-amber-500/15 text-amber-700 dark:text-amber-200'}`}>{isLive ? 'Live endpoint' : 'Contract pending'}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isContractReady ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-200' : 'bg-amber-500/15 text-amber-700 dark:text-amber-200'}`}>{isContractReady ? 'Backend contract' : 'Contract pending'}</span>
                   </div>
                   <p className="mt-2 text-gray-500">{c.description}</p>
                   <div className="mt-2 rounded-xl bg-gray-50 p-2 text-[11px] text-gray-500 dark:bg-black/20">
-                    <b>Configurar</b>: rango desde selección actual · modo read-only · {c.endpoint ? `GET ${c.endpoint}` : 'endpoint ERP/MES pendiente'}
+                    <b>Configurar</b>: rango desde selección actual · modo read-only · {contract?.endpoint ? `GET ${contract.endpoint}` : 'endpoint ERP/MES pendiente'}
+                    {contract?.params.length ? <><br />Params: {contract.params.map((param) => `${param.label}${param.required ? ' *' : ''}`).join(' · ')}</> : null}
                   </div>
                   {previewError[c.type] && <div className="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-2 text-[11px] text-amber-700 dark:text-amber-200">{previewError[c.type]}</div>}
                   {preview[c.type]?.rows.length ? (
                     <div className="mt-2 overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
-                      <div className="bg-gray-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-black/20">Preview real · {new Date(preview[c.type].receivedAt).toLocaleTimeString()}</div>
+                      <div className="bg-gray-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-black/20">Preview contract · {new Date(preview[c.type].receivedAt).toLocaleTimeString()} · {preview[c.type].source}</div>
                       <div className="max-h-24 overflow-auto p-2 font-mono text-[10px]">{preview[c.type].rows.slice(0, 3).map((row, i) => <div key={i} className="truncate">{row.join(' | ')}</div>)}</div>
+                      {preview[c.type].warnings.length ? <div className="border-t border-black/10 px-2 py-1 text-[10px] text-amber-700 dark:border-white/10 dark:text-amber-200">{preview[c.type].warnings.join(' ')}</div> : null}
                     </div>
                   ) : null}
                   <div className="mt-2 grid grid-cols-3 gap-1.5">
-                    <button className="rounded-xl border border-black/10 px-2 py-1 text-[11px] font-semibold hover:bg-black/5 disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/10" onClick={() => loadPreview(c.type)} disabled={previewLoading[c.type]}>{previewLoading[c.type] ? 'Cargando…' : 'Preview'}</button>
-                    <button className="rounded-xl border border-black/10 px-2 py-1 text-[11px] font-semibold hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10" onClick={() => setPreviewType(c.type)}>Configurar</button>
-                    <button className="rounded-xl bg-gray-900 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40 dark:bg-white dark:text-gray-900" disabled={readOnly || (isLive && !preview[c.type]?.rows.length)} onClick={() => insertConnectorFromPanel(c.type)}>Insertar</button>
+                    <button className="rounded-xl border border-black/10 px-2 py-1 text-[11px] font-semibold hover:bg-black/5 disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/10" onClick={() => { if (hasRequiredParams(c.type) && !preview[c.type]?.params) setConnectorParamsType(c.type); else void loadPreview(c.type); }} disabled={previewLoading[c.type]}>{previewLoading[c.type] ? 'Cargando…' : 'Preview'}</button>
+                    <button className="rounded-xl border border-black/10 px-2 py-1 text-[11px] font-semibold hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10" onClick={() => { setPreviewType(c.type); setConnectorParamsType(c.type); }}>Configurar</button>
+                    <button className="rounded-xl bg-gray-900 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40 dark:bg-white dark:text-gray-900" disabled={readOnly} onClick={() => insertConnectorFromPanel(c.type)}>Insertar</button>
                   </div>
                 </div>
               );
             })}
           </div>
-          {connectors.map((c: any) => <div key={c.id} className="mt-2 rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{c.label}</b> · {c.range}<br />Último refresh {c.lastRefreshedAt || '—'}<br />Estado {c.status || c.lastStatus || (c.lastError || c.error ? 'failed' : 'ok')}{(c.lastError || c.error) ? ` · ${c.lastError || c.error}` : ''}</div>)}
+          {connectors.map((c: any) => <div key={c.id} className="mt-2 rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{c.label}</b> · {c.range}<br />Último refresh {c.lastRefreshedAt || '—'}<br />Estado {c.status || c.lastStatus || (c.lastError || c.error ? 'failed' : 'ok')} · {c.rowCount ?? '—'} filas{c.source ? ` · ${c.source}` : ''}{(c.lastError || c.error) ? ` · ${c.lastError || c.error}` : ''}{c.warnings?.length ? <><br /><span className="text-amber-700 dark:text-amber-200">{c.warnings.join(' ')}</span></> : null}</div>)}
         </Panel>}
       </div>
       <div className="border-t border-black/10 dark:border-white/10 p-3 text-[11px] text-gray-500">Hoja activa: {activeSheet.name || `Hoja ${activeSheetIndex + 1}`} · {names.length} nombres · {connectors.length} conectores</div>
     </aside>
+    {connectorParamsType && (
+      <SheetConnectorParams
+        type={connectorParamsType}
+        onApply={(params) => { void insertConfiguredConnector(connectorParamsType, params); }}
+        onClose={() => setConnectorParamsType(null)}
+      />
+    )}
+    </>
   );
 }
 function Panel({ title, children }: any) { return <div className="space-y-2"><h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</h3>{children}</div>; }
