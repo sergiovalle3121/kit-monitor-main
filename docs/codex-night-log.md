@@ -195,3 +195,11 @@
 - Wired `Layout3DEditor.tsx` so matched shortcuts reuse existing toolbar actions, validation, export, grid, and object-snap behavior rather than adding a parallel dispatcher.
 - Added shortcut hints to the toolbar registry and the in-editor help overlay, plus pure shortcut/toolbar smoke coverage.
 - Pending: Enter-to-confirm command previews, clipboard copy/paste, and richer validation issue quick actions after editor-conflict PRs settle.
+## 2026-06-29 - DXF export readiness preflight
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and open CAD PRs.
+- Avoided shortcuts, layer lock/quick actions, validation clearances, and rack-row command work because open PRs already own those concerns.
+- Reused the existing `exportCadLayoutDxf` adapter and the current DXF export modal instead of adding another exporter.
+- Added `dxf-export-readiness.ts` to evaluate selected/all scope, hidden-layer exclusions, dimensions, labels, validation warnings, and active DXF import warnings before download.
+- Wired the existing `Layout3DEditor.tsx` DXF modal to show ready/blocked state, included layer package, preflight issues, and true empty-export blockers.
+- Added a pure smoke spec for DXF export readiness.
