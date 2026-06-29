@@ -186,3 +186,12 @@
 - Restoring a local snapshot pushes the current layout onto the existing undo stack before applying the snapshot, so recovery remains reversible.
 - Backend versions/scenarios remain unchanged; local snapshots are explicitly session-only and do not add persistence or API calls.
 - Pending: auto-create local snapshots before high-risk DXF conversions/import-object operations once editable DXF object mapping lands.
+
+## 2026-06-29 — CAD layer quick actions and viewport visibility
+
+- Inspected open CAD PR #796 and avoided validation-center/clearance work.
+- Extended the existing pure layer helper with summaries, show-all, isolate, hide-empty, and unlock-all presentation helpers.
+- Wired the existing CAD Layers panel to shared summaries and added quick actions for show all, hide empty, and unlock all.
+- Layer visibility now applies to assigned station and asset geometry in `Layout3DEditor.tsx`, so layer dots and `Solo` visibly affect the viewport.
+- The CAD status bar now shows active layer count plus hidden/locked layer counts.
+- Pending: persist layer presentation and assignments once the layout API/backend contract is approved.

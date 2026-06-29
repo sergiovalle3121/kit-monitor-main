@@ -37,4 +37,12 @@ This audit tracks the non-redundancy check for the CAD tree sprint. It is scoped
 
 ## Current run decision
 
-PR 746 edits `Layout3DEditor.tsx`, `PlantMinimap.tsx`, `ScaleBar.tsx`, and new CAD scale/minimap helpers. This run avoided viewport and editor shell work. The selected improvement extends the existing command registry with a compound flow-line command that is already reachable through the CAD command dock and palette because `Layout3DEditor.tsx` consumes registry commands through `parseCadCommand`, `previewCadCommand`, and `executeCadCommand`.
+Open PR #796 (`codex/night-cad-validation-center`) edits `Layout3DEditor.tsx`, `validation-report.spec.ts`, and the CAD docs, so this run avoided validation-center/clearance work. The selected improvement extends the existing CAD layer system instead of creating a new layer manager: layer summaries now live in `apps/web/src/lib/cad/layers.ts`, the existing CAD Layers panel gets show-all / hide-empty / unlock-all actions, and `Layout3DEditor.tsx` applies CAD layer visibility to station and asset geometry in the viewport.
+
+## Non-redundant layer evidence
+
+- Existing capability found: `DEFAULT_CAD_LAYERS`, local layer assignment, lock enforcement, active layer, layer counts, isolate, and selection assignment already existed.
+- What was reused: `CadLayer`, `CadLayerAssignments`, `assignObjectsToLayer`, `toggleCadLayerVisible`, `toggleCadLayerLocked`, and the existing CAD Layers panel inside `Layout3DEditor.tsx`.
+- What was extended: `layers.ts` now provides layer summaries and presentation helpers for show-all, isolate, hide-empty, and unlock-all.
+- What was wired into `Layout3DEditor`: the layer panel now uses shared summaries, quick actions are visible in the panel, the status bar shows active/hidden/locked layer state, and layer visibility hides/shows assigned station/asset objects in the viewport.
+- What was intentionally not duplicated: no new editor, no new layer table, no backend persistence path, and no parallel viewport renderer.

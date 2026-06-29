@@ -16,6 +16,18 @@ export interface CadLayer {
 
 export type CadLayerAssignments = Record<string, CadLayerId>;
 
+export interface CadLayerObjectRef {
+  id: string;
+  fallbackLayer: CadLayerId;
+  area?: number;
+}
+
+export interface CadLayerSummary extends CadLayer {
+  count: number;
+  assignedCount: number;
+  area: number;
+}
+
 export const DEFAULT_CAD_LAYERS: CadLayer[] = [
   {
     id: "layout",
@@ -73,6 +85,34 @@ export function toggleCadLayerLocked(
   );
 }
 
+export function showAllCadLayers(layers: CadLayer[]): CadLayer[] {
+  return layers.map((layer) => ({ ...layer, visible: true }));
+}
+
+export function unlockAllCadLayers(layers: CadLayer[]): CadLayer[] {
+  return layers.map((layer) => ({ ...layer, locked: false }));
+}
+
+export function isolateCadLayerVisibility(
+  layers: CadLayer[],
+  id: CadLayerId,
+): CadLayer[] {
+  return layers.map((layer) => ({ ...layer, visible: layer.id === id }));
+}
+
+export function hideEmptyCadLayers(
+  layers: CadLayer[],
+  summaries: CadLayerSummary[],
+): CadLayer[] {
+  const counts = new Map(
+    summaries.map((summary) => [summary.id, summary.count]),
+  );
+  return layers.map((layer) => ({
+    ...layer,
+    visible: (counts.get(layer.id) ?? 0) > 0,
+  }));
+}
+
 export function assignObjectsToLayer(
   assignments: CadLayerAssignments,
   objectIds: string[],
@@ -124,4 +164,33 @@ export function editableObjectIds(
         ),
     )
     .map((object) => object.id);
+}
+
+export function summarizeCadLayers(
+  layers: CadLayer[],
+  assignments: CadLayerAssignments,
+  objects: CadLayerObjectRef[],
+): CadLayerSummary[] {
+  const counts = new Map<
+    CadLayerId,
+    { count: number; assignedCount: number; area: number }
+  >();
+  for (const object of objects) {
+    const assignedLayer = assignments[object.id];
+    const layerId = assignedLayer ?? object.fallbackLayer;
+    const row = counts.get(layerId) ?? { count: 0, assignedCount: 0, area: 0 };
+    row.count += 1;
+    if (assignedLayer) row.assignedCount += 1;
+    row.area += object.area ?? 0;
+    counts.set(layerId, row);
+  }
+  return layers.map((layer) => {
+    const row = counts.get(layer.id);
+    return {
+      ...layer,
+      count: row?.count ?? 0,
+      assignedCount: row?.assignedCount ?? 0,
+      area: row?.area ?? 0,
+    };
+  });
 }

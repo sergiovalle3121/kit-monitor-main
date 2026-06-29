@@ -4,12 +4,17 @@ import {
   assignObjectsToLayer,
   DEFAULT_CAD_LAYERS,
   editableObjectIds,
+  hideEmptyCadLayers,
+  isolateCadLayerVisibility,
   isLayerLocked,
   isObjectLayerLocked,
   isLayerVisible,
   layerForObject,
+  showAllCadLayers,
+  summarizeCadLayers,
   toggleCadLayerLocked,
   toggleCadLayerVisible,
+  unlockAllCadLayers,
 } from "./layers";
 
 let layers = DEFAULT_CAD_LAYERS;
@@ -52,5 +57,60 @@ assert.deepEqual(
   ]),
   ["x"],
   "editableObjectIds filters locked objects",
+);
+
+const summaries = summarizeCadLayers(DEFAULT_CAD_LAYERS, assignments, [
+  { id: "a", fallbackLayer: "layout", area: 100 },
+  { id: "x", fallbackLayer: "layout", area: 50 },
+]);
+assert.equal(
+  summaries.find((layer) => layer.id === "safety")?.count,
+  1,
+  "summaries count assigned objects",
+);
+assert.equal(
+  summaries.find((layer) => layer.id === "layout")?.area,
+  50,
+  "summaries include fallback-layer area",
+);
+assert.equal(
+  summaries.find((layer) => layer.id === "safety")?.assignedCount,
+  1,
+  "summaries track explicit assignments",
+);
+
+let presentation = isolateCadLayerVisibility(DEFAULT_CAD_LAYERS, "safety");
+assert.equal(
+  isLayerVisible(presentation, "safety"),
+  true,
+  "isolate keeps target visible",
+);
+assert.equal(
+  isLayerVisible(presentation, "layout"),
+  false,
+  "isolate hides other layers",
+);
+presentation = showAllCadLayers(presentation);
+assert.equal(
+  isLayerVisible(presentation, "layout"),
+  true,
+  "show all restores visibility",
+);
+presentation = hideEmptyCadLayers(presentation, summaries);
+assert.equal(
+  isLayerVisible(presentation, "flow"),
+  false,
+  "hide empty hides empty layers",
+);
+assert.equal(
+  isLayerVisible(presentation, "layout"),
+  true,
+  "hide empty keeps populated fallback layer",
+);
+presentation = unlockAllCadLayers(layers);
+assert.equal(
+  isLayerLocked(presentation, "safety"),
+  false,
+  "unlock all clears locked layers",
 );
 console.log("cad layer specs passed");
