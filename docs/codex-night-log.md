@@ -203,3 +203,10 @@
 - Added `dxf-export-readiness.ts` to evaluate selected/all scope, hidden-layer exclusions, dimensions, labels, validation warnings, and active DXF import warnings before download.
 - Wired the existing `Layout3DEditor.tsx` DXF modal to show ready/blocked state, included layer package, preflight issues, and true empty-export blockers.
 - Added a pure smoke spec for DXF export readiness.
+## 2026-06-29 - CAD object inspector properties
+
+- Inspected the existing CAD properties panel, CAD layers/tags, DXF import tags, command registry, validation helpers, and open CAD PRs #805, #804, #801, #799, and #796 before choosing a panel-scoped object inspector slice.
+- Added `apps/web/src/lib/cad/object-properties.ts` to derive object area, bounds, center, source metadata, safety classification, lock/visibility warnings, and multi-selection summaries without creating a parallel editor model.
+- Wired the existing `Layout3DEditor` right inspector to show local notes, DXF/source metadata, safety classification, object center, multi-selection bounds, layer spread, and locked/hidden object counts.
+- Added `object-properties.spec.ts` for source metadata, safety tag parsing, single-object properties, and multi-selection summaries.
+- Pending: notes/tags/source metadata remain local-only until the layout API metadata contract is approved.

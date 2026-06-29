@@ -24,6 +24,14 @@ This run hardens the existing DXF export workflow:
 - Hidden Flow/Measurements/Text visibility is reflected in the modal and in the actual downloaded DXF.
 
 The workflow is visible through the existing `Layout3DEditor.tsx` DXF export action. It does not introduce a second exporter, a parallel editor, or a new DXF model; it reuses `exportCadLayoutDxf` and the current modal.
+This run upgrades the existing object properties inspector:
+
+- A pure `object-properties` helper derives object bounds, area, center, source metadata, safety classification, warnings, and multi-selection summaries.
+- The right inspector now shows local object notes, DXF/source metadata, safety classification, object center, and lock/visibility warnings.
+- Multi-selection now shows group bounds, area, station/equipment split, layer spread, and locked/hidden object counts.
+- The helper is covered by a pure smoke spec.
+
+The workflow is visible through the existing `Layout3DEditor` properties panel. It does not introduce a parallel inspector, object model, layer model, or DXF metadata path.
 
 ## Phase evidence
 
@@ -42,3 +50,11 @@ The workflow is visible through the existing `Layout3DEditor.tsx` DXF export act
 
 Recommended next phase: add validation issue quick actions or editable connector grips after PR 746 lands, so `Layout3DEditor.tsx` conflicts can be resolved against the latest viewport/minimap changes.
 Recommended next phase: add a layer-selective DXF import review or a validation-report attachment option for DXF packages, depending on which open CAD PRs land first.
+| Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus reachable inspector improvements | Keep audit current as PRs land. |
+| Phase 9 - Object Properties Pro | Advanced | `object-properties.ts`, properties panel metadata, notes, multi-selection summaries | Persist notes/tags/source metadata through the layout API contract. |
+| Phase 6 - Editable DXF Import Workflow | Partial | DXF import tags now surface in the inspector as source metadata | Add layer-selective editable DXF import review. |
+| Phase 27 - QA harness | In progress | `object-properties.spec.ts` covers metadata and selection summaries | Add specs for each new helper. |
+
+## Next CAD PR
+
+Recommended next phase: persist object notes/tags/source metadata through the layout API after the object metadata contract is reviewed, or move to editable connector actions if `Layout3DEditor.tsx` churn remains high.
