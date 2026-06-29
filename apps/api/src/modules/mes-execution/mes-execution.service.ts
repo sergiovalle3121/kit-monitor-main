@@ -24,7 +24,7 @@ import { ExecutionStep } from './entities/execution-step.entity';
 import { ExecutionStepMaterial } from './entities/execution-step-material.entity';
 import { ExecutionEvent } from './entities/execution-event.entity';
 import { StationIncident } from './entities/station-incident.entity';
-import { AndonCall } from './entities/andon-call.entity';
+import { AndonCall, AndonStatus } from './entities/andon-call.entity';
 import {
   DOWNTIME_REASONS,
   MesDowntime,
@@ -310,6 +310,48 @@ export class MesExecutionService {
         completedAt: e.completedAt,
       };
     });
+  }
+
+  async listAndons(filters?: {
+    status?: string;
+    line?: string;
+    limit?: number;
+  }) {
+    const where: FindOptionsWhere<AndonCall> = {};
+    if (filters?.status) {
+      const status = filters.status.trim() as AndonStatus;
+      if (!['open', 'ack', 'resolved'].includes(status)) {
+        throw new BadRequestException('status de andon inválido.');
+      }
+      where.status = status;
+    } else {
+      where.status = In(['open', 'ack']);
+    }
+
+    const requestedLimit =
+      typeof filters?.limit === 'number' && Number.isFinite(filters.limit)
+        ? filters.limit
+        : 50;
+    const take = Math.min(Math.max(requestedLimit, 1), 100);
+    const andons = await this.andonRepo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take,
+    });
+    if (!andons.length) return [];
+
+    const executionIds = Array.from(new Set(andons.map((a) => a.executionId)));
+    const executions = await this.execRepo.find({
+      where: { id: In(executionIds) },
+    });
+    const executionById = new Map(executions.map((e) => [e.id, e]));
+    const line = filters?.line?.trim();
+
+    return andons
+      .map((andon) =>
+        this.serializeAndon(andon, executionById.get(andon.executionId) ?? null),
+      )
+      .filter((andon) => !line || String(andon.line ?? '') === line);
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -1240,26 +1282,53 @@ export class MesExecutionService {
   async updateAndon(andonId: number, action: 'ack' | 'resolve', actor: string) {
     const andon = await this.andonRepo.findOne({ where: { id: andonId } });
     if (!andon) throw new NotFoundException(`Andon ${andonId} no encontrado.`);
+    const execution = await this.findExecution(andon.executionId);
+    const beforeStatus = andon.status;
+
     if (action === 'ack') {
-      andon.status = 'ack';
-      andon.acknowledgedBy = actor;
-      andon.acknowledgedAt = new Date();
+      if (andon.status === 'resolved') {
+        throw new BadRequestException('No se puede confirmar un andon resuelto.');
+      }
+      if (andon.status === 'open') {
+        andon.status = 'ack';
+        andon.acknowledgedBy = actor;
+        andon.acknowledgedAt = new Date();
+      }
     } else {
-      andon.status = 'resolved';
-      andon.resolvedBy = actor;
-      andon.resolvedAt = new Date();
-      if (andon.type === 'stop') {
-        await this.closeDowntime({ andonId: andon.id });
+      if (andon.status !== 'resolved') {
+        andon.status = 'resolved';
+        andon.resolvedBy = actor;
+        andon.resolvedAt = new Date();
+        if (andon.type === 'stop') {
+          await this.closeDowntime({ andonId: andon.id });
+        }
       }
     }
     await this.andonRepo.save(andon);
+    if (beforeStatus !== andon.status) {
+      await this.recordLedger(
+        action === 'ack' ? 'MES_ANDON_ACKNOWLEDGED' : 'MES_ANDON_RESOLVED',
+        'ANDON',
+        String(andon.id),
+        execution,
+        actor,
+        {
+          metadata: {
+            type: andon.type,
+            responseRole: this.andonResponseRole(andon.type),
+            beforeStatus,
+            afterStatus: andon.status,
+          },
+        },
+      );
+    }
     this.signals.emitToTenant(DEFAULT_TENANT, 'mes:andon', {
       executionId: andon.executionId,
       andonId: andon.id,
       type: andon.type,
       status: andon.status,
     });
-    return this.serializeAndon(andon);
+    return this.serializeAndon(andon, execution);
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -1707,15 +1776,23 @@ export class MesExecutionService {
     };
   }
 
-  private serializeAndon(a: AndonCall) {
+  private serializeAndon(a: AndonCall, execution?: WorkOrderExecution | null) {
     return {
       id: a.id,
+      executionId: a.executionId,
+      executionStepId: a.executionStepId,
+      workOrder: execution?.workOrder ?? null,
+      model: execution?.model ?? null,
+      line: execution?.line ?? null,
       type: a.type,
       status: a.status,
       stepName: a.stepName,
       note: a.note,
       raisedBy: a.raisedBy,
       acknowledgedBy: a.acknowledgedBy,
+      acknowledgedAt: a.acknowledgedAt,
+      resolvedBy: a.resolvedBy,
+      resolvedAt: a.resolvedAt,
       responseRole: this.andonResponseRole(a.type),
       createdAt: a.createdAt,
     };
