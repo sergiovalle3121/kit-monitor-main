@@ -253,7 +253,7 @@ export default function PullMonitor() {
         title="Pull Monitor · surtido por almacén"
         subtitle="Pedidos de material del piso al almacén — prioriza por aging y SLA, entrega o cancela"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Importación de pull-list por archivo CSV (un conector SAP futuro usaría este mismo flujo). */}
             <button
               type="button"
