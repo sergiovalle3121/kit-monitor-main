@@ -1699,7 +1699,32 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   })();
   const layerList: LayerItem[] = (() => {
     const c = fabricRef.current; if (!showLayers || !c) return [];
-    return c.getObjects().map((o: any, idx: number) => ({ o, idx })).filter((x) => !isBgFill(x.o)).map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), visible: o.visible !== false, locked: !!o.locked }));
+    const commentCounts = new Map<string, number>();
+    commentsRef.current.forEach((comment) => {
+      if (comment.slide !== curRef.current || comment.parentId || comment.resolved || !comment.objectId) return;
+      commentCounts.set(comment.objectId, (commentCounts.get(comment.objectId) ?? 0) + 1);
+    });
+    return c.getObjects().map((o: any, idx: number) => ({ o, idx })).filter((x) => !isBgFill(x.o)).map(({ o, idx }) => {
+      const bounds = o.getBoundingRect?.();
+      const objectId = String(o.commentId || o.id || o.name || '').trim();
+      return {
+        idx,
+        label: objLabel(o),
+        type: typeName(o),
+        visible: o.visible !== false,
+        locked: !!o.locked,
+        left: Math.round(bounds?.left ?? o.left ?? 0),
+        top: Math.round(bounds?.top ?? o.top ?? 0),
+        width: Math.round(bounds?.width ?? o.getScaledWidth?.() ?? o.width ?? 0),
+        height: Math.round(bounds?.height ?? o.getScaledHeight?.() ?? o.height ?? 0),
+        objectId: objectId || undefined,
+        commentCount: objectId ? commentCounts.get(objectId) ?? 0 : 0,
+        animation: (o.anim as string) || 'none',
+        hasLink: !!o.link,
+        smartObjectSource: String(o.smartObject?.binding?.source ?? o.smartObject?.source ?? ''),
+        smartObjectUpdatedAt: String(o.smartObject?.binding?.lastUpdatedAt ?? o.smartObject?.lastUpdatedAt ?? ''),
+      };
+    });
   })();
   const activeIdx = (() => {
     const c = fabricRef.current; const a = c?.getActiveObject(); if (!c || !a) return -1;
