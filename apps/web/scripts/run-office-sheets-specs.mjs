@@ -15,6 +15,7 @@ const specs = [
   'src/lib/office/workbookHealth.spec.ts',
   'src/lib/office/workbookHealthSheet.spec.ts',
   'src/lib/office/workbookPublishGate.spec.ts',
+  'src/lib/office/sheetQualityPreflight.spec.ts',
   'src/lib/office/workbookInventorySheet.spec.ts',
   'src/lib/office/sheetWorkbench.spec.ts',
   'src/lib/office/sheetComments.spec.ts',
