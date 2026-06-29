@@ -27,6 +27,54 @@ export interface OfflineAction {
   attempts: number;
 }
 
+export interface MaterialRequestReadiness {
+  canRequest: boolean;
+  status: "ready" | "pending" | "no-kit";
+  primaryLabel: string;
+  message: string;
+  pendingId?: number;
+}
+
+export function deriveMaterialRequestReadiness({
+  kitId,
+  requests,
+}: {
+  kitId?: number | null;
+  requests: { id: number; status: string }[];
+}): MaterialRequestReadiness {
+  if (!kitId) {
+    return {
+      canRequest: false,
+      status: "no-kit",
+      primaryLabel: "Kit no disponible",
+      message:
+        "Esta WO todavia no tiene un kit publicado; solicita a planeacion generar el PickList antes de pedir surtido.",
+    };
+  }
+
+  const pending = requests.find(
+    (request) => request.status.toLowerCase() === "pending",
+  );
+  if (pending) {
+    return {
+      canRequest: false,
+      status: "pending",
+      primaryLabel: `Solicitud #${pending.id} pendiente`,
+      message:
+        "Ya existe una solicitud pendiente para este kit; espera la respuesta de materiales antes de levantar otra.",
+      pendingId: pending.id,
+    };
+  }
+
+  return {
+    canRequest: true,
+    status: "ready",
+    primaryLabel: "Solicitar material",
+    message:
+      "Se creara una solicitud real contra el kit de esta WO y quedara visible para materiales.",
+  };
+}
+
 export type OperatorCriticalAction = "confirm-advance" | "line-stop";
 
 export interface OperatorActionSignatureInput {

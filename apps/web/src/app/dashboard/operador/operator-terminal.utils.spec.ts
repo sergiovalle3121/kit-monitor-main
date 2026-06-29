@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 // @ts-expect-error Node strip-types executes the colocated .ts module directly.
-import { buildOperatorActionSignature, buildOperatorConfirmationSummary, classifyScan, deriveProductionMetrics } from "./operator-terminal.utils.ts";
+import { buildOperatorActionSignature, buildOperatorConfirmationSummary, classifyScan, deriveMaterialRequestReadiness, deriveProductionMetrics } from "./operator-terminal.utils.ts";
 
 const cases = [
   ["WO-000123", "wo", "000123", true],
@@ -123,6 +123,37 @@ assert.notEqual(
   }),
 );
 
+assert.deepEqual(
+  deriveMaterialRequestReadiness({ kitId: null, requests: [] }),
+  {
+    canRequest: false,
+    status: "no-kit",
+    primaryLabel: "Kit no disponible",
+    message:
+      "Esta WO todavia no tiene un kit publicado; solicita a planeacion generar el PickList antes de pedir surtido.",
+  },
+);
+
+assert.deepEqual(
+  deriveMaterialRequestReadiness({
+    kitId: 7,
+    requests: [{ id: 42, status: "pending" }],
+  }),
+  {
+    canRequest: false,
+    status: "pending",
+    primaryLabel: "Solicitud #42 pendiente",
+    message:
+      "Ya existe una solicitud pendiente para este kit; espera la respuesta de materiales antes de levantar otra.",
+    pendingId: 42,
+  },
+);
+
+assert.equal(
+  deriveMaterialRequestReadiness({ kitId: 7, requests: [] }).canRequest,
+  true,
+);
+
 console.log(
-  `operator-terminal.utils: ${cases.length} scanner cases and production metrics passed`,
+  `operator-terminal.utils: ${cases.length} scanner cases, production metrics and material request readiness passed`,
 );

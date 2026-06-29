@@ -49,6 +49,8 @@ interface CommandCenterBoard {
   materialRequests: { id: number; status: string; note?: string | null }[];
 }
 
+type OperatorSheet = "confirm" | "incident" | "andon" | "material";
+
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
 
@@ -62,7 +64,7 @@ export function ExecutionCommandCenter({
 }: {
   board: CommandCenterBoard;
   refresh: () => void;
-  onOpenSheet: (sheet: "confirm" | "incident" | "andon") => void;
+  onOpenSheet: (sheet: OperatorSheet) => void;
   offlineQueue: OfflineAction[];
   clearOfflineQueue: () => void;
   markOfflineAttempt: (id: string) => void;
@@ -162,6 +164,12 @@ export function ExecutionCommandCenter({
             icon={<Truck className="w-4 h-4" />}
             title="Material / Kanban"
           />
+          <button
+            onClick={() => onOpenSheet("material")}
+            className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 text-sm font-black text-white transition-all hover:bg-amber-600 active:scale-[0.98]"
+          >
+            <Truck className="h-4 w-4" /> F4 Solicitar material
+          </button>
           <div className="space-y-2">
             {board.materialRequests.length ? (
               board.materialRequests.map((request) => (
