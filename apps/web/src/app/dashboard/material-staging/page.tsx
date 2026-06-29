@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  PackagePlus, Lock, Loader2, Inbox, CheckCircle2, AlertTriangle,
+  PackagePlus, Lock, Loader2, Inbox, CheckCircle2, AlertTriangle, Check, X,
   Truck, PackageCheck, Boxes, Zap, ClipboardList, ListChecks, RotateCcw,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -10,6 +10,11 @@ import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import {
+  activeMaterialRequestQueue,
+  summarizeMaterialRequestQueue,
+  type MaterialRequestQueueItem,
+} from './material-request-queue';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const BLUE = '#3b82f6';
@@ -40,6 +45,10 @@ const SMETA: Record<SStatus, { label: string; color: string }> = {
 const PMETA: Record<SStatus, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: GRAY }, STAGED: { label: 'Surtido', color: GREEN }, SHORTAGE: { label: 'Faltante', color: RED },
 };
+const REQUEST_META: Record<'pending' | 'authorized', { label: string; color: string }> = {
+  pending: { label: 'Por autorizar', color: AMBER },
+  authorized: { label: 'Autorizada', color: GREEN },
+};
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 
 export default function MaterialStagingPage() {
@@ -54,6 +63,15 @@ export default function MaterialStagingPage() {
   const activePlan = selPlan ?? plans[0]?.planId ?? null;
   const { data: pickData, isLoading: pickLoading, forbidden: pickForbidden, mutate: mutatePick } = useApi<PlanPick>(source === 'plan' && activePlan ? `/material-staging/mes/plans/${activePlan}` : null);
   const pickLines = Array.isArray(pickData?.lines) ? pickData!.lines : [];
+  const { data: requestData, mutate: mutateRequests } = useApi<MaterialRequestQueueItem[]>(source === 'plan' ? '/material-requests' : null);
+  const materialRequests = useMemo(
+    () => activeMaterialRequestQueue(Array.isArray(requestData) ? requestData : []),
+    [requestData],
+  );
+  const materialRequestSummary = useMemo(
+    () => summarizeMaterialRequestQueue(Array.isArray(requestData) ? requestData : []),
+    [requestData],
+  );
 
   // ── Carril 2 (WO / SfWorkOrder) — intacto, sólo se omite cuando no está activo ─
   const { data: kpis, mutate: mutateKpis } = useApi<Kpis>(source === 'wo' ? '/material-staging/kpis' : null);
@@ -72,7 +90,17 @@ export default function MaterialStagingPage() {
   const forbidden = source === 'plan' ? (plansForbidden || pickForbidden) : linesForbidden;
 
   function refresh() { mutate(); mutateKpis(); mutateCalls(); }          // carril 2
-  function refreshPlan() { mutatePick(); mutatePlans(); }               // carril 1
+  function refreshPlan() { mutatePick(); mutatePlans(); mutateRequests(); } // carril 1
+
+  async function moveRequest(id: number, action: 'authorize' | 'reject' | 'fulfill') {
+    setBusy(`mr-${id}`);
+    try {
+      const res = await apiFetch(`${API_BASE}/material-requests/${id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo actualizar la solicitud.', 'Solicitudes'); return; }
+      toast.success(action === 'fulfill' ? 'Solicitud marcada como surtida.' : 'Solicitud actualizada.', 'Solicitudes');
+      refreshPlan();
+    } catch { toast.error('Error de red.', 'Solicitudes'); } finally { setBusy(null); }
+  }
 
   // ── Carril 2 actions (sin cambios) ───────────────────────────────────────────
   async function generate() {
@@ -158,6 +186,7 @@ export default function MaterialStagingPage() {
   }
 
   const activePlanWO = plans.find((p) => p.planId === activePlan) ?? null;
+  const activePlanKitId = activePlanWO?.kitId ?? null;
 
   return (
     <div className="min-h-screen text-foreground font-sans pb-32">
@@ -197,10 +226,11 @@ export default function MaterialStagingPage() {
         {source === 'plan' ? (
           /* ─────────────── Carril 1 · Planes publicados ─────────────── */
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
               <Kpi label="Fill-rate del plan" value={pct(pickData?.summary?.fillRatePct ?? 0)} color={GREEN} />
               <Kpi label="Planes publicados" value={plans.length} color={BLUE} />
               <Kpi label="Líneas surtidas" value={`${pickData?.summary?.stagedLines ?? 0}/${pickData?.summary?.totalLines ?? 0}`} color={GREEN} />
+              <Kpi label="Solicitudes activas" value={materialRequestSummary.active} color={materialRequestSummary.pending > 0 ? AMBER : GREEN} />
               <Kpi label="Estado del plan" value={activePlanWO?.allStaged ? 'Listo' : 'Pendiente'} color={activePlanWO?.allStaged ? GREEN : AMBER} />
             </div>
 
@@ -272,6 +302,12 @@ export default function MaterialStagingPage() {
 
               {/* Resumen del plan */}
               <div>
+                <MaterialRequestQueue
+                  requests={materialRequests}
+                  activePlanKitId={activePlanKitId}
+                  busy={busy}
+                  onAction={moveRequest}
+                />
                 <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-gray-400" /> Planes publicados</h3>
                 {plans.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-8 text-center`}><Inbox className="w-6 h-6 mx-auto mb-2 text-gray-400" /><p className="text-[12px] text-gray-400">Sin planes publicados.</p></div>
@@ -401,6 +437,82 @@ export default function MaterialStagingPage() {
         :global(.dark) .ci-input { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
       `}</style>
     </div>
+  );
+}
+
+function MaterialRequestQueue({
+  requests,
+  activePlanKitId,
+  busy,
+  onAction,
+}: {
+  requests: MaterialRequestQueueItem[];
+  activePlanKitId: number | null;
+  busy: string | null;
+  onAction: (id: number, action: 'authorize' | 'reject' | 'fulfill') => void;
+}) {
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <Truck className="w-4 h-4 text-gray-400" /> Solicitudes de material
+        </h3>
+        {requests.length > 0 && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: AMBER, backgroundColor: `${AMBER}1f` }}>
+            {requests.length}
+          </span>
+        )}
+      </div>
+      {requests.length === 0 ? (
+        <div className={`${glass} rounded-2xl p-8 text-center`}>
+          <CheckCircle2 className="w-6 h-6 mx-auto mb-2" style={{ color: GREEN }} />
+          <p className="text-[12px] text-gray-400">Sin solicitudes pendientes.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {requests.map((request) => {
+            const meta = REQUEST_META[request.status as 'pending' | 'authorized'] ?? { label: request.status, color: GRAY };
+            const isBusy = busy === `mr-${request.id}`;
+            const isActivePlan = activePlanKitId !== null && request.kitId === activePlanKitId;
+            return (
+              <div key={request.id} className={`${glass} rounded-xl p-3 ${isBusy ? 'opacity-70' : ''}`} style={isActivePlan ? { boxShadow: `inset 0 0 0 2px ${AMBER}` } : undefined}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: `${meta.color}1f`, color: meta.color }}>{meta.label}</span>
+                      {request.workOrder && <span className="font-mono text-[12px] text-gray-500">{request.workOrder}</span>}
+                      {isActivePlan && <span className="text-[10px] text-amber-500">plan activo</span>}
+                    </div>
+                    <div className="text-sm font-semibold mt-1 truncate">{request.model ?? `Kit #${request.kitId}`}</div>
+                    <div className="text-[12px] text-gray-400">
+                      {request.quantity ? `${request.quantity} u · ` : ''}{request.line ? `linea ${request.line} · ` : ''}Solicito {request.requestedBy}
+                    </div>
+                    {request.note && <div className="text-[11px] text-gray-400 mt-1 truncate">{request.note}</div>}
+                  </div>
+                </div>
+                <div className="mt-2 flex gap-1.5 flex-wrap">
+                  {request.status === 'pending' && (
+                    <>
+                      <button onClick={() => onAction(request.id, 'authorize')} disabled={isBusy} className="px-2 py-1 rounded text-[11px] font-medium text-white disabled:opacity-50 inline-flex items-center gap-1" style={{ background: GREEN }}>
+                        {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Autorizar
+                      </button>
+                      <button onClick={() => onAction(request.id, 'reject')} disabled={isBusy} className="px-2 py-1 rounded text-[11px] font-medium disabled:opacity-50 inline-flex items-center gap-1" style={{ background: `${RED}1f`, color: RED }}>
+                        <X className="w-3 h-3" /> Rechazar
+                      </button>
+                    </>
+                  )}
+                  {request.status === 'authorized' && (
+                    <button onClick={() => onAction(request.id, 'fulfill')} disabled={isBusy} className="px-2 py-1 rounded text-[11px] font-medium text-white disabled:opacity-50 inline-flex items-center gap-1" style={{ background: GREEN }}>
+                      {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <PackageCheck className="w-3 h-3" />} Marcar surtido
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
