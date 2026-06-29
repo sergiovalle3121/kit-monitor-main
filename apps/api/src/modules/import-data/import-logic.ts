@@ -120,6 +120,7 @@ export const FIELD_SPECS: Record<ImportTarget, FieldSpec[]> = {
 };
 
 const targetLabel: Record<ImportTarget, string> = {
+  MODEL: 'Modelos de producto',
   MATERIAL: 'Material Master',
   BOM: 'BOM multinivel',
   ROUTING: 'Routing',
