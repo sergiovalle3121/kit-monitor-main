@@ -21,7 +21,10 @@ import { AssignPermissionDto, AssignRoleDto } from '../dto/role.dto';
  * All endpoints are protected with JWT authentication and require 'auth:write' permission.
  * These endpoints are intended for SystemAdmin users only.
  */
-@Controller('api/roles')
+// Global prefix `api` is applied in main.ts, so the controller path must NOT
+// repeat it — `'api/roles'` would mount at `/api/api/roles`. The documented and
+// intended surface is `/api/roles`.
+@Controller('roles')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class RolesController {
   constructor(

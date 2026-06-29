@@ -698,7 +698,7 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
     <button
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-colors ${
-        active ? "bg-white text-black shadow-sm dark:bg-white/15 dark:text-white" : "text-gray-500 hover:text-black dark:hover:text-white"
+        active ? "bg-white text-black shadow-sm dark:bg-white/15 dark:text-white" : "text-gray-500 hover:text-foreground"
       }`}
     >
       {icon}
