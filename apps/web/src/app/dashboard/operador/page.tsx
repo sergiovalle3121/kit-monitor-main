@@ -507,6 +507,7 @@ export default function OperadorPage() {
             list={list}
             loading={listLoading}
             gloveMode={gloveMode}
+            operator={operator}
             onPick={(id) => {
               setExecutionId(id);
               setStepId(null);
@@ -597,16 +598,26 @@ function Picker({
   list,
   loading,
   gloveMode,
+  operator,
   onPick,
 }: {
   list: ExecListItem[];
   loading: boolean;
   gloveMode: boolean;
+  operator: string;
   onPick: (id: number) => void;
 }) {
   const [wo, setWo] = useState("");
+  const [pendingStartWo, setPendingStartWo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const startSummary = pendingStartWo
+    ? buildOperatorConfirmationSummary({
+        action: "start-work-order",
+        workOrder: pendingStartWo,
+        operator,
+      })
+    : null;
 
   const openByValue = useCallback(
     async (rawValue: string) => {
@@ -615,11 +626,12 @@ function Picker({
         classified.kind === "wo" ? classified.normalized : rawValue.trim();
       if (!value) return;
       setWo(value);
+      setPendingStartWo(null);
       setBusy(true);
       setError(null);
       try {
-        // Try an already-open execution first, else open a new one from the plan.
-        let res = await apiFetch(
+        // Try an already-open execution first; creating a new one requires review.
+        const res = await apiFetch(
           `${API_BASE}/mes/board?workOrder=${encodeURIComponent(value)}`,
         );
         if (res.ok) {
@@ -627,20 +639,14 @@ function Picker({
           onPick(b.execution.id);
           return;
         }
-        res = await apiFetch(`${API_BASE}/mes/executions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workOrder: value }),
-        });
-        if (res.ok) {
-          const b = (await res.json()) as Board;
-          onPick(b.execution.id);
-        } else {
+        if (res.status === 401 || res.status === 403) {
           const j = (await res.json().catch(() => ({}))) as {
             message?: string;
           };
-          setError(j.message || `No se encontró la WO ${value}.`);
+          setError(j.message || "Tu sesion no permite montar esta WO.");
+          return;
         }
+        setPendingStartWo(value);
       } catch {
         setError("No se pudo contactar el backend.");
       } finally {
@@ -652,12 +658,47 @@ function Picker({
 
   const scanner = useIndustrialScanner((scan) => {
     if (scan.kind === "wo") void openByValue(scan.normalized);
-    else setError(`${scan.message} Escanea una WO para montar la orden.`);
+    else {
+      setPendingStartWo(null);
+      setError(`${scan.message} Escanea una WO para montar la orden.`);
+    }
   });
 
   async function openByWo(e: React.FormEvent) {
     e.preventDefault();
     await openByValue(wo);
+  }
+
+  function cancelPendingStart() {
+    setPendingStartWo(null);
+    setError(null);
+  }
+
+  async function confirmPendingStart() {
+    if (!pendingStartWo) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`${API_BASE}/mes/executions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workOrder: pendingStartWo }),
+      });
+      if (res.ok) {
+        const b = (await res.json()) as Board;
+        setPendingStartWo(null);
+        onPick(b.execution.id);
+        return;
+      }
+      const j = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      setError(j.message || `No se encontro la WO ${pendingStartWo}.`);
+    } catch {
+      setError("No se pudo contactar el backend.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -684,7 +725,10 @@ function Picker({
         <ScanLine className="w-6 h-6 text-amber-500 flex-shrink-0" />
         <input
           value={wo}
-          onChange={(e) => setWo(e.target.value)}
+          onChange={(e) => {
+            setWo(e.target.value);
+            setPendingStartWo(null);
+          }}
           autoFocus
           placeholder="Escanea / escribe la WO  (ej. 00001)"
           className="min-w-0 flex-1 bg-transparent outline-none text-2xl font-mono tracking-wide placeholder:text-gray-400"
@@ -704,6 +748,32 @@ function Picker({
       </form>
       {error && (
         <p className="text-sm text-rose-500 -mt-5 mb-6 px-2">{error}</p>
+      )}
+      {pendingStartWo && startSummary && (
+        <div className={`${glass} rounded-3xl p-4 mb-8 space-y-4`}>
+          <ConfirmationReview summary={startSummary} armed={false} />
+          <div className="grid grid-cols-1 sm:grid-cols-[0.8fr_1.2fr] gap-3">
+            <button
+              onClick={cancelPendingStart}
+              disabled={busy}
+              className="w-full bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200 text-base font-bold py-4 rounded-2xl hover:bg-gray-200 dark:hover:bg-white/15 active:scale-[0.98] transition-all disabled:opacity-40"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmPendingStart}
+              disabled={busy}
+              className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {busy ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <PlayCircle className="w-5 h-5" />
+              )}
+              {startSummary.primaryLabel}
+            </button>
+          </div>
+        </div>
       )}
 
       <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">
