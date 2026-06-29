@@ -3,9 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SfWorkOrder } from './entities/sf-work-order.entity';
 import { ProductionPlanService } from './production-plan.service';
 import { ProductionPlanController } from './production-plan.controller';
+import { ProductionPlanReadinessService } from './production-plan-readiness.service';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { LineEngineeringModule } from '../line-engineering/line-engineering.module';
+import { BomHeader } from '../bom/entities/bom-header.entity';
+import { BomComponent } from '../bom/entities/bom-component.entity';
+import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 /**
@@ -18,7 +22,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SfWorkOrder]),
+    TypeOrmModule.forFeature([SfWorkOrder, BomHeader, BomComponent, InventoryPosition]),
     NumberingModule,
     EventLedgerModule,
     LineEngineeringModule,
@@ -26,7 +30,10 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
   controllers: [ProductionPlanController],
   providers: [
     ProductionPlanService,
+    ProductionPlanReadinessService,
     provideTenantScopedRepository(SfWorkOrder),
+    provideTenantScopedRepository(BomHeader),
+    provideTenantScopedRepository(InventoryPosition),
   ],
   exports: [ProductionPlanService],
 })

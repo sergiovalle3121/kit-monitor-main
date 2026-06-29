@@ -6,7 +6,7 @@ import {
   ChevronLeft, Megaphone, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
   ArrowRight, PackageCheck, ShieldCheck, FlaskConical, UserCheck,
   Factory, Layers, CalendarClock, Activity, Boxes, ChevronDown,
-  ArrowUp, ArrowDown, Flag,
+  ArrowUp, ArrowDown, Flag, AlertTriangle,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -85,8 +85,8 @@ export default function ProductionPlanPage() {
   const { data: modelsData } = useApi<ModelOption[]>('/product-models');
   // Clear-to-Build se compone de endpoints existentes (sin backend nuevo):
   // BOM activo del modelo + disponible en inventario + FAI de la propia WO.
-  const { data: bomData } = useApi<BomHeaderLite[]>('/bom/headers?status=ACTIVE');
-  const { data: invData } = useApi<InventoryPositionLite[]>('/inventory/positions');
+  const { data: bomData, isLoading: bomLoading } = useApi<BomHeaderLite[]>('/bom/headers?status=ACTIVE');
+  const { data: invData, isLoading: invLoading } = useApi<InventoryPositionLite[]>('/inventory/positions');
   const list = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const models = Array.isArray(modelsData) ? modelsData : [];
   const bomByModel = useMemo(() => buildActiveBomMap(Array.isArray(bomData) ? bomData : []), [bomData]);
@@ -101,6 +101,25 @@ export default function ProductionPlanPage() {
     priority: 'MEDIUM' as WO['priority'], consumptionMode: 'BY_UNIT' as WO['consumptionMode'],
     serialControl: 'NONE' as WO['serialControl'], faiRequired: false, customer: '',
   });
+  const draftCtb = useMemo(() => {
+    if (!form.model.trim()) return null;
+    return computeClearToBuild(
+      {
+        model: form.model.trim(),
+        quantityPlanned: Number(form.quantityPlanned) || 0,
+        quantityCompleted: 0,
+        faiRequired: form.faiRequired,
+        faiApproved: false,
+        qualityClear: true,
+        status: 'RELEASED',
+      },
+      bomByModel,
+      invByPart,
+    );
+  }, [form.model, form.quantityPlanned, form.faiRequired, bomByModel, invByPart]);
+  const readinessLoading = bomLoading || invLoading;
+  const draftMaterialReady =
+    !!draftCtb && draftCtb.bom.state === 'ok' && draftCtb.material.state === 'ok';
 
   // WOs grouped by line, each sorted by run sequence (the operational board).
   const byLine = useMemo(() => {
@@ -129,12 +148,22 @@ export default function ProductionPlanPage() {
     if (!form.model.trim() || !form.line.trim() || form.quantityPlanned < 1) {
       toast.error('Modelo, línea y cantidad son obligatorios.', 'Plan'); return;
     }
+    if (readinessLoading) {
+      toast.info('Validando BOM e inventario antes de publicar.', 'Plan'); return;
+    }
+    if (!draftMaterialReady) {
+      toast.error('Material readiness incompleto. Corrige BOM o faltantes antes de publicar.', 'Plan'); return;
+    }
     setBusy('new');
     try {
       const res = await apiFetch(`${API_BASE}/production-plan/publish`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo publicar.', 'Plan'); return; }
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        const blocker = Array.isArray(d?.blockers) ? d.blockers[0] : null;
+        toast.error(blocker || d?.message || 'No se pudo publicar.', 'Plan'); return;
+      }
       toast.success('WO publicada al plan.', 'Plan'); setShowForm(false); refresh();
     } catch { toast.error('Error de red.', 'Plan'); } finally { setBusy(null); }
   }
@@ -328,9 +357,14 @@ export default function ProductionPlanPage() {
               <F label="Serie"><select value={form.serialControl} onChange={(e) => setForm({ ...form, serialControl: e.target.value as WO['serialControl'] })} className="ci-input"><option value="NONE">Solo cantidad / lote</option><option value="BY_UNIT">Serial por unidad (genealogía)</option></select></F>
               <label className="flex items-center gap-2 mt-6"><input type="checkbox" checked={form.faiRequired} onChange={(e) => setForm({ ...form, faiRequired: e.target.checked })} /> <span className="text-sm">Exigir FAI (primera pieza)</span></label>
             </div>
+            <PublishReadinessPanel
+              ctb={draftCtb}
+              loading={readinessLoading}
+              materialReady={draftMaterialReady}
+            />
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
-              <button data-testid="wo-publish-submit" onClick={publish} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: VIOLET }}>{busy === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Publicar</button>
+              <button data-testid="wo-publish-submit" onClick={publish} disabled={busy === 'new' || readinessLoading || !draftMaterialReady} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: VIOLET }}>{busy === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Publicar</button>
             </div>
           </div>
         </div>
@@ -643,6 +677,72 @@ function Kpi({ label, value, color, title }: { label: string; value: number | st
     <div className={`${glass} rounded-2xl p-4`} title={title}>
       <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
+    </div>
+  );
+}
+
+function PublishReadinessPanel({
+  ctb,
+  loading,
+  materialReady,
+}: {
+  ctb: ClearToBuild | null;
+  loading: boolean;
+  materialReady: boolean;
+}) {
+  const color = loading ? AMBER : materialReady ? GREEN : RED;
+  const title = loading
+    ? 'Validando materiales'
+    : materialReady
+      ? 'Material listo para publicar'
+      : 'Material no listo para publicar';
+
+  return (
+    <div className="mt-4 rounded-xl border border-black/5 dark:border-white/10 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-2 text-[13px] font-semibold" style={{ color }}>
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : materialReady ? <PackageCheck className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+          {title}
+        </span>
+        {ctb?.material.shortParts ? (
+          <span className="text-[11px] text-gray-500 tabular-nums">
+            {ctb.material.shortParts}/{ctb.material.totalParts} con faltante
+          </span>
+        ) : null}
+      </div>
+
+      {!ctb ? (
+        <p className="mt-2 text-[12px] text-gray-500">Selecciona un modelo para validar BOM e inventario.</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          <CheckRow
+            icon={Boxes}
+            label="BOM activo"
+            state={ctb.bom.state}
+            detail={ctb.bom.state === 'ok' ? `Rev ${ctb.bom.revision ?? '-'}` : 'Requerido'}
+            link={ctb.bom.state !== 'ok' ? { href: '/dashboard/models', label: 'Modelos' } : undefined}
+          />
+          <CheckRow
+            icon={PackageCheck}
+            label="Inventario disponible"
+            state={ctb.material.state}
+            detail={
+              ctb.material.state === 'unknown'
+                ? 'Sin BOM para evaluar'
+                : `${ctb.material.totalParts - ctb.material.shortParts}/${ctb.material.totalParts} partes cubiertas`
+            }
+            link={ctb.material.shortParts > 0 ? { href: '/dashboard/almacen', label: 'Almacen' } : undefined}
+          />
+          {ctb.material.lines.slice(0, 3).map((line) => (
+            <div key={line.partNumber} className="flex items-center justify-between gap-2 text-[12px] px-2 py-1 rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
+              <span className="font-mono truncate" title={line.description ?? undefined}>{line.partNumber}</span>
+              <span className="tabular-nums text-gray-500 flex-shrink-0">
+                req {line.required} · disp {line.available} · <span style={{ color: RED }}>falta {line.shortage} {line.unit}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

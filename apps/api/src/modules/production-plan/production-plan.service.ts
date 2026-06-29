@@ -23,6 +23,10 @@ import {
   ResequenceDto,
   TransitionWorkOrderDto,
 } from './dto/production-plan.dto';
+import {
+  ProductionPlanReadiness,
+  ProductionPlanReadinessService,
+} from './production-plan-readiness.service';
 import { assertTransition, WorkOrderStatus } from './wo-state';
 import {
   DEFAULT_SHIFT_MINUTES,
@@ -60,6 +64,7 @@ export class ProductionPlanService {
     private readonly numbering: DocumentNumberingService,
     @Optional() private readonly ledger?: EventLedgerService,
     @Optional() private readonly lineEng?: LineEngineeringService,
+    @Optional() private readonly readiness?: ProductionPlanReadinessService,
   ) {}
 
   private applyScope(qb: SelectQueryBuilder<SfWorkOrder>, alias: string): SelectQueryBuilder<SfWorkOrder> {
@@ -74,6 +79,18 @@ export class ProductionPlanService {
 
   // ── Publish ────────────────────────────────────────────────────────────────
   async publish(dto: PublishWorkOrderDto): Promise<SfWorkOrder> {
+    if (this.readiness) {
+      const readiness = await this.readiness.evaluatePublish(dto);
+      if (!readiness.publishable) {
+        await this.recordPublishBlocked(dto, readiness);
+        throw new BadRequestException({
+          message: 'No se puede publicar la WO: material readiness incompleto.',
+          blockers: readiness.blockers,
+          readiness,
+        });
+      }
+    }
+
     let folio: string | null = null;
     try {
       folio = await this.numbering.allocate('WORK_ORDER');
@@ -113,6 +130,13 @@ export class ProductionPlanService {
     const saved = await this.repo.save(entity);
     await this.record('SF_WO_PUBLISHED', saved, { after: saved });
     return saved;
+  }
+
+  async evaluatePublishReadiness(dto: PublishWorkOrderDto): Promise<ProductionPlanReadiness> {
+    if (!this.readiness) {
+      throw new BadRequestException('Material readiness service is not configured.');
+    }
+    return this.readiness.evaluatePublish(dto);
   }
 
   // ── Reads ───────────────────────────────────────────────────────────────────
@@ -372,6 +396,35 @@ export class ProductionPlanService {
       });
     } catch (err) {
       this.logger.warn(`Ledger skipped for ${action}: ${(err as Error)?.message}`);
+    }
+  }
+
+  private async recordPublishBlocked(
+    dto: PublishWorkOrderDto,
+    readiness: ProductionPlanReadiness,
+  ): Promise<void> {
+    if (!this.ledger) return;
+    try {
+      await this.ledger.recordEvent({
+        actorName: this.tenantCtx.getUserEmail(),
+        domain: EventDomain.PRODUCTION,
+        action: 'SF_WO_PUBLISH_BLOCKED',
+        referenceType: 'SF_WORK_ORDER_DRAFT',
+        referenceId: `${dto.model.trim()}:${dto.line.trim()}`,
+        line: dto.line.trim(),
+        program: dto.programId ?? undefined,
+        plant: this.tenantCtx.getPlantId() ?? undefined,
+        model: dto.model.trim(),
+        context: { revision: (dto.revision ?? 'A').trim() },
+        transaction: { quantity: dto.quantityPlanned, unit: 'EA' },
+        metadata: {
+          reasonCode: 'MATERIAL_READINESS_BLOCKED',
+          reasonDesc: readiness.blockers[0],
+          readiness,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Ledger skipped for SF_WO_PUBLISH_BLOCKED: ${(err as Error)?.message}`);
     }
   }
 }
