@@ -27,6 +27,63 @@ export interface OfflineAction {
   attempts: number;
 }
 
+export type OperatorCriticalAction = "confirm-advance" | "line-stop";
+
+export interface OperatorConfirmationSummary {
+  title: string;
+  primaryLabel: string;
+  consequence: string;
+  details: string[];
+  tone: "emerald" | "rose";
+}
+
+export function buildOperatorConfirmationSummary({
+  action,
+  workOrder,
+  stepName,
+  quantity,
+  scrap,
+  operator,
+}: {
+  action: OperatorCriticalAction;
+  workOrder: string;
+  stepName?: string | null;
+  quantity?: number;
+  scrap?: number;
+  operator?: string | null;
+}): OperatorConfirmationSummary {
+  if (action === "line-stop") {
+    return {
+      title: "Confirmar paro de línea",
+      primaryLabel: "Detener línea y levantar Andon",
+      consequence:
+        "Abrirá un paro de línea, notificará al supervisor y empezará a medir downtime.",
+      details: [
+        `WO ${workOrder}`,
+        stepName ? `Estación ${stepName}` : "Estación actual",
+        operator ? `Operador ${operator}` : "Operador no identificado",
+      ],
+      tone: "rose",
+    };
+  }
+
+  const goodUnits = Math.max(0, Math.floor(quantity ?? 0));
+  const scrapUnits = Math.max(0, Math.floor(scrap ?? 0));
+  return {
+    title: "Confirmar avance de unidad",
+    primaryLabel: "Confirmar y descontar material",
+    consequence:
+      "Registrará avance MES, consumirá material del paso y puede iniciar la WO si es la primera confirmación.",
+    details: [
+      `WO ${workOrder}`,
+      stepName ? `Estación ${stepName}` : "Estación actual",
+      `${goodUnits} buenas`,
+      scrapUnits > 0 ? `${scrapUnits} scrap` : "Sin scrap",
+    ],
+    tone: "emerald",
+  };
+}
+
 export function classifyScan(raw: string): Omit<ScanResult, "at"> {
   const normalized = raw.trim();
   const upper = normalized.toUpperCase();
