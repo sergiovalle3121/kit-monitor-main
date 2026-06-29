@@ -221,7 +221,7 @@ function CapaSection({ ncr, createdBy }: { ncr: Ncr; createdBy: string }) {
   return (
     <div className={`${glass} rounded-2xl p-5`}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold flex items-center gap-2"><ClipboardList className="w-4 h-4 text-violet-500" /> CAPA ligadas</h3>
+        <h3 className="font-semibold flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" /> CAPA ligadas</h3>
         {!forbidden && (
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background: "#7c3aed1f", color: "#7c3aed" }}>
             <Plus className="w-4 h-4" /> Abrir CAPA
@@ -316,7 +316,7 @@ function NewCapaModal({ ncr, createdBy, onClose, onCreated }: { ncr: Ncr; create
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
       <div className={`${glass} rounded-2xl p-5 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold flex items-center gap-2"><ClipboardList className="w-4 h-4 text-violet-500" /> Abrir CAPA · {ncr.ncrNumber}</h3>
+          <h3 className="font-semibold flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" /> Abrir CAPA · {ncr.ncrNumber}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
