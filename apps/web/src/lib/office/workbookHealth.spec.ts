@@ -10,6 +10,8 @@ const report = analyzeWorkbookHealth({
     { r: 0, c: 0, v: { f: '=AXOS_UNKNOWN(A1)', v: '#NAME?' } },
     { r: 1, c: 0, v: { f: '=VLOOKUP(A1,[Book.xlsx]S!A:B,2,FALSE)', v: 1 } },
     { r: 2, c: 0, v: { f: '=NOW()', v: 1 } },
+    { r: 3, c: 0, v: { f: '=Missing!A1', v: '#REF!' } },
+    { r: 4, c: 0, v: { f: '=B1/0', v: '#DIV/0!' } },
   ] }],
   comments: [{ id: 'c1', resolved: false }],
   connectors: [{ id: 'x1', type: 'work_orders', label: 'Work orders', sheetIndex: 0, range: 'A1:H5', lastRefreshedAt: '2026-06-25T00:00:00.000Z', readOnly: true }],
@@ -18,6 +20,9 @@ const report = analyzeWorkbookHealth({
 eq(report.label, 'small', 'label small');
 ok(report.score < 100, 'score penalizado');
 ok(report.findings.some((f) => f.code === 'unknown-axos-functions' && f.severity === 'critical'), 'detecta AXOS desconocidas críticas');
+ok(report.findings.some((f) => f.code === 'formula-name-errors' && f.severity === 'critical' && f.message.includes('Ops!A1')), 'detecta #NAME visibles');
+ok(report.findings.some((f) => f.code === 'formula-ref-errors' && f.severity === 'critical' && f.message.includes('Ops!A4')), 'detecta #REF visibles');
+ok(report.findings.some((f) => f.code === 'formula-div-zero-errors' && f.severity === 'warning' && f.message.includes('Ops!A5')), 'detecta #DIV/0 visibles');
 ok(report.findings.some((f) => f.code === 'external-references'), 'detecta referencias externas');
 ok(report.findings.some((f) => f.code === 'volatile-formulas'), 'detecta volátiles');
 ok(report.findings.some((f) => f.code === 'open-comments'), 'detecta comentarios abiertos');
