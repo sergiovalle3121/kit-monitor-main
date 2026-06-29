@@ -144,7 +144,7 @@ export function EntityHistoryView({
               className={`text-[11px] font-mono px-2 py-0.5 rounded-md transition-colors ${
                 type.toUpperCase() === t
                   ? 'text-white'
-                  : 'bg-black/5 dark:bg-white/10 text-gray-500 hover:text-black dark:hover:text-white'
+                  : 'bg-black/5 dark:bg-white/10 text-gray-500 hover:text-foreground'
               }`}
               style={type.toUpperCase() === t ? { background: ACCENT } : undefined}
             >
