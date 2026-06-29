@@ -29,6 +29,7 @@ import {
   buildOperatorConfirmationSummary,
   classifyScan,
   deriveMaterialRequestReadiness,
+  isOperatorConfirmationCurrent,
   type OperatorConfirmationSummary,
   type OfflineAction,
   type ScanResult,
@@ -985,7 +986,7 @@ function ConfirmForm({
   const [qty, setQty] = useState(Math.min(max || 1, 1));
   const [scrap, setScrap] = useState(0);
   const [serial, setSerial] = useState("");
-  const [armedSignature, setArmedSignature] = useState<string | null>(null);
+  const [pendingSignature, setPendingSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const confirmationSignature = buildOperatorActionSignature({
@@ -996,7 +997,10 @@ function ConfirmForm({
     scrap,
     serial,
   });
-  const armed = armedSignature === confirmationSignature;
+  const confirmationOpen = isOperatorConfirmationCurrent(
+    pendingSignature,
+    confirmationSignature,
+  );
   const summary = buildOperatorConfirmationSummary({
     action: "confirm-advance",
     workOrder: board.execution.workOrder,
@@ -1009,7 +1013,7 @@ function ConfirmForm({
   const scanner = useIndustrialScanner((scan) => {
     if (["serial", "qr", "datamatrix", "code128"].includes(scan.kind)) {
       setSerial(scan.normalized);
-      setArmedSignature(null);
+      setPendingSignature(null);
       setError(null);
     } else {
       setError(`${scan.message} Se esperaba serial, QR, DataMatrix o Code128.`);
@@ -1018,25 +1022,26 @@ function ConfirmForm({
 
   function updateQty(nextQty: number) {
     setQty(nextQty);
-    setArmedSignature(null);
+    setPendingSignature(null);
   }
 
   function updateScrap(nextScrap: number) {
     setScrap(nextScrap);
-    setArmedSignature(null);
+    setPendingSignature(null);
   }
 
   function updateSerial(nextSerial: string) {
     setSerial(nextSerial);
-    setArmedSignature(null);
+    setPendingSignature(null);
   }
 
-  async function submit() {
-    if (!armed) {
-      setError(null);
-      setArmedSignature(confirmationSignature);
-      return;
-    }
+  function requestConfirmation() {
+    setError(null);
+    setPendingSignature(confirmationSignature);
+  }
+
+  async function submitConfirmed() {
+    if (!confirmationOpen) return;
 
     const payload = {
       quantity: qty,
@@ -1046,6 +1051,7 @@ function ConfirmForm({
       operatorPosition: position || undefined,
       clientRequestId: reqId(),
     };
+    setPendingSignature(null);
     setBusy(true);
     setError(null);
     try {
@@ -1116,7 +1122,7 @@ function ConfirmForm({
           Disponible de la estación previa: {step.maxConfirmable} u. Al
           confirmar se descuenta el material del paso (backflush).
         </p>
-        <ConfirmationReview summary={summary} armed={armed} />
+        <ConfirmationReview summary={summary} armed={confirmationOpen} />
         {error && <p className="text-sm text-rose-500">{error}</p>}
         <div className="grid grid-cols-1 sm:grid-cols-[0.8fr_1.2fr] gap-3">
           <button
@@ -1127,7 +1133,7 @@ function ConfirmForm({
             Cancelar
           </button>
           <button
-            onClick={submit}
+            onClick={requestConfirmation}
             disabled={busy || qty + scrap <= 0}
             className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
           >
@@ -1136,12 +1142,19 @@ function ConfirmForm({
             ) : (
               <CheckCircle2 className="w-5 h-5" />
             )}
-            {armed
-              ? summary.primaryLabel
-              : `Revisar ${qty} u${scrap > 0 ? ` · ${scrap} scrap` : ""}`}
+            {`Abrir confirmación${scrap > 0 ? ` · ${scrap} scrap` : ""}`}
           </button>
         </div>
       </div>
+      {confirmationOpen && (
+        <CriticalActionConfirmationDialog
+          summary={summary}
+          busy={busy}
+          confirmLabel={summary.primaryLabel}
+          onCancel={() => setPendingSignature(null)}
+          onConfirm={submitConfirmed}
+        />
+      )}
     </div>
   );
 }
@@ -1188,6 +1201,116 @@ function ConfirmationReview({
         </div>
       </div>
     </div>
+  );
+}
+
+function CriticalActionConfirmationDialog({
+  summary,
+  busy,
+  confirmLabel,
+  cancelLabel = "Cancelar",
+  onCancel,
+  onConfirm,
+}: {
+  summary: OperatorConfirmationSummary;
+  busy: boolean;
+  confirmLabel: string;
+  cancelLabel?: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const panelRef = useDialogA11y<HTMLDivElement>(() => {
+    if (!busy) onCancel();
+  });
+  const titleId = `operator-critical-${summary.tone}-title`;
+  const descId = `operator-critical-${summary.tone}-desc`;
+  const actionTone =
+    summary.tone === "rose"
+      ? "bg-rose-500 hover:bg-rose-600 focus-visible:ring-rose-500/50"
+      : "bg-emerald-500 hover:bg-emerald-600 focus-visible:ring-emerald-500/50";
+  const Icon = summary.tone === "rose" ? ShieldAlert : CheckCircle2;
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={() => {
+        if (!busy) onCancel();
+      }}
+    >
+      <motion.div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        tabIndex={-1}
+        className={`${glass} w-[min(520px,calc(100vw-2rem))] rounded-[2rem] p-5 shadow-2xl`}
+        initial={{ y: 24, opacity: 0, scale: 0.98 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 16, opacity: 0, scale: 0.98 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start gap-4">
+          <div
+            className={`grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl text-white ${actionTone}`}
+          >
+            <Icon className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+              Confirmación crítica
+            </p>
+            <h3 id={titleId} className="mt-1 text-xl font-black tracking-tight">
+              {summary.title}
+            </h3>
+            <p
+              id={descId}
+              className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300"
+            >
+              {summary.consequence}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-2">
+          {summary.details.map((detail) => (
+            <div
+              key={detail}
+              className="rounded-2xl bg-white/70 px-4 py-3 text-sm font-black text-gray-700 dark:bg-white/10 dark:text-white"
+            >
+              {detail}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-2xl bg-gray-100 py-4 text-base font-black text-gray-700 transition-all hover:bg-gray-200 active:scale-[0.98] disabled:opacity-40 dark:bg-white/10 dark:text-gray-200 dark:hover:bg-white/15"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className={`flex items-center justify-center gap-2 rounded-2xl py-4 text-base font-black text-white transition-all active:scale-[0.98] disabled:opacity-40 focus:outline-none focus-visible:ring-2 ${actionTone}`}
+          >
+            {busy ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Icon className="h-5 w-5" />
+            )}
+            {confirmLabel}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -1634,7 +1757,7 @@ function AndonForm({
   const [stopPickerOpen, setStopPickerOpen] = useState(false);
   const [stopReason, setStopReason] = useState<DowntimeReasonCode | "">("");
   const [stopNote, setStopNote] = useState("");
-  const [stopArmedSignature, setStopArmedSignature] = useState<string | null>(
+  const [pendingStopSignature, setPendingStopSignature] = useState<string | null>(
     null,
   );
   const toast = useToast();
@@ -1651,7 +1774,10 @@ function AndonForm({
     downtimeReason: stopReason || null,
     note: stopNote,
   });
-  const stopArmed = stopArmedSignature === stopSignature;
+  const stopConfirmationOpen = isOperatorConfirmationCurrent(
+    pendingStopSignature,
+    stopSignature,
+  );
 
   async function call(type: string, downtimeReason?: DowntimeReasonCode) {
     if (type === "stop" && !downtimeReason) {
@@ -1720,22 +1846,22 @@ function AndonForm({
 
   function updateStopReason(reason: DowntimeReasonCode) {
     setStopReason(reason);
-    setStopArmedSignature(null);
+    setPendingStopSignature(null);
   }
 
   function updateStopNote(note: string) {
     setStopNote(note);
-    setStopArmedSignature(null);
+    setPendingStopSignature(null);
   }
 
   function cancelStop() {
     setStopPickerOpen(false);
     setStopReason("");
     setStopNote("");
-    setStopArmedSignature(null);
+    setPendingStopSignature(null);
   }
 
-  function confirmStop() {
+  function requestStopConfirmation() {
     if (!stopReason) {
       toast.error(
         "Selecciona una razón de paro antes de detener la línea.",
@@ -1743,10 +1869,12 @@ function AndonForm({
       );
       return;
     }
-    if (!stopArmed) {
-      setStopArmedSignature(stopSignature);
-      return;
-    }
+    setPendingStopSignature(stopSignature);
+  }
+
+  function confirmStop() {
+    if (!stopConfirmationOpen || !stopReason) return;
+    setPendingStopSignature(null);
     void call("stop", stopReason);
   }
 
@@ -1774,7 +1902,10 @@ function AndonForm({
       {stopPickerOpen && (
         <div className="mt-5 rounded-3xl border border-rose-500/20 bg-rose-500/10 p-4">
           <div className="mb-3">
-            <ConfirmationReview summary={stopSummary} armed={stopArmed} />
+            <ConfirmationReview
+              summary={stopSummary}
+              armed={stopConfirmationOpen}
+            />
           </div>
           <div className="mb-3">
             <div className="text-sm font-black text-rose-600">
@@ -1823,7 +1954,7 @@ function AndonForm({
             Cancelar paro
           </button>
           <button
-            onClick={confirmStop}
+            onClick={requestStopConfirmation}
             disabled={busy === "stop" || !stopReason}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-500 py-4 text-base font-black text-white transition-all hover:bg-rose-600 active:scale-[0.98] disabled:opacity-40"
           >
@@ -1832,8 +1963,18 @@ function AndonForm({
             ) : (
               <ShieldAlert className="h-5 w-5" />
             )}
-            {stopArmed ? "Detener línea" : "Revisar paro"}
+            Abrir confirmación de paro
           </button>
+          {stopConfirmationOpen && (
+            <CriticalActionConfirmationDialog
+              summary={stopSummary}
+              busy={busy === "stop"}
+              confirmLabel="Detener línea"
+              cancelLabel="Volver a razones"
+              onCancel={() => setPendingStopSignature(null)}
+              onConfirm={confirmStop}
+            />
+          )}
         </div>
       )}
     </div>

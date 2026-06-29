@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 // @ts-expect-error Node strip-types executes the colocated .ts module directly.
-import { buildOperatorActionSignature, buildOperatorConfirmationSummary, classifyScan, deriveMaterialRequestReadiness, deriveProductionMetrics } from "./operator-terminal.utils.ts";
+import { buildOperatorActionSignature, buildOperatorConfirmationSummary, classifyScan, deriveMaterialRequestReadiness, deriveProductionMetrics, isOperatorConfirmationCurrent } from "./operator-terminal.utils.ts";
 
 const cases = [
   ["WO-000123", "wo", "000123", true],
@@ -102,6 +102,8 @@ const stopSignature = buildOperatorActionSignature({
   downtimeReason: "quality_hold",
   note: "esperando calidad",
 });
+assert.equal(isOperatorConfirmationCurrent(stopSignature, stopSignature), true);
+assert.equal(isOperatorConfirmationCurrent(null, stopSignature), false);
 assert.notEqual(
   stopSignature,
   buildOperatorActionSignature({

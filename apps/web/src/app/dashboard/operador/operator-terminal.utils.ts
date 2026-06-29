@@ -124,6 +124,13 @@ export function buildOperatorActionSignature({
   ].join(":");
 }
 
+export function isOperatorConfirmationCurrent(
+  pendingSignature: string | null | undefined,
+  currentSignature: string,
+): boolean {
+  return Boolean(pendingSignature) && pendingSignature === currentSignature;
+}
+
 export function buildOperatorConfirmationSummary({
   action,
   workOrder,
