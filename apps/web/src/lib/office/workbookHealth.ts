@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { summarizeConnectorFreshness } from './axosConnectors';
+import { auditFormulaErrors, type SpreadsheetErrorCode } from './formulaErrorAudit';
 import { auditWorkbookFormulas } from './formulaAudit';
 import { buildFormulaDependencyGraph, buildFormulaRecalculationPlan } from './formulaDependencies';
 import { normalizeWorkbookApproval } from './workbookApproval';
@@ -8,6 +9,34 @@ import { estimateWorkbookStats, workbookPerformanceLabel } from './workbookPerfo
 export type WorkbookHealthSeverity = 'info' | 'warning' | 'critical';
 export interface WorkbookHealthFinding { severity: WorkbookHealthSeverity; code: string; message: string }
 export interface WorkbookHealthReport { label: ReturnType<typeof workbookPerformanceLabel>; findings: WorkbookHealthFinding[]; score: number }
+
+const VISIBLE_FORMULA_ERROR_FINDINGS: { error: SpreadsheetErrorCode; code: string; severity: WorkbookHealthSeverity }[] = [
+  { error: '#REF!', code: 'formula-ref-errors', severity: 'critical' },
+  { error: '#NAME?', code: 'formula-name-errors', severity: 'critical' },
+  { error: '#DIV/0!', code: 'formula-div-zero-errors', severity: 'warning' },
+  { error: '#VALUE!', code: 'formula-value-errors', severity: 'warning' },
+  { error: '#N/A', code: 'formula-na-errors', severity: 'warning' },
+  { error: '#NUM!', code: 'formula-num-errors', severity: 'warning' },
+  { error: '#NULL!', code: 'formula-null-errors', severity: 'warning' },
+];
+
+function visibleFormulaErrorFindings(content: any): WorkbookHealthFinding[] {
+  const audit = auditFormulaErrors(content);
+  return VISIBLE_FORMULA_ERROR_FINDINGS.flatMap(({ error, code, severity }) => {
+    const count = audit.byError[error];
+    if (!count) return [];
+    const samples = audit.findings
+      .filter((finding) => finding.error === error)
+      .slice(0, 3)
+      .map((finding) => `${finding.sheetName}!${finding.cell}`)
+      .join(', ');
+    return [{
+      severity,
+      code,
+      message: `${count} celda(s) con error ${error} visible${samples ? `: ${samples}` : ''}.`,
+    }];
+  });
+}
 
 export function analyzeWorkbookHealth(content: any, now = new Date()): WorkbookHealthReport {
   const stats = estimateWorkbookStats(content);
@@ -21,6 +50,7 @@ export function analyzeWorkbookHealth(content: any, now = new Date()): WorkbookH
   else if (label === 'large') findings.push({ severity: 'info', code: 'large-size', message: 'Workbook grande: monitorea charts, pivots y autosave.' });
 
   if (audit.unknownAxosFunctions.length) findings.push({ severity: 'critical', code: 'unknown-axos-functions', message: `Funciones AXOS desconocidas: ${audit.unknownAxosFunctions.join(', ')}` });
+  findings.push(...visibleFormulaErrorFindings(content));
   if (audit.externalReferences) findings.push({ severity: 'warning', code: 'external-references', message: `${audit.externalReferences} fórmula(s) con referencias externas.` });
   if (audit.volatile) findings.push({ severity: 'info', code: 'volatile-formulas', message: `${audit.volatile} fórmula(s) volátiles pueden recalcular con frecuencia.` });
   if (dependencies.cycles.length) findings.push({ severity: 'critical', code: 'formula-cycles', message: `${dependencies.cycles.length} ciclo(s) de fórmulas detectados.` });
