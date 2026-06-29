@@ -48,10 +48,12 @@ export class ErpPpController {
   plannedOrders(
     @Query('status') status?: string,
     @Query('mrpRunId') mrpRunId?: string,
+    @Query('materialId') materialId?: string,
   ) {
     return this.pp.listPlannedOrders({
       status,
       mrpRunId: mrpRunId ? Number(mrpRunId) : undefined,
+      materialId,
     });
   }
   @Post('planned-orders/:id/release')

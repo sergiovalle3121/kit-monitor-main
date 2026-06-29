@@ -48,8 +48,13 @@ export default function ErpPpPage() {
   const runId = selectedRun ?? (Array.isArray(runs) && runs.length ? runs[0].id : null);
   const { data: run } = useApi<MrpRun>(runId ? `/erp/pp/mrp/runs/${runId}` : null);
 
+  const [plannedMaterialId, setPlannedMaterialId] = useState('');
+  const plannedMaterialFilter = plannedMaterialId.trim();
+  const plannedOrdersPath = tab === 'planned'
+    ? `/erp/pp/planned-orders${plannedMaterialFilter ? `?materialId=${encodeURIComponent(plannedMaterialFilter)}` : ''}`
+    : null;
   const { data: planned, mutate: mutatePlanned } = useApi<Row[]>(
-    tab === 'planned' ? '/erp/pp/planned-orders' : null,
+    plannedOrdersPath,
   );
 
   const [mode, setMode] = useState<'propose' | 'auto'>('propose');
@@ -191,10 +196,24 @@ export default function ErpPpPage() {
         )}
 
         {tab === 'planned' && (
-          <DataTable
-            rows={planned ?? []}
-            emptyText="Sin órdenes planeadas"
-            columns={[
+          <>
+            <div className={`${glass} rounded-3xl p-4 mb-5`}>
+              <label className="block max-w-sm">
+                <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                  Material
+                </span>
+                <input
+                  value={plannedMaterialId}
+                  onChange={(event) => setPlannedMaterialId(event.target.value)}
+                  placeholder="Parte o modelo"
+                  className="w-full rounded-2xl border border-black/10 bg-white/70 px-3 py-2 text-sm outline-none transition focus:border-amber-500 dark:border-white/10 dark:bg-white/5"
+                />
+              </label>
+            </div>
+            <DataTable
+              rows={planned ?? []}
+              emptyText={plannedMaterialFilter ? 'Sin órdenes para este material' : 'Sin órdenes planeadas'}
+              columns={[
               { key: 'plannedOrderNumber', label: 'Orden' },
               { key: 'partNumber', label: 'Modelo' },
               { key: 'quantity', label: 'Cantidad', align: 'right', render: (r) => fmtNum(r.quantity) },
@@ -234,7 +253,8 @@ export default function ErpPpPage() {
                   ),
               },
             ]}
-          />
+            />
+          </>
         )}
       </main>
     </div>
