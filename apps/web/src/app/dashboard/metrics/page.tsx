@@ -26,14 +26,14 @@ const fmtMoney = (n: number) =>
   n.toLocaleString('es-MX', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 export default function MetricsPage() {
-  const { data: plansData } = useApi<PlanRow[]>('/plans');
+  const { data: plansData, isLoading: plansLoading } = useApi<PlanRow[]>('/plans');
   const plans = Array.isArray(plansData) ? plansData : [];
   const norm = (s?: string) => (s || '').toLowerCase();
   const open = plans.filter((p) => ['pending', 'active'].includes(norm(p.status))).length;
   const published = plans.filter((p) => ['published', 'released', 'active'].includes(norm(p.status))).length;
   const completed = plans.filter((p) => norm(p.status) === 'completed').length;
 
-  const { data: cost } = useCostRollup();
+  const { data: cost, isLoading: costLoading } = useCostRollup();
   const totalCost = cost?.totalCost ?? 0;
   const breakdown = cost?.breakdown ?? [];
 
@@ -44,6 +44,7 @@ export default function MetricsPage() {
       icon={Activity}
       iconClass="text-cyan-600"
       iconTint="bg-cyan-50 dark:bg-cyan-500/10"
+      loading={plansLoading || costLoading}
       kpis={[
         { label: 'Costo total', value: fmtMoney(totalCost), color: '#0891b2' },
         { label: 'WOs abiertas', value: open, color: '#f59e0b' },

@@ -38,6 +38,7 @@ export function DepartmentWorkspace({
   kpis = [],
   tools,
   children,
+  loading = false,
 }: {
   title: string;
   subtitle: string;
@@ -47,6 +48,8 @@ export function DepartmentWorkspace({
   kpis?: WsKpi[];
   tools: WsTool[];
   children?: React.ReactNode;
+  /** When true, KPI values render as skeletons (honest loading state vs. a flash of 0). */
+  loading?: boolean;
 }) {
   const reduce = useReducedMotion();
   const Icon = icon;
@@ -66,7 +69,11 @@ export function DepartmentWorkspace({
           <motion.section variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             {kpis.map((k) => (
               <motion.div key={k.label} variants={itemRM(reduce)} className={`${glass} rounded-3xl p-5`}>
-                <div className="text-3xl font-bold tracking-tight tabular-nums" style={{ color: k.color }}>{k.value}</div>
+                {loading ? (
+                  <div className="h-9 w-16 rounded-lg bg-gray-200/70 dark:bg-white/10 animate-pulse" />
+                ) : (
+                  <div className="text-3xl font-bold tracking-tight tabular-nums" style={{ color: k.color }}>{k.value}</div>
+                )}
                 <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{k.label}</div>
               </motion.div>
             ))}

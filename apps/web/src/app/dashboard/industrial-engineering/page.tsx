@@ -14,7 +14,7 @@ interface LineKpis {
 
 export default function IndustrialEngineeringPage() {
   // KPIs reales de Ingeniería Industrial: layout/balanceo de línea.
-  const { data: kpis } = useApi<LineKpis>('/line-engineering/kpis');
+  const { data: kpis, isLoading } = useApi<LineKpis>('/line-engineering/kpis');
   const pct = (n?: number) => `${Math.round((n ?? 0) * 100)}%`;
 
   return (
@@ -24,6 +24,7 @@ export default function IndustrialEngineeringPage() {
       icon={Gauge}
       iconClass="text-rose-500"
       iconTint="bg-rose-50 dark:bg-rose-500/10"
+      loading={isLoading}
       kpis={[
         { label: 'Estaciones de línea', value: kpis?.stationsTotal ?? 0, color: '#0f9bb3' },
         { label: '% Modelos balanceados', value: pct(kpis?.pctModelsBalanced), color: '#10b981' },

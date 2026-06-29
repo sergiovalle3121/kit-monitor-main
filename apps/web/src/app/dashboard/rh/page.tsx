@@ -23,7 +23,7 @@ interface Overview {
 }
 
 export default function RhPage() {
-  const { data } = useApi<Overview>('/hr/analytics/overview');
+  const { data, isLoading } = useApi<Overview>('/hr/analytics/overview');
   const o = data ?? null;
 
   return (
@@ -33,6 +33,7 @@ export default function RhPage() {
       icon={Users}
       iconClass="text-pink-500"
       iconTint="bg-pink-50 dark:bg-pink-500/10"
+      loading={isLoading}
       kpis={[
         { label: 'Colaboradores', value: o?.headcount ?? '—', color: '#ec4899' },
         { label: 'Rotación 12m', value: o ? `${o.turnoverPct}%` : '—', color: '#f59e0b' },
