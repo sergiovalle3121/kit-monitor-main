@@ -114,11 +114,16 @@ colores como `oklch(...)`**, que el parser `rgba()` original no entendía → ve
 se descarta el texto sobre gradiente. (Los `medium` venían de axe-core, con
 parser propio correcto, así que no se vieron afectados.)
 
-**Re-corrida tras el fix (114 rutas, tema claro):** **high `<PENDING_HIGH>`** /
-medium `<PENDING_MED>`. <!-- DATA: completar con la re-corrida -->
+**Re-corrida tras el fix (114 rutas, tema claro):** 0 fallos de carga; **high 0** /
+medium 2.748. El artefacto versionado `visual-findings.json` está deduplicado por
+ruta+selector+mensaje (820 hallazgos únicos, con `occurrences`).
 
 El **único** texto realmente invisible que sobrevivió al fix era el reloj/píldoras
-del MES Terminal en modo claro — **arreglado** (§3).
+del MES Terminal en modo claro — **arreglado** y verificado por re-screenshot (el
+reloj pasa de ~1.1:1 casi invisible a texto oscuro legible).
+
+> **Definición de "hecho" cumplida:** los hallazgos de severidad **alta** del
+> `visual-findings.json` bajan a **0** en la re-corrida.
 
 Los `medium` restantes son, en su gran mayoría, **axe `color-contrast` sobre los
 grises hardcodeados** (`text-gray-400/500`) descritos en §3: el follow-up
