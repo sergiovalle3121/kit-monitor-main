@@ -7,11 +7,11 @@ Run date: 2026-06-29
 AXOS Sheets is no longer only a helper-backed grid. The current tree has these foundations on `origin/main`:
 
 - `SheetEditor.tsx` mounts Fortune-Sheet inside the Office shell and exposes ribbon tabs, formula/name bar, status bar, right inspector, charts, pivots, comments, protection, XLSX review, and AXOS Data.
-- `SheetActions.tsx` owns import/export controls. This PR extends that existing mounted control with XLSX readiness from `xlsxCompatibility.ts`.
+- `SheetActions.tsx` owns import/export controls. This run leaves that surface intact and extends approval readiness through the existing Workbook Health inspector.
 - `sheetOps.ts` holds pure spreadsheet operations for formatting, sorting, duplicate removal, text-to-columns, pivots, named ranges, printing, and validation.
 - `formulaEngine.ts` patches the Fortune-Sheet parser once and registers Excel/AXOS function fidelity layers.
 - `axosConnectors.ts`, `axosConnectorApi.ts`, and the Office connector API expose governed connector metadata and refresh contracts.
-- `workbookHealth.ts` and `workbookPublishGate.ts` combine performance, formulas, connectors, comments, approvals, protection, and governance into readiness signals.
+- `workbookHealth.ts`, `workbookApproval.ts`, and `workbookPublishGate.ts` combine performance, formulas, connectors, comments, approval snapshot drift, protection, and governance into readiness signals.
 - `xlsxCompatibility.ts`, `xlsx.ts`, and `xlsxStyled.ts` provide import/export and compatibility scanning.
 - `templates.ts` ships industrial workbook templates for BOM costing, OEE, inventory ABC, supplier scorecards, capacity/downtime, and pivot analysis.
 - `apps/api/src/modules/office` persists Office documents, versions, sharing, lifecycle/audit events, and connector refresh endpoints.
@@ -20,7 +20,7 @@ AXOS Sheets is no longer only a helper-backed grid. The current tree has these f
 
 | Phase | Status | Evidence | Next tree action |
 | --- | --- | --- | --- |
-| 0. Capability audit + visible fix | Done in this PR | `docs/sheets/AXOS_SHEETS_CAPABILITY_AUDIT.md`, `SheetActions.tsx` XLSX badge | Merge after checks/review. |
+| 0. Capability audit + visible fix | Maintained | `docs/sheets/AXOS_SHEETS_CAPABILITY_AUDIT.md`, visible Workbook Health signoff drift metric | Keep audit current as each Sheets slice lands. |
 | 1. Full-screen Excel-grade shell | strong | `OfficeShell.tsx`, `SheetEditor.tsx` workbench v2 | Avoid editor changes until #765/#762/#753 resolve. |
 | 2. Formula bar/name box | usable | `SheetEditor.tsx`, formula bar state, `formulaEngine.ts` | Harden warnings later. |
 | 3. Formula engine hardening | strong | `formulaEngine.ts`, many formula specs | Continue targeted parity specs. |
@@ -35,7 +35,7 @@ AXOS Sheets is no longer only a helper-backed grid. The current tree has these f
 | 13. XLSX roundtrip fidelity | usable | `xlsxCompatibility.ts`, `xlsxStyled.ts`, specs | Add tables/print/macros readiness details. |
 | 14. Comments enterprise | open PR | #762 | Wait for review/merge. |
 | 15. Protection/governance | usable | protection metadata + XLSX protection | Integrate enterprise audit later. |
-| 16. Approval/signoff | open PR | #753 | Wait for review/merge. |
+| 16. Approval/signoff | usable foundation | `workbookApproval.ts`, `workbookHealth.ts`, `SheetEditor.tsx` signoff card | Backend must persist tenant-scoped approval/signature snapshots through Office signatures. |
 | 17. Print/report export | usable | print layout helpers/dialog | Add export/print readiness checklist. |
 | 18. Keyboard productivity | seed/partial | Office shell shortcut help, grid native shortcuts | Add conflict-safe Sheets shortcuts. |
 | 19. Large workbook performance | strong foundation | `workbookPerformance.ts`, status telemetry | Memoize/lazy load heavy panels. |
