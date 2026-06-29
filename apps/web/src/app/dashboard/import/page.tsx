@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Upload, Loader2, CheckCircle2, AlertTriangle, FileUp, Database, Plug,
-  ArrowRight, ArrowLeft, Package, Network, Workflow, X, Check,
+  ArrowRight, ArrowLeft, Package, Network, Workflow, X, Check, ExternalLink,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { glass } from '@/lib/glass';
@@ -16,11 +17,18 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').re
 type Target = 'MATERIAL' | 'BOM' | 'ROUTING';
 type Source = 'CSV' | 'EXCEL' | 'SQL_STAGING' | 'IDOC_API';
 type Step = 'setup' | 'map' | 'preview' | 'done';
+type CapabilityStatus = 'READY' | 'CONFIG_REQUIRED' | 'MANUAL_LINK';
 
 interface FieldSpec { field: string; label: string; required: boolean; type: string; enumValues?: string[]; }
 interface ValidatedRow { rowIndex: number; data: Record<string, unknown>; errors: { field: string; message: string }[]; valid: boolean; }
 interface Preview { target: Target; fields: FieldSpec[]; summary: { total: number; valid: number; errors: number }; rows: ValidatedRow[]; }
 interface Report { target: Target; source: string; summary: { total: number; valid: number; errors: number }; result: { created: number; updated: number; skipped: number; rowErrors: { rowIndex: number; message: string }[] }; }
+interface CapabilitySource { source: Source; label: string; status: CapabilityStatus; detail: string; supportedTargets: Target[]; }
+interface CapabilityTarget { target: Target; label: string; sapObjects: string[]; writesTo: string[]; route: string; commitBehavior: string; prerequisite: string; downstream: string[]; requiredFields: string[]; }
+interface CapabilityCell { source: Source; target: Target; status: CapabilityStatus; evidence: string; }
+interface CapabilityFlowNode { key: string; label: string; status: CapabilityStatus; route?: string; detail: string; }
+interface CapabilityGap { code: string; label: string; detail: string; }
+interface CapabilityMatrix { sources: CapabilitySource[]; targets: CapabilityTarget[]; cells: CapabilityCell[]; flow: CapabilityFlowNode[]; gaps: CapabilityGap[]; }
 
 const TARGET_META: Record<Target, { label: string; icon: typeof Package; desc: string }> = {
   MATERIAL: { label: 'Maestro de Materiales', icon: Package, desc: 'Partes / SKU (mm_material)' },
@@ -50,6 +58,21 @@ export default function ImportPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [createMissing, setCreateMissing] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
+  const [capabilities, setCapabilities] = useState<CapabilityMatrix | null>(null);
+  const [capabilitiesFailed, setCapabilitiesFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    apiFetch(`${API_BASE}/import-data/capabilities`)
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error('capabilities')))
+      .then((data) => {
+        if (alive) setCapabilities(data);
+      })
+      .catch(() => {
+        if (alive) setCapabilitiesFailed(true);
+      });
+    return () => { alive = false; };
+  }, []);
 
   function reset() {
     setStep('setup'); setFileName(''); setHeaders([]); setRows([]); setPasteText('');
@@ -157,6 +180,7 @@ export default function ImportPage() {
           subtitle="Trae Material Master, BOM y Routing desde CSV/Excel, staging SQL o un feed IDoc/API. Subir → mapear → previsualizar → confirmar." />
 
         <Stepper step={step} />
+        <ImportCapabilityPanel matrix={capabilities} failed={capabilitiesFailed} />
 
         {step === 'setup' && (
           <SetupStep
@@ -215,6 +239,133 @@ export default function ImportPage() {
       </main>
     </div>
   );
+}
+
+function ImportCapabilityPanel({ matrix, failed }: { matrix: CapabilityMatrix | null; failed: boolean }) {
+  if (failed) {
+    return (
+      <div className={`${glass} rounded-2xl p-4 mb-6 flex items-start gap-2 text-sm text-amber-700 dark:text-amber-300`}>
+        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+        No se pudo consultar la cobertura del carril de importacion. El flujo de carga sigue disponible.
+      </div>
+    );
+  }
+
+  if (!matrix) {
+    return (
+      <div className={`${glass} rounded-2xl p-4 mb-6 text-sm text-gray-400`}>
+        Consultando cobertura de importacion...
+      </div>
+    );
+  }
+
+  const cellFor = (source: Source, target: Target) =>
+    matrix.cells.find((cell) => cell.source === source && cell.target === target);
+  const idocSource = matrix.sources.find((source) => source.source === 'IDOC_API');
+
+  return (
+    <section className={`${glass} rounded-2xl p-5 mb-6 space-y-5`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400">SAP/import-data</p>
+          <h2 className="text-base font-semibold">Matriz de cobertura real</h2>
+          <p className="text-sm text-gray-400 mt-1">
+            Material Master, BOM y Routing comparten mapper, preview, commit y auditoria.
+          </p>
+        </div>
+        <StatusPill status={idocSource?.status ?? 'CONFIG_REQUIRED'} label="IDoc/API" />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        {matrix.flow.map((node) => (
+          <div key={node.key} className="rounded-xl border border-gray-100 dark:border-white/10 p-3 bg-white/40 dark:bg-white/[0.03]">
+            <div className="flex items-start justify-between gap-2">
+              <div className="text-sm font-medium leading-tight">{node.label}</div>
+              <StatusDot status={node.status} />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">{node.detail}</p>
+            {node.route && (
+              <Link href={node.route} className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+                Abrir <ExternalLink className="w-3 h-3" />
+              </Link>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-white/10">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50/80 dark:bg-white/[0.04] text-[11px] uppercase tracking-wide text-gray-400">
+            <tr>
+              <th className="px-3 py-2 text-left">Destino AXOS</th>
+              {matrix.sources.map((source) => (
+                <th key={source.source} className="px-3 py-2 text-left whitespace-nowrap">{source.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-white/10">
+            {matrix.targets.map((target) => (
+              <tr key={target.target}>
+                <td className="px-3 py-3 align-top min-w-52">
+                  <Link href={target.route} className="font-medium hover:text-primary">{target.label}</Link>
+                  <div className="text-[11px] text-gray-400 mt-1">{target.sapObjects.join(' / ')}</div>
+                  <div className="text-[11px] text-gray-400">Req: {target.requiredFields.join(', ')}</div>
+                </td>
+                {matrix.sources.map((source) => {
+                  const cell = cellFor(source.source, target.target);
+                  return (
+                    <td key={`${source.source}-${target.target}`} className="px-3 py-3 align-top min-w-40">
+                      <StatusPill status={cell?.status ?? 'CONFIG_REQUIRED'} label={cell?.status === 'READY' ? 'Listo' : 'Requiere config'} />
+                      <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">{cell?.evidence}</p>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {matrix.gaps.length > 0 && (
+        <div className="space-y-2">
+          {matrix.gaps.map((gap) => (
+            <div key={gap.code} className="flex items-start gap-2 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <div className="font-medium">{gap.label}</div>
+                <div className="text-xs opacity-80">{gap.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StatusDot({ status }: { status: CapabilityStatus }) {
+  const cls = status === 'READY'
+    ? 'bg-emerald-500'
+    : status === 'MANUAL_LINK'
+      ? 'bg-sky-500'
+      : 'bg-amber-500';
+  return <span className={`mt-0.5 h-2.5 w-2.5 rounded-full ${cls}`} />;
+}
+
+function StatusPill({ status, label }: { status: CapabilityStatus; label: string }) {
+  const cls = status === 'READY'
+    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+    : status === 'MANUAL_LINK'
+      ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
+      : 'bg-amber-500/10 text-amber-700 dark:text-amber-300';
+  const text = status === 'READY'
+    ? label
+    : status === 'MANUAL_LINK'
+      ? `${label} manual`
+      : label.toLowerCase().includes('config')
+        ? label
+        : `${label} requiere config`;
+  return <span className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${cls}`}>{text}</span>;
 }
 
 function Stepper({ step }: { step: Step }) {

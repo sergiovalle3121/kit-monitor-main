@@ -47,6 +47,13 @@ export class ImportDataController {
     return this.service.suggest(this.assertTarget(body?.target), body?.headers ?? []);
   }
 
+  @Get('capabilities')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({ summary: 'Matriz de cobertura real del carril SAP/import-data.' })
+  capabilities() {
+    return this.service.capabilities();
+  }
+
   @Post('preview')
   @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Previsualiza y valida (sin persistir) por fila.' })

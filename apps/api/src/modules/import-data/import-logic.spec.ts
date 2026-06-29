@@ -1,4 +1,5 @@
 import {
+  buildImportCapabilityMatrix,
   FIELD_SPECS,
   suggestMapping,
   validateRow,
@@ -67,5 +68,27 @@ describe('FIELD_SPECS', () => {
     expect(FIELD_SPECS.MATERIAL.find((f) => f.field === 'partNumber')?.required).toBe(true);
     expect(FIELD_SPECS.BOM.find((f) => f.field === 'parentPartNumber')?.required).toBe(true);
     expect(FIELD_SPECS.ROUTING.find((f) => f.field === 'sequence')?.required).toBe(true);
+  });
+});
+
+describe('buildImportCapabilityMatrix', () => {
+  it('reports SAP IDoc/API as config-required when the adapter is not wired', () => {
+    const matrix = buildImportCapabilityMatrix({ idocApiConfigured: false });
+
+    expect(matrix.sources.find((s) => s.source === 'IDOC_API')?.status).toBe('CONFIG_REQUIRED');
+    expect(matrix.cells.find((c) => c.source === 'IDOC_API' && c.target === 'MATERIAL')?.status).toBe('CONFIG_REQUIRED');
+    expect(matrix.gaps.some((g) => g.code === 'SAP_CONNECTOR_NOT_CONFIGURED')).toBe(true);
+  });
+
+  it('uses the canonical field specs and marks product models as a manual link', () => {
+    const matrix = buildImportCapabilityMatrix({ idocApiConfigured: true });
+
+    expect(matrix.targets.find((t) => t.target === 'BOM')?.requiredFields).toEqual([
+      'parentPartNumber',
+      'componentPartNumber',
+      'quantity',
+    ]);
+    expect(matrix.flow.find((node) => node.key === 'product-model')?.status).toBe('MANUAL_LINK');
+    expect(matrix.cells.every((cell) => cell.status === 'READY')).toBe(true);
   });
 });
