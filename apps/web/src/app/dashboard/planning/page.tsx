@@ -340,7 +340,7 @@ export default function PlanningPage() {
                         <button
                           onClick={() => deletePlan(plan)}
                           disabled={busy === plan.id}
-                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-rose-500 text-white hover:bg-rose-600 active:scale-95 transition disabled:opacity-60"
+                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-rose-600 text-white hover:bg-rose-700 active:scale-95 transition disabled:opacity-60"
                         >
                           {busy === plan.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Borrar
                         </button>

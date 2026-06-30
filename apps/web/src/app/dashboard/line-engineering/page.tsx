@@ -197,7 +197,7 @@ export default function LineEngineeringPage() {
             <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Define qué se ensambla dónde y con qué — el operador ejecuta exactamente esto.</p>
           </div>
           <button onClick={() => { setQf({ ...qf, model }); setShowQual(true); }} className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}><Layers className="w-4 h-4" /> Calificar modelo↔línea</button>
-          <button onClick={() => { setSf({ ...sf, model: model || sf.model }); setShowStation(true); }} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ROSE }}><Plus className="w-4 h-4" /> Estación</button>
+          <button onClick={() => { setSf({ ...sf, model: model || sf.model }); setShowStation(true); }} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: '#e11d48' }}><Plus className="w-4 h-4" /> Estación</button>
         </div>
       </div>
 
@@ -218,7 +218,7 @@ export default function LineEngineeringPage() {
               const key = `${m.model}|${m.revision}`;
               const on = key === activeModel;
               return (
-                <button key={key} onClick={() => { setSelModel(key); setTaktOverride(''); }} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background: on ? ROSE : 'rgba(0,0,0,0.05)', color: on ? '#fff' : undefined }}>
+                <button key={key} onClick={() => { setSelModel(key); setTaktOverride(''); }} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background: on ? '#e11d48' : 'rgba(0,0,0,0.05)', color: on ? '#fff' : undefined }}>
                   {m.model} · {m.revision}
                 </button>
               );
@@ -236,7 +236,7 @@ export default function LineEngineeringPage() {
                 key={key}
                 onClick={() => setView(key)}
                 className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${on ? 'bg-white dark:bg-white/10 shadow-sm' : is3d ? 'text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                style={on ? { color: ROSE } : is3d ? { background: ROSE } : undefined}
+                style={on ? { color: ROSE } : is3d ? { background: '#e11d48' } : undefined}
               >
                 <Icon className="w-4 h-4" /> {label}
               </button>
@@ -382,7 +382,7 @@ export default function LineEngineeringPage() {
             </Field>
             <label className="flex items-center gap-2 mt-6"><input type="checkbox" checked={sf.ctq} onChange={(e) => setSf({ ...sf, ctq: e.target.checked })} /> <span className="text-sm">Característica crítica (CTQ)</span></label>
           </div>
-          <Actions busy={busy} onCancel={closeStation} onSave={editingId ? updateStation : createStation} color={ROSE} />
+          <Actions busy={busy} onCancel={closeStation} onSave={editingId ? updateStation : createStation} color={'#e11d48'} />
         </Modal>
       )}
 

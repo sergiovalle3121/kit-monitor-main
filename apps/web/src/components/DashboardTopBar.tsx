@@ -388,7 +388,7 @@ export function DashboardTopBar() {
           >
             <Bell className="w-5 h-5" />
             {badgeTotal > 0 && (
-              <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white dark:border-black text-[9px] font-bold text-white flex items-center justify-center">
+              <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-red-600 rounded-full border-2 border-white dark:border-black text-[9px] font-bold text-white flex items-center justify-center">
                 {badgeTotal > 99 ? "99+" : badgeTotal}
               </span>
             )}
@@ -543,7 +543,7 @@ export function DashboardTopBar() {
                     >
                       <ShieldAlert className="w-4 h-4" /> Aprobaciones
                       {pendingCount > 0 && (
-                        <span className="ml-auto px-2 py-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold">
+                        <span className="ml-auto px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-bold">
                           {pendingCount}
                         </span>
                       )}

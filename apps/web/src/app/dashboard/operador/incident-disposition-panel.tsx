@@ -89,7 +89,7 @@ function IncidentDispositionRow({
         </span>
         <span className="font-bold">{incident.type}</span>
         {incident.blocksFlow && (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white">
             BLOQUEA
           </span>
         )}

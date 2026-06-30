@@ -52,7 +52,7 @@ export function QualitySidePanel({
         </div>
         <button
           onClick={onOpenIncident}
-          className="min-h-14 rounded-2xl bg-rose-500 px-5 text-sm font-black text-white hover:bg-rose-600 active:scale-95 transition-all"
+          className="min-h-14 rounded-2xl bg-rose-600 px-5 text-sm font-black text-white hover:bg-rose-700 active:scale-95 transition-all"
         >
           + Defecto / NCR
         </button>

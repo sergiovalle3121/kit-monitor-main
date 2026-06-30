@@ -169,7 +169,7 @@ export default function RmaPage() {
             <h1 className="text-lg font-semibold leading-tight">RMA · Quejas de Cliente</h1>
             <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Devoluciones, investigación y disposición</p>
           </div>
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: RED }}>
+          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: '#dc2626' }}>
             <Plus className="w-4 h-4" /> Abrir RMA
           </button>
         </div>
@@ -215,7 +215,7 @@ export default function RmaPage() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
-              <button onClick={createRma} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: RED }}>
+              <button onClick={createRma} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: '#dc2626' }}>
                 {busy === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Abrir
               </button>
             </div>

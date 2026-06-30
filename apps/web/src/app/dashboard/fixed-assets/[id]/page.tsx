@@ -460,7 +460,7 @@ function ModalActions({ busy, onClose, onSubmit, label, danger }: { busy: boolea
   return (
     <div className="mt-6 flex justify-end gap-2">
       <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
-      <button onClick={onSubmit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: danger ? RED : TEAL }}>{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} {label || 'Guardar'}</button>
+      <button onClick={onSubmit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: danger ? RED : '#0f766e' }}>{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} {label || 'Guardar'}</button>
     </div>
   );
 }

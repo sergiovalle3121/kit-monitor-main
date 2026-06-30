@@ -1463,7 +1463,7 @@ function IncidentForm({
         <button
           onClick={submit}
           disabled={busy || !type}
-          className="w-full bg-rose-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-rose-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+          className="w-full bg-rose-600 text-white text-base font-bold py-4 rounded-2xl hover:bg-rose-700 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
         >
           {busy ? (
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -1902,7 +1902,7 @@ function AndonForm({
                 onClick={() => updateStopReason(reason.code)}
                 className={`rounded-2xl px-3 py-3 text-left transition-all ${
                   stopReason === reason.code
-                    ? "bg-rose-500 text-white"
+                    ? "bg-rose-600 text-white"
                     : "bg-white/70 text-gray-700 hover:bg-white dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
                 }`}
               >
@@ -1936,7 +1936,7 @@ function AndonForm({
           <button
             onClick={confirmStop}
             disabled={busy === "stop" || !stopReason}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-500 py-4 text-base font-black text-white transition-all hover:bg-rose-600 active:scale-[0.98] disabled:opacity-40"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 py-4 text-base font-black text-white transition-all hover:bg-rose-700 active:scale-[0.98] disabled:opacity-40"
           >
             {busy === "stop" ? (
               <Loader2 className="h-5 w-5 animate-spin" />

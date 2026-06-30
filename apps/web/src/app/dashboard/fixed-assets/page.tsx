@@ -172,7 +172,7 @@ export default function FixedAssetsPage() {
             <h1 className="text-lg font-semibold leading-tight">Activos Fijos · Depreciación</h1>
             <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Capitalización y valor en libros (línea recta)</p>
           </div>
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: TEAL }}>
+          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: '#0f766e' }}>
             <Plus className="w-4 h-4" /> Capitalizar
           </button>
         </div>
@@ -221,7 +221,7 @@ export default function FixedAssetsPage() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
-              <button onClick={createAsset} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: TEAL }}>
+              <button onClick={createAsset} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: '#0f766e' }}>
                 {busy === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Capitalizar
               </button>
             </div>
@@ -238,7 +238,7 @@ export default function FixedAssetsPage() {
                   key={s}
                   onClick={() => setStatusFilter(s)}
                   className={`px-3 py-1.5 font-medium transition-colors ${statusFilter === s ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`}
-                  style={statusFilter === s ? { background: TEAL } : undefined}
+                  style={statusFilter === s ? { background: '#0f766e' } : undefined}
                 >
                   {s === 'ALL' ? 'Todos' : s === 'IN_SERVICE' ? 'En servicio' : 'Baja'}
                 </button>
