@@ -133,7 +133,7 @@ export default function MaterialDetailPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
         </div>
       </div>
@@ -141,7 +141,7 @@ export default function MaterialDetailPage() {
   }
 
   if (isLoading || !material) {
-    return <div className="min-h-screen flex justify-center pt-32"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen flex justify-center pt-32"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
 
   const lc = LIFECYCLE_META[material.lifecycle];
@@ -162,7 +162,7 @@ export default function MaterialDetailPage() {
               <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: lc.color, background: `${lc.color}1a` }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: lc.color }} />{lc.label}
               </span>
-              <span className="text-[11px] text-gray-400">{ITEM_TYPE_META[material.itemType].label} · {material.makeBuy}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">{ITEM_TYPE_META[material.itemType].label} · {material.makeBuy}</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight truncate">{material.description}</h1>
           </div>
@@ -200,7 +200,7 @@ function TabBtn({ active, onClick, icon: Icon, label }: { active: boolean; onCli
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-primary text-foreground' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+      className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-primary text-foreground' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
     >
       <Icon className="w-4 h-4" /> {label}
     </button>
@@ -374,9 +374,9 @@ function AvlTab({ materialId }: { materialId: string }) {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-500 dark:text-gray-400" /></div>
       ) : rows.length === 0 ? (
-        <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>
+        <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>
           <ListChecks className="w-7 h-7 mx-auto mb-2 text-gray-300" />
           Sin fabricantes aprobados. Una parte interna puede mapear a varios MPN.
         </div>
@@ -386,14 +386,14 @@ function AvlTab({ materialId }: { materialId: string }) {
             const meta = AVL_STATUS_META[a.status];
             return (
               <div key={a.id} className="flex items-center gap-3 p-4">
-                <div className="text-xs font-mono text-gray-400 w-8 text-center" title="Preferencia">#{a.preference}</div>
+                <div className="text-xs font-mono text-gray-500 dark:text-gray-400 w-8 text-center" title="Preferencia">#{a.preference}</div>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium truncate">{a.manufacturer}</div>
                   <div className="text-xs font-mono text-gray-500 truncate">{a.mpn}</div>
                 </div>
-                {a.leadTimeDays != null && <div className="text-xs text-gray-400">{a.leadTimeDays} d</div>}
+                {a.leadTimeDays != null && <div className="text-xs text-gray-500 dark:text-gray-400">{a.leadTimeDays} d</div>}
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: meta.color, background: `${meta.color}1a` }}>{meta.label}</span>
-                <button onClick={() => remove(a.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => remove(a.id)} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
               </div>
             );
           })}
@@ -473,9 +473,9 @@ function AltTab({ materialId }: { materialId: string }) {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-500 dark:text-gray-400" /></div>
       ) : rows.length === 0 ? (
-        <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>
+        <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>
           <GitBranch className="w-7 h-7 mx-auto mb-2 text-gray-300" />
           Sin alternantes. Define sustitutos form-fit-function para no parar la línea.
         </div>
@@ -483,16 +483,16 @@ function AltTab({ materialId }: { materialId: string }) {
         <div className={`${glass} rounded-2xl divide-y divide-gray-100 dark:divide-white/10`}>
           {rows.map((r) => (
             <div key={r.id} className="flex items-center gap-3 p-4">
-              <GitBranch className="w-4 h-4 text-gray-400 shrink-0" />
+              <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="font-medium truncate">
                   {r.altMaterial ? `${r.altMaterial.partNumber} · ${r.altMaterial.description}` : r.altMaterialId}
                 </div>
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   {r.type === 'SUBSTITUTE' ? 'Sustituto' : 'Alternante'} · ratio {r.ratio}{r.bidirectional ? ' · ↔' : ''}
                 </div>
               </div>
-              <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
         </div>

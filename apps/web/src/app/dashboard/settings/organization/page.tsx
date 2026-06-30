@@ -248,9 +248,9 @@ function Section<T extends { id: string }>({
 
       <div className={`${glass} rounded-2xl p-2`}>
         {loading ? (
-          <div className="p-6 flex justify-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="p-6 flex justify-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : items.length === 0 ? (
-          <p className="p-6 text-center text-sm text-gray-400">{empty}</p>
+          <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">{empty}</p>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-white/5">
             {items.map((item) => {
@@ -259,9 +259,9 @@ function Section<T extends { id: string }>({
                 <div key={item.id} className="flex items-center justify-between px-3 py-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{r.title}</p>
-                    <p className="text-[11px] text-gray-400 font-mono">{r.sub}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{r.sub}</p>
                   </div>
-                  <button onClick={() => remove(item.id)} disabled={delId === item.id} className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors disabled:opacity-50">
+                  <button onClick={() => remove(item.id)} disabled={delId === item.id} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors disabled:opacity-50">
                     {delId === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   </button>
                 </div>

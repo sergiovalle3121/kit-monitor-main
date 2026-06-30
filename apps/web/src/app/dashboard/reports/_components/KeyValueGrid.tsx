@@ -24,7 +24,7 @@ export function KeyValueGrid({ items, cols = 3 }: { items: KeyValue[]; cols?: 2 
     <dl className={`grid ${colClass} gap-x-6 gap-y-3`}>
       {items.map((it, i) => (
         <div key={i} className="min-w-0">
-          <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+          <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
             {it.label}
           </dt>
           <dd className={`truncate text-[13px] font-medium ${it.mono ? "font-mono" : ""}`}>

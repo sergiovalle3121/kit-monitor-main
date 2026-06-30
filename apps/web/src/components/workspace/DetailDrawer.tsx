@@ -132,7 +132,7 @@ export function DetailDrawer({
                 type="button"
                 onClick={onClose}
                 aria-label="Cerrar"
-                className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+                className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-gray-500 dark:text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -161,7 +161,7 @@ export function DetailDrawer({
 export function DrawerSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-5 last:mb-0">
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{title}</h3>
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</h3>
       {children}
     </section>
   );

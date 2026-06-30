@@ -45,7 +45,7 @@ export function Picker({
   return (
     <div className="axos-no-print">
       <div className={`${glass} mb-2 flex items-center gap-2 rounded-xl px-3 py-2`}>
-        <Search className="h-4 w-4 shrink-0 text-gray-400" />
+        <Search className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -58,7 +58,7 @@ export function Picker({
         style={{ maxHeight: `${maxVisible * 3.25}rem` }}
       >
         {filtered.length === 0 ? (
-          <div className="px-3 py-4 text-center text-[13px] text-gray-400">{emptyText}</div>
+          <div className="px-3 py-4 text-center text-[13px] text-gray-500 dark:text-gray-400">{emptyText}</div>
         ) : (
           filtered.map((it) => {
             const active = it.value === value;
@@ -72,7 +72,7 @@ export function Picker({
               >
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-medium">{it.label}</span>
-                  {it.sub && <span className="block truncate text-[11px] text-gray-400">{it.sub}</span>}
+                  {it.sub && <span className="block truncate text-[11px] text-gray-500 dark:text-gray-400">{it.sub}</span>}
                 </span>
                 {active && <Check className="h-4 w-4 shrink-0 text-emerald-500" />}
               </button>

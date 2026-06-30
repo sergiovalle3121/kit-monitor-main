@@ -24,10 +24,10 @@ export function MaterialConsumptionPanel({
   return (
     <div className={`${glass} rounded-3xl p-5`}>
       <h3 className="font-bold mb-3 flex items-center gap-2">
-        <Package className="w-4 h-4 text-gray-400" /> Materiales del paso
+        <Package className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Materiales del paso
       </h3>
       {materials.length === 0 ? (
-        <p className="text-sm text-gray-400 py-6 text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">
           Esta estación no tiene materiales asignados en la ruta.
         </p>
       ) : (
@@ -70,7 +70,7 @@ function MaterialConsumptionRow({ material }: { material: OperatorMaterial }) {
         />
       </div>
       {material.description && (
-        <div className="text-[11px] text-gray-400 mt-0.5">
+        <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
           {material.description}
         </div>
       )}

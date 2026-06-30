@@ -105,7 +105,7 @@ export function DocDistributionLedger({ docId }: { docId: string }) {
                   <div className="flex items-center gap-2 text-sm font-bold"><PackageCheck className="h-4 w-4 text-indigo-500" /> Ledger de distribución</div>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Registro auditable de exports, impresiones y copias controladas emitidas desde AXOS Docs.</p>
                 </div>
-                <button onClick={() => setOpen(false)} className="rounded-full p-2 text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"><X className="h-4 w-4" /></button>
+                <button onClick={() => setOpen(false)} className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"><X className="h-4 w-4" /></button>
               </header>
 
               <div className="flex-1 overflow-y-auto p-5">
@@ -131,7 +131,7 @@ export function DocDistributionLedger({ docId }: { docId: string }) {
                   )}
                 </div>
                 {loading ? (
-                  <div className="flex items-center justify-center py-12 text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                  <div className="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : error ? (
                   <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-600 dark:bg-red-500/10">{error}</div>
                 ) : items.length === 0 ? (
@@ -146,14 +146,14 @@ export function DocDistributionLedger({ docId }: { docId: string }) {
                       <div key={item.id} className="rounded-2xl border border-black/5 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-bold">Copia #{item.copyNo} · {item.format.toUpperCase()}</span>
-                          <span className="text-[11px] text-gray-400">{rel(item.createdAt)}</span>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">{rel(item.createdAt)}</span>
                         </div>
                         <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           <p>{item.action} por {item.actor || 'usuario desconocido'}</p>
                           {item.recipient && <p>Destinatario: {item.recipient}</p>}
                           {item.purpose && <p>Propósito: {item.purpose}</p>}
                           {item.metadata?.verificationCode && <p className="mt-1 font-mono text-[11px] text-indigo-500">Código: {item.metadata.verificationCode}</p>}
-                          {item.metadata?.contentHash && <p className="break-all font-mono text-[10px] text-gray-400">Hash: {item.metadata.contentHash}</p>}
+                          {item.metadata?.contentHash && <p className="break-all font-mono text-[10px] text-gray-500 dark:text-gray-400">Hash: {item.metadata.contentHash}</p>}
                           {item.metadata?.controlled && <span className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">Controlled copy</span>}
                         </div>
                       </div>

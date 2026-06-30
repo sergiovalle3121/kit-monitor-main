@@ -254,6 +254,71 @@ export function summarizeConnectorFreshness(instances: AxosConnectorInstance[], 
   };
 }
 
+export type AxosConnectorStatusTone = 'empty' | 'ok' | 'due' | 'stale';
+
+export interface AxosConnectorFreshnessBadge {
+  tone: AxosConnectorStatusTone;
+  label: string;
+  title: string;
+  total: number;
+  due: number;
+  stale: number;
+  invalid: number;
+}
+
+function connectorStatusDetail(report: AxosConnectorFreshnessReport): string {
+  const age = report.ageMinutes == null ? 'metadata invalid' : `${report.ageMinutes} min`;
+  return `${report.label}: ${report.status} (${age})`;
+}
+
+export function connectorFreshnessBadge(instances: AxosConnectorInstance[], now = new Date()): AxosConnectorFreshnessBadge {
+  if (!instances.length) {
+    return {
+      tone: 'empty',
+      label: 'No AXOS data',
+      title: 'No AXOS connector tables are inserted in this workbook.',
+      total: 0,
+      due: 0,
+      stale: 0,
+      invalid: 0,
+    };
+  }
+  const summary = summarizeConnectorFreshness(instances, now);
+  const detail = summary.reports.map(connectorStatusDetail).join(' | ');
+  if (summary.stale || summary.invalid) {
+    const atRisk = summary.stale + summary.invalid;
+    return {
+      tone: 'stale',
+      label: `${atRisk}/${instances.length} AXOS risk`,
+      title: `AXOS connector refresh risk. ${detail}`,
+      total: instances.length,
+      due: summary.due,
+      stale: summary.stale,
+      invalid: summary.invalid,
+    };
+  }
+  if (summary.due) {
+    return {
+      tone: 'due',
+      label: `${summary.due}/${instances.length} AXOS due`,
+      title: `AXOS connector refresh due. ${detail}`,
+      total: instances.length,
+      due: summary.due,
+      stale: summary.stale,
+      invalid: summary.invalid,
+    };
+  }
+  return {
+    tone: 'ok',
+    label: `${instances.length} AXOS fresh`,
+    title: `AXOS connector data is fresh. ${detail}`,
+    total: instances.length,
+    due: summary.due,
+    stale: summary.stale,
+    invalid: summary.invalid,
+  };
+}
+
 export function originFromConnectorRange(range: string): { r: number; c: number } | null {
   const parsed = parseRange(range);
   return parsed ? { r: parsed.r1, c: parsed.c1 } : null;

@@ -81,7 +81,7 @@ function CertifyButton({
       >
         <BadgeCheck className="h-4 w-4" /> {issuing ? "Certificando…" : "Certificar y firmar"}
       </button>
-      <span className="text-[12px] text-gray-400">
+      <span className="text-[12px] text-gray-500 dark:text-gray-400">
         Emite folio oficial COC-, firma con tu identidad y lo registra en la bitácora inmutable.
       </span>
       {error && <span className="text-[12px] text-rose-500">No se pudo certificar. Reintenta.</span>}
@@ -184,16 +184,16 @@ export default function CocPage() {
         plansForbidden ? (
           <ForbiddenHint what="órdenes de trabajo" />
         ) : plansLoading ? (
-          <p className="text-sm text-gray-400">Cargando órdenes…</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Cargando órdenes…</p>
         ) : woItems.length === 0 ? (
-          <p className="text-sm text-gray-400">No hay órdenes de trabajo publicadas todavía.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No hay órdenes de trabajo publicadas todavía.</p>
         ) : (
           <Picker items={woItems} value={woId} onChange={setWoId} placeholder="Buscar WO o modelo…" />
         )
       ) : shipForbidden ? (
         <ForbiddenHint what="embarques" />
       ) : shipItems.length === 0 ? (
-        <p className="text-sm text-gray-400">No hay embarques registrados todavía.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">No hay embarques registrados todavía.</p>
       ) : (
         <Picker items={shipItems} value={shipId} onChange={setShipId} placeholder="Buscar folio, cliente…" />
       )}
@@ -350,7 +350,7 @@ function WoCoc({
             <Kv label="Yield total" value={kpis.yieldPct != null ? `${kpis.yieldPct}%` : "—"} />
             <Kv label="Pruebas / Series" value={`${kpis.totalTests} / ${kpis.distinctSerials}`} />
           </div>
-          <p className="mt-1.5 text-[11px] text-gray-400">
+          <p className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
             Nota: el yield proviene del servicio de pruebas a nivel planta; no está filtrado a esta WO
             (no existe endpoint de yield por WO).
           </p>
@@ -479,7 +479,7 @@ function ShipmentCoc({ ship, generatedBy }: { ship: Shipment; generatedBy: strin
 function Kv({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</div>
       <div className="font-medium">{value}</div>
     </div>
   );
@@ -512,7 +512,7 @@ function ModeTab({
 function ForbiddenHint({ what }: { what: string }) {
   return (
     <div className="inline-flex items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-sm text-gray-500 dark:bg-white/10">
-      <Lock className="h-4 w-4 text-gray-400" /> Sin acceso a {what}. Verifica tus permisos y la
+      <Lock className="h-4 w-4 text-gray-500 dark:text-gray-400" /> Sin acceso a {what}. Verifica tus permisos y la
       conexión al backend.
     </div>
   );

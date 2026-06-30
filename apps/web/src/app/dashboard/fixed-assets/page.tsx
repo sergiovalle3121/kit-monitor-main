@@ -150,9 +150,9 @@ export default function FixedAssetsPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver activos fijos.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver activos fijos.</p>
         </div>
       </div>
     );
@@ -162,7 +162,7 @@ export default function FixedAssetsPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: `${TEAL}1f` }}>
@@ -170,7 +170,7 @@ export default function FixedAssetsPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Activos Fijos · Depreciación</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Capitalización y valor en libros (línea recta)</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Capitalización y valor en libros (línea recta)</p>
           </div>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: TEAL }}>
             <Plus className="w-4 h-4" /> Capitalizar
@@ -231,7 +231,7 @@ export default function FixedAssetsPage() {
         {/* Filters */}
         {list.length > 0 && (
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <Filter className="w-3.5 h-3.5 text-gray-400" />
+            <Filter className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
             <div className="inline-flex rounded-xl overflow-hidden border border-black/[0.08] dark:border-white/10 text-[12px]">
               {(['ALL', 'IN_SERVICE', 'DISPOSED'] as const).map((s) => (
                 <button
@@ -254,20 +254,20 @@ export default function FixedAssetsPage() {
                 {categories.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             )}
-            <span className="text-[12px] text-gray-400 ml-auto">{filtered.length} de {list.length}</span>
+            <span className="text-[12px] text-gray-500 dark:text-gray-400 ml-auto">{filtered.length} de {list.length}</span>
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin activos fijos</h3>
-            <p className="text-sm text-gray-400 mt-1">Capitaliza un activo para calcular su depreciación y valor en libros.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Capitaliza un activo para calcular su depreciación y valor en libros.</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className={`${glass} rounded-3xl p-12 text-center text-sm text-gray-400`}>Ningún activo coincide con los filtros.</div>
+          <div className={`${glass} rounded-3xl p-12 text-center text-sm text-gray-500 dark:text-gray-400`}>Ningún activo coincide con los filtros.</div>
         ) : (
           <div className="space-y-3">
             {filtered.map((a) => {
@@ -291,7 +291,7 @@ export default function FixedAssetsPage() {
                           ? <span className="text-[10px] px-1.5 py-0.5 rounded-full text-gray-500" style={{ background: `${GRAY}1f` }}>baja</span>
                           : <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${GREEN}1f`, color: GREEN }}>en servicio</span>}
                       </div>
-                      <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-400 flex-wrap">
+                      <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                         <span>costo {money(a.acquisitionCost, a.currency)}</span>
                         <span>•</span>
                         <span style={{ color: GREEN }}>libros {money(a.bookValue, a.currency)}</span>
@@ -302,7 +302,7 @@ export default function FixedAssetsPage() {
                         <div className="flex-1 h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${pctDep}%`, background: AMBER }} />
                         </div>
-                        <span className="text-[11px] text-gray-400 tabular-nums w-12 text-right">{pctDep}%</span>
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums w-12 text-right">{pctDep}%</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
@@ -327,11 +327,11 @@ export default function FixedAssetsPage() {
 function Kpi({ icon: Icon, label, value, sub, color }: { icon: typeof Layers; label: string; value: number | string; sub?: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-400">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
         <Icon className="w-3 h-3" />{label}
       </div>
       <div className="text-xl font-semibold mt-1 tabular-nums truncate" style={{ color }} title={String(value)}>{value}</div>
-      {sub && <div className="text-[12px] text-gray-400 mt-0.5 truncate">{sub}</div>}
+      {sub && <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{sub}</div>}
     </div>
   );
 }

@@ -29,7 +29,7 @@ export function SlideTableEditor({ spec: initial, onApply, onClose }: {
         className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-2xl bg-white dark:bg-[#161616] border border-black/10 dark:border-white/10 shadow-2xl overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
-          <h2 className="font-bold">Tabla <span className="text-sm font-normal text-gray-400">· datos editables</span></h2>
+          <h2 className="font-bold">Tabla <span className="text-sm font-normal text-gray-500 dark:text-gray-400">· datos editables</span></h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500"><X className="w-5 h-5" /></button>
         </div>
 

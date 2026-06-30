@@ -72,11 +72,11 @@ export function GifPicker({
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-gray-400">
+                <div className="flex h-full items-center justify-center text-gray-500 dark:text-gray-400">
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : gifs.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">Sin resultados</p>
+                <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">Sin resultados</p>
               ) : (
                 <div className="columns-2 gap-2 sm:columns-3">
                   {gifs.map((g) => (
@@ -97,7 +97,7 @@ export function GifPicker({
                 </div>
               )}
             </div>
-            <p className="pt-2 text-center text-[10px] text-gray-400">
+            <p className="pt-2 text-center text-[10px] text-gray-500 dark:text-gray-400">
               Con tecnología de GIPHY
             </p>
           </>
