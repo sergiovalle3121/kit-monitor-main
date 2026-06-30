@@ -451,3 +451,34 @@ muy extendido) y los **colores semánticos de valores KPI** (ámbar/esmeralda/az
 números) — estos últimos son decisión de paleta (como el gris del §14) y conviene el
 visto bueno del owner antes de oscurecerlos. Siguiente paso natural si se quiere
 cerrar del todo.
+
+---
+
+## 16. Pase 9 — Cola blanco-sobre-acento (audit multi-agente)
+
+Continúa el §15 cerrando los **botones con texto blanco sobre acento claro**.
+Mismo método: scout (axe claro+oscuro) aísla los fondos de acento donde el blanco
+falla; un workflow de **3 cazadores por familia de color** (esmeralda/teal,
+naranja/rojo/rosa, azul) localiza cada botón y calcula el **fondo mínimo** del mismo
+tono donde el blanco llega a ≥4.5:1; verificación adversarial recomputa cada ratio.
+**29 propuestas → 27 confirmadas** (14 low, 13 med). Se re-aplicaron solo las 27
+verificadas (descartando ediciones directas de los agentes).
+
+| Fondo (fallaba) | → | Tono nuevo |
+| --- | --- | --- |
+| teal `#0fb39a` (2.65) | → | teal-700 `#0f766e` (5.47) |
+| esmeralda `#10b981` (2.53) | → | emerald-700 `#047857` |
+| naranja `#ff7a45`, rojo `#ef4444`, rosa `#f43f5e` | → | `-600`/`-700` del mismo tono |
+| azul `#3b82f6` (1 caso) | → | blue-600 `#2563eb` |
+
+En las constantes compartidas (`TEAL`, `GREEN`, `ROSE`) se cambió **solo el fondo
+del botón** a un literal más oscuro, dejando la constante para texto/tintes (la
+marca no se mueve). **Resultado: nodos de bug genuino 69 → 53 (−23 %)**; blanco-sobre-
+acento 37 → 21. `tsc` 0 · `eslint` 0 · `next build` OK, claro+oscuro.
+
+**Cola restante (decisión de paleta / borderline, documentada):** botones azul-500
+`#3b82f6` (×10, componente compartido) y apple-blue `#0a84ff` (×6) a ~3.65:1 — patrón
+muy común (azul vibrante + blanco), a un paso de pasar; el índigo de marca
+(`#6366f1`/`#6467f2`) ya ronda 4.4–4.5; y los **colores semánticos de valores KPI**.
+Oscurecerlos del todo es decisión de paleta del owner. **Los bugs de contraste
+claramente malos (ratios 2.5–2.65, `#86868b`) ya quedaron cerrados** entre §15 y §16.

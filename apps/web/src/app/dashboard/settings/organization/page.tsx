@@ -159,7 +159,7 @@ function DangerZone({ onError }: { onError: (m: string) => void }) {
           </p>
         ) : confirming ? (
           <div className="mt-4 flex items-center gap-2">
-            <button onClick={run} disabled={busy} className="flex items-center gap-2 bg-red-500 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-red-600 active:scale-95 transition-all disabled:opacity-60">
+            <button onClick={run} disabled={busy} className="flex items-center gap-2 bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-red-700 active:scale-95 transition-all disabled:opacity-60">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Sí, vaciar todo
             </button>
             <button onClick={() => setConfirming(false)} disabled={busy} className="text-sm font-medium px-4 py-2 rounded-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 transition">

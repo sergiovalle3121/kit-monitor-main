@@ -243,7 +243,7 @@ export default function ProductionPage() {
         title="Producción · Piso"
         subtitle="Órdenes de trabajo y su avance en piso, en vivo"
         actions={
-          <Link href="/dashboard/live" className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90" style={{ background: ORANGE }}>
+          <Link href="/dashboard/live" className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90" style={{ background: '#c2410c' }}>
             <Radio className="h-4 w-4" /> Monitor en vivo
           </Link>
         }

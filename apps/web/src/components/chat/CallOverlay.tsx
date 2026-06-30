@@ -144,7 +144,7 @@ export function CallOverlay(props: CallOverlayProps) {
           </p>
           <div className="mt-8 flex items-center justify-center gap-10">
             <button onClick={onReject} className="flex flex-col items-center gap-1.5" aria-label="Rechazar">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
                 <PhoneOff className="h-7 w-7" />
               </span>
               <span className="text-xs text-gray-500">Rechazar</span>
@@ -265,7 +265,7 @@ export function CallOverlay(props: CallOverlayProps) {
         <button
           onClick={onHangup}
           aria-label="Colgar"
-          className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
         >
           <PhoneOff className="h-7 w-7" />
         </button>

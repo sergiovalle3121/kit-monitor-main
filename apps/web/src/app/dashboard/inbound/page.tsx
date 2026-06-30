@@ -214,7 +214,7 @@ export default function InboundPage() {
               <span className="block text-[12px] font-medium text-gray-500 mb-1">PO</span>
               <input value={form.poFolio} onChange={(e) => setForm({ ...form, poFolio: e.target.value })} placeholder="PO-2026-…" className="ib-input" />
             </label>
-            <button onClick={receive} disabled={busy === 'new'} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: GREEN }}>
+            <button onClick={receive} disabled={busy === 'new'} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: '#047857' }}>
               {busy === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Recibir
             </button>
           </div>

@@ -113,7 +113,7 @@ export default function CancellationRequestsPage() {
                         <button onClick={() => respond(r, "reject")} disabled={busy === r.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: "rgba(0,0,0,0.05)" }}>
                           <X className="w-3 h-3" /> Rechazar
                         </button>
-                        <button onClick={() => respond(r, "accept")} disabled={busy === r.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: "#ef4444" }}>
+                        <button onClick={() => respond(r, "accept")} disabled={busy === r.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: "#dc2626" }}>
                           {busy === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Aceptar cancelación
                         </button>
                       </div>
