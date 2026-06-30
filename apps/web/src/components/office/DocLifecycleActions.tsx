@@ -109,7 +109,7 @@ export function DocLifecycleActions({
                     className={`mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium transition-colors disabled:opacity-50 ${action.danger ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10' : 'hover:bg-black/5 dark:hover:bg-white/10'}`}>
                     <Icon className="h-4 w-4" />
                     <span className="flex-1">{busy === action.path ? 'Procesando…' : action.label}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400">{STATE_META[action.next].label}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{STATE_META[action.next].label}</span>
                   </button>
                 );
               })}

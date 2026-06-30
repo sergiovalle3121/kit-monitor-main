@@ -41,11 +41,11 @@ export function DocOutline({ editor }: { editor: Editor }) {
               className="fixed inset-y-0 left-0 w-72 z-[55] bg-white dark:bg-[#161616] border-r border-black/10 dark:border-white/10 shadow-2xl flex flex-col">
               <div className="flex items-center justify-between px-4 h-12 border-b border-black/5 dark:border-white/10 flex-shrink-0">
                 <span className="font-semibold text-sm">Esquema</span>
-                <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-4 h-4" /></button>
+                <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-4 h-4" /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-2">
                 {items.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-10 px-4">Sin títulos. Aplica estilos «Título 1-3» para construir el índice.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-10 px-4">Sin títulos. Aplica estilos «Título 1-3» para construir el índice.</p>
                 ) : (
                   <ul>
                     {items.map((it, i) => (

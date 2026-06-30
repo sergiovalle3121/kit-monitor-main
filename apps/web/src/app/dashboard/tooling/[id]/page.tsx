@@ -160,15 +160,15 @@ export default function ToolDetailPage() {
 
   if (forbidden) return <Guard />;
   if (isLoading) {
-    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
   if (!data) {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Hammer className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Hammer className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Herramental no encontrado</h2>
-          <p className="text-sm text-gray-400 mt-1">Pudo haber sido eliminado o el folio no existe.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Pudo haber sido eliminado o el folio no existe.</p>
           <Link href="/dashboard/tooling" className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: INDIGO }}>
             <ChevronLeft className="w-4 h-4" /> Volver a herramentales
           </Link>
@@ -240,13 +240,13 @@ export default function ToolDetailPage() {
       {/* Sticky header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard/tooling" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
+          <Link href="/dashboard/tooling" aria-label="Volver" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-10 h-10 rounded-xl grid place-items-center flex-shrink-0" style={{ background: `${INDIGO}1f` }}>
             <Hammer className="w-5 h-5" style={{ color: INDIGO }} />
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight truncate">{t.name}</h1>
-            <div className="flex items-center gap-2 text-[12px] text-gray-400 leading-tight flex-wrap">
+            <div className="flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 leading-tight flex-wrap">
               {t.folio && <span className="font-mono">{t.folio}</span>}
               <span>·</span><span>{TYPE_LABEL[t.type]}</span>
             </div>
@@ -309,11 +309,11 @@ export default function ToolDetailPage() {
                     <span className="text-5xl font-bold tabular-nums leading-none" style={{ color: barColor }}>{pct}</span>
                     <span className="text-2xl font-semibold mb-0.5" style={{ color: barColor }}>%</span>
                   </div>
-                  <div className="text-[12px] text-gray-400 mt-1">vida consumida</div>
+                  <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">vida consumida</div>
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-semibold tabular-nums" style={{ color: barColor }}>{remainingPct}%</div>
-                  <div className="text-[12px] text-gray-400">vida restante</div>
+                  <div className="text-[12px] text-gray-500 dark:text-gray-400">vida restante</div>
                 </div>
               </div>
 
@@ -321,18 +321,18 @@ export default function ToolDetailPage() {
               <div className="mt-5 h-3 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: barColor }} />
               </div>
-              <div className="mt-2 flex items-center justify-between text-[12px] text-gray-400 tabular-nums">
+              <div className="mt-2 flex items-center justify-between text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
                 <span>{t.shotsUsed.toLocaleString()} disparos usados</span>
                 <span>{t.lifeShots.toLocaleString()} de vida</span>
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-xl px-4 py-3" style={{ background: `${barColor}10` }}>
-                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400"><TrendingDown className="w-3 h-3" /> Disparos restantes</div>
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"><TrendingDown className="w-3 h-3" /> Disparos restantes</div>
                   <div className="text-xl font-semibold tabular-nums mt-0.5" style={{ color: barColor }}>{t.remainingShots.toLocaleString()}</div>
                 </div>
                 <div className="rounded-xl px-4 py-3 bg-black/[0.03] dark:bg-white/[0.05]">
-                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400"><Layers className="w-3 h-3" /> Cavidades</div>
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"><Layers className="w-3 h-3" /> Cavidades</div>
                   <div className="text-xl font-semibold tabular-nums mt-0.5">{t.cavities}</div>
                 </div>
               </div>
@@ -349,13 +349,13 @@ export default function ToolDetailPage() {
                   <pmMeta.icon className="w-3.5 h-3.5" /> {pmMeta.label}
                 </span>
               </div>
-              <p className="text-[12px] text-gray-400 mb-4">
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">
                 Proyección cada {PM_INTERVAL_PCT}% de la vida (~{pm.intervalShots.toLocaleString()} disparos). Es una estimación a partir de los disparos acumulados, no de eventos reales de PM.
               </p>
               <div className="h-2 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, (pm.sinceShots / pm.intervalShots) * 100)}%`, background: pmMeta.color }} />
               </div>
-              <div className="mt-2 flex items-center justify-between text-[12px] text-gray-400 tabular-nums">
+              <div className="mt-2 flex items-center justify-between text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
                 <span>{pm.sinceShots.toLocaleString()} desde el último PM (proy.)</span>
                 <span>{pm.untilShots.toLocaleString()} para el próximo</span>
               </div>
@@ -376,7 +376,7 @@ export default function ToolDetailPage() {
               >
                 <Plus className="w-4 h-4" /> Registrar disparos
               </button>
-              {retired && <p className="mt-2 text-[11px] text-gray-400">Reactiva el herramental para registrar uso.</p>}
+              {retired && <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">Reactiva el herramental para registrar uso.</p>}
 
               {/* Préstamo a WO (check-out / check-in) */}
               {t.activeCheckout ? (
@@ -409,7 +409,7 @@ export default function ToolDetailPage() {
               </button>
 
               <div className="mt-5">
-                <span className="text-[11px] uppercase tracking-wide text-gray-400">Cambiar estado</span>
+                <span className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Cambiar estado</span>
                 <div className="mt-2 flex flex-col gap-2">
                   {STATUSES.filter((s) => s !== t.status).map((to) => {
                     const m = STATUS_META[to];
@@ -446,7 +446,7 @@ export default function ToolDetailPage() {
                 </span>
               </div>
               {calStatus === 'NONE' ? (
-                <p className="text-[12px] text-gray-400">
+                <p className="text-[12px] text-gray-500 dark:text-gray-400">
                   Sin calibración registrada. Regístrala para el control IATF y el semáforo de vencimiento.
                 </p>
               ) : (
@@ -539,7 +539,7 @@ function UsageModal({ tool, onClose, onDone }: { tool: Tool; onClose: () => void
           <h3 className="text-lg font-semibold">Registrar disparos</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-[13px] text-gray-400 mb-4">Suma disparos de producción a la vida acumulada de <span className="font-medium text-gray-500">{tool.name}</span>.</p>
+        <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-4">Suma disparos de producción a la vida acumulada de <span className="font-medium text-gray-500">{tool.name}</span>.</p>
         <label className="block">
           <span className="block text-[12px] font-medium text-gray-500 mb-1">Disparos a sumar</span>
           <input
@@ -554,7 +554,7 @@ function UsageModal({ tool, onClose, onDone }: { tool: Tool; onClose: () => void
           />
         </label>
         {valid && (
-          <div className="mt-3 text-[12px] text-gray-400 tabular-nums">
+          <div className="mt-3 text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
             Quedará en <span className="font-medium" style={{ color: lifeColor(projectedPct) }}>{projectedUsed.toLocaleString()}</span> / {tool.lifeShots.toLocaleString()} disparos · <span className="font-medium" style={{ color: lifeColor(projectedPct) }}>{projectedPct}%</span> de vida.
           </div>
         )}
@@ -620,7 +620,7 @@ function CheckoutModal({ tool, onClose, onDone }: { tool: Tool; onClose: () => v
           <h3 className="text-lg font-semibold">Prestar a una WO</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-[13px] text-gray-400 mb-4">Check-out de <span className="font-medium text-gray-500">{tool.name}</span>: lo marca <span className="font-medium" style={{ color: BLUE }}>En uso</span> y queda trazado a la orden.</p>
+        <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-4">Check-out de <span className="font-medium text-gray-500">{tool.name}</span>: lo marca <span className="font-medium" style={{ color: BLUE }}>En uso</span> y queda trazado a la orden.</p>
 
         {hasList && (
           <label className="block mb-3">
@@ -646,7 +646,7 @@ function CheckoutModal({ tool, onClose, onDone }: { tool: Tool; onClose: () => v
             disabled={!!woId}
           />
         </label>
-        {forbidden && <p className="mt-1 text-[11px] text-gray-400">No tienes acceso a la lista de WOs — escribe el folio manualmente.</p>}
+        {forbidden && <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">No tienes acceso a la lista de WOs — escribe el folio manualmente.</p>}
 
         <label className="block mt-3">
           <span className="block text-[12px] font-medium text-gray-500 mb-1">Notas (opcional)</span>
@@ -718,7 +718,7 @@ function CalibrationModal({ tool, onClose, onDone }: { tool: Tool; onClose: () =
           <h3 className="text-lg font-semibold">Registrar calibración</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-[13px] text-gray-400 mb-4">Control IATF de <span className="font-medium text-gray-500">{tool.name}</span>: registra la fecha y la próxima (o un intervalo en días).</p>
+        <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-4">Control IATF de <span className="font-medium text-gray-500">{tool.name}</span>: registra la fecha y la próxima (o un intervalo en días).</p>
 
         <label className="block mb-3">
           <span className="block text-[12px] font-medium text-gray-500 mb-1">Fecha de esta calibración</span>
@@ -737,7 +737,7 @@ function CalibrationModal({ tool, onClose, onDone }: { tool: Tool; onClose: () =
         </div>
 
         {previewNext && (
-          <div className="mt-3 text-[12px] text-gray-400">Próxima calibración: <span className="font-medium text-gray-500">{fmtDate(previewNext)}</span></div>
+          <div className="mt-3 text-[12px] text-gray-500 dark:text-gray-400">Próxima calibración: <span className="font-medium text-gray-500">{fmtDate(previewNext)}</span></div>
         )}
 
         <div className="mt-6 flex justify-end gap-2">
@@ -783,7 +783,7 @@ function UsageSparkline({ history }: { history: ToolHistory }) {
         <path d={d} fill="none" stroke={INDIGO} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => <circle key={i} cx={x(p.at)} cy={y(p.v)} r={1.8} fill={INDIGO} />)}
       </svg>
-      <div className="flex items-center justify-between text-[11px] text-gray-400 tabular-nums">
+      <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
         <span>{fmtDate(new Date(minX).toISOString())}</span>
         <span>disparos acumulados</span>
         <span>{fmtDate(new Date(maxX).toISOString())}</span>
@@ -804,10 +804,10 @@ function HistorySection({ history }: { history?: ToolHistory }) {
         <div className="flex items-center gap-2 mb-4">
           <PackageCheck className="w-4 h-4" style={{ color: INDIGO }} />
           <h3 className="text-sm font-semibold">Préstamos por WO</h3>
-          <span className="ml-auto text-[11px] text-gray-400">{checkouts.length}</span>
+          <span className="ml-auto text-[11px] text-gray-500 dark:text-gray-400">{checkouts.length}</span>
         </div>
         {checkouts.length === 0 ? (
-          <p className="text-[12px] text-gray-400">Aún no se ha prestado a ninguna orden.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">Aún no se ha prestado a ninguna orden.</p>
         ) : (
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {checkouts.map((c) => <CheckoutRow key={c.id} c={c} />)}
@@ -820,20 +820,20 @@ function HistorySection({ history }: { history?: ToolHistory }) {
         <div className="flex items-center gap-2 mb-4">
           <HistoryIcon className="w-4 h-4" style={{ color: INDIGO }} />
           <h3 className="text-sm font-semibold">Historial de uso</h3>
-          <span className="ml-auto text-[11px] text-gray-400">{usage.length}</span>
+          <span className="ml-auto text-[11px] text-gray-500 dark:text-gray-400">{usage.length}</span>
         </div>
         {usage.length === 0 ? (
-          <p className="text-[12px] text-gray-400">Sin movimientos registrados todavía.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">Sin movimientos registrados todavía.</p>
         ) : (
           <>
             <UsageSparkline history={history} />
             <div className="mt-3 space-y-1.5 max-h-56 overflow-y-auto pr-1">
               {[...usage].reverse().map((u, i) => (
                 <div key={i} className="flex items-center gap-2 text-[12px]">
-                  <span className="w-20 shrink-0 text-gray-400 tabular-nums">{fmtDate(u.at)}</span>
+                  <span className="w-20 shrink-0 text-gray-500 dark:text-gray-400 tabular-nums">{fmtDate(u.at)}</span>
                   <span className="flex-1 truncate">{HISTORY_ACTION_LABEL[u.action] || u.action}</span>
                   {typeof u.shotsAdded === 'number' && <span className="shrink-0 font-medium tabular-nums" style={{ color: INDIGO }}>+{u.shotsAdded.toLocaleString()}</span>}
-                  {typeof u.shotsUsed === 'number' && <span className="shrink-0 text-gray-400 tabular-nums">→ {u.shotsUsed.toLocaleString()}</span>}
+                  {typeof u.shotsUsed === 'number' && <span className="shrink-0 text-gray-500 dark:text-gray-400 tabular-nums">→ {u.shotsUsed.toLocaleString()}</span>}
                 </div>
               ))}
             </div>
@@ -859,7 +859,7 @@ function CheckoutRow({ c }: { c: ToolCheckoutRecord }) {
           <span className="ml-auto shrink-0 text-[12px] font-medium tabular-nums" style={{ color: INDIGO }}>{c.shotsDuring.toLocaleString()} disp.</span>
         )}
       </div>
-      <div className="mt-0.5 text-[11px] text-gray-400">
+      <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
         {fmtDate(c.checkedOutAt)}{c.checkedOutBy ? ` · ${c.checkedOutBy}` : ''}
         {c.checkedInAt ? ` → ${fmtDate(c.checkedInAt)}${c.checkedInBy ? ` · ${c.checkedInBy}` : ''}` : ' · en curso'}
       </div>
@@ -871,9 +871,9 @@ function CheckoutRow({ c }: { c: ToolCheckoutRecord }) {
 function DetailRow({ icon: Icon, label, value, color, mono }: { icon: typeof Gauge; label: string; value: string; color?: string; mono?: boolean }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+      <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
         <div className={`text-sm font-medium truncate ${mono ? 'font-mono' : ''}`} style={color ? { color } : undefined} title={value}>{value}</div>
       </div>
     </div>
@@ -884,9 +884,9 @@ function Guard() {
   return (
     <div className="min-h-screen grid place-items-center text-foreground">
       <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-        <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+        <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
         <h2 className="text-lg font-semibold">Sin acceso</h2>
-        <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el herramental.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver el herramental.</p>
       </div>
     </div>
   );

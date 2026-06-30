@@ -118,7 +118,7 @@ export default function BufferPlanner({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !plan ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 text-sm mb-4">
@@ -128,12 +128,12 @@ export default function BufferPlanner({
             </div>
 
             {plan.gaps.length === 0 ? (
-              <p className="text-[12px] text-gray-400 py-6 text-center">Se necesitan al menos dos estaciones con tiempo de ciclo para planear inventario.</p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 py-6 text-center">Se necesitan al menos dos estaciones con tiempo de ciclo para planear inventario.</p>
             ) : (
               <div className="max-h-[40vh] overflow-y-auto -mx-1 px-1">
                 <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="text-[11px] uppercase tracking-wide text-gray-400 text-left">
+                    <tr className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 text-left">
                       <th className="py-1.5 font-medium">Entre estaciones</th>
                       <th className="py-1.5 font-medium text-right">Unidades</th>
                       <th className="py-1.5 font-medium text-right">Holgura</th>
@@ -145,7 +145,7 @@ export default function BufferPlanner({
                         <td className="py-1.5">
                           <span className="inline-flex items-center gap-1.5">
                             {g.critical && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#ef4444' }} title="Protege el cuello de botella" />}
-                            {g.fromStation} <span className="text-gray-400">→</span> {g.toStation}
+                            {g.fromStation} <span className="text-gray-500 dark:text-gray-400">→</span> {g.toStation}
                           </span>
                         </td>
                         <td className="py-1.5 text-right font-semibold" style={{ color: g.critical ? '#ef4444' : '#3b82f6' }}>{g.recommendedUnits}</td>
@@ -159,7 +159,7 @@ export default function BufferPlanner({
           </>
         )}
 
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
           Cada hueco se dimensiona para sostener un paro de {coverage || 0}s a la cadencia de la línea, escalado por qué tan cerca del takt corre la estación más lenta. Más WIP desacopla mejor pero alarga el plazo.
         </p>
       </div>
@@ -171,7 +171,7 @@ function Stat({ title, main, sub, tone }: { title: string; main: string; sub: st
   const color = tone === 'ok' ? '#10b981' : tone === 'warn' ? '#f59e0b' : tone === 'bad' ? '#ef4444' : '#3b82f6';
   return (
     <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{title}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</div>
       <div className="text-lg font-semibold mt-0.5" style={{ color }}>{main}</div>
       <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{sub}</div>
     </div>

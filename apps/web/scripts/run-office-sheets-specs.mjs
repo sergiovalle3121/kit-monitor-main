@@ -36,6 +36,7 @@ const specs = [
   'src/components/office/sheets/goalSeek.spec.ts',
   'src/components/office/sheets/solver.spec.ts',
   'src/components/office/sheets/validation.spec.ts',
+  'src/lib/office/xlsxCompatibility.spec.ts',
   'src/lib/office/xlsxLinksComments.spec.ts',
   'src/lib/office/xlsxValidation.spec.ts',
   'src/lib/office/xlsxProtection.spec.ts',

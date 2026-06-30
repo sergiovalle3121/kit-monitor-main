@@ -108,7 +108,7 @@ export default function StandardWork({
           {data && (
             <span className="ml-auto self-center text-right leading-relaxed">
               caminado <b style={{ color: WALK }}>{data.walkPct}%</b> · sobre takt <b style={{ color: data.loopsOverTakt ? ROSE : undefined }}>{data.loopsOverTakt}</b><br />
-              <span className="text-[11px] text-gray-400">{data.placedRatioPct}% de estaciones colocadas</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">{data.placedRatioPct}% de estaciones colocadas</span>
             </span>
           )}
         </div>
@@ -116,9 +116,9 @@ export default function StandardWork({
         {error ? (
           <p className="text-[12px] text-amber-500 py-10 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-14 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-14 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : data.loops.length === 0 ? (
-          <p className="text-[12px] text-gray-400 py-8 text-center">Se necesita al menos una estación con tiempo manual.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 py-8 text-center">Se necesita al menos una estación con tiempo manual.</p>
         ) : (
           <>
             <div className="flex items-center gap-3 mb-2 text-[11px] text-gray-500">
@@ -150,7 +150,7 @@ export default function StandardWork({
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {l.steps.map((s) => (
                         <span key={s.station} className="text-[11px] px-1.5 py-0.5 rounded-md bg-black/[0.05] dark:bg-white/[0.08]">
-                          {s.station} <span className="text-gray-400">{Math.round(s.manualSec)}s{s.walkSec > 0 ? ` +${Math.round(s.walkSec)}` : ''}</span>
+                          {s.station} <span className="text-gray-500 dark:text-gray-400">{Math.round(s.manualSec)}s{s.walkSec > 0 ? ` +${Math.round(s.walkSec)}` : ''}</span>
                         </span>
                       ))}
                     </div>
@@ -161,7 +161,7 @@ export default function StandardWork({
           </>
         )}
 
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
           Cada barra combina el tiempo manual (azul) y el caminado entre estaciones del bucle (naranja) contra el takt. Un bucle que cabe en manual pero pasa la línea de takt al sumar el caminado es la causa clásica de que una línea «balanceada» no sostenga su ciclo.
         </p>
       </div>

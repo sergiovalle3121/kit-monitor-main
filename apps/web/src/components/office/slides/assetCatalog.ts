@@ -18,6 +18,26 @@ export const SLIDE_ASSET_CATEGORIES = [
 export type SlideAssetCategory = (typeof SLIDE_ASSET_CATEGORIES)[number]['id'];
 export type SlideAssetFilterMode = 'all' | 'favorites' | 'recent';
 
+export const SLIDE_ASSET_USE_CASES = [
+  { id: 'visualAid', label: 'Visual aid' },
+  { id: 'productionReview', label: 'Production review' },
+  { id: 'qualityReview', label: 'Quality review' },
+  { id: 'npiLaunch', label: 'NPI launch' },
+  { id: 'supplierReview', label: 'Supplier review' },
+  { id: 'logisticsReview', label: 'Logistics review' },
+  { id: 'safetyReview', label: 'Safety review' },
+  { id: 'executiveReview', label: 'Executive review' },
+] as const;
+
+export type SlideAssetUseCase = (typeof SLIDE_ASSET_USE_CASES)[number]['id'];
+
+export interface SlideAssetMetadata {
+  useCases: SlideAssetUseCase[];
+  altText: string;
+  pptxFidelity: 'svg-vector' | 'review';
+  warning?: string;
+}
+
 export interface SlideAssetSymbol {
   id: string;
   label: string;
@@ -31,6 +51,7 @@ export interface SlideAssetFilterOptions {
   category?: SlideAssetCategory | 'all';
   query?: string;
   mode?: SlideAssetFilterMode;
+  useCase?: SlideAssetUseCase | 'all';
   favoriteIds?: Iterable<string>;
   recentIds?: Iterable<string>;
 }
@@ -39,6 +60,43 @@ export const CATEGORY_LABEL = SLIDE_ASSET_CATEGORIES.reduce((acc, category) => {
   acc[category.id] = category.label;
   return acc;
 }, {} as Record<SlideAssetCategory, string>);
+
+export const ASSET_USE_CASE_LABEL = SLIDE_ASSET_USE_CASES.reduce((acc, item) => {
+  acc[item.id] = item.label;
+  return acc;
+}, {} as Record<SlideAssetUseCase, string>);
+
+const CATEGORY_USE_CASES: Record<SlideAssetCategory, SlideAssetUseCase[]> = {
+  production: ['visualAid', 'productionReview', 'executiveReview'],
+  lean: ['visualAid', 'productionReview'],
+  quality: ['qualityReview', 'visualAid'],
+  safety: ['visualAid', 'safetyReview'],
+  ehs: ['visualAid', 'safetyReview'],
+  engineering: ['npiLaunch', 'visualAid'],
+  warehouse: ['logisticsReview', 'visualAid'],
+  npi: ['npiLaunch', 'productionReview'],
+  supplier: ['supplierReview', 'qualityReview'],
+  testing: ['qualityReview', 'productionReview'],
+  packing: ['logisticsReview', 'visualAid'],
+  shipping: ['logisticsReview', 'supplierReview'],
+  maintenance: ['visualAid', 'safetyReview'],
+  office: ['executiveReview', 'qualityReview'],
+};
+
+const ASSET_USE_CASE_OVERRIDES: Record<string, SlideAssetUseCase[]> = {
+  'oee-tile': ['productionReview', 'executiveReview'],
+  pareto: ['qualityReview', 'executiveReview'],
+  capa: ['qualityReview', 'executiveReview'],
+  'ncr-tag': ['qualityReview', 'visualAid'],
+  'launch-gate': ['npiLaunch', 'executiveReview'],
+  ppap: ['npiLaunch', 'supplierReview'],
+  'pilot-run': ['npiLaunch', 'productionReview'],
+  'supplier-scorecard': ['supplierReview', 'executiveReview'],
+  scar: ['supplierReview', 'qualityReview'],
+  'yield-chart': ['qualityReview', 'executiveReview'],
+  'action-register': ['executiveReview', 'qualityReview'],
+  'decision-log': ['executiveReview', 'supplierReview'],
+};
 
 const svg = (body: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">${body}</svg>`;
 
@@ -106,13 +164,36 @@ export function normalizeAssetQuery(value: string): string {
 }
 
 function assetSearchText(asset: SlideAssetSymbol): string {
+  const metadata = getSlideAssetMetadata(asset);
   return normalizeAssetQuery([
     asset.id,
     asset.label,
     CATEGORY_LABEL[asset.category],
     asset.description,
+    metadata.altText,
+    ...metadata.useCases.map((useCase) => ASSET_USE_CASE_LABEL[useCase]),
     ...asset.keywords,
   ].join(' '));
+}
+
+export function getSlideAssetUseCases(asset: SlideAssetSymbol): SlideAssetUseCase[] {
+  return ASSET_USE_CASE_OVERRIDES[asset.id] ?? CATEGORY_USE_CASES[asset.category];
+}
+
+export function getSlideAssetMetadata(asset: SlideAssetSymbol): SlideAssetMetadata {
+  const useCases = getSlideAssetUseCases(asset);
+  const hasSvg = asset.svg.startsWith('<svg ') && !/<script\b/i.test(asset.svg);
+  const completeSearchMetadata = asset.keywords.length >= 3 && asset.description.trim().length > 3;
+  return {
+    useCases,
+    altText: `${asset.label}: ${asset.description} (${CATEGORY_LABEL[asset.category]}).`,
+    pptxFidelity: hasSvg ? 'svg-vector' : 'review',
+    warning: !hasSvg
+      ? 'Review SVG before PPTX export.'
+      : completeSearchMetadata
+        ? undefined
+        : 'Add search keywords before release.',
+  };
 }
 
 export function getSlideAssetById(id: string, assets: readonly SlideAssetSymbol[] = INDUSTRIAL_ASSETS): SlideAssetSymbol | undefined {
@@ -130,10 +211,12 @@ export function filterSlideAssets(
   const recentSet = new Set(recentIds);
   const recentRank = new Map(recentIds.map((id, index) => [id, index]));
   const mode = options.mode ?? 'all';
+  const useCase = options.useCase ?? 'all';
 
   return assets
     .filter((asset) => {
       if (category !== 'all' && asset.category !== category) return false;
+      if (useCase !== 'all' && !getSlideAssetUseCases(asset).includes(useCase)) return false;
       if (mode === 'favorites' && !favoriteSet.has(asset.id)) return false;
       if (mode === 'recent' && !recentSet.has(asset.id)) return false;
       if (!query) return true;
@@ -151,11 +234,19 @@ export function filterSlideAssets(
 export function assetCatalogStats(assets: readonly SlideAssetSymbol[] = INDUSTRIAL_ASSETS): {
   total: number;
   categories: Record<SlideAssetCategory, number>;
+  useCases: Record<SlideAssetUseCase, number>;
 } {
   const categories = SLIDE_ASSET_CATEGORIES.reduce((acc, category) => {
     acc[category.id] = 0;
     return acc;
   }, {} as Record<SlideAssetCategory, number>);
-  for (const asset of assets) categories[asset.category] += 1;
-  return { total: assets.length, categories };
+  const useCases = SLIDE_ASSET_USE_CASES.reduce((acc, item) => {
+    acc[item.id] = 0;
+    return acc;
+  }, {} as Record<SlideAssetUseCase, number>);
+  for (const asset of assets) {
+    categories[asset.category] += 1;
+    for (const useCase of getSlideAssetUseCases(asset)) useCases[useCase] += 1;
+  }
+  return { total: assets.length, categories, useCases };
 }

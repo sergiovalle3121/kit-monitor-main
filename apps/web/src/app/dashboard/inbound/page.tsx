@@ -154,9 +154,9 @@ export default function InboundPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver recibo.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver recibo.</p>
         </div>
       </div>
     );
@@ -166,7 +166,7 @@ export default function InboundPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(16,185,129,0.12)' }}>
@@ -174,7 +174,7 @@ export default function InboundPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Recibo · Inbound + IQC</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Recepción, inspección de entrada y liberación</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Recepción, inspección de entrada y liberación</p>
           </div>
         </div>
       </div>
@@ -221,12 +221,12 @@ export default function InboundPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin recibos</h3>
-            <p className="text-sm text-gray-400 mt-1">Recibe material para iniciar la cola de IQC.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Recibe material para iniciar la cola de IQC.</p>
           </div>
         ) : (
           <div className="space-y-8">
@@ -238,7 +238,7 @@ export default function InboundPage() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_META[status].color }} />
                     <h2 className="text-sm font-semibold">{STATUS_META[status].label}</h2>
-                    <span className="text-[11px] text-gray-400">({items.length})</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">({items.length})</span>
                   </div>
                   <div className="space-y-3">
                     {items.map((r) => (
@@ -251,7 +251,7 @@ export default function InboundPage() {
                               {r.iqcResult && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${r.iqcResult === 'PASS' ? GREEN : RED}1f`, color: r.iqcResult === 'PASS' ? GREEN : RED }}>{r.iqcResult}</span>}
                               {r.inventoryPosted && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>en inventario</span>}
                             </div>
-                            <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-400 flex-wrap">
+                            <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                               <span>{r.quantity} {r.uom}</span>
                               {r.lotNumber && <><span>•</span><span>lote {r.lotNumber}</span></>}
                               {r.supplierName && <><span>•</span><span>{r.supplierName}</span></>}
@@ -308,7 +308,7 @@ export default function InboundPage() {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
   );

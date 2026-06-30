@@ -110,9 +110,9 @@ export default function TestEngineeringPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver Test Engineering.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver Test Engineering.</p>
         </div>
       </div>
     );
@@ -125,7 +125,7 @@ export default function TestEngineeringPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(16,185,129,0.12)' }}>
@@ -133,7 +133,7 @@ export default function TestEngineeringPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Test Engineering · Yields</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Captura de pruebas · FPY · Pareto de fallas</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Captura de pruebas · FPY · Pareto de fallas</p>
           </div>
         </div>
       </div>
@@ -214,7 +214,7 @@ export default function TestEngineeringPage() {
                   <div className="flex-1 h-5 rounded-md overflow-hidden bg-black/5 dark:bg-white/10">
                     <div className="h-full rounded-md" style={{ width: `${b.pct}%`, background: RED, opacity: 0.7 }} />
                   </div>
-                  <span className="w-16 text-right text-[12px] text-gray-400">{b.count} · {b.pct}%</span>
+                  <span className="w-16 text-right text-[12px] text-gray-500 dark:text-gray-400">{b.count} · {b.pct}%</span>
                 </div>
               ))}
             </div>
@@ -224,12 +224,12 @@ export default function TestEngineeringPage() {
         {/* Recent records */}
         <h3 className="text-sm font-semibold mb-3">Capturas recientes</h3>
         {isLoading ? (
-          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin pruebas capturadas</h3>
-            <p className="text-sm text-gray-400 mt-1">Captura el primer resultado para empezar a medir yields.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Captura el primer resultado para empezar a medir yields.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -239,7 +239,7 @@ export default function TestEngineeringPage() {
                 <span className="font-mono text-sm truncate flex-1">{r.serialNumber}</span>
                 <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{r.station}</span>
                 {r.failureCode && <span className="text-[11px]" style={{ color: RED }}>{r.failureCode}</span>}
-                <span className="text-[11px] text-gray-400">{r.testedAt ? new Date(r.testedAt).toLocaleTimeString() : ''}</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">{r.testedAt ? new Date(r.testedAt).toLocaleTimeString() : ''}</span>
               </div>
             ))}
           </div>
@@ -269,9 +269,9 @@ export default function TestEngineeringPage() {
 function Kpi({ label, value, sub, color }: { label: string; value: number | string; sub?: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
-      {sub && <div className="text-[12px] text-gray-400 mt-0.5 truncate">{sub}</div>}
+      {sub && <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{sub}</div>}
     </div>
   );
 }

@@ -35,9 +35,9 @@ export default function WarehousePage() {
     return (
       <div className="grid min-h-[60vh] place-items-center text-foreground">
         <div className={`${glass} max-w-sm rounded-3xl p-10 text-center`}>
-          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="mt-1 text-sm text-gray-400">Necesitas permiso de materiales para ver el centro de surtido y devoluciones.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Necesitas permiso de materiales para ver el centro de surtido y devoluciones.</p>
         </div>
       </div>
     );

@@ -9,7 +9,7 @@ import { copyText } from '../_lib/format';
 
 export function Spinner({ label }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-20 text-gray-400">
+    <div className="flex flex-col items-center justify-center gap-3 py-20 text-gray-500 dark:text-gray-400">
       <Loader2 className="h-6 w-6 animate-spin" />
       {label && <span className="text-sm">{label}</span>}
     </div>
@@ -51,7 +51,7 @@ export function Kpi({
   return (
     <div className={`${glass} rounded-2xl p-4`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-gray-400">{label}</span>
+        <span className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
         {Icon && <Icon className="h-4 w-4" style={{ color: color ?? '#9ca3af' }} />}
       </div>
       <div
@@ -60,7 +60,7 @@ export function Kpi({
       >
         {value}
       </div>
-      {sub && <div className="mt-0.5 truncate text-[12px] text-gray-400">{sub}</div>}
+      {sub && <div className="mt-0.5 truncate text-[12px] text-gray-500 dark:text-gray-400">{sub}</div>}
     </div>
   );
 }
@@ -76,9 +76,9 @@ export function EmptyState({
 }) {
   return (
     <div className={`${glass} rounded-3xl p-12 text-center`}>
-      <Icon className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+      <Icon className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
       <h3 className="font-semibold">{title}</h3>
-      {body && <p className="mx-auto mt-1 max-w-lg text-sm text-gray-400">{body}</p>}
+      {body && <p className="mx-auto mt-1 max-w-lg text-sm text-gray-500 dark:text-gray-400">{body}</p>}
     </div>
   );
 }
@@ -86,9 +86,9 @@ export function EmptyState({
 export function AccessDenied({ permission }: { permission: string }) {
   return (
     <div className={`${glass} rounded-3xl p-12 text-center`}>
-      <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+      <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
       <h3 className="font-semibold">Sin acceso</h3>
-      <p className="mx-auto mt-1 max-w-md text-sm text-gray-400">
+      <p className="mx-auto mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
         Necesitas el permiso <code className="font-mono text-[12px]">{permission}</code> para
         ver esta consulta. Pídelo a un administrador.
       </p>

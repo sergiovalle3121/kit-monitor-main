@@ -45,7 +45,7 @@ export function SheetTableStyle({
         className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl p-6 space-y-3 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Dar formato como tabla</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
 
         {sheetNames.length > 1 && (
@@ -82,7 +82,7 @@ export function SheetTableStyle({
         </div>
 
         <button onClick={apply} className="w-full h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90">Aplicar formato de tabla</button>
-        <p className="text-[11px] text-gray-400">Aplica encabezado, bandas y autofiltro al rango. El autofiltro usa el filtro nativo de la hoja.</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">Aplica encabezado, bandas y autofiltro al rango. El autofiltro usa el filtro nativo de la hoja.</p>
       </motion.div>
     </motion.div>
   );

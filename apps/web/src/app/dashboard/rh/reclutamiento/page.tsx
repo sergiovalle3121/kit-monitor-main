@@ -201,9 +201,9 @@ export default function ReclutamientoPage() {
         <Spinner />
       ) : requisitions.length === 0 ? (
         <div className={`${glass} rounded-3xl p-12 text-center`}>
-          <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h3 className="font-semibold">Sin requisiciones</h3>
-          <p className="text-sm text-gray-400 mt-1">Abre una vacante para empezar a construir el pipeline.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Abre una vacante para empezar a construir el pipeline.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -220,7 +220,7 @@ export default function ReclutamientoPage() {
                       <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: `${PRIORITY_COLOR[r.priority]}1f`, color: PRIORITY_COLOR[r.priority] }}>{r.priority}</span>
                       {r.reason === 'RAMP' && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${COLORS.violet}1f`, color: COLORS.violet }}>Rampa</span>}
                     </div>
-                    <div className="mt-0.5 text-[12px] text-gray-400">
+                    <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
                       {r.folio && <span>{r.folio} · </span>}
                       {r.area ?? 'Sin área'}{r.shift && ` · T${r.shift}`} · {r.filledCount}/{r.openings} cubiertas
                       {r.program && <span> · {r.program}</span>}
@@ -242,12 +242,12 @@ export default function ReclutamientoPage() {
                 {/* candidate pipeline for this req */}
                 <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/10">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] uppercase tracking-wide text-gray-400">Pipeline · {mine.length}</span>
+                    <span className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Pipeline · {mine.length}</span>
                     {newCand?.reqId === r.id ? (
                       <div className="flex items-center gap-1">
                         <input autoFocus value={newCand.name} onChange={(e) => setNewCand({ reqId: r.id, name: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addCandidate(r.id)} placeholder="Nombre del candidato" className="rh-input !w-48 !py-1 !text-[12px]" />
                         <button onClick={() => addCandidate(r.id)} disabled={busy} className="p-1.5 rounded-lg" style={{ color: COLORS.green }}><CheckCircle2 className="w-4 h-4" /></button>
-                        <button onClick={() => setNewCand(null)} className="p-1.5 rounded-lg text-gray-400"><X className="w-4 h-4" /></button>
+                        <button onClick={() => setNewCand(null)} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400"><X className="w-4 h-4" /></button>
                       </div>
                     ) : (
                       <button onClick={() => setNewCand({ reqId: r.id, name: '' })} className="text-[12px] inline-flex items-center gap-1" style={{ color: COLORS.green }}><Plus className="w-3.5 h-3.5" /> Candidato</button>
