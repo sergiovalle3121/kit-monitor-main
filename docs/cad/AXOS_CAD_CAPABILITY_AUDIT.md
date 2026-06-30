@@ -1,6 +1,22 @@
 # AXOS CAD Capability Audit
 
-Last updated: 2026-06-29
+Last updated: 2026-06-30
+
+## 2026-06-30 - Canvas focus workbench update
+
+| Capability | Exists? | Files | Maturity | Gap | Next non-redundant PR | Owner files | Collision risk with open PRs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Full-screen Factory CAD Workbench | Yes | `Layout3DEditor.tsx`, `apps/web/src/lib/operatorChrome.ts`, `apps/web/src/lib/routeChrome.ts`, `apps/web/src/lib/cad/workbench-chrome.ts` | usable | Global dock/widgets were already hidden, but local left/right rails always consumed canvas width. | Add grouped toolbar rows after factory-scale and viewport PRs land. | `Layout3DEditor.tsx`, `workbench-chrome.ts` | Medium: active CAD PRs #900/#903 also touch `Layout3DEditor.tsx`, so this run kept changes rail/chrome scoped. |
+
+Existing capability found: CAD already mounts as a full-screen portal and calls `setWorkbenchChrome(open)`, so global dock and floating widgets are hidden through the shared route chrome store.
+
+What this run reused: the current portal, toolbar, left equipment/station rail, right inspector, status bar, route chrome store, and Three.js `ResizeObserver`.
+
+What this run extended: users can collapse the left rail, collapse the right inspector, or enter canvas focus mode to reclaim the drawing surface for large factory layouts.
+
+What this run intentionally did not duplicate: no new CAD editor, shell route, route chrome classifier, toolbar system, renderer, layer model, or persistence contract.
+
+Why this is non-redundant: open PR #900 owns factory-scale plant bounds and #903 owns saved viewport bookmarks; this PR targets the separate Phase 1 workbench problem of local rails taking too much canvas area.
 
 ## 2026-06-29 - Safety path zone update
 

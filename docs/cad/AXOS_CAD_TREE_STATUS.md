@@ -1,6 +1,17 @@
 # AXOS CAD Tree Status
 
-Last updated: 2026-06-29
+Last updated: 2026-06-30
+
+## 2026-06-30 - Canvas focus workbench
+
+This run advances Phase 1 (full-screen Factory CAD Workbench) without adding a second CAD shell:
+
+- `workbench-chrome.ts` defines tested local rail/focus behavior for the existing workbench.
+- `Layout3DEditor.tsx` now lets users collapse the left insert rail, collapse the right inspector, or enter a canvas-focus mode that hides both rails.
+- Hidden rails have edge restore buttons, while the top toolbar keeps persistent rail/focus controls and the status bar shows the current workbench mode.
+- The existing `ResizeObserver`, full-screen portal, route chrome store, editor state, command dock, layer panel, and object inspector remain the single path.
+
+This does not create another editor, shell, toolbar, route classifier, canvas renderer, layer model, or persistence contract.
 
 ## 2026-06-29 - Safety paths and ESD zones
 

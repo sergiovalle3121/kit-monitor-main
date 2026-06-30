@@ -342,3 +342,12 @@
 - Wired CAD layer visibility to actual station and asset objects in the viewport instead of only export/inspector metadata.
 - Added hidden/locked layer object counts plus an `All` recovery action to the existing layer panel and status bar.
 - Pending: persist layer assignments/visibility with the layout API and add layer search/filter after the persistence contract is reviewed.
+
+## 2026-06-30 - CAD canvas focus workbench
+
+- Inspected automation memory, open CAD PRs #900/#903, required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, operator chrome, and design docs.
+- Classified #900 and #903 as ready for Claude Integrator; #900 already had a ready comment and #903 received the non-duplicate readiness comment.
+- Avoided factory-scale presets/bounds and saved viewport bookmarks because those are active open CAD PRs.
+- Reused the existing full-screen portal, `setWorkbenchChrome`, route chrome hiding of global dock/widgets, left station/equipment rail, right inspector, status bar, and Three.js resize observer.
+- Added `workbench-chrome.ts` for tested local rail/focus behavior and wired `Layout3DEditor` so users can collapse either rail or enter canvas focus mode.
+- Pending: grouped toolbar taxonomy after #900/#903 settle, so toolbar reshaping can be based on the latest plant and viewport controls.
