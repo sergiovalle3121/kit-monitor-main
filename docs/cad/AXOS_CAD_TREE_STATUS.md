@@ -72,6 +72,13 @@ This run adds a command-dock line balance workflow:
 - The command is honest about partial data: station labels like `CT=42s` are supported, explicit tool metadata is supported, and missing takt/cycle times produce warnings instead of fabricated capacity data.
 
 The workflow does not introduce a parallel Yamazumi panel, backend endpoint, or fake production routing integration. It reuses the command dock, command palette, selected-object context, and report operation rendering that already exist.
+This run hardens the existing CAD plot/export package:
+
+- `plot-sheet.ts` now includes package metadata rows for connectors, dimensions, labels, visible/locked layers, active layer, validation severity, DXF warnings, package target, and approval state.
+- `Layout3DEditor.tsx` passes current CAD state into the existing PDF exporter, so the toolbar's print/PDF button produces a richer title block without a new export modal.
+- `plot-sheet.spec.ts` covers default package rows, warning metadata, layer summaries, and defensive clamping.
+
+The workflow is visible through the existing PDF export button. It reuses the current plot helper, validation state, layer state, annotations, connectors, approval state, and DXF warning state instead of creating a second plot/export system.
 ## 2026-06-29 - Supermarket and kitting template
 
 This run extends the existing editable template workflow without touching the editor shell:
@@ -103,6 +110,7 @@ This does not create a second warehouse generator, block system, editor, layer m
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 11 - Blocks / industrial symbols pro | Stronger | `symbols.ts`, existing symbol rail, Cmd-K palette, and symbol spec coverage | Add native block instances after the persistence contract is settled. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
+| Phase 22 - Plot / sheet / title block | Advanced | `plot-sheet.ts`, `plot-sheet.spec.ts`, and the existing `Layout3DEditor.tsx` PDF export button | Add vector paper-space drawing and title-block revision metadata. |
 | Phase 23 - Supermarket/kitting template | Usable | `templates.ts`, `templates.spec.ts`, existing `Layout3DEditor` template rail | Add parametric lane/cart counts after generator conflicts settle. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
@@ -125,6 +133,7 @@ Recommended next phase: add an editable connector workflow or validation issue a
 
 PR #796 advances the existing validation center by making the design-check modal use the shared CAD validation report for collisions, clearances, safety, and flow. User-visible additions are clearance warning rows, selection/highlight on clearance issues, CAD validation severity in the status bar, and release-readiness counts that distinguish blockers from warnings. It does not add a parallel validation engine, collision helper, CAD shell, or flow model.
 Recommended next phase: add a parametric rack row or SMT line generator with user inputs, building on `templates.ts` and the existing editable asset/connector model.
+Recommended next phase: add vector paper-space drawing from `plot-scale.ts`, or wait for PR #746 to land before adding viewport-aware sheet previews.
 
 ## Warehouse generator update
 

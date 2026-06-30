@@ -260,6 +260,14 @@
 - Wired the generator into the existing equipment rail so users can create warehouse rack rows without leaving CAD.
 - Added pure smoke coverage for horizontal racks, vertical rack aisles, footprint bounds, scaling warnings, and large-layout caps.
 - Pending: add supermarket lane and receiving/shipping dock generators using the same output contract.
+## 2026-06-29 - CAD plot package metadata
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `plot-sheet.ts`, `plot-scale.ts`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open CAD PRs #839, #838, and #746.
+- Avoided generator, command-registry, validation-center, minimap/scale-bar, layer-manager, and DXF internals because active PRs own those areas.
+- Reused the existing `Layout3DEditor` PDF export button and `plotSheetModel` title-block helper instead of adding another plot/export workflow.
+- Extended exported CAD PDF title blocks with connectors, dimensions, labels, layer visibility/locks, active layer, validation severity, DXF warnings, package target, and approval state.
+- Added `plot-sheet.spec.ts` for default package rows, warning metadata, layer summaries, and defensive clamping.
+- Pending: vector paper-space output using `plot-scale.ts` after viewport/minimap PRs settle.
 ## 2026-06-29 - Manufacturing CAD symbol blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.
