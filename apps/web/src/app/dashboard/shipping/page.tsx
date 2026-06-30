@@ -89,7 +89,7 @@ export default function ShippingPage() {
             <h1 className="text-lg font-semibold leading-tight">Logística · Embarques</h1>
             <p className="text-[12px] text-gray-400 leading-tight">Surtido, manifiesto, despacho y cierre</p>
           </div>
-          <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
+          <button onClick={() => setShowCreate(true)} aria-label="Nuevo embarque" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nuevo embarque</span>
           </button>
         </div>

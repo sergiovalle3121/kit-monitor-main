@@ -140,10 +140,10 @@ export default function CrmPage() {
             <h1 className="text-lg font-semibold leading-tight">CRM Comercial</h1>
             <p className="text-[12px] text-gray-400 leading-tight">Cuentas, pipeline, cotizaciones y actividades</p>
           </div>
-          <button onClick={() => setShowAccount(true)} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 border border-black/10 dark:border-white/10">
+          <button onClick={() => setShowAccount(true)} aria-label="Nueva cuenta" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 border border-black/10 dark:border-white/10">
             <Building2 className="w-4 h-4" /> <span className="hidden sm:inline">Nueva cuenta</span>
           </button>
-          <button onClick={() => setShowOpp(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}>
+          <button onClick={() => setShowOpp(true)} aria-label="Nueva oportunidad" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Oportunidad</span>
           </button>
         </div>
