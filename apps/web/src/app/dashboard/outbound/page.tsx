@@ -225,7 +225,7 @@ export default function OutboundPage() {
             <h1 className="text-lg font-semibold leading-tight">Logística · Embarque</h1>
             <p className="text-[12px] text-gray-400 leading-tight">Empaque, embarque y entrega (ASN)</p>
           </div>
-          <button onClick={openSoPicker} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}>
+          <button onClick={openSoPicker} aria-label="Desde OV" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}>
             <ListChecks className="w-4 h-4" /> <span className="hidden sm:inline">Desde OV</span>
           </button>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: BLUE }}>

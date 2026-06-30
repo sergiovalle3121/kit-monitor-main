@@ -90,7 +90,7 @@ export default function MaintenancePage() {
               <h1 className="text-lg font-semibold leading-tight">Mantenimiento · TPM</h1>
               <p className="text-[12px] text-gray-400 leading-tight">Activos, órdenes y preventivo (CMMS)</p>
             </div>
-            <button onClick={() => onNewOrder()} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: COLORS.violet }}>
+            <button onClick={() => onNewOrder()} aria-label="Nueva orden" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: COLORS.violet }}>
               <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nueva orden</span>
             </button>
           </div>

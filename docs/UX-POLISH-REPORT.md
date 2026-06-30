@@ -358,3 +358,29 @@ fallaban). `tsc` + `eslint` limpios, `next build` OK.
 `axe:color-contrast` (texto *muted* por debajo de 4.5:1) y algún `axe:button-name`
 — son cambios a nivel de token/iconos sueltos, de otra naturaleza; se dejan como
 follow-up trackeable.
+
+---
+
+## 13. Pase 6 — A11y: nombres en botones de ícono + back-links sueltos
+
+Cierre del trabajo de nombres accesibles. El barrido completo (96 rutas) tras el
+pase 5 ya mostraba `link-name` **92 → 1** y `button-name` **14 → ≤5**; aquí se
+liquidan los que quedaban (desktop **y** móvil):
+
+| Ruta | Control | Causa | `aria-label` |
+| --- | --- | --- | --- |
+| `/login` | Toggle de contraseña | botón con solo `Eye`/`EyeOff` | `Mostrar/Ocultar contraseña` (según estado) |
+| `/dashboard/forecast` | Back-link `‹` | usa otra clase, no entró en el pase 5 | `Volver al inicio` |
+| `/dashboard/crm` | "Nueva cuenta" / "Oportunidad" | el texto es `hidden sm:inline` → en móvil queda solo el ícono | `Nueva cuenta` / `Nueva oportunidad` |
+| `/dashboard/maintenance` | "Nueva orden" | ídem (texto oculto en móvil) | `Nueva orden` |
+| `/dashboard/outbound` | "Desde OV" | ídem | `Desde OV` |
+| `/dashboard/shipping` | "Nuevo embarque" | ídem | `Nuevo embarque` |
+
+Patrón de fondo: botones `<Icon/> <span className="hidden sm:inline">Texto</span>`
+que en móvil pierden su nombre. El `aria-label` (igual al texto visible) le da
+nombre estable en todos los breakpoints, sin cambio visual.
+
+**Evidencia:** re-barrido axe de las 6 rutas en **escritorio y móvil** →
+`axe:button-name = 0` y `axe:link-name = 0`. Con el pase 5, la app queda **sin
+violaciones de nombre accesible**. `tsc` + `eslint` limpios, `next build` OK.
+Único pendiente de a11y: `axe:color-contrast` (token-level, follow-up aparte).
