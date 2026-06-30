@@ -16,6 +16,12 @@ This run upgrades the existing professional dimensioning workflow:
 - Overlapping objects are labeled as overlap measurements rather than pretending there is usable clearance.
 
 The workflow is visible in the CAD right inspector when exactly two objects are selected. It does not introduce a parallel dimension model, exporter, annotation store, or measurement panel.
+This run expands the existing CAD symbol library into a stronger manufacturing block set:
+
+- `symbols.ts` now includes solder paste printer, SPI, pick-and-place, reflow oven, X-ray inspection, ICT, functional test, conformal coating, depaneling, manual assembly, quality gate, label print, and calibration station symbols.
+- Each new symbol carries default footprint dimensions, Equipment-layer assignment, manufacturing/search tags, and normalized flow/exception ports.
+- The existing `Layout3DEditor.tsx` symbol rail and Cmd-K palette pick these up automatically from `CAD_SYMBOL_LIBRARY`; inserted blocks become editable assets with labels, layer assignment, selection, undo, validation, and DXF export through the current paths.
+- No parallel block editor, command registry, DXF exporter, template system, or generator was created.
 
 This run hardens the existing CAD keyboard shortcut path:
 
@@ -86,6 +92,7 @@ This does not create a second warehouse generator, block system, editor, layer m
 | Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus a reachable command workflow | Keep audit current as PRs land. |
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, `arrange_flow_line`, and template-seeded flow health | Add richer flow recommendations and before/after preview cards. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
+| Phase 11 - Blocks / industrial symbols pro | Stronger | `symbols.ts`, existing symbol rail, Cmd-K palette, and symbol spec coverage | Add native block instances after the persistence contract is settled. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
 | Phase 4 - Professional dimensioning system | Advanced | `measurements.ts`, saved dimension annotations, DXF export, and `Borde H`/`Borde V` in the right inspector | Add dimension styles and critical-measurement validation rules. |
 | Phase 23 - Supermarket/kitting template | Usable | `templates.ts`, `templates.spec.ts`, existing `Layout3DEditor` template rail | Add parametric lane/cart counts after generator conflicts settle. |

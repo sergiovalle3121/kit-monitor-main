@@ -22,6 +22,7 @@ const specs = [
   'src/lib/office/formulaAudit.spec.ts',
   'src/lib/office/dataValidationAudit.spec.ts',
   'src/lib/office/dataValidationSheet.spec.ts',
+  'src/lib/office/dataQuality.spec.ts',
   'src/lib/office/formulaDependencies.spec.ts',
   'src/lib/office/formulaErrorAudit.spec.ts',
   'src/lib/office/formulaErrorSheet.spec.ts',
