@@ -168,6 +168,21 @@ This run hardens the visible CAD validation center:
 The workflow is visible through the existing `Shift+V`/design-check validation path. It does not introduce a second validation engine, validation modal, collision helper, safety helper, flow model, or command registry path.
 
 Recommended next phase: add zoom-to-issue or one-click safe remediation after the active editor/generator PRs settle.
+## DXF critical label preflight
+
+This run hardens the existing DXF export preflight:
+
+- `dxf-export-readiness.ts` now accepts optional export labels and a `requiresLabel` marker on readiness entities.
+- The existing `Layout3DEditor.tsx` DXF summary builder passes station names and asset labels into that helper.
+- The current Exportar DXF modal now surfaces a warning when included critical industrial footprints have no visible user label.
+- Hidden or unselected critical footprints only warn when the user includes them through export options.
+- The readiness spec covers included, hidden, and selection-scoped missing-label cases.
+
+The workflow remains on the existing export path: no second exporter, no new modal, no parallel geometry model, and no backend contract change.
+
+## Next CAD PR
+
+Recommended next phase: layer-selective editable DXF import review, or selected-layer DXF export after the active `Layout3DEditor.tsx` PRs settle.
 ## 2026-06-29 - EHS and utilities asset blocks
 
 This run extends the existing shared asset catalog instead of creating a third symbol/block system:

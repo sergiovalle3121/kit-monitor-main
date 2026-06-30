@@ -82,6 +82,19 @@ What was reused: existing collision/clearance/safety/flow helpers, existing vali
 What was extended: `CadValidationReport` now includes normalized issue rows with severity, affected object ids, action labels, and suggested fixes. The validation modal now shows those quick-fix rows without adding a new validation engine.
 
 What was intentionally not duplicated: no new CAD editor, validation center, collision helper, safety helper, flow model, command registry branch, DXF workflow, or layer model.
+## DXF critical label preflight update
+
+Open CAD PRs #858, #853, #850, #847, #844, #839, and #838 already touch dimensions, templates/generators, flow, plot metadata, `Layout3DEditor.tsx`, and command registry areas. This run avoided creating another exporter, validation surface, or layout model. It extends the existing `dxf-export-readiness.ts` helper and passes label metadata from the existing `Layout3DEditor.tsx` export summary so the current DXF modal warns when included industrial footprints need visible labels before release.
+
+The capability reused:
+
+- `apps/web/src/lib/cad/dxf-export-readiness.ts`
+- `apps/web/src/components/line-engineering/Layout3DEditor.tsx`
+- `apps/web/src/lib/cad/layout-export-adapter.ts`
+- `apps/web/src/lib/cad/dxf-export.ts`
+- `apps/web/src/lib/cad/layers.ts`
+
+The non-redundant gap closed is export readiness for unlabeled critical footprints. The next DXF PR should focus on layer-selective editable import review or selected-layer export after active editor PRs settle.
 ## 2026-06-29 - EHS and utilities asset catalog update
 
 Open CAD PRs at run start included #870 (layer visibility), #869 (manufacturing symbols), #864 (DXF critical label preflight), #861 (validation quick fixes), #858 (edge clearance dimensions), #853 (supermarket kitting template), #850 (flow health reorder preview), #847 (plot package metadata), #844 (warehouse generator), #838 (line-balance command), and draft #746 (viewport/minimap/editor shell). This run avoided `Layout3DEditor.tsx`, `apps/web/src/lib/cad/symbols.ts`, `apps/web/src/lib/cad/templates.ts`, DXF helpers, layers, commands, validation, flow, and measurements.
