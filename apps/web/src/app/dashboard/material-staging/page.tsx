@@ -36,8 +36,8 @@ interface Kpis { totalLines: number; stagedLines: number; shortageLines: number;
 
 // Carril 1 — planes publicados como cola de surtido + su pick-list.
 interface PlanWO { planId: number; workOrder: string; model: string; line: number; quantity: number; priority: string; status: string; publishedAt: string | null; kitId: number | null; totalLines: number; stagedLines: number; shortageLines: number; fillRatePct: number; allStaged: boolean; }
-interface PickLine { id: number; partNumber: string; description: string | null; unit: string; quantityRequired: number; requiredQty: number; stagedQty: number; stagingStatus: SStatus; staged: boolean; }
-interface PlanPick { planId: number; workOrder: string; model: string; quantity: number; status: string; lines: PickLine[]; summary: { totalLines: number; stagedLines: number; shortageLines: number; fillRatePct: number; allStaged: boolean; }; }
+interface PickLine { id: number; partNumber: string; description: string | null; unit: string; quantityRequired: number; requiredQty: number; stagedQty: number; availableQty: number; shortageQty: number; stockStatus: 'READY' | 'SHORTAGE'; stagingStatus: SStatus; staged: boolean; }
+interface PlanPick { planId: number; workOrder: string; model: string; quantity: number; status: string; lines: PickLine[]; summary: { totalLines: number; stagedLines: number; shortageLines: number; stockShortageLines: number; fillRatePct: number; allStaged: boolean; stockReady: boolean; }; }
 
 const SMETA: Record<SStatus, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: GRAY }, STAGED: { label: 'Montado', color: GREEN }, SHORTAGE: { label: 'Faltante', color: RED },
@@ -145,6 +145,10 @@ export default function MaterialStagingPage() {
   // ── Carril 1 actions (puente MES) ────────────────────────────────────────────
   async function stagePlanAll() {
     if (!activePlan) return;
+    if (pickData?.summary && !pickData.summary.stockReady) {
+      toast.error('Inventario insuficiente para surtir todo el plan. Atiende los faltantes primero.', 'Surtido');
+      return;
+    }
     setBusy('stage-all');
     try {
       const res = await apiFetch(`${API_BASE}/material-staging/mes/plans/${activePlan}/stage-all`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -156,6 +160,10 @@ export default function MaterialStagingPage() {
   async function stagePlanLine(line: PickLine) {
     if (!activePlan) return;
     const qty = draft[`p${line.id}`] ?? line.requiredQty;
+    if (qty > line.availableQty) {
+      toast.error(`Disponible insuficiente para ${line.partNumber}: ${line.availableQty} ${line.unit}.`, 'Surtido');
+      return;
+    }
     setBusy(`p${line.id}`);
     try {
       const res = await apiFetch(`${API_BASE}/material-staging/mes/plans/${activePlan}/lines/${line.id}/stage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stagedQty: qty }) });
@@ -188,6 +196,7 @@ export default function MaterialStagingPage() {
 
   const activePlanWO = plans.find((p) => p.planId === activePlan) ?? null;
   const activePlanKitId = activePlanWO?.kitId ?? null;
+  const activePlanStockReady = pickData?.summary?.stockReady ?? true;
 
   return (
     <div className="min-h-screen text-foreground font-sans pb-32">
@@ -232,7 +241,7 @@ export default function MaterialStagingPage() {
               <Kpi label="Planes publicados" value={plans.length} color={BLUE} />
               <Kpi label="Líneas surtidas" value={`${pickData?.summary?.stagedLines ?? 0}/${pickData?.summary?.totalLines ?? 0}`} color={GREEN} />
               <Kpi label="Solicitudes activas" value={materialRequestSummary.active} color={materialRequestSummary.pending > 0 ? AMBER : GREEN} />
-              <Kpi label="Estado del plan" value={activePlanWO?.allStaged ? 'Listo' : 'Pendiente'} color={activePlanWO?.allStaged ? GREEN : AMBER} />
+              <Kpi label="Stock gate" value={activePlanStockReady ? 'Cubierto' : `${pickData?.summary?.stockShortageLines ?? 0} faltantes`} color={activePlanStockReady ? GREEN : RED} />
             </div>
 
             {/* Plan selector */}
@@ -255,7 +264,7 @@ export default function MaterialStagingPage() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Pick-list del plan {activePlanWO ? `· ${activePlanWO.model}` : ''}</h3>
                   {activePlan && pickLines.length > 0 && (
-                    <button onClick={stagePlanAll} disabled={busy === 'stage-all'} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-60" style={{ background: GREEN }}>
+                    <button onClick={stagePlanAll} disabled={busy === 'stage-all' || !activePlanStockReady} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-60" style={{ background: activePlanStockReady ? GREEN : RED }}>
                       {busy === 'stage-all' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListChecks className="w-4 h-4" />} Surtir todo
                     </button>
                   )}
@@ -274,7 +283,10 @@ export default function MaterialStagingPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {pickLines.map((l) => (
+                    {pickLines.map((l) => {
+                      const requestedQty = draft[`p${l.id}`] ?? l.requiredQty;
+                      const overAvailable = requestedQty > l.availableQty;
+                      return (
                       <div key={l.id} className={`${glass} rounded-xl p-3.5`}>
                         <div className="flex items-center gap-3">
                           <div className="min-w-0 flex-1">
@@ -282,21 +294,24 @@ export default function MaterialStagingPage() {
                               <span className="font-mono font-medium">{l.partNumber}</span>
                               {l.description && <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{l.description}</span>}
                               <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${PMETA[l.stagingStatus].color}1f`, color: PMETA[l.stagingStatus].color }}>{PMETA[l.stagingStatus].label}</span>
+                              {l.stockStatus === 'SHORTAGE' && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> Falta {l.shortageQty}</span>}
                             </div>
                             <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">Requerido {l.requiredQty} {l.unit} · surtido {l.stagedQty}</div>
+                            <div className="text-[11px] text-gray-500 mt-0.5">Disponible {l.availableQty} {l.unit} / faltante {l.shortageQty}</div>
                           </div>
                           <input
                             type="number" defaultValue={l.requiredQty}
                             onChange={(e) => setDraft({ ...draft, [`p${l.id}`]: Number(e.target.value) })}
                             onKeyDown={(e) => { if (e.key === 'Enter') stagePlanLine(l); }}
                             className="ci-input w-24" />
-                          <button onClick={() => stagePlanLine(l)} disabled={busy === `p${l.id}`} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: GREEN }}>Surtir</button>
+                          <button onClick={() => stagePlanLine(l)} disabled={busy === `p${l.id}` || overAvailable} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: overAvailable ? RED : GREEN }}>Surtir</button>
                           {l.staged && (
                             <button onClick={() => unstagePlanLine(l)} disabled={busy === `p${l.id}`} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50 inline-flex items-center gap-1" style={{ background: `${GRAY}1f`, color: GRAY }}><RotateCcw className="w-3 h-3" /> Revertir</button>
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
