@@ -192,6 +192,10 @@ AXOS Sheets now has a pure formula dependency graph that extracts formula nodes,
 
 The dependency graph now also produces a deterministic recalculation plan for formulas that are not blocked by circular references. The plan orders dependencies before dependents, reports formulas blocked by cycles, carries missing references forward, and is consumed by Workbook Health to distinguish fully blocked workbooks from partially recalculable industrial models.
 
+### Fase 4 expansion — Visible recalculation plan
+
+The existing formula dependency graph is now directly visible in AXOS Sheets. The Formula ribbon exposes a **Plan recalc** action, and the Workbook Health inspector shows formula count, safe recalculation order count, formula-to-formula edges, blocked cycle cells, missing sheet references, external references, and first safe recalculation cells. This is an analysis/governance surface only; Fortune-Sheet remains responsible for native cell recalculation.
+
 ## Fase 9 expansion — What-if and pivot regression gate
 
 The focused AXOS Sheets QA runner now includes the existing pure specs for the pivot engine, Scenario Manager, Goal Seek, and Solver in addition to the new industrial governance specs. This protects the Excel-like what-if analysis layer while the industrial formula, connector, validation, XLSX, and performance work continues in smaller PRs.
