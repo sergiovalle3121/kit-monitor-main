@@ -361,3 +361,12 @@
 - Added `material-flow-route.ts` to derive from-to material route distance, route legs, longest handoff, connector count, crossings, backtracking, score, fallback sequence warnings, and missing connector endpoints.
 - Registered `trace_material_route` so users can type `traza ruta material` through the existing Copiloto CAD dock or find it through Cmd-K without a new editor panel.
 - Pending: after active generator PRs land, add policy thresholds and zoom-to-route-issue actions for excessive material travel.
+## 2026-06-30 - Dock and staging generator
+
+- Inspected open CAD PRs #900, #903, and #904; they are clean and cover factory scale, saved views, and canvas focus, so this run avoided those areas.
+- Marked #904 ready for Claude Integrator after CI was green and no prior ready comment existed.
+- Reused the existing warehouse generator output contract, editable asset model, annotations, CAD layer assignments, object tags, local snapshots, selection, snapping, connector rendering, and DXF export path.
+- Added `generateWarehouseDockStaging` for receiving, shipping, and cross-dock layouts with dock doors, staging lanes, pallet positions, forklift apron, labels, scaling warnings, and generated flow connectors.
+- Wired `Layout3DEditor.tsx` so the existing Equipment rail can create dock/staging layouts and so generated asset-to-asset connectors render visibly.
+- Added focused `warehouse-generators.spec.ts` coverage for horizontal/vertical docks, tags/layers, connector counts, bounds safety, and scaling.
+- Pending: add a parametric supermarket lane/cart generator or line-side delivery generator using the same generator contract.
