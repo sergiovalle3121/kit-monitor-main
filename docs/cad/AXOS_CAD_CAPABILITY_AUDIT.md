@@ -2,6 +2,26 @@
 
 Last updated: 2026-06-29
 
+## 2026-06-29 - Safety path zone update
+
+Open CAD PRs inspected before this run included #869 (symbols), #864 (DXF preflight), #861 (validation quick fixes), #858 (dimensions), #853 (templates), #850 (flow), #847 (plot metadata), #844 (warehouse generator), and #838 (line-balance command). This run avoided those primary ownership areas and extended the existing Safety zone path instead of creating another validation center, symbol system, or editor.
+
+| Capability | Exists? | Files | Maturity | Gap | Next non-redundant PR | Owner files | Collision risk with open PRs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Safety zones / aisle validation | Yes | `apps/web/src/lib/cad/safety-zones.ts`, `apps/web/src/lib/cad/collisions.ts`, `apps/web/src/lib/cad/object-properties.ts`, `apps/web/src/components/line-engineering/Layout3DEditor.tsx` | usable | No-go/restricted zones existed, but ESD zones and safety paths were not first-class validation inputs. | Add editable clearance-rule controls per safety zone after active validation/editor PRs settle. | `safety-zones.ts`, `Layout3DEditor.tsx` Safety rail | Medium: `Layout3DEditor.tsx` is active in other CAD PRs, so this run kept edits Safety-panel scoped. |
+
+Existing capability found: the CAD workbench already had a Safety rail, zone assets, object tags, layer assignments, validation highlights, `evaluateSafetyZones`, and the shared `buildCadValidationReport` modal.
+
+What this run reused: editable `zone` and `agvpath` assets, Safety/Aisles layers, object tags, validation highlights, the existing design-check modal, and the object properties safety classification helper.
+
+What this run extended: `CadSafetyZoneKind` now covers ESD zones, forklift paths, and emergency exits. Aisles and paths now report blocker-style obstructions through the existing safety issue list, while ESD zones warn when overlapping objects lack ESD classification.
+
+What this run wired into `Layout3DEditor`: the existing Safety rail now creates ESD zones, forklift safety paths, and emergency exit paths. Current assets tagged as aisles, no-go, restricted, ESD, forklift, or emergency paths are converted into safety zones for the shared validation report.
+
+What this run intentionally did not duplicate: no new editor, no new validation modal, no new path renderer, no new symbol library, no new layer model, and no new persistence path.
+
+Why this is non-redundant: it turns the existing Safety layer from generic no-go rectangles into a more industrial validation workflow for plant layouts, using the workbench objects users can already edit and export.
+
 This audit tracks the non-redundancy check for the CAD tree sprint. It is scoped to the current mainline CAD implementation and open PR risk observed during this run.
 
 | Capability | Exists? | Files | Maturity | Gap | Next non-redundant PR | Owner files | Collision risk with open PRs |

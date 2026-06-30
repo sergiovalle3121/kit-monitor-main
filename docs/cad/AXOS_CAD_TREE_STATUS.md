@@ -2,6 +2,18 @@
 
 Last updated: 2026-06-29
 
+## 2026-06-29 - Safety paths and ESD zones
+
+This run advances Phase 15 (Safety / Aisles / Clearance Engine UI) without adding a parallel engine:
+
+- The existing Safety rail in `Layout3DEditor.tsx` can now create ESD controlled zones, forklift safety paths, and emergency exit paths.
+- The shared `evaluateSafetyZones` helper now treats aisles, forklift paths, and emergency exits as keep-clear zones that produce validation blockers when equipment overlaps them.
+- ESD zones now surface warning-level issues for overlapping objects that do not carry ESD classification tags.
+- Safety-tagged `zone`, `path`, and no-go `fence` assets from templates or manual edits now participate in the existing design-check modal and viewport highlight selection.
+- The object inspector classifies emergency / keep-clear routes as aisle-style safety objects.
+
+The implementation reuses the current editable asset model, object tags, layer assignments, validation report, Safety rail, and issue-selection workflow. It does not create another safety engine, renderer, validation center, or persistence path.
+
 ## Current tree state
 
 AXOS CAD is beyond seed state. The active workbench already includes a unified 2D/3D editor, local command dock, command palette, layers, lock enforcement, measurements, symbols, DXF import/export, validation, safety checks, flow scoring, local snapshots, CAD templates, and a release-readiness surface.

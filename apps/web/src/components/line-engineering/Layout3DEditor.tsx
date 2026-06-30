@@ -64,7 +64,7 @@ import { CAD_LAYOUT_TEMPLATES, instantiateCadLayoutTemplate, type CadLayoutTempl
 import { generateWarehouseRackRows, type CadRackRowGeneratorInput } from '@/lib/cad/warehouse-generators';
 import { type CadClearanceIssue, type CadCollisionHit } from '@/lib/cad/collisions';
 import { buildFlowSegments, scoreFlowLayout, type CadFlowNode, type CadFlowScore, type CadFlowSegment } from '@/lib/cad/flow-optimization';
-import type { CadSafetyIssue, CadSafetyZone } from '@/lib/cad/safety-zones';
+import type { CadSafetyIssue, CadSafetyZone, CadSafetyZoneKind } from '@/lib/cad/safety-zones';
 import { createCadSnapshot, diffCadSnapshots, pushCadSnapshot, restoreCadSnapshot, type CadSnapshotDiff, type CadSnapshotHistory } from '@/lib/cad/snapshots';
 import {
   describeCadObjectProperties,
@@ -229,6 +229,23 @@ interface SelSnap {
   x: number; y: number; w: number; h: number; rotation: number;
   title: string; subtitle: string;
   kind?: string; height?: number; canDuplicate: boolean;
+}
+
+function assetSafetyZoneKind(asset: Asset, tagsValue: string | undefined): CadSafetyZoneKind | null {
+  const meta = assetMeta(asset.kind);
+  const text = `${asset.kind} ${asset.label ?? ''} ${tagsValue ?? ''}`.toLowerCase().replace(/_/g, '-');
+  if (text.includes('no-go')) return 'no_go';
+  if (text.includes('restricted')) return 'restricted';
+  if (text.includes('esd')) return 'esd_zone';
+  if (text.includes('emergency') || text.includes('egress') || text.includes('evacuation')) return 'emergency_exit';
+  if (text.includes('forklift') || text.includes('montacargas')) return 'forklift_path';
+  if (text.includes('aisle') || text.includes('pasillo')) return 'aisle';
+  if (text.includes('clearance')) return 'safety_clearance';
+  return meta.archetype === 'zone' && text.includes('safety') ? 'restricted' : null;
+}
+
+function cadTags(value: string | undefined): string[] {
+  return (value ?? '').split(/[,\n]/).map((tag) => tag.trim()).filter(Boolean);
 }
 
 const ROSE = 0xf43f5e;
@@ -2014,10 +2031,11 @@ export default function Layout3DEditor({
         width: p.w,
         height: p.h,
         layer: layerAssignments[id] ?? 'layout',
+        tags: cadTags(objectTags[id]),
       })),
       ...[...assetsRef.current.values()].filter((asset) => {
         const arch = assetMeta(asset.kind).archetype;
-        return arch !== 'zone' && arch !== 'path';
+        return arch !== 'zone' && arch !== 'path' && !assetSafetyZoneKind(asset, objectTags[asset.id]);
       }).map((asset) => ({
         id: asset.id,
         label: asset.label || assetMeta(asset.kind).label,
@@ -2026,17 +2044,16 @@ export default function Layout3DEditor({
         width: asset.w,
         height: asset.h,
         layer: layerAssignments[asset.id] ?? 'equipment',
+        tags: cadTags(objectTags[asset.id]),
       })),
     ];
     return boxes;
-  }, [layerAssignments]);
+  }, [layerAssignments, objectTags]);
   const currentSafetyZones = useCallback((): CadSafetyZone[] => {
     const zones: CadSafetyZone[] = [];
     assetsRef.current.forEach((asset) => {
-      if (assetMeta(asset.kind).archetype !== 'zone') return;
       const tags = (objectTags[asset.id] ?? '').toLowerCase();
-      const label = (asset.label || assetMeta(asset.kind).label).toLowerCase();
-      const kind = tags.includes('no-go') || label.includes('no-go') ? 'no_go' : tags.includes('restricted') || label.includes('restricted') ? 'restricted' : null;
+      const kind = assetSafetyZoneKind(asset, tags);
       if (!kind) return;
       zones.push({
         id: asset.id,
@@ -2047,6 +2064,7 @@ export default function Layout3DEditor({
         width: asset.w,
         height: asset.h,
         layer: 'Safety',
+        requiredClearance: kind === 'safety_clearance' ? Math.max(asset.w, asset.h) / 2 : undefined,
       });
     });
     return zones;
@@ -2933,20 +2951,37 @@ export default function Layout3DEditor({
     setDirty(true); rebuildAll();
     toast.success('Pasillo editable creado entre la selección.', 'Pasillos');
   };
-  const createSafetyZoneAsset = (kind: 'no-go' | 'restricted') => {
+  const createSafetyZoneAsset = (kind: 'no-go' | 'restricted' | 'esd') => {
     const ctx = ctxRef.current; const ctrl = controlsRef.current; if (!ctx) return;
-    const w = kind === 'no-go' ? 2400 : 3000; const h = kind === 'no-go' ? 1800 : 2200;
+    const w = kind === 'esd' ? 4200 : kind === 'no-go' ? 2400 : 3000; const h = kind === 'esd' ? 2800 : kind === 'no-go' ? 1800 : 2200;
     const cx = ctrl ? ctrl.target.x / ctx.s + ctx.W / 2 : ctx.W / 2;
     const cy = ctrl ? ctrl.target.z / ctx.s + ctx.H / 2 : ctx.H / 2;
     pushHistory();
     const id = newId('as');
-    assetsRef.current.set(id, { id, kind: 'zone', label: kind === 'no-go' ? 'No-go zone' : 'Restricted zone', x: Math.max(0, Math.min(ctx.W - w, snapWorld(cx - w / 2))), y: Math.max(0, Math.min(ctx.H - h, snapWorld(cy - h / 2))), w, h, rotation: 0 });
+    const label = kind === 'esd' ? 'ESD controlled zone' : kind === 'no-go' ? 'No-go zone' : 'Restricted zone';
+    assetsRef.current.set(id, { id, kind: 'zone', label, x: Math.max(0, Math.min(ctx.W - w, snapWorld(cx - w / 2))), y: Math.max(0, Math.min(ctx.H - h, snapWorld(cy - h / 2))), w, h, rotation: 0 });
     setAssetIds(new Set(assetsRef.current.keys()));
     setLayerAssignments((cur) => assignObjectsToLayer(cur, [id], 'safety'));
-    setObjectTags((cur) => ({ ...cur, [id]: `${kind}, safety, controlled-area` }));
+    setObjectTags((cur) => ({ ...cur, [id]: kind === 'esd' ? 'esd, safety, controlled-area' : `${kind}, safety, controlled-area` }));
     select([{ type: 'asset', id }]);
     setDirty(true); rebuildAll();
-    toast.success(`${kind === 'no-go' ? 'No-go zone' : 'Restricted zone'} creada.`, 'Safety');
+    toast.success(`${label} creada.`, 'Safety');
+  };
+  const createSafetyPathAsset = (kind: 'forklift' | 'emergency') => {
+    const ctx = ctxRef.current; const ctrl = controlsRef.current; if (!ctx) return;
+    const w = kind === 'forklift' ? 6200 : 5200; const h = kind === 'forklift' ? 1800 : 1100;
+    const cx = ctrl ? ctrl.target.x / ctx.s + ctx.W / 2 : ctx.W / 2;
+    const cy = ctrl ? ctrl.target.z / ctx.s + ctx.H / 2 : ctx.H / 2;
+    pushHistory();
+    const id = newId('as');
+    const label = kind === 'forklift' ? 'Forklift safety path' : 'Emergency exit path';
+    assetsRef.current.set(id, { id, kind: 'agvpath', label, x: Math.max(0, Math.min(ctx.W - w, snapWorld(cx - w / 2))), y: Math.max(0, Math.min(ctx.H - h, snapWorld(cy - h / 2))), w, h, rotation: 0 });
+    setAssetIds(new Set(assetsRef.current.keys()));
+    setLayerAssignments((cur) => assignObjectsToLayer(cur, [id], 'safety'));
+    setObjectTags((cur) => ({ ...cur, [id]: kind === 'forklift' ? 'forklift, safety, aisle, keep-clear' : 'emergency, exit, safety, keep-clear' }));
+    select([{ type: 'asset', id }]);
+    setDirty(true); rebuildAll();
+    toast.success(`${label} creado.`, 'Safety');
   };
 
   const setField = (field: 'x' | 'y' | 'w' | 'h' | 'rotation', value: number) => {
@@ -4019,10 +4054,13 @@ export default function Layout3DEditor({
                   </div>
                   <div className="mb-3 rounded-xl border border-rose-400/15 bg-rose-400/[0.05] p-2.5">
                     <div className="text-[10px] uppercase tracking-wide text-rose-200 mb-1.5">Safety zones</div>
-                    <p className="mb-2 text-[10.5px] leading-snug text-rose-100/70">Crea zonas editables en la capa Safety para validar invasiones y clearances.</p>
+                    <p className="mb-2 text-[10.5px] leading-snug text-rose-100/70">Crea zonas y rutas editables en Safety. Validacion detecta bloqueos, invasiones y objetos sin clasificacion ESD.</p>
                     <div className="grid grid-cols-2 gap-1.5">
                       <button onClick={() => createSafetyZoneAsset('no-go')} className="rounded-lg border border-rose-300/20 bg-rose-400/[0.10] px-2 py-1.5 text-left text-[11px] font-semibold text-rose-100 hover:bg-rose-400/[0.16]">No-go zone</button>
                       <button onClick={() => createSafetyZoneAsset('restricted')} className="rounded-lg border border-amber-300/20 bg-amber-400/[0.10] px-2 py-1.5 text-left text-[11px] font-semibold text-amber-100 hover:bg-amber-400/[0.16]">Restricted</button>
+                      <button onClick={() => createSafetyZoneAsset('esd')} className="rounded-lg border border-cyan-300/20 bg-cyan-400/[0.10] px-2 py-1.5 text-left text-[11px] font-semibold text-cyan-100 hover:bg-cyan-400/[0.16]">ESD zone</button>
+                      <button onClick={() => createSafetyPathAsset('forklift')} className="rounded-lg border border-emerald-300/20 bg-emerald-400/[0.10] px-2 py-1.5 text-left text-[11px] font-semibold text-emerald-100 hover:bg-emerald-400/[0.16]">Forklift path</button>
+                      <button onClick={() => createSafetyPathAsset('emergency')} className="rounded-lg border border-sky-300/20 bg-sky-400/[0.10] px-2 py-1.5 text-left text-[11px] font-semibold text-sky-100 hover:bg-sky-400/[0.16]">Emergency exit</button>
                     </div>
                   </div>
                   <div className="mb-2 flex items-center justify-between gap-2">
@@ -4786,14 +4824,14 @@ export default function Layout3DEditor({
               {safetyIssues.length > 0 && (
                 <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2 text-[12px] font-semibold text-amber-100">
-                    <span>Safety zones invadidas · {safetyIssues.length}</span>
+                    <span>Safety issues - {safetyIssues.length}</span>
                     <button onClick={() => setSafetyIssues([])} className="text-[11px] text-amber-200/70 hover:text-white">Ocultar</button>
                   </div>
                   <div className="max-h-36 space-y-1 overflow-y-auto">
                     {safetyIssues.slice(0, 8).map((issue) => (
                       <button key={`${issue.zoneId}-${issue.objectId}-${issue.code}`} onClick={() => selectSafetyIssue(issue)} className="w-full rounded-lg bg-white/[0.05] px-2 py-1.5 text-left text-[11.5px] hover:bg-white/[0.1]">
                         <span className="block text-amber-100">{issue.message}</span>
-                        <span className="text-gray-500 dark:text-gray-400">Seleccionar objeto + zona</span>
+                        <span className="text-gray-500 dark:text-gray-400">Seleccionar objeto + zona/ruta</span>
                       </button>
                     ))}
                   </div>

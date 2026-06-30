@@ -1,5 +1,14 @@
 # Codex Night Log
 
+## 2026-06-29 - CAD safety path zones
+
+- Inspected the required CAD docs, design docs, route chrome, `Layout3DEditor.tsx`, the CAD helper surface under `apps/web/src/lib/cad/**`, command helpers, automation memory, and open CAD PRs.
+- Avoided active symbol, DXF preflight, validation quick-fix, dimension, template/generator, flow, plot, warehouse, and command-registry ownership areas.
+- Extended the existing `safety-zones.ts` helper so aisles, forklift paths, and emergency exits are keep-clear validation zones, while ESD zones warn on unclassified overlapping objects.
+- Wired the existing `Layout3DEditor` Safety rail with ESD zone, forklift path, and emergency exit actions that create editable Safety-layer assets.
+- Reused object tags, layer assignments, validation highlights, the design-check modal, and object inspector classification; no parallel safety engine, editor, renderer, or persistence path was added.
+- Added focused specs for forklift path blockers, ESD classification warnings, and emergency keep-clear inspector classification.
+
 ## 2026-06-27 — CAD command-bar scaffold
 
 - Read the repository/AXOS agent rules and frontend architecture docs.
