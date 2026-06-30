@@ -13,6 +13,8 @@ AXOS Sheets is no longer only a helper-backed grid. The current tree has these f
 - `axosConnectors.ts`, `axosConnectorApi.ts`, and the Office connector API expose governed connector metadata and refresh contracts.
 - `workbookHealth.ts`, `workbookApproval.ts`, and `workbookPublishGate.ts` combine performance, formulas, connectors, comments, approval snapshot drift, protection, and governance into readiness signals.
 - `xlsxCompatibility.ts`, `xlsx.ts`, and `xlsxStyled.ts` provide import/export and compatibility scanning.
+- `workbookHealth.ts` and `workbookPublishGate.ts` combine performance, formulas, connectors, comments, approvals, protection, and governance into readiness signals.
+- `xlsxCompatibility.ts`, `xlsx.ts`, and `xlsxStyled.ts` provide import/export and compatibility scanning, including table metadata, print-layout review, import warnings, cell notes, filters, and dimensions.
 - `templates.ts` ships industrial workbook templates for BOM costing, OEE, inventory ABC, supplier scorecards, capacity/downtime, and pivot analysis.
 - `apps/api/src/modules/office` persists Office documents, versions, sharing, lifecycle/audit events, and connector refresh endpoints.
 
@@ -32,7 +34,7 @@ AXOS Sheets is no longer only a helper-backed grid. The current tree has these f
 | 9. Pivot builder pro | usable | `SheetPivot.tsx`, `pivotGovernance.ts` | Improve diagnostics/field UX. |
 | 10. Slicers/timelines | open PR | #765 | Wait for review/merge. |
 | 11-12. Charts/dashboard builder | usable/partial | `SheetCharts.tsx`, `charts.ts`, templates | Generate industrial dashboards from real source metadata. |
-| 13. XLSX roundtrip fidelity | usable | `xlsxCompatibility.ts`, `xlsxStyled.ts`, specs | Add tables/print/macros readiness details. |
+| 13. XLSX roundtrip fidelity | usable/stronger | `xlsxCompatibility.ts`, `xlsxStyled.ts`, `xlsxCompatibility.spec.ts`, `docs/sheets/AXOS_SHEETS_XLSX_ROUNDTRIP.md` | Native Excel table objects and page setup export remain next. |
 | 14. Comments enterprise | open PR | #762 | Wait for review/merge. |
 | 15. Protection/governance | usable | protection metadata + XLSX protection | Integrate enterprise audit later. |
 | 16. Approval/signoff | usable foundation | `workbookApproval.ts`, `workbookHealth.ts`, `SheetEditor.tsx` signoff card | Backend must persist tenant-scoped approval/signature snapshots through Office signatures. |
@@ -51,6 +53,6 @@ AXOS Sheets is no longer only a helper-backed grid. The current tree has these f
 After this PR, the safest next mergeable slice is either:
 
 - Add an MRP Shortages or Packing Readiness industrial template with formulas, charts, validations, and tests in `templates.ts`, avoiding open editor PR collisions.
-- Expand `xlsxCompatibility.ts` with tables/print-layout readiness and focused specs, then surface the new fields in the existing export badge.
+- Emit native Excel table objects or page setup metadata from `xlsxStyled.ts`, backed by focused round-trip specs.
 
 Avoid touching `SheetEditor.tsx`, `workbookHealth.ts`, `sheetComments.ts`, and `slicer.ts` until PRs #765, #762, and #753 are resolved.

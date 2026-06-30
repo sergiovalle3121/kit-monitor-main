@@ -144,7 +144,7 @@ export default function ExpenseDetailPage() {
       {/* Sticky glass header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard/expenses" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
+          <Link href="/dashboard/expenses" aria-label="Volver" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-10 h-10 rounded-xl grid place-items-center flex-shrink-0" style={{ background: `${TEAL}1f` }}>
             <Receipt className="w-5 h-5" style={{ color: TEAL }} />
           </span>
