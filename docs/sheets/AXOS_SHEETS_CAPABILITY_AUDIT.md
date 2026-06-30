@@ -35,9 +35,7 @@ This audit records what exists on `origin/main` before the current Sheets PR and
 
 | PR | Area | Collision risk for this run |
 | --- | --- | --- |
-| #765 `feat(sheets): add slicers and timeline filters` | `SheetEditor.tsx`, slicer model/spec, roadmap | High for editor/slicer edits. Avoided. |
-| #762 `feat(sheets): add cell and range comments` | `SheetEditor.tsx`, `sheetComments.ts`, API comment entity, roadmap | High for comments/editor edits. Avoided. |
-| #753 `feat(sheets): add approval signoff foundation` | `SheetEditor.tsx`, `workbookHealth.ts`, roadmap | High for approval/health edits. Avoided. |
+| None touching Sheets from `gh pr list --state open --limit 100` at this run start | N/A | Low for `SheetEditor.tsx`, `formulaDependencies.ts`, and docs in this focused run. |
 
 ## Capability Audit
 
@@ -46,7 +44,7 @@ This audit records what exists on `origin/main` before the current Sheets PR and
 | Full-screen workbook shell | Yes | `OfficeShell.tsx`, `SheetEditor.tsx` | strong | Shell is strong, but top actions did not surface export readiness. | Continue workbench polish outside `SheetEditor` when possible. | `SheetEditor.tsx`, `OfficeShell.tsx`, `SheetActions.tsx` | High if touching `SheetEditor`; low for `SheetActions`. |
 | Formula bar and name box | Yes | `SheetEditor.tsx`, `formulaEngine.ts` | usable | Formula edit is connected but still constrained by Fortune-Sheet APIs. | Harden protected-cell and external-reference messaging after open editor PRs merge. | `SheetEditor.tsx`, `formulaEngine.ts` | High. |
 | Formula engine fidelity | Yes | `formulaEngine.ts`, `components/office/sheets/*.ts` | strong | Many Excel functions exist; remaining parity needs targeted registry audit. | Add missing-function report with tests, without duplicating parser patch. | `components/office/sheets/*`, formula specs | Medium. |
-| Formula audit and dependency graph | Yes | `formulaAudit.ts`, `formulaDependencies.ts`, `workbookHealth.ts` | strong | Dependency details are mostly summarized through health, not a full visual graph. | Add formula map panel after editor PRs settle. | `SheetEditor.tsx`, `workbookHealth.ts` | High due #753. |
+| Formula audit and dependency graph | Yes | `formulaAudit.ts`, `formulaDependencies.ts`, `SheetEditor.tsx`, `workbookHealth.ts` | strong | Recalc plan is visible, but jump-to-cell and graphical formula map are still pending. | Add jump-to-cell and formula map once Fortune-Sheet selection API is verified. | `SheetEditor.tsx`, `formulaDependencies.ts` | Low; no open Sheets PRs at this run start. |
 | AXOS connector registry | Yes | `axosConnectors.ts`, `packages/contracts/src/office-sheets-connectors.ts` | usable | Frontend catalog and shared contract overlap; live coverage is still partial/sample-backed. | Converge frontend catalog toward contracts and expose contract-pending states consistently. | `axosConnectors.ts`, contracts, Office connector service | Medium. |
 | Connector refresh/audit | Yes | `axosConnectorAudit.ts`, `axosConnectorApi.ts`, `SheetEditor.tsx`, API connector service | partial | Audit helpers exist, but UI visibility depends on editor wiring. | Add refresh audit sheet/status after avoiding editor conflicts. | `SheetEditor.tsx`, `axosConnectorAudit.ts` | High if editor. |
 | Workbook health | Yes | `workbookHealth.ts`, `workbookPublishGate.ts`, `SheetEditor.tsx` | strong | Health is visible in inspector/status; export action did not reuse XLSX readiness. | Keep adding preflight surfaces that reuse health/publish gate. | `workbookHealth.ts`, `SheetEditor.tsx`, `SheetActions.tsx` | High for `workbookHealth`; low for this PR. |
@@ -64,6 +62,9 @@ This audit records what exists on `origin/main` before the current Sheets PR and
 
 ## Current PR Visible Fix
 
+The current PR wires the existing `formulaDependencies.ts` dependency/recalculation foundation into the mounted `SheetEditor` workbench. Users now get a Formula ribbon `Plan recalc` action and a Workbook Health recalc panel with formula counts, safe order, formula-to-formula edges, blocked cycle cells, missing references, external references, and first safe recalculation cells.
+
+This is non-redundant because it reuses the existing dependency graph, Workbook Health, Formula ribbon, and inspector surfaces instead of adding a second recalc engine or a parallel spreadsheet editor.
 The current PR extends the existing `scanXlsxCompatibility()` scanner that is already mounted in `SheetActions` and the SheetEditor XLSX inspector. Users now see tables, custom print layout, import warnings, cell notes, filters, and row/column dimensions in the same XLSX readiness surfaces.
 
 This is non-redundant because it reuses `xlsxCompatibility.ts`, keeps `SheetEditor.tsx` untouched while open PRs own that file, and hardens an existing export-readiness workflow rather than adding another scanner or exporter.
