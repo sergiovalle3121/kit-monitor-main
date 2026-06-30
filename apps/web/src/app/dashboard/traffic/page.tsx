@@ -79,7 +79,7 @@ export default function TrafficPage() {
       <div className={`${glass} sticky top-0 z-40 px-6 pt-4`}>
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+            <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
               <ChevronLeft className="w-5 h-5" />
             </Link>
             <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: `${ACCENT}1f` }}>

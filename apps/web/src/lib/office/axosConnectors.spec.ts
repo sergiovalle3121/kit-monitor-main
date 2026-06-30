@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, connectorFreshnessFor, connectorProtectionFor, connectorRefreshDue, createAxosConnectorInstance, originFromConnectorRange, suggestedChartsForConnector, summarizeConnectorFreshness, type AxosConnectorType } from './axosConnectors';
+import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, connectorFreshnessBadge, connectorFreshnessFor, connectorProtectionFor, connectorRefreshDue, createAxosConnectorInstance, originFromConnectorRange, suggestedChartsForConnector, summarizeConnectorFreshness, type AxosConnectorType } from './axosConnectors';
 
 let passed = 0; const fails: string[] = [];
 const ok = (cond: boolean, msg: string) => { if (cond) passed++; else fails.push(msg); };
@@ -70,6 +70,20 @@ const expected: AxosConnectorType[] = ['inventory_snapshot', 'bom_cost_rollup', 
   eq(summary.due, 2, 'summary cuenta due');
   eq(summary.stale, 1, 'summary cuenta stale');
   eq(summary.invalid, 0, 'summary cuenta invalid');
+  const emptyBadge = connectorFreshnessBadge([], now);
+  eq(emptyBadge.tone, 'empty', 'badge vacio sin conectores');
+  eq(emptyBadge.label, 'No AXOS data', 'badge vacio explica sin datos AXOS');
+  const freshBadge = connectorFreshnessBadge([fresh], now);
+  eq(freshBadge.tone, 'ok', 'badge fresh cuando todo esta vigente');
+  ok(freshBadge.label.includes('AXOS fresh'), 'badge fresh visible');
+  const dueBadge = connectorFreshnessBadge([fresh, due], now);
+  eq(dueBadge.tone, 'due', 'badge due cuando hay refresh pendiente');
+  eq(dueBadge.due, 1, 'badge cuenta due');
+  ok(dueBadge.title.includes('Work orders: due'), 'badge due detalla conector');
+  const staleBadge = connectorFreshnessBadge([fresh, stale, manualDue], now);
+  eq(staleBadge.tone, 'stale', 'badge stale prioriza riesgo critico');
+  eq(staleBadge.stale, 1, 'badge cuenta stale');
+  ok(staleBadge.label.includes('AXOS risk'), 'badge stale muestra riesgo');
 }
 
 const total = passed + fails.length;

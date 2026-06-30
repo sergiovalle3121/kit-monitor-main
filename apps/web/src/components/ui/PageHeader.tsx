@@ -26,15 +26,25 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={`mb-8 flex items-center gap-4 ${className}`}>
-      <IconTile domain={domain} size={52} icon={icon} />
-      <div className="min-w-0 flex-1">
-        <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
-        {subtitle && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
-        )}
+    // Responsive: en móvil apila el título y las acciones (las acciones envuelven)
+    // para que NUNCA se salgan del viewport; en sm+ vuelve a una sola fila con las
+    // acciones a la derecha. Es un primitivo compartido → arregla el overflow de
+    // encabezados en muchas páginas a la vez.
+    <header className={`mb-8 flex flex-col gap-4 sm:flex-row sm:items-center ${className}`}>
+      <div className="flex min-w-0 items-center gap-4">
+        <IconTile domain={domain} size={52} icon={icon} />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
+          {subtitle && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
+          )}
+        </div>
       </div>
-      {right && <div className="ml-auto flex shrink-0 items-center gap-3">{right}</div>}
+      {right && (
+        <div className="flex flex-wrap items-center gap-3 sm:ml-auto sm:shrink-0">
+          {right}
+        </div>
+      )}
     </header>
   );
 }

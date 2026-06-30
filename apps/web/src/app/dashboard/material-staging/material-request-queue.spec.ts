@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 // @ts-expect-error Node strip-types executes the colocated .ts module directly.
-import { activeMaterialRequestQueue, isActiveMaterialRequest, summarizeMaterialRequestQueue } from './material-request-queue.ts';
+import { activeMaterialRequestQueue, isActiveMaterialRequest, materialRequestContextLabel, summarizeMaterialRequestQueue } from './material-request-queue.ts';
 
 const requests = [
   {
@@ -54,5 +54,20 @@ assert.deepEqual(summarizeMaterialRequestQueue(requests), {
   pending: 2,
   authorized: 1,
 });
+
+assert.equal(
+  materialRequestContextLabel({
+    id: 6,
+    kitId: 15,
+    requestedBy: 'ana@axos.test',
+    status: 'pending',
+    partNumber: 'PN-100',
+    requestedQty: 24,
+    unit: 'EA',
+    station: 'ICT-10',
+    line: '2',
+  }),
+  'PN-100 x24 EA · ICT-10 · linea 2',
+);
 
 console.log('material-request-queue: active queue sorting and summary passed');

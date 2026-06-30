@@ -1,0 +1,11 @@
+# Append-only logs and capability/status audits: union-merge so concurrent PRs
+# that each append entries don't collide. Keeps both sides automatically.
+docs/codex-night-log.md          merge=union
+docs/codex-night-brief.md        merge=union
+DECISIONS.md                     merge=union
+docs/cad/AXOS_CAD_CAPABILITY_AUDIT.md     merge=union
+docs/cad/AXOS_CAD_TREE_STATUS.md          merge=union
+docs/sheets/AXOS_SHEETS_CAPABILITY_AUDIT.md merge=union
+docs/sheets/AXOS_SHEETS_TREE_STATUS.md      merge=union
+docs/slides/AXOS_SLIDES_CAPABILITY_AUDIT.md merge=union
+docs/slides/AXOS_SLIDES_TREE_STATUS.md      merge=union
