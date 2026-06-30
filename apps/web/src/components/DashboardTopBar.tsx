@@ -302,6 +302,7 @@ export function DashboardTopBar() {
     router.refresh();
   }
   function openNotifs() {
+    setMenuOpen(false);
     setNotifOpen((o) => !o);
   }
   function goNotif(n: UnifiedNotif) {
@@ -421,7 +422,7 @@ export function DashboardTopBar() {
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className={`${glass} absolute right-0 mt-4 w-96 rounded-[2rem] shadow-2xl p-4 z-[100]`}
+                className="absolute right-0 mt-4 w-96 rounded-[2rem] border border-border bg-popover text-popover-foreground shadow-2xl ring-1 ring-foreground/[0.04] p-4 z-[100]"
               >
                 <div className="flex justify-between items-center mb-3 px-2">
                   <h3 className="font-bold">{t("notifications.label")}</h3>
@@ -482,7 +483,7 @@ export function DashboardTopBar() {
 
         <div className="relative">
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
+            onClick={() => { setNotifOpen(false); setMenuOpen((o) => !o); }}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background shadow-sm transition-transform hover:scale-[1.03] active:scale-95"
             aria-label={t("account")}
           >
@@ -494,7 +495,7 @@ export function DashboardTopBar() {
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className={`${glass} absolute right-0 mt-4 w-72 rounded-[2rem] shadow-2xl p-4 z-[100]`}
+                className="absolute right-0 mt-4 w-72 rounded-[2rem] border border-border bg-popover text-popover-foreground shadow-2xl ring-1 ring-foreground/[0.04] p-4 z-[100]"
               >
                 <div className="px-4 py-4 border-b border-gray-100 dark:border-white/5 mb-2 flex items-center gap-3">
                   <div className="w-12 h-12 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black font-bold">

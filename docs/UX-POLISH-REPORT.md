@@ -482,3 +482,25 @@ muy común (azul vibrante + blanco), a un paso de pasar; el índigo de marca
 (`#6366f1`/`#6467f2`) ya ronda 4.4–4.5; y los **colores semánticos de valores KPI**.
 Oscurecerlos del todo es decisión de paleta del owner. **Los bugs de contraste
 claramente malos (ratios 2.5–2.65, `#86868b`) ya quedaron cerrados** entre §15 y §16.
+
+---
+
+## 17. Fix puntual — menús del topbar opacos (reporte del owner)
+
+El owner reportó **transparencia / cruce de texto** en los menús desplegables del
+topbar (perfil/apariencia y notificaciones): el contenido de la página se
+transparentaba a través del panel. Causa: ambos paneles usaban el material
+translúcido `${glass}` (backdrop-blur + fondo semitransparente) — el mismo patrón
+que ya se había corregido en el dropdown del breadcrumb (§3).
+
+Fix (en `DashboardTopBar.tsx`):
+- Los dos paneles (`w-96` notificaciones, `w-72` perfil) pasan de `${glass}` a la
+  superficie **opaca de popover**: `border border-border bg-popover
+  text-popover-foreground shadow-2xl ring-1 ring-foreground/[0.04]` (igual que el
+  breadcrumb). Sin bleed-through, claro y oscuro.
+- **Exclusión mutua**: abrir notificaciones cierra el menú de perfil y viceversa
+  (antes podían quedar ambos abiertos y encimados). `openNotifs` hace
+  `setMenuOpen(false)`; el avatar hace `setNotifOpen(false)`.
+
+Verificado con capturas de ambos menús abiertos en claro y oscuro: paneles sólidos,
+solo uno abierto a la vez. `tsc` 0 · `eslint` 0 · `next build` OK.
