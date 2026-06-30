@@ -1,5 +1,15 @@
 # Codex Night Log
 
+## 2026-06-30 - CAD viewport saved views
+
+- Inspected automation memory, open CAD PR #900, required CAD docs, design shell docs, route chrome, `Layout3DEditor.tsx`, and the existing CAD helper tree before selecting a viewport-only Phase 2 slice.
+- Avoided factory-scale presets/bounds from open PR #900, command registry expansion, DXF, layers, templates, generators, symbols, and validation-engine changes.
+- Added `viewport-bookmarks.ts` as a pure CAD helper for local saved camera views, bookmark sanitization, capped recency, and focus bounds from existing editable objects.
+- Wired the existing `Layout3DEditor` View popover with Save view, Fit selection, restore saved view, and delete saved view actions backed by browser-local model/revision storage.
+- Extended existing validation issue selection so collision, clearance, safety, and validation quick-fix rows also zoom the current camera to the affected objects.
+- Added focused specs for saved-view recency/capping/sanitization and issue/selection focus bounds.
+- Pending: persist named views through the layout API after a backend metadata contract exists, and add a minimap/home-view overlay after #900 lands.
+
 ## 2026-06-29 - CAD safety path zones
 
 - Inspected the required CAD docs, design docs, route chrome, `Layout3DEditor.tsx`, the CAD helper surface under `apps/web/src/lib/cad/**`, command helpers, automation memory, and open CAD PRs.
