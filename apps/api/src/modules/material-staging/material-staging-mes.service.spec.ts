@@ -20,7 +20,8 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
   let ctx: TenantContextService;
   let pickList: { getByPlan: jest.Mock };
   let positions: { find: jest.Mock };
-  let planRepo: { createQueryBuilder: jest.Mock };
+  let planRepo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
+  let inventory: { issueToLine: jest.Mock };
   let stockByPart: Record<string, number>;
 
   const PLAN_ID = 1;
@@ -75,7 +76,9 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
           where?.partNumber?._value ??
           where?.partNumber ??
           [];
-        const partNumbers = Array.isArray(partFilter) ? partFilter : [partFilter];
+        const partNumbers = Array.isArray(partFilter)
+          ? partFilter
+          : [partFilter];
         return partNumbers
           .filter((partNumber) => stockByPart[partNumber] != null)
           .map((partNumber) => ({
@@ -108,6 +111,17 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
         };
         return qb;
       }),
+      findOne: jest.fn(async () => ({
+        id: PLAN_ID,
+        workOrder: 'AX-WO-0001',
+        line: 1,
+      })),
+    };
+    inventory = {
+      issueToLine: jest.fn(async () => ({
+        deposited: true,
+        warehouseId: 'LINE-1',
+      })),
     };
     svc = new MaterialStagingMesService(
       createTenantScopedRepository(MesStagingLine, dataSource.manager, ctx),
@@ -115,6 +129,7 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
       planRepo as never,
       pickList as never,
       ctx,
+      inventory as never,
     );
   });
 
@@ -165,6 +180,31 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
     expect(plans[0].allStaged).toBe(true);
   });
 
+  it('fills the line tank (issueToLine → LINE-<plan.line>) when a line is staged', async () => {
+    await svc.stageLine(PLAN_ID, LINES[0].id, {});
+    // Closes the loop for the primary plan-staging path: deposits the staged
+    // qty into the plan's line tank, where /operador later consumes from.
+    expect(inventory.issueToLine).toHaveBeenCalledWith(
+      expect.objectContaining({
+        partNumber: LINES[0].partNumber,
+        quantity: 50,
+        line: 1,
+        referenceType: 'MES_STAGING',
+      }),
+    );
+  });
+
+  it('fills the line tank for every line on stage-all', async () => {
+    await svc.stageAllForPlan(PLAN_ID);
+    expect(inventory.issueToLine).toHaveBeenCalledTimes(2);
+    expect(inventory.issueToLine).toHaveBeenCalledWith(
+      expect.objectContaining({ partNumber: LINES[0].partNumber, line: 1 }),
+    );
+    expect(inventory.issueToLine).toHaveBeenCalledWith(
+      expect.objectContaining({ partNumber: LINES[1].partNumber, line: 1 }),
+    );
+  });
+
   it('blocks staging a line when available inventory cannot cover the requested quantity', async () => {
     stockByPart['AX-PCBA-100'] = 20;
 
@@ -186,16 +226,10 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
     pickList.getByPlan.mockImplementation(async () => ({
       ...pickPayload(),
       lineCount: 3,
-      lines: [
-        LINES[0],
-        { ...LINES[0], id: 13 },
-        LINES[1],
-      ],
+      lines: [LINES[0], { ...LINES[0], id: 13 }, LINES[1]],
     }));
 
-    await expect(svc.stageAllForPlan(PLAN_ID)).rejects.toThrow(
-      /AX-PCBA-100/,
-    );
+    await expect(svc.stageAllForPlan(PLAN_ID)).rejects.toThrow(/AX-PCBA-100/);
   });
 
   it('blocks staging a repeated part when sibling staged quantity already consumes stock', async () => {
@@ -203,18 +237,12 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
     pickList.getByPlan.mockImplementation(async () => ({
       ...pickPayload(),
       lineCount: 3,
-      lines: [
-        LINES[0],
-        { ...LINES[0], id: 13 },
-        LINES[1],
-      ],
+      lines: [LINES[0], { ...LINES[0], id: 13 }, LINES[1]],
     }));
 
     await svc.stageLine(PLAN_ID, LINES[0].id, {});
 
-    await expect(svc.stageLine(PLAN_ID, 13, {})).rejects.toThrow(
-      /AX-PCBA-100/,
-    );
+    await expect(svc.stageLine(PLAN_ID, 13, {})).rejects.toThrow(/AX-PCBA-100/);
   });
 
   it('unstage reverts a line to pending', async () => {
