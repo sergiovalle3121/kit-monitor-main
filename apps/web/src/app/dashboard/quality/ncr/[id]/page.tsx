@@ -66,7 +66,7 @@ export default function NcrDetailPage() {
   }
 
   const backLink = (
-    <Link href="/dashboard/quality" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
+    <Link href="/dashboard/quality" className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
       <ChevronLeft className="w-4 h-4" /> Calidad · NCR
     </Link>
   );
@@ -84,7 +84,7 @@ export default function NcrDetailPage() {
 
   if (isLoading || !ncr) {
     return (
-      <div className="min-h-screen grid place-items-center text-gray-400">
+      <div className="min-h-screen grid place-items-center text-gray-500 dark:text-gray-400">
         <Loader2 className="w-6 h-6 animate-spin" />
       </div>
     );
@@ -113,14 +113,14 @@ export default function NcrDetailPage() {
         <div className={`${glass} rounded-2xl p-4 mb-5`}>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-gray-400">Ciclo de la NCR</div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Ciclo de la NCR</div>
               <div className="text-sm mt-0.5">
                 Estado actual: <span className="font-semibold" style={{ color: st.color }}>{st.label}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {transitions.length === 0 ? (
-                <span className="inline-flex items-center gap-1.5 text-[13px] text-gray-400">
+                <span className="inline-flex items-center gap-1.5 text-[13px] text-gray-500 dark:text-gray-400">
                   <CheckCircle2 className="w-4 h-4" style={{ color: NCR_STATUS_META.closed.color }} /> Ciclo cerrado
                 </span>
               ) : (
@@ -165,7 +165,7 @@ export default function NcrDetailPage() {
           </div>
           {ncr.dispositionNotes && (
             <div className="mt-4 pt-4 border-t border-black/5 dark:border-white/10">
-              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Notas de disposición</div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Notas de disposición</div>
               <p className="text-sm whitespace-pre-wrap">{ncr.dispositionNotes}</p>
             </div>
           )}
@@ -191,7 +191,7 @@ function Stepper({ current }: { current: NcrStatus }) {
           <React.Fragment key={s}>
             <div className="flex flex-col items-center gap-1 min-w-0">
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: reached ? meta.color : "rgba(148,163,184,0.4)" }} />
-              <span className="text-[10px] text-gray-400 truncate">{meta.label}</span>
+              <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{meta.label}</span>
             </div>
             {i < flow.length - 1 && (
               <div className="flex-1 h-px" style={{ background: idx > i ? NCR_STATUS_META[flow[i + 1]].color : "rgba(148,163,184,0.3)" }} />
@@ -206,7 +206,7 @@ function Stepper({ current }: { current: NcrStatus }) {
 function Info({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="font-medium truncate" style={color ? { color } : undefined}>{value}</div>
     </div>
   );
@@ -230,11 +230,11 @@ function CapaSection({ ncr, createdBy }: { ncr: Ncr; createdBy: string }) {
       </div>
 
       {forbidden ? (
-        <p className="text-sm text-gray-400">Inicia sesión con permisos de calidad para ver y abrir CAPA.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Inicia sesión con permisos de calidad para ver y abrir CAPA.</p>
       ) : linked.length === 0 ? (
         <div className="text-center py-8">
           <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-300" />
-          <p className="text-sm text-gray-400">Sin CAPA ligadas a esta NCR. Abre una acción correctiva/preventiva para atacar la causa raíz.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Sin CAPA ligadas a esta NCR. Abre una acción correctiva/preventiva para atacar la causa raíz.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -244,12 +244,12 @@ function CapaSection({ ncr, createdBy }: { ncr: Ncr; createdBy: string }) {
             return (
               <div key={c.id} className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04]">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="text-[11px] font-mono text-gray-400">{c.capaNumber}</span>
+                  <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">{c.capaNumber}</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${cs.color}1f`, color: cs.color }}>{cs.label}</span>
                   {cp && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${cp.color}1f`, color: cp.color }}>{cp.label}</span>}
                 </div>
                 <p className="text-sm">{c.problemStatement}</p>
-                {c.rootCause && <p className="text-[13px] text-gray-500 mt-1"><span className="text-gray-400">Causa raíz:</span> {c.rootCause}</p>}
+                {c.rootCause && <p className="text-[13px] text-gray-500 mt-1"><span className="text-gray-500 dark:text-gray-400">Causa raíz:</span> {c.rootCause}</p>}
               </div>
             );
           })}
@@ -333,7 +333,7 @@ function NewCapaModal({ ncr, createdBy, onClose, onCreated }: { ncr: Ncr; create
           </Field>
         </div>
         <div className="mt-5 flex items-center justify-between gap-2">
-          <span className="text-[11px] text-gray-400">Ligada a {ncr.ncrNumber} · {ncr.partNumber}</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">Ligada a {ncr.ncrNumber} · {ncr.partNumber}</span>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
             <button onClick={submit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: "#7c3aed" }}>

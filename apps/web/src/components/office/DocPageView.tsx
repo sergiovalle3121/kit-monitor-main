@@ -218,7 +218,7 @@ export function DocPageView({ editor, title }: { editor: Editor; title?: string 
                 </div>
               </div>
               <div ref={containerRef} className="flex-1 overflow-auto p-8 flex flex-col items-center">
-                {busy && <div className="text-gray-400 flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Generando páginas…</div>}
+                {busy && <div className="text-gray-500 dark:text-gray-400 flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Generando páginas…</div>}
               </div>
             </div>
           </motion.div>

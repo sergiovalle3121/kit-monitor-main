@@ -120,7 +120,7 @@ const C_GOOD = '#10b981';
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className={`${glass} rounded-3xl flex flex-col items-center text-center py-14 px-6`}>
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">{body}</p>
     </div>
@@ -129,7 +129,7 @@ function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; bo
 
 function Loading() {
   return (
-    <div className="flex justify-center py-16 text-gray-400">
+    <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400">
       <Loader2 className="w-6 h-6 animate-spin" />
     </div>
   );
@@ -153,7 +153,7 @@ function StatTile({
   return (
     <div className={`${glass} rounded-3xl p-5`}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
         <Icon className="w-5 h-5" style={{ color }} strokeWidth={1.75} />
       </div>
       <div className="text-2xl md:text-3xl font-bold tracking-tight tabular-nums" style={{ color }}>{value}</div>
@@ -198,7 +198,7 @@ function BreakdownRow({
         </span>
         <span className="text-right">
           <span className="text-sm font-semibold tabular-nums">{money(amount)}</span>
-          <span className="ml-2 text-xs text-gray-400 tabular-nums">{pct.toFixed(1)}%</span>
+          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">{pct.toFixed(1)}%</span>
         </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
@@ -349,20 +349,20 @@ export default function CostIntelligencePage() {
           {mode === 'wo' ? (
             <>
               <div className="flex items-center gap-2 rounded-2xl border border-black/10 dark:border-white/10 px-3 py-2">
-                <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                <Search className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Busca por folio, modelo, línea o programa…"
                   className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
                 />
-                {query && <button onClick={() => setQuery('')} aria-label="Limpiar"><X className="w-4 h-4 text-gray-400" /></button>}
+                {query && <button onClick={() => setQuery('')} aria-label="Limpiar"><X className="w-4 h-4 text-gray-500 dark:text-gray-400" /></button>}
               </div>
               <div className="mt-3 max-h-64 overflow-y-auto pr-1 -mr-1">
                 {woLoading ? (
                   <Loading />
                 ) : filteredWos.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-gray-400">No hay órdenes que coincidan.</p>
+                  <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">No hay órdenes que coincidan.</p>
                 ) : (
                   <div className="space-y-1">
                     {filteredWos.map((w) => (
@@ -375,11 +375,11 @@ export default function CostIntelligencePage() {
                       >
                         <span className="min-w-0">
                           <span className="block text-sm font-semibold truncate">{w.folio ?? w.id.slice(0, 8)} · {w.model}</span>
-                          <span className="block text-[11px] text-gray-400 truncate">
+                          <span className="block text-[11px] text-gray-500 dark:text-gray-400 truncate">
                             {w.line}{w.programId ? ` · ${w.programId}` : ''} · {w.quantityCompleted}/{w.quantityPlanned} u
                           </span>
                         </span>
-                        <span className="text-[11px] text-gray-400 shrink-0">{STATUS_LABEL[w.status] ?? w.status}</span>
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">{STATUS_LABEL[w.status] ?? w.status}</span>
                       </button>
                     ))}
                   </div>
@@ -387,7 +387,7 @@ export default function CostIntelligencePage() {
               </div>
             </>
           ) : programs.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-400">
+            <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
               {woLoading ? 'Cargando…' : 'Ninguna orden tiene programa asignado todavía.'}
             </p>
           ) : (
@@ -403,7 +403,7 @@ export default function CostIntelligencePage() {
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" /> {p.id}
-                  <span className={`text-[11px] ${p.id === programId ? 'text-white/80' : 'text-gray-400'}`}>{p.count}</span>
+                  <span className={`text-[11px] ${p.id === programId ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>{p.count}</span>
                 </button>
               ))}
             </div>
@@ -537,24 +537,24 @@ function VariancePanel({ state }: { state: ApiState<WoVariance> }) {
       <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400">Variancia de uso de material + scrap</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className={`${glass} rounded-3xl p-5`}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Plan vs real</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Plan vs real</div>
           <div className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">Plan {money(v.materialPlanCost, v.currency)}</div>
           <div className="text-sm font-semibold tabular-nums">Real {money(v.materialActualCost, v.currency)}</div>
         </div>
         <div className={`${glass} rounded-3xl p-5`}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Variancia de uso</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Variancia de uso</div>
           <div className="text-lg"><VarianceNumber value={v.materialUsageVariance} currency={v.currency} /></div>
-          <div className="text-xs text-gray-400 mt-1 tabular-nums">{signedPct(v.usageVariancePct)} vs plan</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 tabular-nums">{signedPct(v.usageVariancePct)} vs plan</div>
         </div>
         <div className={`${glass} rounded-3xl p-5`}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Scrap</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Scrap</div>
           <div className="text-lg font-semibold tabular-nums" style={{ color: v.scrapCost > 0 ? C_BAD : '#6b7280' }}>{money(v.scrapCost, v.currency)}</div>
-          <div className="text-xs text-gray-400 mt-1 tabular-nums">{num(v.scrapQty)} u en holds</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 tabular-nums">{num(v.scrapQty)} u en holds</div>
         </div>
         <div className={`${glass} rounded-3xl p-5`}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Variancia total</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Variancia total</div>
           <div className="text-lg"><VarianceNumber value={v.totalVariance} currency={v.currency} /></div>
-          <div className="text-xs text-gray-400 mt-1">uso + scrap</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">uso + scrap</div>
         </div>
       </div>
 
@@ -562,7 +562,7 @@ function VariancePanel({ state }: { state: ApiState<WoVariance> }) {
         <div className={`${glass} rounded-3xl p-2`}>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-[11px] uppercase tracking-wide text-gray-400">
+              <thead className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Parte</th>
                   <th className="px-3 py-2 text-right font-medium">Plan (u)</th>
@@ -584,7 +584,7 @@ function VariancePanel({ state }: { state: ApiState<WoVariance> }) {
               </tbody>
             </table>
           </div>
-          <p className="px-3 py-2 text-[11px] text-gray-400">
+          <p className="px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400">
             Variancia positiva (roja) = se consumió más material que el plan; negativa (verde) = se consumió menos.
             Ordenado por mayor impacto.
           </p>
@@ -654,7 +654,7 @@ function ProgramView({
       <motion.div variants={itemRM(reduce)} className={`${glass} rounded-3xl p-2`}>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="text-[11px] uppercase tracking-wide text-gray-400">
+            <thead className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Orden</th>
                 <th className="px-3 py-2 text-left font-medium">Estado</th>
@@ -672,7 +672,7 @@ function ProgramView({
                   onClick={() => onDrill(w.woId)}
                   className="cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
                 >
-                  <td className="px-3 py-2.5 font-medium">{w.woFolio ?? w.woId.slice(0, 8)}<span className="block text-[11px] text-gray-400">{w.model}</span></td>
+                  <td className="px-3 py-2.5 font-medium">{w.woFolio ?? w.woId.slice(0, 8)}<span className="block text-[11px] text-gray-500 dark:text-gray-400">{w.model}</span></td>
                   <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{STATUS_LABEL[w.status] ?? w.status}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{num(w.quantityCompleted, 0)}/{num(w.quantityPlanned, 0)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-gray-500 dark:text-gray-400">{money(w.materialCost, p.currency)}</td>
@@ -684,7 +684,7 @@ function ProgramView({
             </tbody>
           </table>
         </div>
-        <p className="px-3 py-2 text-[11px] text-gray-400">Toca una orden para ver su variancia de uso + scrap.</p>
+        <p className="px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400">Toca una orden para ver su variancia de uso + scrap.</p>
       </motion.div>
     </motion.div>
   );
@@ -715,7 +715,7 @@ function ClosingSection({
         <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400">KPIs de cierre de periodo</h2>
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-2 rounded-full border border-black/10 dark:border-white/10 px-3 py-1.5 text-sm">
-            <CalendarClock className="w-4 h-4 text-gray-400" />
+            <CalendarClock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <input
               type="month"
               value={period}
@@ -723,7 +723,7 @@ function ClosingSection({
               className="bg-transparent text-sm outline-none"
               aria-label="Periodo de cierre"
             />
-            {period && <button onClick={() => setPeriod('')} aria-label="Todos los periodos"><X className="w-3.5 h-3.5 text-gray-400" /></button>}
+            {period && <button onClick={() => setPeriod('')} aria-label="Todos los periodos"><X className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" /></button>}
           </label>
           {programs.length > 0 && (
             <select
@@ -765,7 +765,7 @@ function ClosingSection({
           <motion.div variants={itemRM(reduce)} className={`${glass} rounded-3xl p-2`}>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="text-[11px] uppercase tracking-wide text-gray-400">
+                <thead className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">Periodo</th>
                     <th className="px-3 py-2 text-left font-medium">Orden</th>
@@ -781,20 +781,20 @@ function ClosingSection({
                   {snapshots.slice(0, 60).map((s) => (
                     <tr key={s.id}>
                       <td className="px-3 py-2.5 font-medium tabular-nums">{s.period}</td>
-                      <td className="px-3 py-2.5">{s.woFolio ?? s.woId.slice(0, 8)}<span className="block text-[11px] text-gray-400">{s.model ?? '—'}{s.programId ? ` · ${s.programId}` : ''}</span></td>
+                      <td className="px-3 py-2.5">{s.woFolio ?? s.woId.slice(0, 8)}<span className="block text-[11px] text-gray-500 dark:text-gray-400">{s.model ?? '—'}{s.programId ? ` · ${s.programId}` : ''}</span></td>
                       <td className="px-3 py-2.5 text-right tabular-nums">{num(s.quantityCompleted, 0)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums font-semibold">{money(s.cogs, s.currency)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums">{s.unitCost > 0 ? money(s.unitCost, s.currency) : '—'}</td>
                       <td className="px-3 py-2.5 text-right"><VarianceNumber value={s.materialUsageVariance} currency={s.currency} /></td>
                       <td className="px-3 py-2.5 text-right tabular-nums" style={{ color: s.scrapCost > 0 ? C_BAD : undefined }}>{money(s.scrapCost, s.currency)}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-400 text-[12px]">{fmtDate(s.closedAt)}</td>
+                      <td className="px-3 py-2.5 text-right text-gray-500 dark:text-gray-400 text-[12px]">{fmtDate(s.closedAt)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             {snapshots.length > 60 && (
-              <p className="px-3 py-2 text-[11px] text-gray-400">Mostrando 60 de {snapshots.length} cierres. Filtra por periodo o programa para acotar.</p>
+              <p className="px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400">Mostrando 60 de {snapshots.length} cierres. Filtra por periodo o programa para acotar.</p>
             )}
           </motion.div>
         </motion.div>

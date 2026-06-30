@@ -181,7 +181,7 @@ function LoginInner() {
             transition={{ delay: 0.2 }}
           >
             <div className="mb-10">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-2 block">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2 block">
                 {isRegistering ? "Únete a AXOS" : "Acceso seguro"}
               </span>
               <h2 className="text-3xl font-bold tracking-tight mb-2">
@@ -230,7 +230,7 @@ function LoginInner() {
                     Nombre completo
                   </label>
                   <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 dark:text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
                       <User className="w-4 h-4" />
                     </div>
                     <input
@@ -252,7 +252,7 @@ function LoginInner() {
                   Correo
                 </label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 dark:text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
                     <User className="w-4 h-4" />
                   </div>
                   <input
@@ -290,18 +290,18 @@ function LoginInner() {
                             className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                           >
                             <span className="flex items-center gap-2">
-                              <Briefcase className="w-4 h-4 text-gray-400" />
+                              <Briefcase className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                               <span className="text-sm font-medium">{department.label}</span>
                               {disabled && (
-                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 dark:bg-white/10">Próximamente</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:text-gray-400 dark:bg-white/10">Próximamente</span>
                               )}
                             </span>
-                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                            <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
                           </button>
                           {open && (
                             <div className="px-2 pb-2 space-y-1">
                               {department.description && (
-                                <p className="px-3 pt-1 text-[10px] text-gray-400">
+                                <p className="px-3 pt-1 text-[10px] text-gray-500 dark:text-gray-400">
                                   {department.description}
                                 </p>
                               )}
@@ -317,7 +317,7 @@ function LoginInner() {
                                   >
                                     <span>
                                       {p.label}
-                                      <span className={`ml-2 text-[10px] ${selected ? "opacity-70" : "text-gray-400"}`}>{LEVELS[p.level]}</span>
+                                      <span className={`ml-2 text-[10px] ${selected ? "opacity-70" : "text-gray-500 dark:text-gray-400"}`}>{LEVELS[p.level]}</span>
                                     </span>
                                     {selected && <Check className="w-4 h-4" />}
                                   </button>
@@ -329,7 +329,7 @@ function LoginInner() {
                       );
                     })}
                   </div>
-                  <p className="text-[10px] text-gray-400 ml-1 mt-1">
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 ml-1 mt-1">
                     {formData.position
                       ? `Seleccionado: ${getPosition(formData.position)?.label}`
                       : "Elige tu departamento y puesto. El administrador aprobará tu acceso."}
@@ -345,14 +345,14 @@ function LoginInner() {
                   {!isRegistering && (
                     <a
                       href="#"
-                      className="text-[10px] uppercase tracking-wider font-bold text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+                      className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                     >
                       ¿Olvidaste?
                     </a>
                   )}
                 </div>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 dark:text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -370,7 +370,8 @@ function LoginInner() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                   >
                     {showPassword ? (
                       <EyeOff className="w-4 h-4" />
@@ -380,7 +381,7 @@ function LoginInner() {
                   </button>
                 </div>
                 {isRegistering && (
-                  <p className="text-[10px] text-gray-400 ml-1 mt-1">
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 ml-1 mt-1">
                     Mínimo 6 caracteres.
                   </p>
                 )}
@@ -416,7 +417,7 @@ function LoginInner() {
                   : "¿No tienes cuenta? Regístrate"}
               </button>
 
-              <p className="text-xs text-gray-400 font-light">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-light">
                 ¿Necesitas ayuda?{" "}
                 <a
                   href="mailto:admin@axos.com"

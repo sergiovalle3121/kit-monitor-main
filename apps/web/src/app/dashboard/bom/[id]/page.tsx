@@ -88,10 +88,10 @@ export default function BomEditorPage() {
   }
 
   if (forbidden) {
-    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
+    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
   }
   if (isLoading || !node) {
-    return <div className="min-h-screen flex justify-center pt-32"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen flex justify-center pt-32"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
 
   const meta = STATUS_META[node.status];
@@ -111,7 +111,7 @@ export default function BomEditorPage() {
               <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: meta.color, background: `${meta.color}1a` }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />{meta.label}
               </span>
-              <span className="text-[11px] text-gray-400">rev {node.revision} · base {node.baseQuantity} {node.baseUom}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">rev {node.revision} · base {node.baseQuantity} {node.baseUom}</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight truncate">{node.material?.description ?? 'BOM'}</h1>
           </div>
@@ -143,7 +143,7 @@ export default function BomEditorPage() {
 
 function TabBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Network; label: string }) {
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-primary text-foreground' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>
+    <button onClick={onClick} className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-primary text-foreground' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>
       <Icon className="w-4 h-4" /> {label}
     </button>
   );
@@ -234,13 +234,13 @@ function StructureTab({ node, materials, nodeByMaterial, onChange }: {
       )}
 
       {sorted.length === 0 ? (
-        <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>
+        <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>
           <ListTree className="w-7 h-7 mx-auto mb-2 text-gray-300" />
           BOM vacío. Agrega componentes eligiéndolos del maestro de materiales.
         </div>
       ) : (
         <div className={`${glass} rounded-2xl overflow-hidden`}>
-          <div className="hidden md:grid grid-cols-[64px_1fr_80px_80px_72px_40px] gap-2 px-4 py-2 text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-white/10">
+          <div className="hidden md:grid grid-cols-[64px_1fr_80px_80px_72px_40px] gap-2 px-4 py-2 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/10">
             <span>Pos.</span><span>Componente</span><span>Cant.</span><span>Scrap</span><span>Cat.</span><span></span>
           </div>
           <div className="divide-y divide-gray-100 dark:divide-white/10">
@@ -260,17 +260,17 @@ function StructureTab({ node, materials, nodeByMaterial, onChange }: {
                           ? <Link href={`/dashboard/bom/${subBomId}`} className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"><Factory className="w-3 h-3" /> sub-ensamble</Link>
                           : <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-500" title="Es ensamble pero aún no tiene BOM"><Factory className="w-3 h-3" /> sub (sin BOM)</span>
                       )}
-                      {l.phantom && <span className="text-[10px] text-gray-400">phantom</span>}
+                      {l.phantom && <span className="text-[10px] text-gray-500 dark:text-gray-400">phantom</span>}
                     </div>
                     <div className="truncate text-sm">{l.material?.description ?? '—'}</div>
-                    {l.refDes && <div className="text-[11px] text-gray-400 truncate">{l.refDes}</div>}
+                    {l.refDes && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{l.refDes}</div>}
                   </div>
-                  <span className="text-sm tabular-nums md:text-left text-right">{l.quantity} <span className="text-gray-400 text-xs">{l.uom}</span></span>
+                  <span className="text-sm tabular-nums md:text-left text-right">{l.quantity} <span className="text-gray-500 dark:text-gray-400 text-xs">{l.uom}</span></span>
                   <span className="hidden md:block text-sm tabular-nums text-gray-500">{l.scrapPct ? `${l.scrapPct}%` : '—'}</span>
-                  <span className="hidden md:block text-[11px] text-gray-400">{l.itemCategory}</span>
+                  <span className="hidden md:block text-[11px] text-gray-500 dark:text-gray-400">{l.itemCategory}</span>
                   <div className="flex items-center gap-1 justify-end">
-                    <button onClick={() => setEditId(l.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/10"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => removeLine(l.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setEditId(l.id)} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-primary hover:bg-primary/10"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => removeLine(l.id)} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
               );
@@ -306,7 +306,7 @@ function LineEditRow({ nodeId, line, onDone, onCancel }: { nodeId: string; line:
       <div className="flex items-center gap-1">
         <label className="flex items-center gap-1 text-xs mr-1"><input type="checkbox" checked={f.phantom} onChange={(e) => setF({ ...f, phantom: e.target.checked })} /> ph</label>
         <button onClick={save} disabled={busy} className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-500/10">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}</button>
-        <button onClick={onCancel} className="p-1.5 rounded-lg text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        <button onClick={onCancel} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
       </div>
     </div>
   );
@@ -324,8 +324,8 @@ function ExplodeTab({ nodeId, baseQty }: { nodeId: string; baseQty: number }) {
     return n;
   });
 
-  if (isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
-  if (!data) return <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>No se pudo explotar el BOM.</div>;
+  if (isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
+  if (!data) return <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>No se pudo explotar el BOM.</div>;
 
   return (
     <div className="space-y-4">
@@ -336,8 +336,8 @@ function ExplodeTab({ nodeId, baseQty }: { nodeId: string; baseQty: number }) {
           unidades
         </label>
         <div className="ml-auto flex gap-3 text-sm">
-          <span className="text-gray-400">Niveles: <b className="text-foreground">{data.maxDepth}</b></span>
-          <span className="text-gray-400">Costo total: <b className="text-emerald-500">{money(data.totalCost)}</b></span>
+          <span className="text-gray-500 dark:text-gray-400">Niveles: <b className="text-foreground">{data.maxDepth}</b></span>
+          <span className="text-gray-500 dark:text-gray-400">Costo total: <b className="text-emerald-500">{money(data.totalCost)}</b></span>
         </div>
       </div>
 
@@ -348,7 +348,7 @@ function ExplodeTab({ nodeId, baseQty }: { nodeId: string; baseQty: number }) {
       )}
 
       {data.tree.length === 0 ? (
-        <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>Este BOM no tiene componentes todavía.</div>
+        <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>Este BOM no tiene componentes todavía.</div>
       ) : (
         <div className={`${glass} rounded-2xl p-3`}>
           {data.tree.map((n, i) => <TreeRow key={`${i}`} node={n} path={`${i}`} expanded={expanded} toggle={toggle} />)}
@@ -358,7 +358,7 @@ function ExplodeTab({ nodeId, baseQty }: { nodeId: string; baseQty: number }) {
       {/* Flat demand rollup */}
       {data.flat.length > 0 && (
         <div className={`${glass} rounded-2xl overflow-hidden`}>
-          <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-white/10">Demanda neta (hojas compradas)</div>
+          <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/10">Demanda neta (hojas compradas)</div>
           <div className="divide-y divide-gray-100 dark:divide-white/10">
             {data.flat.map((f) => (
               <div key={f.materialId} className="flex items-center gap-3 px-4 py-2.5 text-sm">
@@ -383,15 +383,15 @@ function TreeRow({ node, path, expanded, toggle }: { node: ExplodedNode; path: s
       <div className="flex items-center gap-2 py-1.5 rounded-lg hover:bg-black/[0.02] dark:hover:bg-white/[0.03]" style={{ paddingLeft: `${(node.level - 1) * 20}px` }}>
         {hasChildren ? (
           <button onClick={() => toggle(path)} className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10">
-            {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+            {isOpen ? <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
           </button>
         ) : <span className="w-5 inline-block" />}
         {node.isAssembly ? <Factory className="w-3.5 h-3.5 text-primary shrink-0" /> : <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-white/20 shrink-0" />}
         <span className="font-mono text-xs text-gray-500 shrink-0">{node.findNumber ?? ''}</span>
         <span className="font-mono text-xs text-gray-500 shrink-0">{node.partNumber}</span>
         <span className="truncate text-sm flex-1">{node.description}{node.cyclic && <span className="text-amber-500 text-xs ml-2">↻ ciclo</span>}</span>
-        <span className="text-sm tabular-nums shrink-0">{node.extendedQty} <span className="text-gray-400 text-xs">{node.uom}</span></span>
-        <span className="hidden sm:inline text-xs tabular-nums text-gray-400 w-20 text-right shrink-0">{money(node.extendedCost)}</span>
+        <span className="text-sm tabular-nums shrink-0">{node.extendedQty} <span className="text-gray-500 dark:text-gray-400 text-xs">{node.uom}</span></span>
+        <span className="hidden sm:inline text-xs tabular-nums text-gray-500 dark:text-gray-400 w-20 text-right shrink-0">{money(node.extendedCost)}</span>
       </div>
       {hasChildren && isOpen && node.children.map((c, i) => (
         <TreeRow key={`${path}-${i}`} node={c} path={`${path}-${i}`} expanded={expanded} toggle={toggle} />
@@ -457,7 +457,7 @@ function CostTab({ nodeId, baseQty, onApplied }: { nodeId: string; baseQty: numb
       </div>
 
       {isLoading || !data ? (
-        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -478,7 +478,7 @@ function CostTab({ nodeId, baseQty, onApplied }: { nodeId: string; baseQty: numb
                 <div key={b.category} style={{ width: `${b.percentage}%`, background: CAT_META[b.category].color }} title={`${CAT_META[b.category].label} ${b.percentage}%`} />
               ))}
             </div>
-            <div className="flex gap-4 text-[11px] text-gray-400">
+            <div className="flex gap-4 text-[11px] text-gray-500 dark:text-gray-400">
               {data.breakdown.map((b) => (
                 <span key={b.category} className="inline-flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full" style={{ background: CAT_META[b.category].color }} /> {CAT_META[b.category].label} {b.percentage}%
@@ -496,12 +496,12 @@ function CostTab({ nodeId, baseQty, onApplied }: { nodeId: string; baseQty: numb
 
           {data.laborDetail.length > 0 && (
             <div className={`${glass} rounded-2xl overflow-hidden`}>
-              <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-white/10">Mano de obra por ensamble (ruteo)</div>
+              <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/10">Mano de obra por ensamble (ruteo)</div>
               <div className="divide-y divide-gray-100 dark:divide-white/10">
                 {data.laborDetail.map((l) => (
                   <div key={l.materialId} className="flex items-center gap-3 px-4 py-2 text-sm">
                     <span className="font-mono text-xs text-gray-500 shrink-0">{l.partNumber}</span>
-                    <span className="text-gray-400 text-xs ml-auto">{l.qty} u</span>
+                    <span className="text-gray-500 dark:text-gray-400 text-xs ml-auto">{l.qty} u</span>
                     <span className="tabular-nums w-24 text-right">{l.minutes.toLocaleString()} min</span>
                   </div>
                 ))}
@@ -523,7 +523,7 @@ function CostTab({ nodeId, baseQty, onApplied }: { nodeId: string; baseQty: numb
 function CostKpi({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-lg font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );

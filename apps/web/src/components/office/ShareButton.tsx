@@ -54,7 +54,7 @@ export function ShareButton({ docId, initialShares }: { docId: string; initialSh
               className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold">Compartir documento</h2>
-                <button onClick={() => setOpen(false)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+                <button onClick={() => setOpen(false)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
               </div>
 
               <div className="flex items-center gap-2 mb-3">
@@ -70,7 +70,7 @@ export function ShareButton({ docId, initialShares }: { docId: string; initialSh
 
               <div className="max-h-56 overflow-y-auto space-y-1 mb-4">
                 {shares.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-6">Solo tú tienes acceso. Añade personas por correo.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">Solo tú tienes acceso. Añade personas por correo.</p>
                 ) : shares.map((s) => (
                   <div key={s.email} className="flex items-center gap-2 p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5">
                     <span className="flex-1 text-sm truncate">{s.email}</span>
@@ -78,7 +78,7 @@ export function ShareButton({ docId, initialShares }: { docId: string; initialSh
                       <option value="view">Ver</option>
                       <option value="edit">Editar</option>
                     </select>
-                    <button onClick={() => remove(s.email)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => remove(s.email)} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>

@@ -110,19 +110,31 @@ describe('buildImportCapabilityMatrix', () => {
     const matrix = buildImportCapabilityMatrix({ idocApiConfigured: false });
 
     expect(matrix.sources.find((s) => s.source === 'IDOC_API')?.status).toBe('CONFIG_REQUIRED');
-    expect(matrix.cells.find((c) => c.source === 'IDOC_API' && c.target === 'MATERIAL')?.status).toBe('CONFIG_REQUIRED');
+    expect(matrix.cells.find((c) => c.source === 'IDOC_API' && c.target === 'MODEL')?.status).toBe('CONFIG_REQUIRED');
     expect(matrix.gaps.some((g) => g.code === 'SAP_CONNECTOR_NOT_CONFIGURED')).toBe(true);
   });
 
-  it('uses the canonical field specs and marks product models as a manual link', () => {
+  it('uses the canonical field specs and marks product model import as ready', () => {
     const matrix = buildImportCapabilityMatrix({ idocApiConfigured: true });
 
+    expect(matrix.targets.map((target) => target.target)).toEqual([
+      'MODEL',
+      'MATERIAL',
+      'BOM',
+      'ROUTING',
+    ]);
+    expect(matrix.targets.find((t) => t.target === 'MODEL')).toMatchObject({
+      route: '/dashboard/models',
+      writesTo: ['pm_product_models'],
+      requiredFields: ['modelNumber', 'name'],
+    });
     expect(matrix.targets.find((t) => t.target === 'BOM')?.requiredFields).toEqual([
       'parentPartNumber',
       'componentPartNumber',
       'quantity',
     ]);
-    expect(matrix.flow.find((node) => node.key === 'product-model')?.status).toBe('MANUAL_LINK');
+    expect(matrix.flow.find((node) => node.key === 'product-model')?.status).toBe('READY');
+    expect(matrix.gaps.some((g) => g.code === 'PRODUCT_MODEL_IMPORT_TARGET')).toBe(false);
     expect(matrix.cells.every((cell) => cell.status === 'READY')).toBe(true);
   });
 });

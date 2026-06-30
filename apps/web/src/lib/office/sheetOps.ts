@@ -1456,6 +1456,101 @@ export function normalizeSheetPrintLayout(input: Partial<SheetPrintLayout> | nul
 export function printOptsFromLayout(layout: SheetPrintLayout, extras: Omit<PrintOpts, 'orientation' | 'paperSize' | 'gridlines' | 'fitToWidth' | 'fitToPage'> = {}): PrintOpts {
   return { ...extras, range: extras.range ?? layout.printArea, orientation: layout.orientation, paperSize: layout.paperSize, gridlines: layout.showGridlines, fitToWidth: layout.fitToWidth, fitToPage: layout.fitToPage };
 }
+export type SheetPrintReadinessSeverity = 'review' | 'warning' | 'blocked';
+export interface SheetPrintReadinessIssue {
+  key: string; severity: SheetPrintReadinessSeverity; label: string; note: string; count?: number;
+}
+export interface SheetPrintReadinessReport {
+  status: 'ready' | 'review' | 'blocked';
+  score: number;
+  range: string | null;
+  rows: number;
+  columns: number;
+  populatedCells: number;
+  omittedPopulatedCells: number;
+  issues: SheetPrintReadinessIssue[];
+}
+export interface SheetPrintReadinessOptions extends Pick<PrintOpts, 'title' | 'header' | 'footer'> {
+  usedRange?: string;
+}
+const PRINT_ERROR_TOKENS = new Set(['#REF!', '#NAME?', '#DIV/0!', '#VALUE!', '#N/A', '#NUM!', '#NULL!']);
+const isInPrintRange = (r: number, c: number, rng: { r1: number; c1: number; r2: number; c2: number }) => r >= rng.r1 && r <= rng.r2 && c >= rng.c1 && c <= rng.c2;
+const isFormulaErrorText = (raw: any) => PRINT_ERROR_TOKENS.has(String(raw ?? '').trim().toUpperCase());
+
+function printIssue(severity: SheetPrintReadinessSeverity, key: string, label: string, note: string, count?: number): SheetPrintReadinessIssue {
+  return { severity, key, label, note, ...(count == null ? {} : { count }) };
+}
+
+function populatedCellsOf(sheet: any): Cell[] {
+  return (sheet?.celldata ?? []).filter((cd: Cell) => {
+    const raw = rawOf(cd);
+    return raw != null && raw !== '';
+  });
+}
+
+/** Preflight report for browser-printable industrial sheet reports. */
+export function analyzeSheetPrintReadiness(sheet: any, layout: Partial<SheetPrintLayout> | null | undefined, opts: SheetPrintReadinessOptions = {}): SheetPrintReadinessReport {
+  const used = usedRange(sheet) ?? (opts.usedRange && parseRange(opts.usedRange) ? opts.usedRange.toUpperCase() : null);
+  const rawRange = (layout?.printArea || used || '').trim();
+  const rng = rawRange ? parseRange(rawRange) : null;
+  const issues: SheetPrintReadinessIssue[] = [];
+  const populated = populatedCellsOf(sheet);
+  const range = rng ? `${a1(rng.r1, rng.c1)}:${a1(rng.r2, rng.c2)}` : null;
+  const rows = rng ? rng.r2 - rng.r1 + 1 : 0;
+  const columns = rng ? rng.c2 - rng.c1 + 1 : 0;
+
+  if (!rawRange) issues.push(printIssue('blocked', 'empty-sheet', 'Sin celdas imprimibles', 'El workbook no expone rango usado para esta hoja.'));
+  else if (!rng) issues.push(printIssue('blocked', 'invalid-print-area', 'Area de impresion invalida', 'Usa un rango A1 como A1:H40 antes de imprimir.'));
+
+  if (!layout?.printArea && used) {
+    issues.push(printIssue('review', 'implicit-print-area', 'Sin area guardada', 'La vista previa usa todo el rango usado. Guarda un area para reportes controlados.'));
+  }
+
+  let omittedPopulatedCells = 0;
+  if (rng && populated.length) {
+    omittedPopulatedCells = populated.filter((cd) => !isInPrintRange(cd.r, cd.c, rng)).length;
+    if (omittedPopulatedCells > 0) {
+      issues.push(printIssue('warning', 'omitted-cells', 'Celdas fuera del area', 'Algunas celdas pobladas no apareceran en el reporte impreso.', omittedPopulatedCells));
+    }
+  } else if (rng && used) {
+    const usedRng = parseRange(used);
+    if (usedRng && !(
+      rng.r1 <= usedRng.r1 && rng.c1 <= usedRng.c1 && rng.r2 >= usedRng.r2 && rng.c2 >= usedRng.c2
+    )) {
+      issues.push(printIssue('warning', 'used-range-outside-print-area', 'Rango usado parcialmente fuera', 'El area seleccionada no cubre todo el rango usado conocido.'));
+    }
+  }
+
+  if (rng && columns > 8 && layout?.orientation !== 'landscape' && !layout?.fitToWidth) {
+    issues.push(printIssue('warning', 'wide-portrait', 'Reporte ancho en vertical', 'Cambia a horizontal o ajusta al ancho para evitar tablas industriales cortadas.'));
+  }
+  if (rng && columns > 12 && !layout?.fitToWidth) {
+    issues.push(printIssue('warning', 'wide-no-fit', 'Reporte ancho sin ajuste', 'Activa ajustar al ancho antes de imprimir tablas de proveedores, MRP o BOM.'));
+  }
+  if (rng && rows > 60 && layout?.fitToPage) {
+    issues.push(printIssue('review', 'tall-fit-page', 'Reporte alto en una pagina', 'Los reportes operativos grandes pueden quedar ilegibles si se comprimen a una pagina.'));
+  }
+  if (layout?.showGridlines !== false) {
+    issues.push(printIssue('review', 'gridlines-on', 'Cuadricula visible', 'Oculta la cuadricula para reportes controlados o de cliente.'));
+  }
+  if (!String(opts.title ?? '').trim() && !String(opts.header ?? '').trim()) {
+    issues.push(printIssue('review', 'missing-title-header', 'Falta titulo/encabezado', 'Agrega titulo o encabezado para identificar la seccion del workbook.'));
+  }
+  if (!String(opts.footer ?? '').trim()) {
+    issues.push(printIssue('review', 'missing-footer', 'Falta pie', 'Agrega fecha, revision o contexto de aprobacion para reportes controlados.'));
+  }
+
+  if (rng) {
+    const errorCells = populated.filter((cd) => isInPrintRange(cd.r, cd.c, rng) && isFormulaErrorText(rawOf(cd))).length;
+    if (errorCells) issues.push(printIssue('blocked', 'formula-errors', 'Errores de formula en el area', 'Resuelve errores de hoja antes de liberar este reporte.', errorCells));
+    const merges = Object.values(sheet?.config?.merge ?? {}).filter((m: any) => m && mergeOverlaps(m, rng.r1, rng.c1, rng.r2, rng.c2)).length;
+    if (merges) issues.push(printIssue('review', 'merged-cells', 'Celdas combinadas en el area', 'La impresion del navegador usa una cuadricula simplificada y puede diferir de Excel.', merges));
+  }
+
+  const score = Math.max(0, 100 - issues.reduce((sum, issue) => sum + (issue.severity === 'blocked' ? 35 : issue.severity === 'warning' ? 15 : 7), 0));
+  const status = issues.some((issue) => issue.severity === 'blocked') ? 'blocked' : issues.length ? 'review' : 'ready';
+  return { status, score, range, rows, columns, populatedCells: populated.length, omittedPopulatedCells, issues };
+}
 const escHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
 
 /** Genera un documento HTML imprimible del área indicada (respeta valores y estilos básicos). */

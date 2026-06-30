@@ -531,7 +531,7 @@ export function DeleteButton({
     );
   }
   return (
-    <button onClick={run} disabled={busy} title="Eliminar" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 disabled:opacity-50">
+    <button onClick={run} disabled={busy} title="Eliminar" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 disabled:opacity-50">
       {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
     </button>
   );

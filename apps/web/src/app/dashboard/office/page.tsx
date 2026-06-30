@@ -315,7 +315,7 @@ export default function OfficeHubPage() {
 
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <div className="relative flex-1 min-w-[180px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre, autor o tag…"
               className={`${glass} w-full rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 ring-black/10 dark:ring-white/20`} />
           </div>
@@ -366,7 +366,7 @@ export default function OfficeHubPage() {
 
           {(allSpaces.length > 0 || allFolders.length > 0) && (
             <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-black/5 dark:border-white/10">
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400"><Archive className="w-3.5 h-3.5" /> Spaces</span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400"><Archive className="w-3.5 h-3.5" /> Spaces</span>
               <button onClick={() => { setActiveSpace(''); setActiveFolder(''); }} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeSpace === '' && activeFolder === '' ? 'bg-indigo-500 text-white' : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'}`}>Todos</button>
               {allSpaces.map((spaceName) => (
                 <button key={spaceName} onClick={() => setActiveSpace((current) => current === spaceName ? '' : spaceName)} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeSpace === spaceName ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500 hover:text-black dark:bg-white/5 dark:hover:text-white'}`}>
@@ -382,7 +382,7 @@ export default function OfficeHubPage() {
           )}
           {allTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-black/5 dark:border-white/10">
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400"><Tags className="w-3.5 h-3.5" /> Tags</span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400"><Tags className="w-3.5 h-3.5" /> Tags</span>
               <button onClick={() => setActiveTag('')} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeTag === '' ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300'}`}>Todos</button>
               {allTags.map((tag) => (
                 <button key={tag} onClick={() => setActiveTag((current) => current === tag ? '' : tag)} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeTag === tag ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:text-black dark:bg-white/5 dark:hover:text-white'}`}>
@@ -428,7 +428,7 @@ export default function OfficeHubPage() {
         {forbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
         ) : isLoading ? (
-          <div className="flex justify-center py-16 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : docs.length === 0 ? (
           <Empty icon={trash ? <Trash2 className="w-6 h-6" /> : <meta.icon className="w-6 h-6" />} title={trash ? 'Papelera vacía' : `Sin ${meta.label.toLowerCase()}`} body={trash ? 'Los documentos que elimines aparecerán aquí.' : 'Crea el primero con "Nuevo" o ajusta los filtros de biblioteca.'} />
         ) : view === 'list' ? (
@@ -450,7 +450,7 @@ export default function OfficeHubPage() {
                       onKeyDown={(e) => { if (e.key === 'Enter') saveRename(d.id); if (e.key === 'Escape') setEditingId(null); }}
                       className="flex-1 min-w-0 bg-gray-100 dark:bg-white/10 rounded-lg px-2 py-1 text-sm font-bold outline-none" />
                     <button onClick={() => saveRename(d.id)} className="p-1.5 rounded-full text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"><Check className="w-4 h-4" /></button>
-                    <button onClick={() => setEditingId(null)} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+                    <button onClick={() => setEditingId(null)} className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
                   </div>
                 ) : (
                   <Link href={trash ? '#' : `/dashboard/office/${d.id}`} onClick={(e) => { if (trash) e.preventDefault(); }} className={`block ${trash ? 'cursor-default' : ''}`}>
@@ -463,8 +463,8 @@ export default function OfficeHubPage() {
                       <LifecycleBadge state={d.lifecycleState ?? 'draft'} locked={d.locked} />
                     </div>
                     <p className="font-bold truncate">{d.title}</p>
-                    <p className="flex items-center gap-1 text-[11px] text-gray-400"><Clock className="w-3 h-3" /> {relTime(d.updatedAt)}</p>
-                    {(d.space || d.folderPath) && <p className="mt-1 truncate text-[11px] font-medium text-gray-400">{d.space || 'General'}{d.folderPath ? ` / ${d.folderPath}` : ''}</p>}
+                    <p className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400"><Clock className="w-3 h-3" /> {relTime(d.updatedAt)}</p>
+                    {(d.space || d.folderPath) && <p className="mt-1 truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">{d.space || 'General'}{d.folderPath ? ` / ${d.folderPath}` : ''}</p>}
                     {(metaFor(d).tags ?? []).length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-3">
                         {(metaFor(d).tags ?? []).map((tag) => <span key={tag} className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-[10px] font-semibold text-gray-500">{tag}</span>)}
@@ -482,11 +482,11 @@ export default function OfficeHubPage() {
                       </>
                     ) : (
                       <>
-                        <IconBtn title={metaFor(d).favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(d.id)} className={`${metaFor(d).favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
-                        <IconBtn title={metaFor(d).pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(d.id)} className={`${metaFor(d).pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
-                        <IconBtn title="Editar tags" onClick={() => editTags(d.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
-                        {!d.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
-                        <IconBtn title="Duplicar" onClick={() => duplicate(d.id)} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
+                        <IconBtn title={metaFor(d).favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(d.id)} className={`${metaFor(d).favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-500 dark:text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
+                        <IconBtn title={metaFor(d).pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(d.id)} className={`${metaFor(d).pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-500 dark:text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
+                        <IconBtn title="Editar tags" onClick={() => editTags(d.id)} className="text-gray-500 dark:text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
+                        {!d.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
+                        <IconBtn title="Duplicar" onClick={() => duplicate(d.id)} className="text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Mover a papelera" onClick={() => toTrash(d.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
                       </>
                     )}
@@ -531,13 +531,13 @@ function QueueCard({
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-600 dark:bg-white/10 dark:text-gray-300">{count}</span>
       </div>
       {items.length === 0 ? (
-        <p className="text-xs text-gray-400">Sin pendientes.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Sin pendientes.</p>
       ) : (
         <div className="space-y-1.5">
           {items.slice(0, 3).map((item) => (
             <Link key={item.id} href={item.href} className="block rounded-xl bg-white px-2.5 py-2 text-xs transition hover:bg-gray-50 dark:bg-black/20 dark:hover:bg-white/10">
               <span className="block truncate font-semibold text-gray-800 dark:text-gray-100">{item.title}</span>
-              <span className="mt-0.5 block truncate text-[11px] text-gray-400">{item.helper}</span>
+              <span className="mt-0.5 block truncate text-[11px] text-gray-500 dark:text-gray-400">{item.helper}</span>
             </Link>
           ))}
         </div>
@@ -596,7 +596,7 @@ function DocumentRow({
                 onKeyDown={(e) => { if (e.key === 'Enter') saveRename(doc.id); if (e.key === 'Escape') setEditingId(null); }}
                 className="min-w-0 rounded-lg bg-gray-100 px-2 py-1 text-sm font-bold outline-none dark:bg-white/10" />
               <button onClick={() => saveRename(doc.id)} className="p-1.5 rounded-full text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"><Check className="w-4 h-4" /></button>
-              <button onClick={() => setEditingId(null)} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+              <button onClick={() => setEditingId(null)} className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
             </div>
           ) : (
             <Link href={trash ? '#' : `/dashboard/office/${doc.id}`} onClick={(e) => { if (trash) e.preventDefault(); }} className={`block min-w-0 ${trash ? 'cursor-default' : ''}`}>
@@ -607,7 +607,7 @@ function DocumentRow({
                 {local.pinned && <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-500/10"><Pin className="h-3 w-3" /> Fijado</span>}
                 <LifecycleBadge state={doc.lifecycleState ?? 'draft'} locked={doc.locked} />
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                 <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {relTime(doc.updatedAt)}</span>
                 {doc.createdBy && <span>{doc.createdBy}</span>}
                 {(doc.space || doc.folderPath) && <span>{doc.space || 'General'}{doc.folderPath ? ` / ${doc.folderPath}` : ''}</span>}
@@ -627,11 +627,11 @@ function DocumentRow({
             </>
           ) : (
             <>
-              <IconBtn title={local.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(doc.id)} className={`${local.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
-              <IconBtn title={local.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(doc.id)} className={`${local.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
-              <IconBtn title="Editar tags" onClick={() => editTags(doc.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
-              {!doc.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(doc.id); setDraft(doc.title); }} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
-              <IconBtn title="Duplicar" onClick={() => duplicate(doc.id)} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
+              <IconBtn title={local.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(doc.id)} className={`${local.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-500 dark:text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
+              <IconBtn title={local.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(doc.id)} className={`${local.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-500 dark:text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
+              <IconBtn title="Editar tags" onClick={() => editTags(doc.id)} className="text-gray-500 dark:text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
+              {!doc.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(doc.id); setDraft(doc.title); }} className="text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
+              <IconBtn title="Duplicar" onClick={() => duplicate(doc.id)} className="text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
               <IconBtn title="Mover a papelera" onClick={() => toTrash(doc.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
             </>
           )}
@@ -644,7 +644,7 @@ function DocumentRow({
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>

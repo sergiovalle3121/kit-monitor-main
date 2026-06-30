@@ -1540,7 +1540,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         >
           <span className={`h-2.5 w-2.5 rounded-full ${STATUS_META[myStatus].dot}`} />
           <span className="font-medium">{STATUS_META[myStatus].label}</span>
-          <ChevronDown className="h-3 w-3 text-gray-400" />
+          <ChevronDown className="h-3 w-3 text-gray-500 dark:text-gray-400" />
         </button>
         {showStatusMenu && (
           <div
@@ -1563,7 +1563,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
       <div className="mb-4 flex items-center justify-between">
         {single ? (
-          <span className="text-xs text-gray-400">Tu chat interno</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">Tu chat interno</span>
         ) : (
           <Link
             href="/dashboard"
@@ -1603,7 +1603,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           <button
             onClick={() => setSearch('')}
             aria-label="Limpiar búsqueda"
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1642,7 +1642,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       <div className="flex-1 space-y-4 overflow-y-auto">
         {filteredUsers.length > 0 && (
           <div className="space-y-1">
-            <p className="px-1 text-xs font-medium text-gray-400">Empleados</p>
+            <p className="px-1 text-xs font-medium text-gray-500 dark:text-gray-400">Empleados</p>
             {filteredUsers.map((u) => (
               <button
                 key={u.id}
@@ -1667,7 +1667,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         {/* Resultados de búsqueda global de mensajes */}
         {searchResults.length > 0 && (
           <div className="space-y-1">
-            <p className="px-1 text-xs font-medium text-gray-400">Mensajes</p>
+            <p className="px-1 text-xs font-medium text-gray-500 dark:text-gray-400">Mensajes</p>
             {searchResults.map((r) => (
               <button
                 key={r.id}
@@ -1689,7 +1689,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                       {r.conversationTitle}
                     </span>
-                    <span className="shrink-0 text-[10px] text-gray-400">
+                    <span className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400">
                       {relativeTime(r.createdAt)}
                     </span>
                   </span>
@@ -1704,7 +1704,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
         {onlineUsers.length > 0 && (
           <div className="space-y-1">
-            <p className="flex items-center gap-1.5 px-1 text-xs font-medium text-gray-400">
+            <p className="flex items-center gap-1.5 px-1 text-xs font-medium text-gray-500 dark:text-gray-400">
               <span className="h-2 w-2 rounded-full bg-green-500" />
               En línea · {onlineUsers.length}
             </p>
@@ -1734,7 +1734,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
         {channels.length > 0 && (
           <div className="space-y-1">
-            <p className="px-1 text-xs font-medium text-gray-400">Canales</p>
+            <p className="px-1 text-xs font-medium text-gray-500 dark:text-gray-400">Canales</p>
             {channels.map((c) => (
               <ConversationRow
                 key={c.id}
@@ -1749,9 +1749,9 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         )}
 
         <div className="space-y-1">
-          <p className="px-1 text-xs font-medium text-gray-400">Mensajes directos</p>
+          <p className="px-1 text-xs font-medium text-gray-500 dark:text-gray-400">Mensajes directos</p>
           {dms.length === 0 && (
-            <p className="px-1 text-xs text-gray-400">Busca un empleado para iniciar un chat.</p>
+            <p className="px-1 text-xs text-gray-500 dark:text-gray-400">Busca un empleado para iniciar un chat.</p>
           )}
           {dms.map((c) => (
             <ConversationRow
@@ -1771,7 +1771,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           <div className="space-y-1">
             <button
               onClick={() => setShowArchived((s) => !s)}
-              className="flex w-full items-center gap-1.5 px-1 text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="flex w-full items-center gap-1.5 px-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
             >
               <Archive className="h-3.5 w-3.5" />
               Archivados · {archivedConvos.length}
@@ -1806,7 +1806,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       } h-full min-w-0 flex-1 flex-col ${single ? 'min-h-0' : 'rounded-[24px]'}`}
     >
       {!active ? (
-        <div className="flex flex-1 items-center justify-center text-center text-gray-400">
+        <div className="flex flex-1 items-center justify-center text-center text-gray-500 dark:text-gray-400">
           <div>
             <p className="text-lg font-semibold">Tu chat interno</p>
             <p className="text-sm">Elige una conversación o busca un empleado.</p>
@@ -1967,7 +1967,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                     <div
                       className={`${glass} absolute right-0 top-11 z-30 w-44 rounded-2xl p-1 shadow-xl`}
                     >
-                      <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                      <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Mensajes temporales
                       </p>
                       {[
@@ -2055,7 +2055,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                       <button
                         onClick={() => handlePin(p)}
                         aria-label="Desfijar"
-                        className="shrink-0 rounded-full p-1 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+                        className="shrink-0 rounded-full p-1 text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
                       >
                         <PinOff className="h-3.5 w-3.5" />
                       </button>
@@ -2075,7 +2075,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
             {loadingMessages ? (
               <MessagesSkeleton />
             ) : messages.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
+              <div className="flex h-full flex-col items-center justify-center text-center text-gray-500 dark:text-gray-400">
                 <p className="text-sm font-medium">No hay mensajes todavía</p>
                 <p className="text-xs">Escribe el primero 👋</p>
               </div>
@@ -2153,7 +2153,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
           {/* Indicador de "escribiendo…" */}
           {typingConvo === activeId && (
-            <div className="px-5 pb-1 -mt-1 flex items-center gap-1.5 text-[12px] text-gray-400">
+            <div className="px-5 pb-1 -mt-1 flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-gray-400">
               <span className="flex gap-0.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.2s]" />
                 <span className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.1s]" />
@@ -2198,7 +2198,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                       <button
                         onClick={() => removeMeeting(m.id)}
                         aria-label="Cancelar reunión"
-                        className="shrink-0 text-gray-400 hover:text-red-500"
+                        className="shrink-0 text-gray-500 dark:text-gray-400 hover:text-red-500"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -2253,7 +2253,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                         <button
                           onClick={() => cancelScheduledMsg(s.id)}
                           aria-label="Cancelar programado"
-                          className="shrink-0 text-gray-400 hover:text-red-500"
+                          className="shrink-0 text-gray-500 dark:text-gray-400 hover:text-red-500"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -2392,7 +2392,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 <button
                   onClick={() => setSuggestions([])}
                   aria-label="Descartar sugerencias"
-                  className="rounded-full p-1 text-gray-400 hover:text-gray-600"
+                  className="rounded-full p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -2754,7 +2754,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           <button
             onClick={() => setMeetingReminder(null)}
             aria-label="Descartar"
-            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
+            className="shrink-0 rounded-full p-1 text-gray-500 dark:text-gray-400 hover:text-gray-600"
           >
             <X className="h-4 w-4" />
           </button>
@@ -2946,7 +2946,7 @@ function PollView({
                 {voted ? (
                   <CheckCircle2 className="h-4 w-4 shrink-0 text-pink-600 dark:text-pink-400" />
                 ) : (
-                  <Circle className="h-4 w-4 shrink-0 text-gray-400" />
+                  <Circle className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
                 )}
                 <span className="min-w-0 flex-1 truncate">{o.text}</span>
                 <span className="shrink-0 text-xs tabular-nums text-gray-500">
@@ -2957,7 +2957,7 @@ function PollView({
           );
         })}
       </div>
-      <p className="mt-2 text-[11px] text-gray-400">
+      <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
         {total} voto{total !== 1 ? 's' : ''}
         {poll.multi ? ' · opción múltiple' : ''}
       </p>
@@ -3093,7 +3093,7 @@ function MessageItem({
         id={`msg-${m.id}`}
         className={`mt-3 flex scroll-mt-24 ${mine ? 'justify-end' : 'justify-start'}`}
       >
-        <span className="inline-flex items-center gap-1.5 rounded-[18px] bg-black/5 px-4 py-2 text-sm italic text-gray-400 dark:bg-white/5">
+        <span className="inline-flex items-center gap-1.5 rounded-[18px] bg-black/5 px-4 py-2 text-sm italic text-gray-500 dark:text-gray-400 dark:bg-white/5">
           <Trash2 className="h-3.5 w-3.5" /> Mensaje eliminado
         </span>
       </div>
@@ -3129,7 +3129,7 @@ function MessageItem({
   const forwardedTag = m.forwarded ? (
     <p
       className={`mb-0.5 flex items-center gap-1 text-[10px] italic ${
-        onColored ? 'text-white/70' : 'text-gray-400'
+        onColored ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
       }`}
     >
       <CornerUpRight className="h-3 w-3" /> Reenviado
@@ -3434,7 +3434,7 @@ function MessageItem({
                   {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
                 </span>
               </span>
-              <ExternalLink className="h-4 w-4 shrink-0 text-gray-400" />
+              <ExternalLink className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
             </a>
             <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
               <span>{timeOf(m.createdAt)}</span>
@@ -3534,7 +3534,7 @@ function MessageItem({
                   >
                     <span
                       className={`mb-0.5 flex items-center gap-1 text-[10px] not-italic ${
-                        onColored ? 'text-white/70' : 'text-gray-400'
+                        onColored ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       <Languages className="h-3 w-3" /> Traducción
@@ -3642,7 +3642,7 @@ function ReadIndicator({
   return (
     <div className="flex justify-end pr-1 -mt-1">
       {isChannel ? (
-        <div className="flex items-center gap-1 text-[10px] text-gray-400">
+        <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
           <span>Visto por</span>
           <div className="flex -space-x-1.5">
             {readerIds.slice(0, 5).map((uid) => (
@@ -3658,7 +3658,7 @@ function ReadIndicator({
           {readerIds.length > 5 && <span>+{readerIds.length - 5}</span>}
         </div>
       ) : (
-        <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
+        <span className="flex items-center gap-0.5 text-[10px] text-gray-500 dark:text-gray-400">
           <CheckCheck className="h-3 w-3" /> Visto
         </span>
       )}
@@ -3790,7 +3790,7 @@ function ConversationRow({
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             {convo.pinned && (
-              <Pin className="h-3 w-3 shrink-0 -rotate-45 text-gray-400" />
+              <Pin className="h-3 w-3 shrink-0 -rotate-45 text-gray-500 dark:text-gray-400" />
             )}
             <span
               className={`min-w-0 flex-1 truncate text-sm ${unread ? 'font-bold' : 'font-medium'}`}
@@ -3798,11 +3798,11 @@ function ConversationRow({
               {convo.title || 'Conversación'}
             </span>
             {convo.muted && (
-              <BellOff className="h-3 w-3 shrink-0 text-gray-400" />
+              <BellOff className="h-3 w-3 shrink-0 text-gray-500 dark:text-gray-400" />
             )}
             {when && (
               <span
-                className={`shrink-0 text-[10px] ${unread ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
+                className={`shrink-0 text-[10px] ${unread ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
               >
                 {when}
               </span>
@@ -3912,7 +3912,7 @@ function ConversationRow({
               />
             ) : (
               <>
-                <p className="px-3 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                <p className="px-3 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   Silenciar
                 </p>
                 <MenuItem
@@ -3999,7 +3999,7 @@ function PollModal({
                     setOptions((prev) => prev.filter((_, idx) => idx !== i))
                   }
                   aria-label="Quitar opción"
-                  className="rounded-full p-1.5 text-gray-400 hover:bg-black/5 hover:text-red-500 dark:hover:bg-white/10"
+                  className="rounded-full p-1.5 text-gray-500 dark:text-gray-400 hover:bg-black/5 hover:text-red-500 dark:hover:bg-white/10"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -4084,7 +4084,7 @@ function ScheduleModal({
           placeholder="Mensaje…"
           className="mb-3 w-full resize-none rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
         />
-        <label className="mb-1 block text-xs font-medium text-gray-400">
+        <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
           Enviar el
         </label>
         <input
@@ -4204,7 +4204,7 @@ function ChannelSettingsModal({
         </div>
 
         {/* Nombre */}
-        <label className="mb-1 block text-xs font-medium text-gray-400">Nombre</label>
+        <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">Nombre</label>
         <div className="mb-4 flex items-center gap-2">
           <input
             value={name}
@@ -4222,7 +4222,7 @@ function ChannelSettingsModal({
 
         {/* Miembros */}
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-medium text-gray-400">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
             Miembros · {memberIds.length}
           </p>
           <button
@@ -4244,7 +4244,7 @@ function ChannelSettingsModal({
             />
             <div className="max-h-32 overflow-y-auto">
               {nonMembers.length === 0 && (
-                <p className="px-2 py-1 text-xs text-gray-400">Sin resultados</p>
+                <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400">Sin resultados</p>
               )}
               {nonMembers.slice(0, 20).map((u) => (
                 <button
@@ -4277,7 +4277,7 @@ function ChannelSettingsModal({
             </span>
             <span className="text-sm font-medium">Tú</span>
             {isCreator && (
-              <span className="ml-auto text-[10px] text-gray-400">Creador</span>
+              <span className="ml-auto text-[10px] text-gray-500 dark:text-gray-400">Creador</span>
             )}
           </div>
           {memberUsers.map((u) => (
@@ -4301,7 +4301,7 @@ function ChannelSettingsModal({
                 <button
                   onClick={() => removeOne(u.id)}
                   aria-label="Quitar del canal"
-                  className="ml-auto rounded-full p-1.5 text-gray-400 hover:bg-red-500/10 hover:text-red-500"
+                  className="ml-auto rounded-full p-1.5 text-gray-500 dark:text-gray-400 hover:bg-red-500/10 hover:text-red-500"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -4380,7 +4380,7 @@ function ForwardModal({
         </div>
         <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
           {list.length === 0 && (
-            <p className="px-1 text-xs text-gray-400">Sin conversaciones</p>
+            <p className="px-1 text-xs text-gray-500 dark:text-gray-400">Sin conversaciones</p>
           )}
           {list.map((c) => {
             const on = selected.includes(c.id);
@@ -4472,7 +4472,7 @@ function ContactPickerModal({
         </div>
         <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
           {list.length === 0 && (
-            <p className="px-1 text-xs text-gray-400">Sin resultados</p>
+            <p className="px-1 text-xs text-gray-500 dark:text-gray-400">Sin resultados</p>
           )}
           {list.map((u) => (
             <button
@@ -4533,11 +4533,11 @@ function ThreadMessageRow({
           <span className="text-xs font-semibold">
             {senderName(m.senderId, users)}
           </span>
-          <span className="text-[10px] text-gray-400">{timeOf(m.createdAt)}</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400">{timeOf(m.createdAt)}</span>
         </div>
         <div className="break-words text-sm leading-relaxed text-foreground">
           {m.deletedAt ? (
-            <span className="italic text-gray-400">Mensaje eliminado</span>
+            <span className="italic text-gray-500 dark:text-gray-400">Mensaje eliminado</span>
           ) : gifUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -4607,7 +4607,7 @@ function ThreadPanel({
           <div className="rounded-2xl bg-black/5 p-3 dark:bg-white/10">
             <ThreadMessageRow m={root} users={users} root />
           </div>
-          <div className="my-3 flex items-center gap-3 text-[11px] text-gray-400">
+          <div className="my-3 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
             <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
             {replies.length}{' '}
             {replies.length === 1 ? 'respuesta' : 'respuestas'}
@@ -4685,14 +4685,14 @@ function LabelModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <p className="mb-3 truncate text-xs text-gray-400">
+        <p className="mb-3 truncate text-xs text-gray-500 dark:text-gray-400">
           {convo.title || 'Conversación'}
         </p>
 
         {/* Etiquetas asignadas */}
         <div className="mb-3 flex min-h-[2rem] flex-wrap gap-1.5">
           {labels.length === 0 && (
-            <span className="text-xs text-gray-400">Sin etiquetas todavía</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Sin etiquetas todavía</span>
           )}
           {labels.map((l) => (
             <span
@@ -4741,7 +4741,7 @@ function LabelModal({
         {/* Sugerencias de etiquetas existentes */}
         {remaining.length > 0 && (
           <div className="mb-4">
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
               Existentes
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -4849,7 +4849,7 @@ function LinkPreviewCard({
         {data.siteName && (
           <p
             className={`truncate text-[10px] uppercase tracking-wide ${
-              onColored ? 'text-white/60' : 'text-gray-400'
+              onColored ? 'text-white/60' : 'text-gray-500 dark:text-gray-400'
             }`}
           >
             {data.siteName}
@@ -4953,9 +4953,9 @@ function GalleryModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
-            <p className="py-10 text-center text-sm text-gray-400">Cargando…</p>
+            <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Cargando…</p>
           ) : items.length === 0 ? (
-            <p className="py-10 text-center text-sm text-gray-400">
+            <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
               No hay {tab === 'image' ? 'fotos' : tab === 'file' ? 'archivos' : 'enlaces'} todavía
             </p>
           ) : tab === 'image' ? (
@@ -5059,7 +5059,7 @@ function SavedModal({
         </div>
         <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
           {items.length === 0 ? (
-            <p className="py-10 text-center text-sm text-gray-400">
+            <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
               Aún no has guardado mensajes. Usa “Guardar” en el menú de un mensaje.
             </p>
           ) : (
@@ -5084,7 +5084,7 @@ function SavedModal({
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                       {it.conversationTitle}
                     </span>
-                    <span className="shrink-0 text-[10px] text-gray-400">
+                    <span className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400">
                       {relativeTime(it.createdAt)}
                     </span>
                   </span>
@@ -5189,7 +5189,7 @@ function MeetingModal({
                   <button
                     onClick={() => onCancel(m.id)}
                     aria-label="Cancelar reunión"
-                    className="shrink-0 text-gray-400 hover:text-red-500"
+                    className="shrink-0 text-gray-500 dark:text-gray-400 hover:text-red-500"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -5199,7 +5199,7 @@ function MeetingModal({
           </div>
         )}
 
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Nueva reunión
         </p>
         <input
@@ -5281,7 +5281,7 @@ function AiSummaryModal({
           </button>
         </div>
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-400">
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500 dark:text-gray-400">
             <Loader2 className="h-5 w-5 animate-spin" /> Resumiendo…
           </div>
         ) : (
@@ -5289,7 +5289,7 @@ function AiSummaryModal({
             {summary}
           </div>
         )}
-        <p className="mt-3 text-[10px] text-gray-400">
+        <p className="mt-3 text-[10px] text-gray-500 dark:text-gray-400">
           Generado por IA · puede contener errores.
         </p>
       </div>
@@ -5349,7 +5349,7 @@ function CommandPalette({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 border-b border-black/5 px-4 py-3 dark:border-white/10">
-          <Command className="h-4 w-4 text-gray-400" />
+          <Command className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           <input
             autoFocus
             value={q}
@@ -5376,7 +5376,7 @@ function CommandPalette({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
           {items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-400">Sin resultados</p>
+            <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">Sin resultados</p>
           ) : (
             items.map((it, i) => (
               <button
@@ -5400,7 +5400,7 @@ function CommandPalette({
                 </span>
                 <span className="min-w-0 flex-1 truncate">{it.label}</span>
                 {it.kind === 'action' && (
-                  <span className="shrink-0 text-[10px] text-gray-400">acción</span>
+                  <span className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400">acción</span>
                 )}
               </button>
             ))
@@ -5458,7 +5458,7 @@ function NewChannelModal({
           placeholder="Nombre del canal (ej. produccion)"
           className="mb-4 w-full rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
         />
-        <p className="mb-2 text-xs font-medium text-gray-400">Miembros</p>
+        <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Miembros</p>
         <div className="mb-4 max-h-56 space-y-1 overflow-y-auto">
           {users.map((u) => (
             <button

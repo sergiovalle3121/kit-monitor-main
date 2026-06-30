@@ -147,9 +147,9 @@ export default function RmaPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver RMA.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver RMA.</p>
         </div>
       </div>
     );
@@ -159,7 +159,7 @@ export default function RmaPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(239,68,68,0.12)' }}>
@@ -167,7 +167,7 @@ export default function RmaPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">RMA · Quejas de Cliente</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Devoluciones, investigación y disposición</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Devoluciones, investigación y disposición</p>
           </div>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: RED }}>
             <Plus className="w-4 h-4" /> Abrir RMA
@@ -223,12 +223,12 @@ export default function RmaPage() {
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin casos RMA</h3>
-            <p className="text-sm text-gray-400 mt-1">Abre un caso al recibir una queja o devolución de cliente.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Abre un caso al recibir una queja o devolución de cliente.</p>
           </div>
         ) : (
           <div className="space-y-8">
@@ -240,7 +240,7 @@ export default function RmaPage() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_META[status].color }} />
                     <h2 className="text-sm font-semibold">{STATUS_META[status].label}</h2>
-                    <span className="text-[11px] text-gray-400">({items.length})</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">({items.length})</span>
                   </div>
                   <div className="space-y-3">
                     {items.map((r) => (
@@ -253,7 +253,7 @@ export default function RmaPage() {
                               <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${SEV_COLOR[r.severity]}1f`, color: SEV_COLOR[r.severity] }}>{SEV_LABEL[r.severity]}</span>
                               {r.disposition && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${VIOLET}1f`, color: VIOLET }}>{DISP_LABEL[r.disposition]}</span>}
                             </div>
-                            <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-400 flex-wrap">
+                            <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                               {r.customerName && <><span>{r.customerName}</span><span>•</span></>}
                               {r.partNumber && <><span>{r.partNumber}</span><span>•</span></>}
                               {r.serialNumber && <><span>SN {r.serialNumber}</span><span>•</span></>}
@@ -309,7 +309,7 @@ export default function RmaPage() {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
   );

@@ -40,7 +40,7 @@ export function AuthImage({
 
   if (error) {
     return (
-      <div className="text-xs text-gray-400 italic">No se pudo cargar la imagen</div>
+      <div className="text-xs text-gray-500 dark:text-gray-400 italic">No se pudo cargar la imagen</div>
     );
   }
   if (!url) {

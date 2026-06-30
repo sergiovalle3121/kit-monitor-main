@@ -118,12 +118,12 @@ export default function CostEstimator({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (
           <>
             <div className="flex items-end justify-between mb-2">
               <div>
-                <div className="text-[11px] uppercase tracking-wide text-gray-400">Costo total por unidad</div>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Costo total por unidad</div>
                 <div className="text-3xl font-semibold" style={{ color: ROSE }}>{money(data.totalCostPerUnit)}</div>
               </div>
               <div className="text-right text-[12px] text-gray-500 leading-relaxed">
@@ -153,7 +153,7 @@ export default function CostEstimator({
           </>
         )}
 
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
           Estimación con las tarifas indicadas. M.O. = operadores × takt × tarifa; piso = área × tarifa; equipo = capex amortizado. El volumen mensual se deriva del takt si no se fija demanda.
         </p>
       </div>
@@ -173,7 +173,7 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 function Bucket({ color, title, perUnit, perMonth, pct }: { color: string; title: string; perUnit: string; perMonth: string; pct: number }) {
   return (
     <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400 inline-flex items-center gap-1.5">
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 inline-flex items-center gap-1.5">
         <span className="w-2 h-2 rounded-full" style={{ background: color }} /> {title}
       </div>
       <div className="text-lg font-semibold mt-0.5" style={{ color }}>{perUnit}</div>

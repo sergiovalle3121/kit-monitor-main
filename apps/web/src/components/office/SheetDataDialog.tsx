@@ -93,7 +93,7 @@ export function SheetDataDialog({
         className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl p-6 space-y-3 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{TITLES[mode]}</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
 
         {sheetNames.length > 1 && (
@@ -122,7 +122,7 @@ export function SheetDataDialog({
                       <option value="asc">Ascendente</option><option value="desc">Descendente</option>
                     </select>
                   </label>
-                  {keys.length > 1 && <button onClick={() => setKeys((p) => p.filter((_, j) => j !== i))} className="h-9 w-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></button>}
+                  {keys.length > 1 && <button onClick={() => setKeys((p) => p.filter((_, j) => j !== i))} className="h-9 w-9 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></button>}
                 </div>
               ))}
               {keys.length < 3 && (
@@ -156,7 +156,7 @@ export function SheetDataDialog({
               <input value={valueCols} onChange={(e) => setValueCols(e.target.value)} placeholder="2, 3" className={field} />
             </label>
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} /> La primera fila es encabezado</label>
-            <p className="text-[11px] text-gray-400">Ordena antes por la columna de grupo para agrupar correctamente.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Ordena antes por la columna de grupo para agrupar correctamente.</p>
           </>
         )}
         {mode === 'spark' && (
@@ -172,7 +172,7 @@ export function SheetDataDialog({
                 </select>
               </label>
             </div>
-            <p className="text-[11px] text-gray-400">Crea un minigráfico unicode en la celda destino a partir de los números del rango.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Crea un minigráfico unicode en la celda destino a partir de los números del rango.</p>
           </>
         )}
         {mode === 'fill' && (
@@ -187,7 +187,7 @@ export function SheetDataDialog({
                 <input type="number" min={1} value={count} onChange={(e) => setCount(Math.max(1, Number(e.target.value)))} className={field} />
               </label>
             </div>
-            <p className="text-[11px] text-gray-400">Continúa la serie de la semilla: números, fechas, meses/días o texto con número final.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Continúa la serie de la semilla: números, fechas, meses/días o texto con número final.</p>
           </>
         )}
         {mode === 'transpose' && (
@@ -242,7 +242,7 @@ export function SheetDataDialog({
               </label>
             )}
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} /> La primera fila es encabezado</label>
-            <p className="text-[11px] text-gray-400">Autofiltro personalizado: una o dos condiciones sobre la misma columna, unidas por Y/O. Top/Bottom N solo evalua valores numericos. Crea una hoja nueva con las filas que cumplen el criterio (no modifica el origen).</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Autofiltro personalizado: una o dos condiciones sobre la misma columna, unidas por Y/O. Top/Bottom N solo evalua valores numericos. Crea una hoja nueva con las filas que cumplen el criterio (no modifica el origen).</p>
           </>
         )}
         {mode === 'note' && (
@@ -252,7 +252,7 @@ export function SheetDataDialog({
         )}
 
         <button onClick={apply} className="w-full h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90">Aplicar</button>
-        {mode === 'split' && <p className="text-[11px] text-gray-400">Divide cada celda de la primera columna del rango y escribe las partes en las columnas a la derecha.</p>}
+        {mode === 'split' && <p className="text-[11px] text-gray-500 dark:text-gray-400">Divide cada celda de la primera columna del rango y escribe las partes en las columnas a la derecha.</p>}
       </motion.div>
     </motion.div>
   );

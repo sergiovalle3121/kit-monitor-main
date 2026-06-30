@@ -71,7 +71,7 @@ function StatusPill({ status }: { status: string }) {
 }
 
 function ProgressCell({ row }: { row: Row }) {
-  if (!row.rt) return <span className="text-gray-400">—</span>;
+  if (!row.rt) return <span className="text-gray-500 dark:text-gray-400">—</span>;
   const color = row.pct >= 100 ? GREEN : row.hasIncident ? RED : ORANGE;
   return (
     <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ const COLUMNS: ColumnDef<Row, unknown>[] = [
     header: 'Avance',
     cell: ({ row }) => (
       <span className="tabular-nums">
-        {row.original.rt ? <>{row.original.done}<span className="text-gray-400">/{row.original.target}</span></> : <span className="text-gray-400">0/{row.original.quantity}</span>}
+        {row.original.rt ? <>{row.original.done}<span className="text-gray-500 dark:text-gray-400">/{row.original.target}</span></> : <span className="text-gray-500 dark:text-gray-400">0/{row.original.quantity}</span>}
       </span>
     ),
     meta: { align: 'right' },
@@ -218,9 +218,9 @@ export default function ProductionPage() {
     return (
       <div className="grid min-h-[60vh] place-items-center text-foreground">
         <div className={`${glass} max-w-sm rounded-3xl p-10 text-center`}>
-          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="mt-1 text-sm text-gray-400">Inicia sesión para ver el piso de producción.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Inicia sesión para ver el piso de producción.</p>
         </div>
       </div>
     );
@@ -323,11 +323,11 @@ export default function ProductionPage() {
                   <div className="mb-3 flex items-end justify-between gap-4">
                     <div>
                       <div className="text-3xl font-semibold tabular-nums" style={{ color: selected.pct >= 100 ? GREEN : selected.hasIncident ? RED : ORANGE }}>{selected.pct}%</div>
-                      <div className="text-[12px] text-gray-400">avance en piso</div>
+                      <div className="text-[12px] text-gray-500 dark:text-gray-400">avance en piso</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xl font-semibold tabular-nums">{selected.done}<span className="text-sm text-gray-400">/{selected.target}</span></div>
-                      <div className="text-[12px] text-gray-400">unidades</div>
+                      <div className="text-xl font-semibold tabular-nums">{selected.done}<span className="text-sm text-gray-500 dark:text-gray-400">/{selected.target}</span></div>
+                      <div className="text-[12px] text-gray-500 dark:text-gray-400">unidades</div>
                     </div>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
@@ -335,7 +335,7 @@ export default function ProductionPage() {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-gray-400">Sin runtime en vivo — la orden aún no arranca en piso.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Sin runtime en vivo — la orden aún no arranca en piso.</p>
               )}
             </DrawerSection>
 
@@ -347,7 +347,7 @@ export default function ProductionPage() {
               <DrawerField label="Kit">{selected.kitStatus || '—'}</DrawerField>
               {selected.rt && (
                 <>
-                  <DrawerField label="Inicio"><span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-gray-400" />{fmtTime(selected.rt.startedAt)}</span></DrawerField>
+                  <DrawerField label="Inicio"><span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />{fmtTime(selected.rt.startedAt)}</span></DrawerField>
                   <DrawerField label="Fin">{fmtTime(selected.rt.completedAt)}</DrawerField>
                 </>
               )}

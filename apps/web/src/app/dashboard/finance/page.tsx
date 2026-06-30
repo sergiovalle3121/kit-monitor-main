@@ -23,7 +23,7 @@ interface Transaction {
 const TOOLS: { title: string; desc: string; href: string; icon: React.ElementType; color: string; tint: string }[] = [
   { title: "Inteligencia de costos", desc: "COGS y variancia en vivo desde el piso · uso, scrap y cierre", href: "/dashboard/finance/cost-intelligence", icon: Gauge, color: "text-teal-500", tint: "bg-teal-50 dark:bg-teal-500/10" },
   { title: "Costeo por orden", desc: "Mano de obra, materiales, energía y overhead por WO", href: "/dashboard/finance/cost-rollup", icon: Calculator, color: "text-emerald-500", tint: "bg-emerald-50 dark:bg-emerald-500/10" },
-  { title: "Contabilidad (FIN)", desc: "Cuentas, pólizas y periodos fiscales", href: "/dashboard/erp/fin", icon: Landmark, color: "text-primary", tint: "bg-primary dark:bg-primary/10" },
+  { title: "Contabilidad (FIN)", desc: "Cuentas, pólizas y periodos fiscales", href: "/dashboard/erp/fin", icon: Landmark, color: "text-violet-500", tint: "bg-violet-50 dark:bg-violet-500/10" },
   { title: "Materiales (MM)", desc: "Valuación de inventario y movimientos", href: "/dashboard/erp/mm", icon: Boxes, color: "text-sky-500", tint: "bg-sky-50 dark:bg-sky-500/10" },
   { title: "Consola ERP · T-Codes", desc: "FIN · MM · PP · SD en una sola consola", href: "/dashboard/erp", icon: Terminal, color: "text-indigo-500", tint: "bg-indigo-50 dark:bg-indigo-500/10" },
 ];
@@ -85,7 +85,7 @@ export default function FinancePage() {
         {forbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
         ) : isLoading ? (
-          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          <div className="flex justify-center py-20 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : rows.length === 0 ? (
           <Empty icon={<Inbox className="w-6 h-6" />} title="Sin movimientos" body="Aún no hay transacciones. Se registrarán aquí conforme la operación genere consumos, recepciones y cierres." />
         ) : (
@@ -95,7 +95,7 @@ export default function FinancePage() {
                 <div key={t.id} className="flex items-center justify-between px-3 py-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{t.description ?? t.reference ?? `Movimiento ${t.id}`}</p>
-                    <p className="text-[11px] text-gray-400">{t.type ?? ""}{t.reference ? ` · ${t.reference}` : ""}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t.type ?? ""}{t.reference ? ` · ${t.reference}` : ""}</p>
                   </div>
                   {typeof t.amount === "number" && (
                     <p className="font-semibold tabular-nums flex-shrink-0">{t.amount.toLocaleString()} {t.currency ?? ""}</p>
@@ -113,7 +113,7 @@ export default function FinancePage() {
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className={`${glass} rounded-2xl flex flex-col items-center text-center py-16 px-6`}>
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>

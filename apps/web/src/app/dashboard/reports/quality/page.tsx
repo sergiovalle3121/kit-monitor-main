@@ -112,7 +112,7 @@ export default function QualityReportPage() {
           body="El reporte requiere acceso al backend de calidad (NCR). Verifica tu sesión y permisos."
         />
       ) : isLoading ? (
-        <div className="flex justify-center py-16 text-gray-400">
+        <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : !hasAnything ? (
@@ -164,7 +164,7 @@ export default function QualityReportPage() {
                 accent={(kpis?.fail ?? 0) > 0 ? "#ef4444" : "#10b981"}
               />
             </div>
-            <p className="mt-2 text-[11px] text-gray-400">
+            <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
               Yield y fallas provienen del servicio de pruebas a nivel planta (no filtrado por el
               periodo seleccionado — no existe endpoint de yield por rango).
             </p>
@@ -247,7 +247,7 @@ const ncrDetailCols: DocColumn<Ncr>[] = [
 function Period({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-medium text-gray-400">{label}</span>
+      <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{label}</span>
       <input
         type="date"
         value={value}
@@ -261,7 +261,7 @@ function Period({ label, value, onChange }: { label: string; value: string; onCh
 function KpiCard({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <div className="axos-avoid-break rounded-xl border border-gray-200 px-3 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-xl font-bold tabular-nums" style={{ color: accent }}>
         {value}
       </div>

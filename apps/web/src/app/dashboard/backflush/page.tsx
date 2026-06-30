@@ -136,7 +136,7 @@ export default function BackflushPage() {
   }
 
   if (forbidden) {
-    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
+    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
   }
 
   return (
@@ -196,20 +196,20 @@ export default function BackflushPage() {
         {/* Preview */}
         {preview && (
           <div className={`${glass} rounded-2xl overflow-hidden mb-4`}>
-            <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-white/10 flex justify-between">
+            <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/10 flex justify-between">
               <span>Consumo · op {preview.operation.sequence} {preview.operation.name} × {preview.units} u</span>
               <span>{preview.lines.length} materiales</span>
             </div>
             {preview.lines.length === 0 ? (
-              <div className="p-6 text-center text-sm text-gray-400">Esta operación no tiene materiales asignados. Asígnalos en el ruteo.</div>
+              <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">Esta operación no tiene materiales asignados. Asígnalos en el ruteo.</div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-white/10">
                 {preview.lines.map((l) => (
                   <div key={l.materialId} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                    <Boxes className="w-4 h-4 text-gray-400 shrink-0" />
+                    <Boxes className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
                     <span className="font-mono text-xs text-gray-500 shrink-0">{l.partNumber}</span>
                     <span className="truncate flex-1">{l.description}</span>
-                    <span className="text-xs text-gray-400">{l.qtyPerUnit}/u</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{l.qtyPerUnit}/u</span>
                     <span className="tabular-nums font-semibold w-24 text-right">{l.consumeQty} {l.uom}</span>
                   </div>
                 ))}
@@ -236,7 +236,7 @@ export default function BackflushPage() {
                 <input className={field} value={workOrder} onChange={(e) => setWorkOrder(e.target.value)} placeholder="WO-…" />
               </label>
             </div>
-            <div className="mt-2 text-[11px] text-gray-400 flex items-center gap-1.5">
+            <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" /> Descuenta stock <b>available</b> del almacén indicado. Las partes sin stock o sin alta en el master de inventario se reportan por línea (no se descuentan).
             </div>
             <div className="mt-4 flex justify-end">
@@ -348,7 +348,7 @@ function SapOutboxPanel({
             ))}
           </select>
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
             <input
               className={`${field} pl-9`}
               value={workOrder}
@@ -368,7 +368,7 @@ function SapOutboxPanel({
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 p-8 text-sm text-gray-400">
+        <div className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500 dark:text-gray-400">
           <Loader2 className="h-4 w-4 animate-spin" />
           Cargando outbox SAP...
         </div>
@@ -425,7 +425,7 @@ function SapOutboxRow({ item }: { item: SapBackflushOutboxItem }) {
         <p className="mt-2 text-xs text-gray-500">{meta.help}</p>
       </div>
       <div className="rounded-xl bg-gray-950 p-3 text-xs text-gray-100">
-        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           <SendHorizontal className="h-3.5 w-3.5" />
           Payload MV261
         </div>
@@ -440,7 +440,7 @@ function SapOutboxRow({ item }: { item: SapBackflushOutboxItem }) {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );

@@ -179,9 +179,9 @@ export default function LiveFloorPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Necesitas permiso de producción para ver el piso en vivo.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Necesitas permiso de producción para ver el piso en vivo.</p>
         </div>
       </div>
     );
@@ -194,13 +194,13 @@ export default function LiveFloorPage() {
       {/* Header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(16,185,129,0.14)' }}>
             <Activity className="w-5 h-5" style={{ color: GREEN }} />
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Piso en Vivo</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">La planta respirando — estado de línea, avance, OEE, holds y eventos, actualizándose solo.</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">La planta respirando — estado de línea, avance, OEE, holds y eventos, actualizándose solo.</p>
           </div>
           <LivePill status={live.status} reduce={!!reduce} />
           <button onClick={() => { summary.mutate(); oee.mutate(); holds.mutate(); andons.mutate(); snap.mutate(); }} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10" title="Refrescar"><RefreshCw className="w-4 h-4" /></button>
@@ -228,7 +228,7 @@ export default function LiveFloorPage() {
         {/* Lines */}
         <SectionTitle icon={Factory} title="Líneas" hint="corriendo / parada vía andon · plan vs meta · OEE en vivo" />
         {loading ? (
-          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : lines.length === 0 ? (
           <Empty icon={Inbox} title="Sin líneas activas" hint="Publica WOs en el muro del plan para ver las líneas respirar aquí." />
         ) : (
@@ -244,7 +244,7 @@ export default function LiveFloorPage() {
           {andons.forbidden ? (
             <Empty icon={Lock} title="Sin acceso a Andons" hint="Necesitas permiso de producción para responder llamadas del piso." />
           ) : andons.isLoading && !andons.data ? (
-            <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-500 dark:text-gray-400" /></div>
           ) : activeAndons.length === 0 ? (
             <Empty icon={CheckCircle2} title="Sin Andons activos" hint="No hay llamadas abiertas o en atención." tone={GREEN} />
           ) : (
@@ -275,7 +275,7 @@ export default function LiveFloorPage() {
             {holds.forbidden ? (
               <Empty icon={Lock} title="Sin acceso a calidad" hint="Necesitas permiso de calidad para ver los holds." />
             ) : holds.isLoading && !holds.data ? (
-              <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+              <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-gray-500 dark:text-gray-400" /></div>
             ) : activeHolds.length === 0 ? (
               <Empty icon={CheckCircle2} title="Sin holds activos" hint="Ningún material en cuarentena. Calidad despejada." tone={GREEN} />
             ) : (
@@ -310,7 +310,7 @@ export default function LiveFloorPage() {
           </section>
         </div>
 
-        <div className="mt-8 text-center text-[11px] text-gray-400">
+        <div className="mt-8 text-center text-[11px] text-gray-500 dark:text-gray-400">
           {summary.data ? <>Actualizado {new Date(summary.data.generatedAt).toLocaleTimeString()} · </> : null}
           stream {live.status === 'connected' ? 'en vivo' : live.status === 'connecting' ? 'conectando…' : 'reconectando…'}
         </div>
@@ -340,7 +340,7 @@ function LineCard({ l, oeeForbidden }: { l: MergedLine; oeeForbidden: boolean })
 
       {/* WO progress vs goal */}
       <div className="mt-4">
-        <div className="flex items-center justify-between text-[12px] text-gray-400"><span>Avance vs meta</span><span>{l.unitsCompleted}/{l.unitsPlanned} · {pct(l.adherencePct)}</span></div>
+        <div className="flex items-center justify-between text-[12px] text-gray-500 dark:text-gray-400"><span>Avance vs meta</span><span>{l.unitsCompleted}/{l.unitsPlanned} · {pct(l.adherencePct)}</span></div>
         <div className="mt-1 h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
           <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.round(l.adherencePct * 100))}%`, background: LIGHT[l.light].color }} />
         </div>
@@ -348,7 +348,7 @@ function LineCard({ l, oeeForbidden }: { l: MergedLine; oeeForbidden: boolean })
 
       {/* OEE live */}
       <div className="mt-4">
-        <div className="flex items-center justify-between text-[12px] text-gray-400">
+        <div className="flex items-center justify-between text-[12px] text-gray-500 dark:text-gray-400">
           <span className="flex items-center gap-1"><Gauge className="w-3.5 h-3.5" /> OEE en vivo</span>
           <span className="font-semibold text-base" style={{ color: hasOee ? oeeColor(l.oee!) : '#9ca3af' }}>
             {hasOee ? pct(l.oee!) : (oeeForbidden ? 'sin acceso' : '—')}
@@ -370,7 +370,7 @@ function LineCard({ l, oeeForbidden }: { l: MergedLine; oeeForbidden: boolean })
         <Mini icon={Truck} label="Repos." value={l.openReplenish} color={l.openReplenish ? AMBER : undefined} />
       </div>
 
-      {l.models.length > 0 && <div className="mt-3 text-[11px] text-gray-400 truncate">Modelos: {l.models.join(', ')}</div>}
+      {l.models.length > 0 && <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400 truncate">Modelos: {l.models.join(', ')}</div>}
 
       {l.reasons.length > 0 ? (
         <ul className="mt-3 space-y-1">
@@ -430,11 +430,11 @@ function AndonCard({
           <div className="mt-2 text-sm font-semibold truncate">
             {context.join(' · ') || `Ejecución ${andon.executionId}`}
           </div>
-          <div className="mt-1 text-[12px] text-gray-400">
+          <div className="mt-1 text-[12px] text-gray-500 dark:text-gray-400">
             {andon.model ?? 'Modelo sin dato'} · {timeAgo(andon.createdAt)}
           </div>
         </div>
-        {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gray-400" />}
+        {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gray-500 dark:text-gray-400" />}
       </div>
 
       {andon.note && (
@@ -445,11 +445,11 @@ function AndonCard({
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-gray-500">
         <div className="rounded-xl bg-black/[0.03] px-2 py-1.5 dark:bg-white/[0.04]">
-          <div className="uppercase tracking-wide text-gray-400">Respondedor</div>
+          <div className="uppercase tracking-wide text-gray-500 dark:text-gray-400">Respondedor</div>
           <div className="truncate font-medium">{andon.responseRole}</div>
         </div>
         <div className="rounded-xl bg-black/[0.03] px-2 py-1.5 dark:bg-white/[0.04]">
-          <div className="uppercase tracking-wide text-gray-400">Confirmado por</div>
+          <div className="uppercase tracking-wide text-gray-500 dark:text-gray-400">Confirmado por</div>
           <div className="truncate font-medium">{andon.acknowledgedBy ?? 'Pendiente'}</div>
         </div>
       </div>
@@ -488,9 +488,9 @@ function EventRow({ e }: { e: LiveEvent }) {
       <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: `${meta.color}1f`, color: meta.color }}>{meta.label}</span>
       <div className="flex-1 min-w-0">
         <div className="text-sm truncate">{actionLabel(e.action)}</div>
-        {detail && <div className="text-[11px] text-gray-400 truncate">{detail}</div>}
+        {detail && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{detail}</div>}
       </div>
-      <span className="text-[11px] text-gray-400 flex-shrink-0 tabular-nums">{timeAgo(e.timestamp)}</span>
+      <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">{timeAgo(e.timestamp)}</span>
     </div>
   );
 }
@@ -502,7 +502,7 @@ function HoldRow({ h }: { h: Hold }) {
       <ShieldX className="w-4 h-4 flex-shrink-0" style={{ color: sev }} />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">{h.folio ?? 'Hold'} · {h.part}</div>
-        <div className="text-[11px] text-gray-400 truncate">
+        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
           {[h.defectType, h.woFolio, h.station].filter(Boolean).join(' · ') || 'En cuarentena'}
         </div>
       </div>
@@ -548,9 +548,9 @@ function BreathingDot({ color, reduce, small }: { color: string; reduce: boolean
 function SectionTitle({ icon: Icon, title, hint }: { icon: React.ElementType; title: string; hint?: string }) {
   return (
     <div className="flex items-baseline gap-2 mb-3">
-      <Icon className="w-4 h-4 text-gray-400 self-center" />
+      <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 self-center" />
       <h2 className="font-semibold">{title}</h2>
-      {hint && <span className="text-[12px] text-gray-400">— {hint}</span>}
+      {hint && <span className="text-[12px] text-gray-500 dark:text-gray-400">— {hint}</span>}
     </div>
   );
 }
@@ -560,7 +560,7 @@ function Empty({ icon: Icon, title, hint, tone }: { icon: React.ElementType; tit
     <div className={`${glass} rounded-2xl p-8 text-center`}>
       <Icon className="w-7 h-7 mx-auto mb-2" style={{ color: tone ?? '#9ca3af' }} />
       <h3 className="font-semibold text-sm">{title}</h3>
-      <p className="text-[12px] text-gray-400 mt-1">{hint}</p>
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">{hint}</p>
     </div>
   );
 }
@@ -573,7 +573,7 @@ function Mini({ icon: Icon, label, value, color }: { icon: React.ElementType; la
     <div className="rounded-xl p-2 bg-black/[0.03] dark:bg-white/[0.04]">
       <Icon className="w-3.5 h-3.5 mx-auto" style={{ color: color ?? '#9ca3af' }} />
       <div className="text-lg font-semibold" style={{ color }}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
     </div>
   );
 }
@@ -581,7 +581,7 @@ function Apq({ label, v }: { label: string; v: number }) {
   return (
     <div className="text-center">
       <div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round(v * 100))}%`, background: oeeColor(v) }} /></div>
-      <div className="text-[10px] text-gray-400 mt-1">{label} {pct(v)}</div>
+      <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">{label} {pct(v)}</div>
     </div>
   );
 }

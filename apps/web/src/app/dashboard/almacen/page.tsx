@@ -153,7 +153,7 @@ export default function AlmacenPage() {
           <EmptyState icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
         )}
         {!forbidden && isLoading && (
-          <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          <div className="flex items-center justify-center py-20 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         )}
         {!forbidden && !isLoading && list.length === 0 && (
           <EmptyState
@@ -247,15 +247,15 @@ function RequestCard({ r, busy, muted, children, pickLocations }: { r: MaterialR
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: meta.color, backgroundColor: meta.bg }}>
               {meta.label}
             </span>
-            {r.workOrder && <span className="text-[11px] text-gray-400 font-mono">WO {r.workOrder}</span>}
+            {r.workOrder && <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">WO {r.workOrder}</span>}
           </div>
           <h3 className="text-lg font-bold tracking-tight truncate">{r.model ?? `Kit #${r.kitId}`}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {r.quantity ? `${r.quantity} u · ` : ''}{r.line ? `Línea ${r.line} · ` : ''}Solicitó {r.requestedBy}
           </p>
-          {r.note && <p className="text-xs text-gray-400 mt-1 italic">“{r.note}”</p>}
+          {r.note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">“{r.note}”</p>}
           {r.decidedBy && (
-            <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" /> {meta.label.toLowerCase()} por {r.decidedBy}
             </p>
           )}
@@ -271,7 +271,7 @@ function RequestCard({ r, busy, muted, children, pickLocations }: { r: MaterialR
           </button>
           {open && (
             mats.length === 0 ? (
-              <p className="text-xs text-gray-400 mt-2">Sin líneas de material en el kit.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Sin líneas de material en el kit.</p>
             ) : (
               <div className="space-y-1.5 mt-2">
                 {mats.map((m) => {
@@ -279,13 +279,13 @@ function RequestCard({ r, busy, muted, children, pickLocations }: { r: MaterialR
                   return (
                     <div key={m.id} className="text-sm px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-white/5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[13px] truncate">{m.partNumber}{m.description ? <span className="text-gray-400 ml-2 text-xs">{m.description}</span> : null}</span>
+                        <span className="font-mono text-[13px] truncate">{m.partNumber}{m.description ? <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">{m.description}</span> : null}</span>
                         <span className="tabular-nums text-xs flex-shrink-0">
                           <span className="font-semibold">{m.quantityRequired} {m.unit}</span>
-                          {typeof m.quantityRemaining === 'number' ? <span className="text-gray-400"> · faltan {m.quantityRemaining}</span> : null}
+                          {typeof m.quantityRemaining === 'number' ? <span className="text-gray-500 dark:text-gray-400"> · faltan {m.quantityRemaining}</span> : null}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-400">
+                      <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                         <MapPin className="w-3 h-3 flex-shrink-0" />
                         {locs.length === 0 ? (
                           <span>Sin ubicación con stock disponible</span>
@@ -311,7 +311,7 @@ function RequestCard({ r, busy, muted, children, pickLocations }: { r: MaterialR
 function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>
