@@ -45,10 +45,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # La versión de Node sale de .nvmrc (única fuente de verdad): así CI, el
+      # Codespace (.devcontainer) y Railway (engines/.nvmrc vía RAILPACK) usan
+      # exactamente el mismo major. Antes estaba fijada a `20` a mano y podía
+      # divergir del resto del repo.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       # `npm ci` instala todos los workspaces. El postinstall de la API compila
