@@ -19,6 +19,7 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { InventoryService } from '../inventory/inventory.service';
+import { isLineStockWarehouse } from '../inventory/line-stock';
 import {
   MesStagingLine,
   MesStagingStatus,
@@ -98,9 +99,11 @@ export class MaterialStagingMesService {
   /**
    * Surtir a línea = abastecer el "tanque" `LINE-<línea>` del que el operador
    * consume en /operador. Resuelve la línea del PLAN (la que hereda la ejecución)
-   * y delega en `InventoryService.issueToLine` (ISSUE; crea la posición destino
-   * si no existe; sin línea registra y omite; un fallo se PROPAGA). Cierra el
-   * lazo de inventario para el flujo principal de surtido por plan.
+   * y delega en `InventoryService.transferToLine` (TRANSFER CONSERVATIVO: debita
+   * existencias reales de los almacenes de origen y las acredita en el tanque, de
+   * modo que el on-hand global se conserva; sin línea registra y omite; si no hay
+   * existencias reales suficientes, un fallo se PROPAGA). Cierra el lazo de
+   * inventario para el flujo principal de surtido por plan.
    */
   private async depositStagedToLine(opts: {
     planId: number;
@@ -109,7 +112,7 @@ export class MaterialStagingMesService {
     partNumber: string;
     stagedQty: number;
   }): Promise<void> {
-    await this.inventory.issueToLine({
+    await this.inventory.transferToLine({
       partNumber: opts.partNumber,
       quantity: opts.stagedQty,
       line: opts.line,
@@ -405,6 +408,11 @@ export class MaterialStagingMesService {
       where: { partNumber: In(partNumbers), holdStatus: 'available' },
     });
     for (const position of positions) {
+      // Los tanques `LINE-<n>` NO cuentan como existencias surtibles: el surtido
+      // conservativo los ABASTECE (no los consume). Contarlos inflaría la
+      // disponibilidad con material ya surtido y la dejaría inconsistente con el
+      // `transferToLine`, que sólo debita almacenes reales de origen.
+      if (isLineStockWarehouse(position.warehouseId)) continue;
       const available = Math.max(
         0,
         (Number(position.onHand) || 0) - (Number(position.allocated) || 0),
