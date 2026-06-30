@@ -1,5 +1,15 @@
 # Codex Night Log
 
+## 2026-06-30 - CAD viewport saved views
+
+- Inspected automation memory, open CAD PR #900, required CAD docs, design shell docs, route chrome, `Layout3DEditor.tsx`, and the existing CAD helper tree before selecting a viewport-only Phase 2 slice.
+- Avoided factory-scale presets/bounds from open PR #900, command registry expansion, DXF, layers, templates, generators, symbols, and validation-engine changes.
+- Added `viewport-bookmarks.ts` as a pure CAD helper for local saved camera views, bookmark sanitization, capped recency, and focus bounds from existing editable objects.
+- Wired the existing `Layout3DEditor` View popover with Save view, Fit selection, restore saved view, and delete saved view actions backed by browser-local model/revision storage.
+- Extended existing validation issue selection so collision, clearance, safety, and validation quick-fix rows also zoom the current camera to the affected objects.
+- Added focused specs for saved-view recency/capping/sanitization and issue/selection focus bounds.
+- Pending: persist named views through the layout API after a backend metadata contract exists, and add a minimap/home-view overlay after #900 lands.
+
 ## 2026-06-29 - CAD safety path zones
 
 - Inspected the required CAD docs, design docs, route chrome, `Layout3DEditor.tsx`, the CAD helper surface under `apps/web/src/lib/cad/**`, command helpers, automation memory, and open CAD PRs.
@@ -162,6 +172,7 @@
 
 - Upgraded the Copiloto CAD dock so `report` operations render compact row details instead of only the report title.
 - Flow metrics and collision report previews now show the first report rows directly inside the preview card before apply.
+
 - Kept the UI additive and preview-only; no command execution behavior or backend path changed.
 - Pending: expand report rows into a richer viewport side panel with visual highlighting.
 
@@ -342,3 +353,30 @@
 - Wired CAD layer visibility to actual station and asset objects in the viewport instead of only export/inspector metadata.
 - Added hidden/locked layer object counts plus an `All` recovery action to the existing layer panel and status bar.
 - Pending: persist layer assignments/visibility with the layout API and add layer search/filter after the persistence contract is reviewed.
+
+## 2026-06-30 - CAD material route command
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open CAD PRs #900/#903/#904/#905/#906.
+- CAD queue had exactly five open CAD PRs; all were CLEAN, green, and already had ready-for-Claude comments, so this run avoided spam comments and chose one low-conflict command-surface slice.
+- Reused the existing local command dock, command registry/parser, command-assist suggestions, report operation renderer, connector context, and `scoreFlowLayout`.
+- Added `material-flow-route.ts` to derive from-to material route distance, route legs, longest handoff, connector count, crossings, backtracking, score, fallback sequence warnings, and missing connector endpoints.
+- Registered `trace_material_route` so users can type `traza ruta material` through the existing Copiloto CAD dock or find it through Cmd-K without a new editor panel.
+- Pending: after active generator PRs land, add policy thresholds and zoom-to-route-issue actions for excessive material travel.
+## 2026-06-30 - Dock and staging generator
+
+- Inspected open CAD PRs #900, #903, and #904; they are clean and cover factory scale, saved views, and canvas focus, so this run avoided those areas.
+- Marked #904 ready for Claude Integrator after CI was green and no prior ready comment existed.
+- Reused the existing warehouse generator output contract, editable asset model, annotations, CAD layer assignments, object tags, local snapshots, selection, snapping, connector rendering, and DXF export path.
+- Added `generateWarehouseDockStaging` for receiving, shipping, and cross-dock layouts with dock doors, staging lanes, pallet positions, forklift apron, labels, scaling warnings, and generated flow connectors.
+- Wired `Layout3DEditor.tsx` so the existing Equipment rail can create dock/staging layouts and so generated asset-to-asset connectors render visibly.
+- Added focused `warehouse-generators.spec.ts` coverage for horizontal/vertical docks, tags/layers, connector counts, bounds safety, and scaling.
+- Pending: add a parametric supermarket lane/cart generator or line-side delivery generator using the same generator contract.
+## 2026-06-30 - Parametric supermarket/kitting generator
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open CAD PRs #900/#903/#904/#905.
+- Classified #900, #903, #904, and #905 as READY_FOR_CLAUDE; all were CLEAN with green CI and already had the ready comment, so no duplicate comments were posted.
+- Reused the existing warehouse generator contract, editable asset model, annotations, CAD layers, object tags, connectors, local snapshots, selection, snapping refresh, and Flow Health.
+- Added `generateWarehouseSupermarketKitting` for parameterized kanban lanes, kitting carts, FIFO WIP, line-side delivery, receiving/QC, replenishment, pedestrian/forklift aisles, optional ESD, optional quarantine, labels, scaling, and material/flow connectors.
+- Wired the generator into the existing `Layout3DEditor` Equipment rail with visible controls for lane/cart counts, dimensions, orientation, prefix, ESD, and quarantine.
+- Added focused generator coverage in `warehouse-generators.spec.ts`.
+- Pending: add line-side delivery route variants or aisle-width validation suggestions after the active generator PRs land.
