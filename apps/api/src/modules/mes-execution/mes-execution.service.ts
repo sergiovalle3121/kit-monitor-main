@@ -595,6 +595,22 @@ export class MesExecutionService {
       }[] = [];
       // Delta consumido en ESTE evento (unidades buenas) para genealogía as-built.
       const eventConsumption: { partNumber: string; qty: number }[] = [];
+      // Consumos de inventario formal que NO pudieron aplicarse (almacén/posición
+      // inexistente, stock insuficiente, etc.). Antes se tragaban en silencio
+      // —por eso "consumir no bajaba existencias" pasaba inadvertido—; ahora se
+      // recolectan para registrarlos de forma visible sin bloquear la línea.
+      const inventorySyncFailures: {
+        partNumber: string;
+        quantity: number;
+        warehouseId: string;
+        error: string;
+      }[] = [];
+      // Almacén virtual de línea del que se descuenta el material consumido.
+      // Convención compartida con production-runtime (`LINE-<línea>`). Si la WO
+      // no trae línea, el descuento formal no tiene origen válido: se omite y se
+      // registra (en vez de apuntar a un `LINE-0` inexistente).
+      const lineWarehouseId =
+        execution.line != null ? `LINE-${execution.line}` : null;
 
       for (const m of materials) {
         const consume = round6(m.qtyPerUnit * consumeUnits);
@@ -619,20 +635,38 @@ export class MesExecutionService {
         }
 
         // Formal inventory consumption — best-effort (works only once the part
-        // exists in inventory; never blocks the line if it doesn't).
-        await this.inventory
-          .recordTransaction({
-            type: 'CONSUME',
+        // exists in inventory; never blocks the line if it doesn't). El fallo se
+        // RECOLECTA y se registra (antes se descartaba con `.catch(()=>undefined)`,
+        // ocultando que el inventario formal no se decrementaba).
+        if (lineWarehouseId && consume > 0) {
+          try {
+            await this.inventory.recordTransaction({
+              type: 'CONSUME',
+              partNumber: m.partNumber,
+              quantity: consume,
+              fromWarehouseId: lineWarehouseId,
+              fromLocation: step.name,
+              actorName: operator,
+              referenceType: 'MES_EXECUTION_EVENT',
+              referenceId: clientRequestId,
+              reason: `MES consumo · WO ${execution.workOrder} · ${step.name}`,
+            });
+          } catch (err) {
+            inventorySyncFailures.push({
+              partNumber: m.partNumber,
+              quantity: consume,
+              warehouseId: lineWarehouseId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        } else if (consume > 0) {
+          inventorySyncFailures.push({
             partNumber: m.partNumber,
             quantity: consume,
-            fromWarehouseId: `LINE-${execution.line ?? 0}`,
-            fromLocation: step.name,
-            actorName: operator,
-            referenceType: 'MES_EXECUTION_EVENT',
-            referenceId: clientRequestId,
-            reason: `MES consumo · WO ${execution.workOrder} · ${step.name}`,
-          })
-          .catch(() => undefined);
+            warehouseId: `LINE-${execution.line ?? 0}`,
+            error: 'WO sin línea: no hay almacén de origen para el consumo formal.',
+          });
+        }
 
         consumption.push({
           partNumber: m.partNumber,
@@ -649,6 +683,20 @@ export class MesExecutionService {
             remaining: m.availableQty,
           });
         }
+      }
+
+      // Si algún consumo formal falló, dejarlo VISIBLE (warn estructurado). El
+      // kit (KitMaterial) y el WIP del paso ya se decrementaron arriba; lo que
+      // pudo no aplicarse es el inventario formal de almacén. Sin esto, el
+      // descuento "best-effort" fallaba en silencio y las existencias no bajaban.
+      if (inventorySyncFailures.length > 0) {
+        this.logger.warn(
+          `Inventario formal no decrementado en ${inventorySyncFailures.length} parte(s) ` +
+            `· WO ${execution.workOrder} · ${step.name} · req ${clientRequestId}: ` +
+            inventorySyncFailures
+              .map((f) => `${f.partNumber} (${f.quantity}) @ ${f.warehouseId} → ${f.error}`)
+              .join('; '),
+        );
       }
 
       // Advance the station counters.
