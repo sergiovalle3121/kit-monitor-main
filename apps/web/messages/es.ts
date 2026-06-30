@@ -10,6 +10,7 @@ import glossary from "./es/glossary.json";
 import nav from "./es/nav.json";
 import landing from "./es/landing.json";
 import auth from "./es/auth.json";
+import selectWorkspace from "./es/selectWorkspace.json";
 import dashboard from "./es/dashboard.json";
 
 const es = {
@@ -19,6 +20,7 @@ const es = {
   nav,
   landing,
   auth,
+  selectWorkspace,
   dashboard,
 };
 

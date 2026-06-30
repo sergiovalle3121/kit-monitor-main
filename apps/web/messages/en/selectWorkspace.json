@@ -1,0 +1,14 @@
+{
+  "eyebrow": "Your workspace",
+  "greetingNamed": "Hi, {name}.",
+  "greetingPlain": "Hi.",
+  "subtitle": "Choose the building and project you'll work from. You can change them anytime from the header.",
+  "loadError": "Workspaces could not be loaded. You can continue and select later.",
+  "building": "Building / plant",
+  "project": "Project / customer",
+  "noBuildings": "You have no assigned buildings.",
+  "noProjects": "You have no assigned projects.",
+  "continueWithout": "Continue without selecting",
+  "enter": "Enter",
+  "selected": "Selected"
+}

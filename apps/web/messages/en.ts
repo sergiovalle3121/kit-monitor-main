@@ -11,6 +11,7 @@ import glossary from "./en/glossary.json";
 import nav from "./en/nav.json";
 import landing from "./en/landing.json";
 import auth from "./en/auth.json";
+import selectWorkspace from "./en/selectWorkspace.json";
 import dashboard from "./en/dashboard.json";
 
 const en = {
@@ -20,6 +21,7 @@ const en = {
   nav,
   landing,
   auth,
+  selectWorkspace,
   dashboard,
 };
 
