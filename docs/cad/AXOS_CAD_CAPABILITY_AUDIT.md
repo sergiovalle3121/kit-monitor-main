@@ -95,6 +95,11 @@ The capability reused:
 - `apps/web/src/lib/cad/layers.ts`
 
 The non-redundant gap closed is export readiness for unlabeled critical footprints. The next DXF PR should focus on layer-selective editable import review or selected-layer export after active editor PRs settle.
+## Command line assist update
+
+Open CAD PRs currently touch safety paths, layer isolation, symbols, DXF label preflight, validation quick fixes, edge-clearance dimensions, templates, flow health, plot metadata, warehouse generators, and line-balance command registry files. This run avoided those primary files except for a small localized `Layout3DEditor.tsx` dock insertion.
+
+The selected gap was command-line discoverability. The command registry, parser, command palette, and command dock already existed, but the visible Copiloto CAD dock still exposed only three fixed chips. `apps/web/src/lib/cad/command-line-assist.ts` now ranks existing registry examples by current text query and selection count, and `Layout3DEditor.tsx` wires those suggestions into the existing preview-first command flow. It does not add command ids, duplicate the parser, duplicate the palette, or create another action dispatcher.
 ## 2026-06-29 - EHS and utilities asset catalog update
 
 Open CAD PRs at run start included #870 (layer visibility), #869 (manufacturing symbols), #864 (DXF critical label preflight), #861 (validation quick fixes), #858 (edge clearance dimensions), #853 (supermarket kitting template), #850 (flow health reorder preview), #847 (plot package metadata), #844 (warehouse generator), #838 (line-balance command), and draft #746 (viewport/minimap/editor shell). This run avoided `Layout3DEditor.tsx`, `apps/web/src/lib/cad/symbols.ts`, `apps/web/src/lib/cad/templates.ts`, DXF helpers, layers, commands, validation, flow, and measurements.

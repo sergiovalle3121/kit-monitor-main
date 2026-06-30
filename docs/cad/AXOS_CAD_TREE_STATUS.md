@@ -183,6 +183,17 @@ The workflow remains on the existing export path: no second exporter, no new mod
 ## Next CAD PR
 
 Recommended next phase: layer-selective editable DXF import review, or selected-layer DXF export after the active `Layout3DEditor.tsx` PRs settle.
+## Command line assist update
+
+This run makes the existing Copiloto CAD command line easier to use without changing the command registry:
+
+- `command-line-assist.ts` derives ranked suggestions from the existing command registry.
+- Suggestions adapt to selected object count and reuse selected object labels for pair commands like measure distance and clearance aisle.
+- The existing `Layout3DEditor` command dock now shows ready/pending suggestion rows instead of three static chips.
+- Clicking a ready suggestion immediately uses the same preview-first command flow as manual command entry.
+- Missing-selection states are explicit, so users see why a command cannot preview yet.
+
+This advances Phase 21 (shortcuts + command line) while avoiding active PR areas for registry semantics, layers, validation, DXF, symbols, templates, flow, and safety.
 ## 2026-06-29 - EHS and utilities asset blocks
 
 This run extends the existing shared asset catalog instead of creating a third symbol/block system:

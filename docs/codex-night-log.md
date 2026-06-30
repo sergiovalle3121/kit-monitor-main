@@ -292,6 +292,14 @@
 - Extended readiness entities with optional labels and a critical-label marker so the modal warns when included industrial footprints have no visible user label.
 - Wired station names and asset user labels into the existing DXF export summary builder; hidden/unselected objects only warn if export options include them.
 - Added focused readiness coverage for included, hidden, and selection-scoped missing-label cases.
+## 2026-06-29 - CAD command line assist
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and current open CAD PR file lists.
+- Avoided command-registry changes because `codex/night-cad-line-balance-command` already touches parser/registry/types.
+- Avoided layers, symbols, DXF readiness, validation quick fixes, edge-clearance dimensions, templates, flow health, plot metadata, warehouse generators, and safety paths because active PRs own those areas.
+- Added `command-line-assist.ts` to rank existing command registry examples by query and current selection count.
+- Wired the existing Copiloto CAD dock to show ready/pending suggestions that reuse selected object labels and call the existing preview-first command path.
+- Pending: richer command history reconciliation and Enter-to-apply after active editor/registry PRs settle.
 ## 2026-06-29 - Manufacturing CAD symbol blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.
