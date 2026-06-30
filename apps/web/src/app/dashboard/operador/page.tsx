@@ -985,6 +985,8 @@ function ConfirmForm({
   const [qty, setQty] = useState(Math.min(max || 1, 1));
   const [scrap, setScrap] = useState(0);
   const [serial, setSerial] = useState("");
+  const [lot, setLot] = useState("");
+  const [reel, setReel] = useState("");
   const [armedSignature, setArmedSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1007,12 +1009,22 @@ function ConfirmForm({
   });
 
   const scanner = useIndustrialScanner((scan) => {
-    if (["serial", "qr", "datamatrix", "code128"].includes(scan.kind)) {
+    if (scan.kind === "lot") {
+      setLot(scan.normalized);
+      setArmedSignature(null);
+      setError(null);
+    } else if (scan.kind === "reel") {
+      setReel(scan.normalized);
+      setArmedSignature(null);
+      setError(null);
+    } else if (["serial", "qr", "datamatrix", "code128"].includes(scan.kind)) {
       setSerial(scan.normalized);
       setArmedSignature(null);
       setError(null);
     } else {
-      setError(`${scan.message} Se esperaba serial, QR, DataMatrix o Code128.`);
+      setError(
+        `${scan.message} Se esperaba serial, lote, reel, QR, DataMatrix o Code128.`,
+      );
     }
   });
 
@@ -1031,6 +1043,16 @@ function ConfirmForm({
     setArmedSignature(null);
   }
 
+  function updateLot(nextLot: string) {
+    setLot(nextLot);
+    setArmedSignature(null);
+  }
+
+  function updateReel(nextReel: string) {
+    setReel(nextReel);
+    setArmedSignature(null);
+  }
+
   async function submit() {
     if (!armed) {
       setError(null);
@@ -1042,6 +1064,8 @@ function ConfirmForm({
       quantity: qty,
       scrap,
       serial: serial.trim() || undefined,
+      lot: lot.trim() || undefined,
+      reel: reel.trim() || undefined,
       operator,
       operatorPosition: position || undefined,
       clientRequestId: reqId(),
@@ -1098,7 +1122,7 @@ function ConfirmForm({
           state={scanner.scannerState}
           lastScan={scanner.lastScan}
           history={scanner.scanHistory}
-          expected="serial"
+          expected="serial / lote / reel"
           compact
         />
         <div>
@@ -1112,9 +1136,34 @@ function ConfirmForm({
             className="mt-1 w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 font-mono outline-none"
           />
         </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+              <ScanLine className="w-3.5 h-3.5" /> Lote material
+            </label>
+            <input
+              value={lot}
+              onChange={(e) => updateLot(e.target.value)}
+              placeholder="LOT-..."
+              className="mt-1 w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 font-mono outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+              <ScanLine className="w-3.5 h-3.5" /> Reel / feeder
+            </label>
+            <input
+              value={reel}
+              onChange={(e) => updateReel(e.target.value)}
+              placeholder="REEL-..."
+              className="mt-1 w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 font-mono outline-none"
+            />
+          </div>
+        </div>
         <p className="text-[11px] text-gray-400">
           Disponible de la estación previa: {step.maxConfirmable} u. Al
-          confirmar se descuenta el material del paso (backflush).
+          confirmar se descuenta el material del paso (backflush) y el lote/reel
+          alimenta genealogía as-built.
         </p>
         <ConfirmationReview summary={summary} armed={armed} />
         {error && <p className="text-sm text-rose-500">{error}</p>}

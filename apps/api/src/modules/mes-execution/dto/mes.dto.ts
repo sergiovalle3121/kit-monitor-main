@@ -20,6 +20,7 @@ export class ConfirmAdvanceDto {
   operatorPosition?: string;
   serial?: string;
   lot?: string;
+  reel?: string;
   notes?: string;
   /** Idempotency token (anti double-tap / scanner repeat). */
   clientRequestId: string;

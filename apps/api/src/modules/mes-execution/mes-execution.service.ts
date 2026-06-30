@@ -80,6 +80,19 @@ const DOWNTIME_REASON_SET = new Set<string>(DOWNTIME_REASONS);
 const REVERT_WINDOW_MS = 180_000; // 3 min undo window for a confirmed advance
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
 
+export function normalizeMaterialTraceInput(
+  dto: Pick<ConfirmAdvanceDto, 'lot' | 'reel'>,
+): { lot?: string; reel?: string } {
+  const lot = normalizeTraceToken(dto.lot);
+  const reel = normalizeTraceToken(dto.reel);
+  return { lot, reel };
+}
+
+function normalizeTraceToken(value?: string | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export type VisualAidView =
   | { kind: 'image' | 'pdf'; id: string; title: string; fileUrl: string }
   | { kind: 'office'; id: string; documentUrl: string };
@@ -538,6 +551,7 @@ export class MesExecutionService {
     }
     const clientRequestId = dto.clientRequestId.trim();
     const operator = dto.operator || actor;
+    const trace = normalizeMaterialTraceInput(dto);
 
     const execution = await this.findExecution(executionId);
 
@@ -680,7 +694,7 @@ export class MesExecutionService {
           operator,
           operatorPosition: dto.operatorPosition ?? null,
           serial: dto.serial ?? null,
-          lot: dto.lot ?? null,
+          lot: trace.lot ?? null,
           clientRequestId,
           notes: dto.notes ?? null,
           timestamp: new Date(),
@@ -775,7 +789,8 @@ export class MesExecutionService {
         transaction: { quantity },
         context: {
           serial: dto.serial,
-          lot: dto.lot,
+          lot: trace.lot,
+          reel: trace.reel,
           station: outcome.stepName,
         },
         metadata: { stepId, scrap },
@@ -806,8 +821,8 @@ export class MesExecutionService {
     // Cuando se escanea un serial, liga cada material consumido en este evento al
     // serial construido (índice as-built), para que la trazabilidad cradle-to-grave
     // se llene desde el piso. Idempotente por idempotencyKey (mes-evt:<eventId>:<NP>);
-    // best-effort: un fallo aquí nunca bloquea ni revierte la línea. lot/reel quedan
-    // null (el terminal de piso aún no los captura).
+    // best-effort: un fallo aqui nunca bloquea ni revierte la linea.
+    // sourceEventId permite superseder el consumo vivo sin doble conteo.
     if (this.genealogy && dto.serial?.trim()) {
       const serial = dto.serial.trim();
       for (const c of outcome.eventConsumption) {
@@ -816,6 +831,8 @@ export class MesExecutionService {
           await this.genealogy.recordLink({
             builtSerial: serial,
             part: c.partNumber,
+            lot: trace.lot,
+            reel: trace.reel,
             qty: c.qty,
             woId: String(execution.id),
             woFolio: execution.workOrder,
@@ -823,6 +840,7 @@ export class MesExecutionService {
             station: outcome.stepName,
             operatorEmail: operator,
             consumedAt: new Date().toISOString(),
+            sourceEventId: String(outcome.eventId),
             idempotencyKey: `mes-evt:${outcome.eventId}:${c.partNumber}`,
           });
         } catch (err) {

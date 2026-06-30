@@ -58,6 +58,8 @@
 
 ### 8. Ejecutar + consumir material — `/dashboard/operador`
 - En un paso, **"Confirmar"** la cantidad buena (y scrap si aplica).
+- Captura o escanea **serie, lote y reel** cuando aplique; esos campos enriquecen
+  la genealogía as-built y habilitan where-used por lote/reel.
 - *Qué pasa:* `ExecutionStepMaterial` y `KitMaterial` se descuentan, y el inventario
   se decrementa con una transacción **CONSUME** atómica + `InventoryMovement`
   (`mes-execution.service.ts:478`, `inventory.service.ts`). Se registra genealogía.
@@ -84,9 +86,9 @@
   un tablero de **supervisión/secuenciación** (carril 2, `SfWorkOrder`) que **no**
   llega al terminal del operador ni consume material. El piso real es
   `/dashboard/operador`. (Hay un banner en esa pantalla que lo aclara.)
-- **Where-used por lote/reel** en genealogía es **incompleto**: el terminal de piso
-  aún no captura lote/reel (`genealogy.service.ts:87`). Demuestra **as-built por
-  serial**, que sí está completo.
+- **Where-used por lote/reel** depende de capturar lote/reel en la confirmación
+  MES. Si omites esos campos en la demo, el as-built por serial seguirá mostrando
+  consumo, pero el recall por lote/reel no tendrá alcance completo.
 - **NCR admin** (`/dashboard/quality` → NCR) y los **holds de piso**
   (`/dashboard/floor-quality`) son hoy **colas separadas** (sin FK). Para la demo de
   calidad, usa el flujo de **floor-quality** (paso 9), que es el que conecta a OEE y

@@ -84,8 +84,8 @@ export class GenealogyService {
    * carries lot/reel) with the live shop-floor consumption ledger (which does
    * not). An index row that enriches a specific consumption event supersedes the
    * live one (matched by `sourceEventId` + part) so nothing is double-counted. A
-   * lot/reel filter excludes the live ledger entirely — honest, because the floor
-   * terminal does not capture lot/reel yet.
+   * lot/reel filter excludes the live ledger entirely because only the enriched
+   * index has material trace tokens.
    */
   private async collectLinks(filter: {
     serial?: string;
