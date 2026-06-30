@@ -1,0 +1,15 @@
+{
+  "name": "axos-os",
+  "// why": "Pins the Codespace / Dev Container to Node 20 (LTS). Without this, GitHub Codespaces fell back to its base-image default (Node 16.20.2), which is below the Node >=20.9.0 that Next.js 16 and NestJS 11 require, so `npm run build` failed before compiling anything. The image tag is the major source of truth that must stay in sync with .nvmrc, the engines fields, and CI.",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {},
+  "postCreateCommand": "npm ci",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}

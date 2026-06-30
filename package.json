@@ -2,6 +2,10 @@
   "name": "axos-os",
   "private": true,
   "packageManager": "npm@10.9.3",
+  "engines": {
+    "node": ">=20.9.0",
+    "npm": ">=10"
+  },
   "scripts": {
     "build": "npx turbo run build",
     "start": "npm run start --workspace=web",
