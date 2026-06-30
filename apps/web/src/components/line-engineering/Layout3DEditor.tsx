@@ -42,7 +42,10 @@ import { maybeSnapScalarToGrid } from '@/lib/cad/snapping';
 import {
   assignObjectsToLayer,
   DEFAULT_CAD_LAYERS,
+  isolateCadLayerVisibility,
   isObjectLayerLocked,
+  showAllCadLayers,
+  summarizeCadLayers,
   toggleCadLayerLocked,
   toggleCadLayerVisible,
   type CadLayer,
@@ -856,22 +859,46 @@ export default function Layout3DEditor({
   }, []);
   useEffect(() => { sunRef.current = sun; applySun(); }, [sun, applySun]);
 
-  // ---- layer visibility (cheap: toggles group/label visibility, no rebuild) ----
+  // ---- layer visibility (cheap: toggles object/group visibility, no rebuild) ----
   const applyLayers = useCallback(() => {
     const L = layersRef.current;
-    if (blocksRef.current) blocksRef.current.visible = L.stations;
-    if (assetsGroupRef.current) assetsGroupRef.current.visible = L.equipment;
-    if (connsGroupRef.current) connsGroupRef.current.visible = L.connectors;
-    if (dimsGroupRef.current) dimsGroupRef.current.visible = L.dims;
+    const cadVisible = (objectId: string, fallback: CadLayerId) => {
+      const layerId = layerAssignmentsRef.current[objectId] ?? fallback;
+      return cadLayersRef.current.find((layer) => layer.id === layerId)?.visible ?? true;
+    };
+    const cadLayerVisible = (layerId: CadLayerId) =>
+      cadLayersRef.current.find((layer) => layer.id === layerId)?.visible ?? true;
+    if (blocksRef.current) {
+      blocksRef.current.visible = true;
+      blocksRef.current.children.forEach((child) => {
+        const stationId = child.userData?.stationId as string | undefined;
+        const labelFor = child.userData?.labelFor as string | undefined;
+        if (stationId) child.visible = L.stations && cadVisible(stationId, 'layout');
+        else if (labelFor) child.visible = L.labels && L.stations && cadVisible(labelFor, 'layout');
+      });
+    }
+    if (assetsGroupRef.current) {
+      assetsGroupRef.current.visible = true;
+      assetsGroupRef.current.children.forEach((child) => {
+        const assetId = child.userData?.assetId as string | undefined;
+        if (assetId) child.visible = L.equipment && cadVisible(assetId, 'equipment');
+      });
+    }
+    if (connsGroupRef.current) connsGroupRef.current.visible = L.connectors && cadLayerVisible('flow');
+    if (dimsGroupRef.current) dimsGroupRef.current.visible = L.dims && cadLayerVisible('measurements');
     if (notesGroupRef.current) notesGroupRef.current.visible = L.notes;
     if (dxfGroupRef.current) dxfGroupRef.current.visible = L.dxf;
     if (gridGroupRef.current) gridGroupRef.current.visible = L.grid;
-    sceneRef.current?.traverse((o) => { if (o.userData?.isLabel) o.visible = L.labels; });
+    sceneRef.current?.traverse((o) => {
+      if (!o.userData?.isLabel) return;
+      const labelFor = o.userData?.labelFor as string | undefined;
+      o.visible = labelFor ? L.labels && L.stations && cadVisible(labelFor, 'layout') : L.labels;
+    });
   }, []);
   useEffect(() => { applyLayersRef.current = applyLayers; }, [applyLayers]);
   useEffect(() => { layersRef.current = layers; applyLayers(); }, [layers, applyLayers]);
-  useEffect(() => { cadLayersRef.current = cadLayers; }, [cadLayers]);
-  useEffect(() => { layerAssignmentsRef.current = layerAssignments; }, [layerAssignments]);
+  useEffect(() => { cadLayersRef.current = cadLayers; applyLayers(); }, [cadLayers, applyLayers]);
+  useEffect(() => { layerAssignmentsRef.current = layerAssignments; applyLayers(); }, [layerAssignments, applyLayers]);
   useEffect(() => { objectTagsRef.current = objectTags; }, [objectTags]);
   useEffect(() => { objectNotesRef.current = objectNotes; }, [objectNotes]);
 
@@ -3119,14 +3146,11 @@ export default function Layout3DEditor({
   };
   const toggleCadLayerVisibility = (id: CadLayerId) => {
     setCadLayers((cur) => toggleCadLayerVisible(cur, id));
-    if (id === 'layout') setLayers((cur) => ({ ...cur, stations: !cur.stations }));
-    else if (id === 'equipment') setLayers((cur) => ({ ...cur, equipment: !cur.equipment }));
-    else if (id === 'flow') setLayers((cur) => ({ ...cur, connectors: !cur.connectors }));
-    else if (id === 'measurements') setLayers((cur) => ({ ...cur, dims: !cur.dims }));
   };
   const updateCadLayerLabel = (id: CadLayerId, label: string) => setCadLayers((cur) => cur.map((layer) => layer.id === id ? { ...layer, label } : layer));
   const updateCadLayerColor = (id: CadLayerId, color: string) => setCadLayers((cur) => cur.map((layer) => layer.id === id ? { ...layer, color } : layer));
   const resetCadLayerPresentation = () => {
+    setLayers((cur) => ({ ...cur, stations: true, equipment: true, connectors: true, dims: true }));
     setCadLayers(DEFAULT_CAD_LAYERS.map((layer) => ({ ...layer })));
     toast.success('Capas CAD restauradas a la presentación estándar.', 'Capas');
   };
@@ -3152,8 +3176,19 @@ export default function Layout3DEditor({
       connectors: id === 'flow',
       dims: id === 'measurements',
     }));
-    setCadLayers((cur) => cur.map((layer) => ({ ...layer, visible: layer.id === id })));
+    setCadLayers((cur) => isolateCadLayerVisibility(cur, id));
     toast.success(`Capa ${cadLayers.find((layer) => layer.id === id)?.label ?? id} aislada.`, 'Capas');
+  };
+  const showAllCadLayerVisibility = () => {
+    setLayers((cur) => ({
+      ...cur,
+      stations: true,
+      equipment: true,
+      connectors: true,
+      dims: true,
+    }));
+    setCadLayers((cur) => showAllCadLayers(cur));
+    toast.success('Todas las capas CAD visibles.', 'Capas');
   };
   const defaultLayerFor = (item: SelItem): CadLayerId => item.type === 'station' ? 'layout' : 'equipment';
   const selectionLayer = (item: SelItem): CadLayerId => layerAssignments[item.id] ?? defaultLayerFor(item);
@@ -3598,6 +3633,7 @@ export default function Layout3DEditor({
   const cadLayerCounts = cadLayers.reduce<Record<CadLayerId, number>>((acc, layer) => ({ ...acc, [layer.id]: 0 }), {} as Record<CadLayerId, number>);
   placedIds.forEach((id) => { cadLayerCounts[layerAssignments[id] ?? 'layout'] += 1; });
   assetIds.forEach((id) => { cadLayerCounts[layerAssignments[id] ?? 'equipment'] += 1; });
+  const cadLayerSummary = summarizeCadLayers(cadLayers, cadLayerCounts);
   const selectedObjectProperties: CadObjectProperties | null = selSnap && selList[0] ? (() => {
     const layerId = selectionLayer(selList[0]);
     const layer = cadLayers.find((candidate) => candidate.id === layerId);
@@ -3719,7 +3755,12 @@ export default function Layout3DEditor({
                   {lbl}
                 </label>
               ))}
-              <div className="text-[10px] uppercase tracking-wide text-gray-500 mt-2.5 mb-1.5">Capas CAD</div>
+              <div className="mt-2.5 mb-1.5 flex items-center justify-between gap-2">
+                <div className="text-[10px] uppercase tracking-wide text-gray-500">Capas CAD</div>
+                <div className={`text-[10px] ${cadLayerSummary.hidden ? 'text-amber-300' : 'text-gray-500'}`}>
+                  {cadLayerSummary.visible}/{cadLayerSummary.total} visibles
+                </div>
+              </div>
               <div className="space-y-1">
                 {cadLayers.map((layer) => (
                   <div key={layer.id} className={`rounded-lg px-2 py-1 ${activeCadLayer === layer.id ? 'bg-cyan-400/[0.10] ring-1 ring-cyan-400/20' : 'bg-white/[0.04]'}`}>
@@ -3742,9 +3783,17 @@ export default function Layout3DEditor({
                 ))}
               </div>
               <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-gray-500">
-                <span>{Object.keys(layerAssignments).length} objeto(s) con capa asignada · activa: {cadLayers.find((layer) => layer.id === activeCadLayer)?.label}</span>
-                <button onClick={resetCadLayerPresentation} className="text-gray-500 dark:text-gray-400 hover:text-white">Reset</button>
+                <span>{Object.keys(layerAssignments).length} asignados · {cadLayerSummary.hiddenObjectCount} ocultos · {cadLayerSummary.lockedObjectCount} bloqueados</span>
+                <div className="inline-flex items-center gap-2">
+                  <button onClick={showAllCadLayerVisibility} className="text-gray-500 dark:text-gray-400 hover:text-white">All</button>
+                  <button onClick={resetCadLayerPresentation} className="text-gray-500 dark:text-gray-400 hover:text-white">Reset</button>
+                </div>
               </div>
+              {cadLayerSummary.hiddenObjectCount > 0 && (
+                <div className="mt-1 rounded-lg border border-amber-400/15 bg-amber-400/[0.06] px-2 py-1 text-[10.5px] text-amber-100">
+                  {cadLayerSummary.hiddenObjectCount} objeto(s) ocultos por capas CAD. Usa All para recuperar la vista completa.
+                </div>
+              )}
               <div className="text-[10px] uppercase tracking-wide text-gray-500 mt-2.5 mb-1.5">Tema</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {(Object.keys(THEMES) as Theme3D[]).map((t) => (
@@ -4067,6 +4116,8 @@ export default function Layout3DEditor({
               <span>{selList.length} sel</span>
               <span>{data?.footprint.unit ?? 'mm'}</span>
               <span>Layer {cadLayers.find((layer) => layer.id === activeCadLayer)?.label ?? activeCadLayer}</span>
+              {cadLayerSummary.hiddenObjectCount > 0 && <span className="text-amber-300">Hidden layer objs {cadLayerSummary.hiddenObjectCount}</span>}
+              {cadLayerSummary.lockedObjectCount > 0 && <span className="text-amber-300">Locked layer objs {cadLayerSummary.lockedObjectCount}</span>}
               <span>Grilla {layers.grid ? 'on' : 'off'} / Snap {snap ? 'grid' : 'free'} / {osnap ? 'obj' : 'obj off'}</span>
               <button onClick={openChecks} className={`${releaseTone} hover:text-white`}>Release {releaseState}</button>
               {report && <span className={report.score === 'error' ? 'text-rose-300' : report.score === 'warn' ? 'text-amber-300' : 'text-emerald-300'}>Validación {report.score}</span>}

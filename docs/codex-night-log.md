@@ -325,3 +325,11 @@
 - Added Utilities blocks for power panel, compressed-air drop, network drop, maintenance area, tool crib, and calibration station.
 - Added `asset-catalog.spec.ts` coverage for unique kinds, category grouping, positive footprints/heights, and reuse of existing mesh archetypes.
 - Pending: add native block-instance/default-layer metadata after active symbol/template PRs settle.
+## 2026-06-29 - CAD layer visibility hardening
+
+- Inspected open CAD PRs #864, #861, #858, #853, #850, #847, #844, and #838; avoided DXF preflight, validation quick fixes, dimensions, templates, flow health, plot metadata, warehouse generators, and command registry helpers.
+- Reused the existing CAD layer model in `apps/web/src/lib/cad/layers.ts` and the existing layer popover in `Layout3DEditor.tsx`.
+- Added tested helpers for isolate-layer visibility, show-all recovery, and layer state summaries.
+- Wired CAD layer visibility to actual station and asset objects in the viewport instead of only export/inspector metadata.
+- Added hidden/locked layer object counts plus an `All` recovery action to the existing layer panel and status bar.
+- Pending: persist layer assignments/visibility with the layout API and add layer search/filter after the persistence contract is reviewed.

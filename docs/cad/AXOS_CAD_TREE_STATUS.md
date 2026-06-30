@@ -6,6 +6,17 @@ Last updated: 2026-06-29
 
 AXOS CAD is beyond seed state. The active workbench already includes a unified 2D/3D editor, local command dock, command palette, layers, lock enforcement, measurements, symbols, DXF import/export, validation, safety checks, flow scoring, local snapshots, CAD templates, and a release-readiness surface.
 
+## 2026-06-29 - Layer visibility hardening
+
+This run upgrades the existing CAD layer workflow:
+
+- `layers.ts` now has tested helpers for isolate-layer visibility, show-all recovery, and layer state summaries.
+- `Layout3DEditor.tsx` applies CAD layer visibility per station/asset object in the viewport instead of treating it as export/inspector metadata only.
+- The existing CAD layer panel shows visible-layer counts, hidden/locked object totals, an `All` recovery action, and a warning when hidden CAD layers are hiding objects.
+- The bottom status bar surfaces hidden/locked layer object counts while preserving the active layer indicator.
+
+The workflow is visible in the existing layer popover and status bar. It reuses current layer assignments, lock enforcement, object ids, station labels, asset groups, and export filtering; it does not introduce a parallel layer manager, editor, or persistence path.
+
 ## This run
 
 This run upgrades the existing professional dimensioning workflow:
@@ -122,6 +133,7 @@ This does not create a second warehouse generator, block system, editor, layer m
 | Phase 4 - Professional dimensioning system | Advanced | `measurements.ts`, saved dimension annotations, DXF export, and `Borde H`/`Borde V` in the right inspector | Add dimension styles and critical-measurement validation rules. |
 | Phase 23 - Supermarket/kitting template | Usable | `templates.ts`, `templates.spec.ts`, existing `Layout3DEditor` template rail | Add parametric lane/cart counts after generator conflicts settle. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
+| Phase 8 - Layers Pro / Layer Manager | Advanced | `layers.ts`, object-level viewport layer filtering, `All` recovery, hidden/locked object counts | Persist layer assignments and add layer search/filter. |
 
 ## Next CAD PR
 
