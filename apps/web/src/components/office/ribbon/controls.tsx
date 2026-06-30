@@ -126,7 +126,7 @@ export function RibbonSelect({
           <option key={o.value || o.label} value={o.value} style={o.style}>{o.label}</option>
         ))}
       </select>
-      <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 pointer-events-none text-gray-400" />
+      <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 pointer-events-none text-gray-500 dark:text-gray-400" />
     </span>
   );
 }
@@ -270,7 +270,7 @@ export function RibbonMenuList({ items, onPick }: { items: MenuItem[]; onPick?: 
         >
           {it.icon && <it.icon className="w-4 h-4 flex-shrink-0 opacity-80" strokeWidth={1.75} />}
           <span className="flex-1 truncate">{it.label}</span>
-          {it.hint && <kbd className="text-[10px] font-mono text-gray-400">{it.hint}</kbd>}
+          {it.hint && <kbd className="text-[10px] font-mono text-gray-500 dark:text-gray-400">{it.hint}</kbd>}
         </button>
       ))}
     </div>
@@ -316,7 +316,7 @@ export function RibbonGroup({ label, children }: { label: string; children: Reac
   return (
     <div className="flex flex-col flex-shrink-0 px-1.5">
       <div className="flex items-center gap-0.5 min-h-[48px] py-1">{children}</div>
-      <div className="text-[10px] leading-none text-gray-400 dark:text-gray-500 pb-1 text-center truncate">
+      <div className="text-[10px] leading-none text-gray-500 dark:text-gray-500 pb-1 text-center truncate">
         {label}
       </div>
     </div>

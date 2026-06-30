@@ -41,7 +41,7 @@ export function DocListMenu({ editor }: { editor: Editor }) {
             <span className="text-[11px] font-semibold">Reiniciar numeración…</span>
           </button>
         </div>
-        {!inList && <p className="text-[11px] text-gray-400 px-1 pt-1">Coloca el cursor en una lista para aplicar un esquema.</p>}
+        {!inList && <p className="text-[11px] text-gray-500 dark:text-gray-400 px-1 pt-1">Coloca el cursor en una lista para aplicar un esquema.</p>}
       </div>
     </RibbonMenuButton>
   );

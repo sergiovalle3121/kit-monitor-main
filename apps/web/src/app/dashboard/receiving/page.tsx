@@ -206,7 +206,7 @@ export default function ReceivingPage() {
         {forbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Necesitas permiso de materiales para registrar y ver recibos." />
         ) : isLoading ? (
-          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          <div className="flex justify-center py-20 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : receipts.length === 0 ? (
           <Empty icon={<Inbox className="w-6 h-6" />} title="Sin recibos todavía" body="Registra el primer recibo para sumar material al inventario y verlo en el ledger de movimientos." />
         ) : (
@@ -219,14 +219,14 @@ export default function ReceivingPage() {
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{r.receiptNumber}</span>
                       <span className="font-mono font-semibold text-sm truncate">{r.partNumber}</span>
                     </div>
-                    <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                       {r.supplierCode ? `${r.supplierCode} · ` : ""}{r.warehouseId || "—"}{r.location ? ` / ${r.location}` : ""}
                       {r.lotNumber ? ` · Lote ${r.lotNumber}` : ""}{r.poNumber ? ` · ${r.poNumber}` : ""}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-semibold tabular-nums" style={{ color: ACCENT }}>+{r.quantity}</p>
-                    <p className="text-[10px] text-gray-400">{timeAgo(r.createdAt)}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{timeAgo(r.createdAt)}</p>
                   </div>
                 </div>
               ))}
@@ -258,7 +258,7 @@ export default function ReceivingPage() {
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>

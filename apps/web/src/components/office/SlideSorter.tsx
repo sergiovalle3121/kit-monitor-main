@@ -62,7 +62,7 @@ export function SlideSorter({
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[120] bg-white dark:bg-[#0b0b0b] flex flex-col">
       <div className="flex items-center justify-between px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
-        <h2 className="font-bold">Clasificador de diapositivas <span className="text-sm font-normal text-gray-400">- busca, filtra y reordena</span></h2>
+        <h2 className="font-bold">Clasificador de diapositivas <span className="text-sm font-normal text-gray-500 dark:text-gray-400">- busca, filtra y reordena</span></h2>
         <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500"><X className="w-5 h-5" /></button>
       </div>
 
@@ -77,7 +77,7 @@ export function SlideSorter({
           </div>
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
             <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-black/10 bg-black/[0.03] px-3 text-sm dark:border-white/10 dark:bg-white/[0.05]">
-              <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
+              <Search className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar slides por titulo, contenido, seccion o numero..." className="min-w-0 flex-1 bg-transparent outline-none" />
             </label>
             {sectionOptions.length > 0 && (
@@ -95,7 +95,7 @@ export function SlideSorter({
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
           {visible.length === 0 && (
-            <div className="col-span-full rounded-2xl border border-dashed border-black/10 p-10 text-center text-sm text-gray-400 dark:border-white/10">
+            <div className="col-span-full rounded-2xl border border-dashed border-black/10 p-10 text-center text-sm text-gray-500 dark:text-gray-400 dark:border-white/10">
               No hay diapositivas para este filtro.
             </div>
           )}
@@ -134,7 +134,7 @@ export function SlideSorter({
                     {!item.hasTitle && <span title="Falta titulo de slide" className="flex-shrink-0 rounded bg-amber-500/90 p-1 text-white shadow"><AlertTriangle className="h-3 w-3" /></span>}
                   </div>
                   {slides.length > 1 && (
-                    <button onClick={() => onDelete(i)} className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-white/90 dark:bg-black/60 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => onDelete(i)} className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-white/90 dark:bg-black/60 text-gray-500 dark:text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><Trash2 className="w-3.5 h-3.5" /></button>
                   )}
                 </div>
               </React.Fragment>

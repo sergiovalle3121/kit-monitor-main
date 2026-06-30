@@ -82,7 +82,7 @@ export default function ModelDetailPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
         </div>
       </div>
@@ -92,7 +92,7 @@ export default function ModelDetailPage() {
   if (isLoading || !model) {
     return (
       <div className="min-h-screen grid place-items-center">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
       </div>
     );
   }
@@ -215,7 +215,7 @@ function NpiSection({
   return (
     <section className={`${glass} rounded-2xl p-5 mb-6`}>
       <div className="flex items-center gap-2 mb-4">
-        <Rocket className="w-4 h-4 text-gray-400" />
+        <Rocket className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
           Launch / NPI
         </h2>
@@ -229,7 +229,7 @@ function NpiSection({
 
       {isLoading ? (
         <div className="flex justify-center py-6">
-          <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+          <Loader2 className="w-5 h-5 animate-spin text-gray-500 dark:text-gray-400" />
         </div>
       ) : launch ? (
         <Link
@@ -241,7 +241,7 @@ function NpiSection({
               <span className="text-sm font-semibold">Launch activo</span>
               <ProjectStatusPill status={launch.status} />
             </div>
-            <div className="text-xs text-gray-400 mt-0.5">
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               rev {launch.revision} · Fase{' '}
               {PHASE_LABEL[launch.currentPhase] ?? launch.currentPhase}
             </div>
@@ -250,8 +250,8 @@ function NpiSection({
         </Link>
       ) : (
         <div className="text-center py-6">
-          <Rocket className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-400 mb-4">
+          <Rocket className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Este modelo aún no tiene un launch NPI. Créalo para orquestar gates,
             readiness y liberación a producción.
           </p>
@@ -307,11 +307,11 @@ function PlansSection({ modelNumber }: { modelNumber: string }) {
         </Link>
       </div>
       {isLoading ? (
-        <div className="flex justify-center py-10 text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+        <div className="flex justify-center py-10 text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
       ) : plans.length === 0 ? (
         <div className={`${glass} rounded-2xl p-6 text-center`}>
-          <Inbox className="w-6 h-6 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-400">Sin planes para este modelo. Publícalo en <Link href="/dashboard/planning" className="underline">Planeación</Link> para surtir y producir.</p>
+          <Inbox className="w-6 h-6 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Sin planes para este modelo. Publícalo en <Link href="/dashboard/planning" className="underline">Planeación</Link> para surtir y producir.</p>
         </div>
       ) : (
         <div className={`${glass} rounded-2xl p-2`}>
@@ -544,22 +544,22 @@ function BomSection({ modelNumber, productName }: { modelNumber: string; product
   return (
     <section className={`${glass} rounded-2xl p-5 mb-6`}>
       <div className="flex items-center gap-2 mb-4">
-        <Layers className="w-4 h-4 text-gray-400" />
+        <Layers className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">BOM · Lista de materiales</h2>
         {meta && (
           <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: meta.color, background: `${meta.color}1a` }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} /> {meta.label}
           </span>
         )}
-        {bom && <span className="ml-auto text-xs text-gray-400">rev {bom.revision} · {components.length} partes · {money(bom.estimatedCost)}</span>}
+        {bom && <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">rev {bom.revision} · {components.length} partes · {money(bom.estimatedCost)}</span>}
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-gray-500 dark:text-gray-400" /></div>
       ) : !bom ? (
         <div className="text-center py-8">
-          <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-400 mb-4">Este modelo aún no tiene BOM. Créalo para capturar sus partes.</p>
+          <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Este modelo aún no tiene BOM. Créalo para capturar sus partes.</p>
           <button data-testid="bom-create-btn" onClick={createBom} disabled={busy === 'create'} className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2.5 rounded-full disabled:opacity-60">
             {busy === 'create' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Crear BOM
           </button>
@@ -568,7 +568,7 @@ function BomSection({ modelNumber, productName }: { modelNumber: string; product
         <>
           {/* Components */}
           {components.length === 0 ? (
-            <p className="text-sm text-gray-400 py-3">Sin partes todavía. Agrega la primera abajo.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 py-3">Sin partes todavía. Agrega la primera abajo.</p>
           ) : (
             <div className="space-y-1.5 mb-4">
               {components.map((c) => (
@@ -588,7 +588,7 @@ function BomSection({ modelNumber, productName }: { modelNumber: string; product
                   {busy === 'add' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Agregar'}
                 </button>
               </div>
-              <button onClick={() => setShowNewPart((v) => !v)} className="text-[12px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mt-2">
+              <button onClick={() => setShowNewPart((v) => !v)} className="text-[12px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mt-2">
                 {showNewPart ? '− Ocultar datos de parte nueva' : '+ Si la parte es nueva, define descripción y costo'}
               </button>
               {showNewPart && (
@@ -671,22 +671,22 @@ function ComponentRow({
   return (
     <div data-testid="bom-component-row" data-component={c.componentNumber} className="group flex items-center gap-3 text-sm px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5">
       <span className="font-mono text-[13px]">{c.componentNumber}</span>
-      <span className="text-gray-400 text-xs truncate flex-1">{c.description}</span>
+      <span className="text-gray-500 dark:text-gray-400 text-xs truncate flex-1">{c.description}</span>
       {editing ? (
         <span className="flex items-center gap-1">
           <input value={qty} onChange={(e) => setQty(e.target.value)} type="number" min={0.0001} step="any" className="w-20 bg-white dark:bg-black/30 border border-gray-200 dark:border-white/10 rounded-md py-1 px-2 text-sm outline-none" autoFocus />
-          <span className="text-gray-400 text-xs">{c.unit}/u</span>
+          <span className="text-gray-500 dark:text-gray-400 text-xs">{c.unit}/u</span>
           <button onClick={saveQty} disabled={busy} className="p-1 rounded text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10">{busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}</button>
-          <button onClick={() => { setEditing(false); setQty(String(c.quantity)); }} className="p-1 rounded text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="w-3.5 h-3.5" /></button>
+          <button onClick={() => { setEditing(false); setQty(String(c.quantity)); }} className="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="w-3.5 h-3.5" /></button>
         </span>
       ) : (
         <>
           <span className="font-semibold tabular-nums">{c.quantity} {c.unit}/u</span>
-          <span className="text-gray-400 text-xs tabular-nums w-20 text-right">{money(c.extendedCost)}</span>
+          <span className="text-gray-500 dark:text-gray-400 text-xs tabular-nums w-20 text-right">{money(c.extendedCost)}</span>
           {editable && (
             <span className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => setEditing(true)} className="p-1 rounded text-gray-400 hover:text-blue-500"><Pencil className="w-3.5 h-3.5" /></button>
-              <button onClick={remove} disabled={busy} className="p-1 rounded text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setEditing(true)} className="p-1 rounded text-gray-500 dark:text-gray-400 hover:text-blue-500"><Pencil className="w-3.5 h-3.5" /></button>
+              <button onClick={remove} disabled={busy} className="p-1 rounded text-gray-500 dark:text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
             </span>
           )}
         </>

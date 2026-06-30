@@ -165,7 +165,7 @@ export default function CharacteristicsPage() {
 
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               <div className="relative flex-1 min-w-[180px]">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar código, nombre, unidad…" className={`${glass} w-full rounded-xl pl-9 pr-3 py-2 text-sm outline-none`} />
               </div>
               <select value={model} onChange={(e) => setModel(e.target.value)} className={`${glass} rounded-xl px-3 py-2 text-sm outline-none`}>
@@ -184,7 +184,7 @@ export default function CharacteristicsPage() {
             </div>
 
             {isLoading ? (
-              <div className="flex justify-center py-16 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+              <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
             ) : filtered.length === 0 ? (
               <Empty
                 icon={<Crosshair className="w-6 h-6" />}
@@ -203,7 +203,7 @@ export default function CharacteristicsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-black/5 dark:border-white/10">
+                      <tr className="text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">
                         <Th onClick={() => toggleSort("code")}>Código</Th>
                         <Th onClick={() => toggleSort("name")}>Nombre</Th>
                         <Th onClick={() => toggleSort("model")}>Modelo</Th>
@@ -224,7 +224,7 @@ export default function CharacteristicsPage() {
                               {r.code}{r.isCritical && <span className="ml-1.5 text-[10px] font-bold" style={{ color: ACCENT }} title="Crítica">★</span>}
                             </td>
                             <td className="px-3 py-2 font-medium">{r.name}</td>
-                            <td className="px-3 py-2 text-gray-500 truncate max-w-[200px]">{r.modelId ? modelLabel.get(r.modelId) ?? "—" : <span className="text-gray-400">General</span>}</td>
+                            <td className="px-3 py-2 text-gray-500 truncate max-w-[200px]">{r.modelId ? modelLabel.get(r.modelId) ?? "—" : <span className="text-gray-500 dark:text-gray-400">General</span>}</td>
                             <td className="px-3 py-2"><span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${tm.color}1f`, color: tm.color }}>{tm.label}</span></td>
                             <td className="px-3 py-2 text-right font-mono text-[12px] text-gray-500">{fmt(r.lsl)}</td>
                             <td className="px-3 py-2 text-right font-mono text-[12px]">{fmt(r.nominal)}</td>
@@ -247,7 +247,7 @@ export default function CharacteristicsPage() {
               </div>
             )}
 
-            <p className="text-[11px] text-gray-400 mt-4">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-4">
               Este catálogo es el cimiento de datos para SPC. Las cartas de control y Cpk/Ppk llegan en un PR posterior que consume estas mediciones.
             </p>
           </>
@@ -384,7 +384,7 @@ function CharacteristicModal({
         <label className="inline-flex items-center gap-2"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Activa</label>
       </div>
       {!isAttr && liveError && <p className="text-[12px] mt-3 font-medium" style={{ color: "#ef4444" }}>{liveError}</p>}
-      {!isAttr && !liveError && <p className="text-[11px] text-gray-400 mt-3">Para variables, el orden válido es USL &gt; nominal &gt; LSL (los límites son opcionales).</p>}
+      {!isAttr && !liveError && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">Para variables, el orden válido es USL &gt; nominal &gt; LSL (los límites son opcionales).</p>}
     </Modal>
   );
 }

@@ -401,9 +401,9 @@ export default function SkillsPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver skills.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver skills.</p>
         </div>
       </div>
     );
@@ -419,7 +419,7 @@ export default function SkillsPage() {
       {/* Header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.12)' }}>
@@ -427,7 +427,7 @@ export default function SkillsPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">RH · Skills y Certificaciones</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">
               Matriz de competencias operador × estación · gate IATF
             </p>
           </div>
@@ -491,7 +491,7 @@ export default function SkillsPage() {
               )}
               {kpis.porVencer > 0 && kpis.vencidas > 0 && ' · '}
               {kpis.vencidas > 0 && <span style={{ color: RED }}>{kpis.vencidas} vencidas</span>}
-              <span className="text-gray-400"> en el alcance actual.</span>
+              <span className="text-gray-500 dark:text-gray-400"> en el alcance actual.</span>
             </p>
             {kpis.porVencer > 0 && (
               <button
@@ -575,7 +575,7 @@ export default function SkillsPage() {
         {/* Body */}
         {isLoading ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
           </div>
         ) : list.length === 0 ? (
           <EmptyState
@@ -863,7 +863,7 @@ function MatrixView({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 text-[13px]">
-          <span className="text-gray-400">Columnas:</span>
+          <span className="text-gray-500 dark:text-gray-400">Columnas:</span>
           <Segmented
             value={dimension}
             onChange={(v) => onDimension(v as 'station' | 'skill')}
@@ -901,9 +901,9 @@ function MatrixView({
 
       {rows.length === 0 || columns.length === 0 ? (
         <div className={`${glass} rounded-2xl p-10 text-center`}>
-          <Users className="w-7 h-7 mx-auto mb-2 text-gray-400" />
+          <Users className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
           <h3 className="font-semibold">Sin datos para esta vista</h3>
-          <p className="text-sm text-gray-400 mt-1 max-w-md mx-auto">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-md mx-auto">
             No hay certificaciones para el filtro actual. Liga empleados y registra certificaciones para poblar la
             matriz.
           </p>
@@ -945,7 +945,7 @@ function MatrixView({
                         title="Ver perfil de competencias"
                       >
                         <span className="block font-medium truncate group-hover:text-primary">{row.name}</span>
-                        <span className="block text-[11px] text-gray-400 truncate">
+                        <span className="block text-[11px] text-gray-500 dark:text-gray-400 truncate">
                           {[row.area, `${rowCoverage.get(row.key) ?? 0} hab.`].filter(Boolean).join(' · ')}
                         </span>
                       </button>
@@ -1095,7 +1095,7 @@ function CertTable({
       searchPlaceholder="Buscar empleado, skill, estación…"
       toolbarRight={<ExportButton rows={exportRows} columns={exportColumns} filename="matriz-competencias" />}
       emptyState={
-        <div className="p-12 text-center text-sm text-gray-400">Sin certificaciones para el filtro actual.</div>
+        <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400">Sin certificaciones para el filtro actual.</div>
       }
     />
   );
@@ -1135,7 +1135,7 @@ function EmployeeDetail({
     <>
       <DrawerSection title="Habilitado hoy (estaciones vigentes)">
         {enabled.length === 0 ? (
-          <p className="text-sm text-gray-400">Sin estaciones habilitadas con certificación vigente.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Sin estaciones habilitadas con certificación vigente.</p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {enabled.map(([station, s]) => (
@@ -1158,13 +1158,13 @@ function EmployeeDetail({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-medium truncate">{c.skill}</div>
-                  <div className="text-[12px] text-gray-400 truncate">
+                  <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
                     {[c.area, c.station].filter(Boolean).join(' · ') || '—'}
                   </div>
                 </div>
                 <StatusPill status={c.status} days={c.daysToExpiry} />
               </div>
-              <div className="mt-1.5 text-[11px] text-gray-400 flex flex-wrap gap-x-3">
+              <div className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-3">
                 <span>Certificado: {fmtDate(c.issuedDate)}</span>
                 <span>Vence: {fmtDate(c.expiresDate)}</span>
                 {c.certifiedBy && <span>Por: {c.certifiedBy}</span>}
@@ -1235,7 +1235,7 @@ function GateView({
     <div className="grid gap-4 md:grid-cols-[340px_1fr]">
       <div className={`${glass} rounded-2xl p-5`}>
         <h3 className="font-semibold mb-1">Verificar habilitación</h3>
-        <p className="text-[12px] text-gray-400 mb-4">
+        <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">
           Antes de asignar un operador a una estación, confirma si está certificado.
         </p>
         <label className="block mb-3">
@@ -1269,12 +1269,12 @@ function GateView({
 
       <div className={`${glass} rounded-2xl p-6 grid place-items-center text-center`}>
         {!path ? (
-          <div className="text-gray-400">
+          <div className="text-gray-500 dark:text-gray-400">
             <ShieldCheck className="w-10 h-10 mx-auto mb-3 opacity-40" />
             <p className="text-sm">Elige un operador y una estación para ver el veredicto.</p>
           </div>
         ) : isLoading ? (
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
         ) : verdict ? (
           <div>
             <span
@@ -1286,7 +1286,7 @@ function GateView({
             <h3 className="text-lg font-semibold" style={{ color: verdict.color }}>
               {verdict.title}
             </h3>
-            <p className="text-sm text-gray-400 mt-1">{verdict.sub}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{verdict.sub}</p>
             {check && !check.certified && op && (
               <button
                 onClick={() => onCertify(op, station)}
@@ -1296,7 +1296,7 @@ function GateView({
                 <Plus className="w-4 h-4" /> Certificar para esta estación
               </button>
             )}
-            <p className="mt-5 text-[11px] text-gray-400 max-w-sm mx-auto">
+            <p className="mt-5 text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
               Modo <b>advertencia</b>: no bloquea la asignación. El modo bloqueo duro está preparado en el backend pero
               desactivado (lo endurece el owner con un flag).
             </p>
@@ -1549,7 +1549,7 @@ function EmployeePicker({
   return (
     <div className="relative">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
         <input
           value={q}
           onChange={(e) => {
@@ -1578,7 +1578,7 @@ function EmployeePicker({
                 <span className="block font-medium truncate">
                   {e.firstName} {e.lastName}
                 </span>
-                <span className="block text-[11px] text-gray-400 truncate">
+                <span className="block text-[11px] text-gray-500 dark:text-gray-400 truncate">
                   {[e.employeeNumber, e.area, e.station].filter(Boolean).join(' · ') || '—'}
                 </span>
               </span>
@@ -1692,7 +1692,7 @@ function SkillCatalogModal({
         {/* List */}
         <div className="flex-1 overflow-y-auto -mx-1 px-1">
           {sorted.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
               Catálogo vacío. Agrega los skills/certificaciones que usa tu planta (IPC-A-610, ESD, J-STD-001…).
             </p>
           ) : (
@@ -1714,9 +1714,9 @@ function SkillCatalogModal({
                     <div className="min-w-0 flex-1">
                       <div className="font-medium truncate">
                         {s.name}
-                        {!s.active && <span className="ml-2 text-[10px] text-gray-400">archivado</span>}
+                        {!s.active && <span className="ml-2 text-[10px] text-gray-500 dark:text-gray-400">archivado</span>}
                       </div>
-                      <div className="text-[12px] text-gray-400 truncate">
+                      <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
                         {[s.category, s.area, s.defaultValidityMonths != null ? `${s.defaultValidityMonths}m vigencia` : null]
                           .filter(Boolean)
                           .join(' · ') || '—'}
@@ -1730,7 +1730,7 @@ function SkillCatalogModal({
                       className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
                       title="Editar"
                     >
-                      <Pencil className="w-4 h-4 text-gray-400" />
+                      <Pencil className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                     </button>
                     <button
                       onClick={() => call(`/people/skills/${s.id}`, 'PATCH', { active: !s.active }, s.active ? 'Skill archivado.' : 'Skill restaurado.')}
@@ -1738,7 +1738,7 @@ function SkillCatalogModal({
                       className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50"
                       title={s.active ? 'Archivar' : 'Restaurar'}
                     >
-                      {s.active ? <Archive className="w-4 h-4 text-gray-400" /> : <RefreshCw className="w-4 h-4" style={{ color: GREEN }} />}
+                      {s.active ? <Archive className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <RefreshCw className="w-4 h-4" style={{ color: GREEN }} />}
                     </button>
                   </div>
                 ),

@@ -93,7 +93,7 @@ function IncidentDispositionRow({
             BLOQUEA
           </span>
         )}
-        <span className="ml-auto text-[11px] text-gray-400">
+        <span className="ml-auto text-[11px] text-gray-500 dark:text-gray-400">
           {incident.qtyAffected} u segregadas · {incident.raisedBy}
         </span>
       </div>

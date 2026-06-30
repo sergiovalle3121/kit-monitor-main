@@ -158,7 +158,7 @@ export function Documents({
           </span>
           <div className="flex-1 min-w-0">
             <h2 className="font-semibold leading-tight truncate">Documentos de embarque</h2>
-            <p className="text-[12px] text-gray-400 leading-tight truncate">{shipment.folio ? `${shipment.folio} · ` : ''}{shipment.title}</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight truncate">{shipment.folio ? `${shipment.folio} · ` : ''}{shipment.title}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
         </div>
@@ -184,8 +184,8 @@ export function Documents({
                   <div key={i} className={`${glass} rounded-xl p-2.5 flex items-center gap-2.5`}>
                     <span className="w-6 h-6 rounded-md grid place-items-center flex-shrink-0" style={{ background: r.loaded ? `${GREEN}1f` : `${GRAY}1f`, color: r.loaded ? GREEN : GRAY }}><Package className="w-3.5 h-3.5" /></span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium truncate">{r.partNumber} <span className="text-gray-400 font-normal">×{r.quantity}</span></div>
-                      <div className="text-[11px] text-gray-400 truncate font-mono">{r.sscc ?? '—'} · {TYPE_LABEL[r.type] ?? r.type}</div>
+                      <div className="text-[13px] font-medium truncate">{r.partNumber} <span className="text-gray-500 dark:text-gray-400 font-normal">×{r.quantity}</span></div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate font-mono">{r.sscc ?? '—'} · {TYPE_LABEL[r.type] ?? r.type}</div>
                     </div>
                   </div>
                 ))}
@@ -198,7 +198,7 @@ export function Documents({
               <div className={`${glass} rounded-xl p-3 mb-3`}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>{asn.asn ?? 'ASN: se asigna al embarcar'}</span>
-                  <span className="text-[11px] text-gray-400">{asn.incoterm}</span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">{asn.incoterm}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-y-1 text-[12px]">
                   <Field label="Cliente" value={asn.shipTo.name} /><Field label="Destino" value={asn.shipTo.destination} />
@@ -276,7 +276,7 @@ function DocView({ fields, totals, requiresConfig, note, onPrint }: { fields: [s
         </div>
         <div className="mt-2 pt-2 border-t border-black/5 dark:border-white/10"><Totals items={totals} /></div>
       </div>
-      {note && <p className="text-[11px] text-gray-400 mt-3">{note}</p>}
+      {note && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">{note}</p>}
       {requiresConfig.length > 0 && (
         <div className="mt-3 rounded-xl p-3 text-[12px]" style={{ background: `${AMBER}14`, color: '#9a3412' }}>
           <div className="font-semibold mb-1">Requiere configuración</div>
@@ -305,13 +305,13 @@ function UnitHead({ sscc, type, loaded, icon }: { sscc: string | null; type: str
 function LineRow({ line }: { line: AsnLine }) {
   return (
     <div className="mt-1 ml-8 text-[12px] flex items-center gap-2">
-      <span className="font-medium">{line.partNumber}</span><span className="text-gray-400">×{line.quantity}</span>
-      {line.serials.length > 0 && <span className="text-[10px] text-gray-400">({line.serials.length} series)</span>}
+      <span className="font-medium">{line.partNumber}</span><span className="text-gray-500 dark:text-gray-400">×{line.quantity}</span>
+      {line.serials.length > 0 && <span className="text-[10px] text-gray-500 dark:text-gray-400">({line.serials.length} series)</span>}
     </div>
   );
 }
 function Field({ label, value }: { label: string; value: string | null }) {
-  return (<div className="min-w-0"><span className="text-gray-400">{label}: </span><span className="font-medium">{value || '—'}</span></div>);
+  return (<div className="min-w-0"><span className="text-gray-500 dark:text-gray-400">{label}: </span><span className="font-medium">{value || '—'}</span></div>);
 }
 function Totals({ items }: { items: string[] }) {
   return (
@@ -320,13 +320,13 @@ function Totals({ items }: { items: string[] }) {
     </div>
   );
 }
-function Spinner() { return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>; }
+function Spinner() { return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>; }
 function EmptyDocs() {
   return (
     <div className="text-center py-16">
-      <ScanLine className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+      <ScanLine className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
       <p className="text-sm font-medium">Sin contenido todavía</p>
-      <p className="text-[13px] text-gray-400 mt-1 max-w-xs mx-auto">Agrega contenido y unidades de manejo (SSCC) para generar los documentos.</p>
+      <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">Agrega contenido y unidades de manejo (SSCC) para generar los documentos.</p>
     </div>
   );
 }

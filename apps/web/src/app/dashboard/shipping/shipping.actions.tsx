@@ -236,7 +236,7 @@ export function CreateShipmentModal({
           <input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} className="shp-input" />
         </Field>
       </div>
-      <p className="text-[12px] text-gray-400 mt-4">
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-4">
         El embarque nace en <strong>Planeación</strong>. El folio (SHP-…) lo asigna el backend.
       </p>
     </Modal>
@@ -410,7 +410,7 @@ function AddItemModal({
           Pides {qtyNum} pero sólo hay {picked?.available} liberado. El backend lo rechazará y abrirá una excepción.
         </p>
       )}
-      <p className="text-[12px] text-gray-400 mt-3">
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-3">
         Surtir mueve el embarque a <strong>Surtido</strong> y deja el material en el andén de embarque.
       </p>
     </Modal>
@@ -777,7 +777,7 @@ export function RowActions({ shipment, onChanged }: { shipment: Shipment; onChan
       return <CloseButton shipment={shipment} onChanged={onChanged} label="Cerrar" />;
     default:
       return (
-        <span className="text-[12px] text-gray-400 inline-flex items-center gap-1">
+        <span className="text-[12px] text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
           <Lock className="w-3.5 h-3.5" /> Cerrado
         </span>
       );
@@ -788,7 +788,7 @@ export function RowActions({ shipment, onChanged }: { shipment: Shipment; onChan
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <dt className="text-gray-400">{k}</dt>
+      <dt className="text-gray-500 dark:text-gray-400">{k}</dt>
       <dd className="font-medium text-right truncate">{v}</dd>
     </div>
   );

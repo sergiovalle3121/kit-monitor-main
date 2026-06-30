@@ -499,7 +499,7 @@ export function MessageComposer({
                 }}
                 className="flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
               >
-                <SpellCheck className="h-3.5 w-3.5 text-gray-400" />
+                <SpellCheck className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
                 {w}
               </button>
             ))}

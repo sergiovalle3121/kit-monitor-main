@@ -129,9 +129,9 @@ export default function PackingPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Necesitas permiso de logística para ver empaque.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Necesitas permiso de logística para ver empaque.</p>
         </div>
       </div>
     );
@@ -143,7 +143,7 @@ export default function PackingPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: `${ACCENT}1f` }}>
@@ -151,7 +151,7 @@ export default function PackingPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Logística · Empaque</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Unidades de manejo (tarima/caja) · SSCC · etiqueta ZPL</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Unidades de manejo (tarima/caja) · SSCC · etiqueta ZPL</p>
           </div>
           <button onClick={() => setForm("new")} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nueva unidad</span>
@@ -171,20 +171,20 @@ export default function PackingPage() {
         </div>
 
         {firstLoad ? (
-          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : units.length === 0 ? (
           <div className={`${glass} rounded-2xl p-12 text-center`}>
-            <Boxes className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Boxes className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin unidades de manejo</h3>
-            <p className="text-sm text-gray-400 mt-1 max-w-sm mx-auto">Crea la primera tarima/caja: genera su SSCC y su etiqueta GS1-128 para el check de embarque.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">Crea la primera tarima/caja: genera su SSCC y su etiqueta GS1-128 para el check de embarque.</p>
             <button onClick={() => setForm("new")} className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
               <Plus className="w-4 h-4" /> Nueva unidad
             </button>
           </div>
         ) : rows.length === 0 ? (
           <div className={`${glass} rounded-2xl p-10 text-center`}>
-            <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-            <p className="text-sm text-gray-400">Nada coincide con el filtro.</p>
+            <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Nada coincide con el filtro.</p>
           </div>
         ) : (
           <div className="space-y-2.5">
@@ -247,11 +247,11 @@ function ReadinessPanel({
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Readiness de empaque por serial PASS</h2>
-              <p className="text-[12px] text-gray-400">
+              <p className="text-[12px] text-gray-500 dark:text-gray-400">
                 Fuente: test-flow. Solo los seriales en READY_FOR_PACKAGING pueden empacarse como evidencia serializada.
               </p>
             </div>
-            <button onClick={onRefresh} title="Actualizar readiness" className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">
+            <button onClick={onRefresh} title="Actualizar readiness" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             </button>
           </div>
@@ -272,13 +272,13 @@ function ReadinessPanel({
                 </span>
               ))}
               {(readiness?.availableSerials.length ?? 0) > sample.length && (
-                <span className="text-[11px] px-2 py-1 rounded-lg bg-black/5 dark:bg-white/10 text-gray-400">
+                <span className="text-[11px] px-2 py-1 rounded-lg bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400">
                   +{(readiness?.availableSerials.length ?? 0) - sample.length}
                 </span>
               )}
             </div>
           ) : (
-            <p className="mt-3 text-[12px] text-gray-400">
+            <p className="mt-3 text-[12px] text-gray-500 dark:text-gray-400">
               Sin seriales liberados para empaque. Captura PASS en pruebas o revisa unidades en disposicion.
             </p>
           )}
@@ -292,7 +292,7 @@ function ReadinessKpi({ label, value, color }: { label: string; value: number; c
   return (
     <div className="rounded-xl border border-black/5 dark:border-white/10 px-3 py-2">
       <div className="text-lg font-semibold leading-tight" style={{ color }}>{value.toLocaleString()}</div>
-      <div className="text-[11px] text-gray-400 truncate">{label}</div>
+      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{label}</div>
     </div>
   );
 }
@@ -342,7 +342,7 @@ function HuRow({ hu, onEdit, onLabel, onChanged }: { hu: HandlingUnit; onEdit: (
             </span>
           )}
         </div>
-        <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+        <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
           {hu.shipmentFolio && <span>{hu.shipmentFolio}</span>}
           {hu.shipToName && <span>→ {hu.shipToName}</span>}
           {summary ? <span className="truncate">{summary}</span> : <span className="italic">sin contenido</span>}
@@ -350,10 +350,10 @@ function HuRow({ hu, onEdit, onLabel, onChanged }: { hu: HandlingUnit; onEdit: (
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        <button onClick={onLabel} title="Etiqueta ZPL" className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-500/10"><Tag className="w-4 h-4" /></button>
-        <button onClick={regen} disabled={busy !== null} title="Regenerar SSCC" className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">{busy === "regen" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</button>
-        <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></button>
-        <button onClick={del} disabled={busy !== null} title="Eliminar" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10">{busy === "del" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}</button>
+        <button onClick={onLabel} title="Etiqueta ZPL" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-indigo-500 hover:bg-indigo-500/10"><Tag className="w-4 h-4" /></button>
+        <button onClick={regen} disabled={busy !== null} title="Regenerar SSCC" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">{busy === "regen" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</button>
+        <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></button>
+        <button onClick={del} disabled={busy !== null} title="Eliminar" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10">{busy === "del" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}</button>
       </div>
     </div>
   );
@@ -488,7 +488,7 @@ function HuFormModal({
               <div key={i} className="grid grid-cols-[minmax(0,1fr)_6rem_auto] gap-2 rounded-xl border border-black/5 dark:border-white/10 p-2">
                 <input value={l.partNumber} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, partNumber: e.target.value } : x))} placeholder="Número de parte" className="pk-input flex-1" />
                 <input type="number" min={0} value={l.quantity || ""} onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, quantity: Number(e.target.value) } : x))} placeholder="Cant." className="pk-input w-24" />
-                <button onClick={() => setLines(lines.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500"><X className="w-4 h-4" /></button>
+                <button onClick={() => setLines(lines.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500"><X className="w-4 h-4" /></button>
                 <textarea
                   value={(l.serials ?? []).join("\n")}
                   onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, serials: parseSerials(e.target.value) } : x))}
@@ -529,7 +529,7 @@ function LabelModal({ hu, zpl, onClose }: { hu: HandlingUnit; zpl: string; onClo
         </div>
         <p className="font-mono text-[13px] mb-2">{hu.sscc}</p>
         <pre className="text-[11px] leading-snug bg-black/5 dark:bg-white/5 rounded-xl p-3 overflow-x-auto max-h-64 whitespace-pre-wrap">{zpl || "—"}</pre>
-        <p className="text-[11px] text-gray-400 mt-2 inline-flex items-start gap-1.5">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 inline-flex items-start gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
           <span>Formato ZPL para impresoras Zebra. Descárgala y envíala a la impresora; para previsualizar puedes pegarla en labelary.com.</span>
         </p>

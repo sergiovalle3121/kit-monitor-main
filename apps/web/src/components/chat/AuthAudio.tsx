@@ -34,7 +34,7 @@ export function AuthAudio({ messageId, mine }: { messageId: string; mine: boolea
 
   if (error) {
     return (
-      <div className="text-xs italic text-gray-400">No se pudo cargar el audio</div>
+      <div className="text-xs italic text-gray-500 dark:text-gray-400">No se pudo cargar el audio</div>
     );
   }
   if (!url) {

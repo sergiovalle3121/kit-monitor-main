@@ -64,9 +64,9 @@ export default function ShippingPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver embarques.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver embarques.</p>
         </div>
       </div>
     );
@@ -79,7 +79,7 @@ export default function ShippingPage() {
       {/* Header (sticky) */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: `${ACCENT}1f` }}>
@@ -87,9 +87,9 @@ export default function ShippingPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Logística · Embarques</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Surtido, manifiesto, despacho y cierre</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Surtido, manifiesto, despacho y cierre</p>
           </div>
-          <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
+          <button onClick={() => setShowCreate(true)} aria-label="Nuevo embarque" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nuevo embarque</span>
           </button>
         </div>
@@ -107,7 +107,7 @@ export default function ShippingPage() {
         {/* Buscador + alta */}
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar folio, cliente, transportista, guía…" className="shp-input pl-9" />
           </div>
           <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
@@ -132,7 +132,7 @@ export default function ShippingPage() {
 
         {/* Lista */}
         {firstLoad ? (
-          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-2xl`}>
             <Empty
@@ -148,8 +148,8 @@ export default function ShippingPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className={`${glass} rounded-2xl p-10 text-center`}>
-            <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-            <p className="text-sm text-gray-400">Ningún embarque coincide con el filtro.</p>
+            <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Ningún embarque coincide con el filtro.</p>
             {anyFilter && (
               <button onClick={() => { setQ(""); setStatus(""); }} className="mt-3 text-[13px] underline underline-offset-2 text-gray-500">
                 Limpiar filtros
@@ -211,7 +211,7 @@ function ShipmentRow({
               <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${COLORS.red}1f`, color: COLORS.red }}>cita vencida</span>
             )}
           </div>
-          <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+          <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
             {meta ? <span className="truncate">{meta}</span> : <span className="italic">Sin manifiesto</span>}
             {shipment.scheduledAt && (
               <>

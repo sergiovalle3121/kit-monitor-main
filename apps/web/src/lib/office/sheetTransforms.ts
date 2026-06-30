@@ -24,13 +24,15 @@ export type SheetTransformStep =
   | { type: 'rename_columns'; renames: Record<string, string> }
   | { type: 'filter_rows'; column: string; op: SheetTransformFilterOp; value?: string }
   | { type: 'sort_rows'; column: string; order: 'asc' | 'desc' }
+  | { type: 'split_column'; column: string; delimiter: string; into?: string[]; removeSource?: boolean; trim?: boolean }
   | { type: 'remove_blanks'; columns?: string[]; mode?: 'any' | 'all' }
   | { type: 'remove_duplicates'; columns?: string[] }
   | { type: 'trim_clean_text'; columns?: string[] }
   | { type: 'normalize_number'; columns: string[] }
   | { type: 'normalize_date'; columns: string[] }
   | { type: 'add_calculated_column'; name: string; formula: SheetTransformCalculatedFormula; left: string; right: string }
-  | { type: 'group_by'; groupBy: string[]; aggregations: { column: string; op: SheetTransformAggregate; as?: string }[] };
+  | { type: 'group_by'; groupBy: string[]; aggregations: { column: string; op: SheetTransformAggregate; as?: string }[] }
+  | { type: 'unpivot_columns'; keyColumns: string[]; valueColumns?: string[]; nameColumn?: string; valueColumn?: string; skipBlanks?: boolean };
 
 export interface SheetTransformConfig {
   range: string;
@@ -228,6 +230,12 @@ function calculated(left: any, right: any, formula: SheetTransformCalculatedForm
   return lnum / rnum;
 }
 
+function withDedupedHeaders(headers: string[], warnings: string[]): string[] {
+  const deduped = dedupeHeaders(headers);
+  warnings.push(...deduped.warnings);
+  return deduped.headers;
+}
+
 export function runSheetTransform(sheet: any, config: SheetTransformConfig): SheetTransformResult {
   const result = readSource(sheet, config);
   if (!result.ok) return result;
@@ -271,6 +279,35 @@ export function runSheetTransform(sheet: any, config: SheetTransformConfig): She
           if (cmp === 0) cmp = a.order - b.order;
           return step.order === 'desc' ? -cmp : cmp;
         }).map((item) => item.row);
+        stepsApplied++;
+        break;
+      }
+      case 'split_column': {
+        const idx = columnIndex(headers, step.column, warnings);
+        if (idx < 0) break;
+        const delimiter = String(step.delimiter ?? '').trim();
+        if (!delimiter) {
+          warnings.push('Split delimiter cannot be blank.');
+          break;
+        }
+        const splitRows = rows.map((row) => {
+          const raw = String(row[idx] ?? '');
+          const parts = raw.split(delimiter);
+          return step.trim === false ? parts : parts.map((part) => cleanText(part));
+        });
+        const width = Math.max(1, step.into?.length ?? 0, ...splitRows.map((parts) => parts.length));
+        const splitHeaders = Array.from({ length: width }, (_, partIdx) => {
+          const named = step.into?.[partIdx]?.trim();
+          return named || `${headers[idx]} ${partIdx + 1}`;
+        });
+        const normalizedRows = splitRows.map((parts) => Array.from({ length: width }, (_, partIdx) => parts[partIdx] ?? null));
+        if (step.removeSource) {
+          headers = withDedupedHeaders([...headers.slice(0, idx), ...splitHeaders, ...headers.slice(idx + 1)], warnings);
+          rows = rows.map((row, rowIdx) => [...row.slice(0, idx), ...normalizedRows[rowIdx], ...row.slice(idx + 1)]);
+        } else {
+          headers = withDedupedHeaders([...headers, ...splitHeaders], warnings);
+          rows = rows.map((row, rowIdx) => [...row, ...normalizedRows[rowIdx]]);
+        }
         stepsApplied++;
         break;
       }
@@ -342,6 +379,35 @@ export function runSheetTransform(sheet: any, config: SheetTransformConfig): She
           ...JSON.parse(key),
           ...aggs.map((agg) => aggregate(groupedRows.map((row) => row[agg.idx]), agg.op)),
         ]);
+        stepsApplied++;
+        break;
+      }
+      case 'unpivot_columns': {
+        const keyIndexes = columnIndexes(headers, step.keyColumns, warnings);
+        if (!keyIndexes.length) break;
+        const valueIndexes = step.valueColumns?.length
+          ? columnIndexes(headers, step.valueColumns, warnings)
+          : headers.map((_, idx) => idx).filter((idx) => !keyIndexes.includes(idx));
+        if (!valueIndexes.length) {
+          warnings.push('No value columns available to unpivot.');
+          break;
+        }
+        const nextHeaders = [
+          ...keyIndexes.map((idx) => headers[idx]),
+          step.nameColumn?.trim() || 'Attribute',
+          step.valueColumn?.trim() || 'Value',
+        ];
+        const nextRows: any[][] = [];
+        for (const row of rows) {
+          const keys = keyIndexes.map((idx) => row[idx]);
+          for (const valueIdx of valueIndexes) {
+            const value = row[valueIdx];
+            if (step.skipBlanks && isBlank(value)) continue;
+            nextRows.push([...keys, headers[valueIdx], value]);
+          }
+        }
+        headers = withDedupedHeaders(nextHeaders, warnings);
+        rows = nextRows;
         stepsApplied++;
         break;
       }

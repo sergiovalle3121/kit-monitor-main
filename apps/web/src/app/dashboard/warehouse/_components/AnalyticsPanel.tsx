@@ -15,7 +15,7 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
     <div className={`${glass} rounded-2xl p-5`}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold">{title}</h3>
-        {subtitle && <p className="text-[12px] text-gray-400">{subtitle}</p>}
+        {subtitle && <p className="text-[12px] text-gray-500 dark:text-gray-400">{subtitle}</p>}
       </div>
       {children}
     </div>
@@ -34,7 +34,7 @@ export default function AnalyticsPanel() {
   const topParts = a?.topParts ?? [];
 
   if (isLoading) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>;
+    return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
 
   if (!a?.totals || a.totals.total === 0) {
@@ -144,7 +144,7 @@ export default function AnalyticsPanel() {
         <h3 className="mb-3 text-sm font-semibold">Resumen por almacén</h3>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-black/10 text-left text-[11px] uppercase tracking-wide text-gray-400 dark:border-white/10">
+            <tr className="border-b border-black/10 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 dark:border-white/10">
               <th className="py-2">Almacén</th>
               <th className="py-2 text-right">Abiertos</th>
               <th className="py-2 text-right">Entregados</th>

@@ -54,7 +54,7 @@ export function StationRail({
                 className="w-2 h-2 rounded-full"
                 style={{ backgroundColor: step.starved ? "#f59e0b" : meta.color }}
               />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Estación {step.sequence}
               </span>
             </div>

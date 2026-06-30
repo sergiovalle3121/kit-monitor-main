@@ -5,12 +5,13 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Loader2, FileWarning } from 'lucide-react';
+import { Loader2, FileWarning, RefreshCw } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { OfficeShell, OfficeShellMessage, type SaveStatus, type OfficeType } from '@/components/office/OfficeShell';
 import { SheetActions } from '@/components/office/SheetActions';
+import { SheetGovernanceBadge } from '@/components/office/SheetGovernanceBadge';
 import { SlideActions } from '@/components/office/SlideActions';
 import { DocActions } from '@/components/office/DocActions';
 import { VersionHistory } from '@/components/office/VersionHistory';
@@ -27,12 +28,13 @@ import { DocTrainingPanel } from '@/components/office/DocTrainingPanel';
 import { DocReviewRoutePanel } from '@/components/office/DocReviewRoutePanel';
 import { DocImpactPanel } from '@/components/office/DocImpactPanel';
 import { DocEvidencePackagePanel } from '@/components/office/DocEvidencePackagePanel';
+import { connectorFreshnessBadge, type AxosConnectorInstance, type AxosConnectorStatusTone } from '@/lib/office/axosConnectors';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const AUTOSAVE_MS = 800;
 
 const Spinner = () => (
-  <div className="flex h-full items-center justify-center text-gray-400">
+  <div className="flex h-full items-center justify-center text-gray-500 dark:text-gray-400">
     <Loader2 className="w-6 h-6 animate-spin" />
   </div>
 );
@@ -52,6 +54,17 @@ interface OfficeDoc {
   approvedBy?: string | null;
   releasedBy?: string | null;
   obsoletedBy?: string | null;
+}
+
+const SHEET_CONNECTOR_TONE_CLASS: Record<AxosConnectorStatusTone, string> = {
+  empty: 'text-gray-500 dark:text-gray-400',
+  ok: 'text-emerald-600 dark:text-emerald-300',
+  due: 'text-amber-600 dark:text-amber-300',
+  stale: 'text-red-600 dark:text-red-300',
+};
+
+function sheetConnectorsOf(content: any): AxosConnectorInstance[] {
+  return Array.isArray(content?.connectors) ? content.connectors : [];
 }
 
 export default function OfficeEditorPage() {
@@ -174,7 +187,7 @@ export default function OfficeEditorPage() {
     );
   }
   if (loading || authLoading || !doc) {
-    return <OfficeShellMessage><Loader2 className="w-7 h-7 animate-spin text-gray-400" /><p className="text-sm text-gray-500">Abriendo documento…</p></OfficeShellMessage>;
+    return <OfficeShellMessage><Loader2 className="w-7 h-7 animate-spin text-gray-500 dark:text-gray-400" /><p className="text-sm text-gray-500">Abriendo documento…</p></OfficeShellMessage>;
   }
 
   const readOnly = !canWrite || !!doc.locked;
@@ -219,8 +232,17 @@ export default function OfficeEditorPage() {
   const pptxIssues = doc.type === 'slides' && Array.isArray(content?.pptxCompatibility?.issues)
     ? content.pptxCompatibility.issues
     : [];
-  const statusBarRight = doc.type === 'doc' && docStats
+  const sheetConnectorBadge = doc.type === 'sheet' ? connectorFreshnessBadge(sheetConnectorsOf(content)) : null;
+  const statusBarRight = doc.type === 'sheet' && sheetConnectorBadge
+    ? (
+      <span className={`inline-flex items-center gap-1 ${SHEET_CONNECTOR_TONE_CLASS[sheetConnectorBadge.tone]}`} title={sheetConnectorBadge.title}>
+        <RefreshCw className="h-3.5 w-3.5" /> {sheetConnectorBadge.label}
+      </span>
+    )
+    : doc.type === 'doc' && docStats
     ? <span>{docStats.words} palabras · {docStats.chars} caracteres</span>
+    : doc.type === 'sheet'
+      ? <SheetGovernanceBadge content={content} />
     : doc.type === 'slides' && pptxIssues.length
       ? (
         <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-300" title={pptxIssues.slice(0, 5).map((x: any) => x.message).join(' ')}>
@@ -240,7 +262,7 @@ export default function OfficeEditorPage() {
       {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} fileActions={actions} title={title} docId={id} />
         : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} fileActions={actions} />
         : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} fileActions={actions} docId={id} />
-        : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}
+        : <div className="py-20 text-center text-sm text-gray-500 dark:text-gray-400">Tipo de documento desconocido.</div>}
     </OfficeShell>
   );
 }

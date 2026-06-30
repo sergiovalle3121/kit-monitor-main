@@ -77,7 +77,7 @@ export function PreventiveTab({
       {/* Encabezado + alta */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <CalendarClock className="w-4 h-4 text-gray-400" /> Agenda de preventivos
+          <CalendarClock className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Agenda de preventivos
         </h3>
         <button
           onClick={() => setCreating(true)}
@@ -112,7 +112,7 @@ export function PreventiveTab({
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ background: meta.color }} />
                   <h4 className="text-sm font-semibold">{meta.label}</h4>
-                  <span className="text-[11px] text-gray-400">({items.length})</span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">({items.length})</span>
                 </div>
                 <div className="space-y-2.5">
                   {items.map((p) => (
@@ -128,7 +128,7 @@ export function PreventiveTab({
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS.gray }} />
                 <h4 className="text-sm font-semibold text-gray-500">En pausa</h4>
-                <span className="text-[11px] text-gray-400">({paused.length})</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">({paused.length})</span>
               </div>
               <div className="space-y-2.5">
                 {paused.map((p) => (
@@ -165,7 +165,7 @@ function PmPlanRow({
             <span className="font-semibold truncate">{plan.title}</span>
             {plan.active ? <PmStatusPill status={status} /> : <Pill label="En pausa" color={COLORS.gray} dot />}
           </div>
-          <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+          <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
             <span className="inline-flex items-center gap-1">
               <CalendarClock className="w-3 h-3" />
               {pmFrequencyLabel(plan.frequencyType, plan.frequencyValue)}
@@ -181,7 +181,7 @@ function PmPlanRow({
         <div className="flex items-center gap-1.5 flex-wrap">
           {plan.active && <GeneratePmOrderButton plan={plan} onDone={onChanged} />}
           <PauseToggle plan={plan} onChanged={onChanged} />
-          <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400" title="Editar preventivo">
+          <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400" title="Editar preventivo">
             <Pencil className="w-4 h-4" />
           </button>
         </div>

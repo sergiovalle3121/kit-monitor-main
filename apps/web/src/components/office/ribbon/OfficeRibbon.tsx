@@ -112,7 +112,7 @@ export function OfficeRibbon({
         <button
           onClick={() => setCollapsed((c) => !c)} title={collapsed ? 'Expandir la cinta' : 'Contraer la cinta'}
           aria-label={collapsed ? 'Expandir la cinta' : 'Contraer la cinta'}
-          className="flex-shrink-0 ml-1 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10"
+          className="flex-shrink-0 ml-1 p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10"
         >
           {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>

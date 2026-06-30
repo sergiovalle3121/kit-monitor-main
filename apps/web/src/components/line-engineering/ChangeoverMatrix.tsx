@@ -113,18 +113,18 @@ export default function ChangeoverMatrix({
         {error ? (
           <p className="text-[12px] text-amber-500 py-10 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-14 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-14 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : data.labels.length < 2 ? (
-          <p className="text-[12px] text-gray-400 py-8 text-center">Se necesitan al menos dos modelos en la línea para estimar cambios.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 py-8 text-center">Se necesitan al menos dos modelos en la línea para estimar cambios.</p>
         ) : (
           <>
             <div className="max-h-[44vh] overflow-auto -mx-1 px-1">
               <table className="border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className="p-1.5 text-[11px] text-gray-400 text-left sticky left-0">de \ a</th>
+                    <th className="p-1.5 text-[11px] text-gray-500 dark:text-gray-400 text-left sticky left-0">de \ a</th>
                     {data.labels.map((l) => (
-                      <th key={l} className="p-1.5 text-[11px] text-gray-400 font-medium whitespace-nowrap text-center">{l}</th>
+                      <th key={l} className="p-1.5 text-[11px] text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap text-center">{l}</th>
                     ))}
                   </tr>
                 </thead>
@@ -154,7 +154,7 @@ export default function ChangeoverMatrix({
           </>
         )}
 
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
           Cada celda estima el cambio de modelo del renglón a la columna: estaciones a montar (set up), desmontar (tear down) y reherramentar (parte distinta en una estación compartida). Secuencia los modelos por celdas más verdes para minimizar el cambio total.
         </p>
       </div>
