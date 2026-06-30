@@ -243,3 +243,20 @@
 - Wired the existing two-object dimension panel in `Layout3DEditor.tsx` with `Borde H` and `Borde V` actions that create saved `dim` annotations.
 - Reused current undo history, editable measurement labels, layer visibility, and DXF export instead of creating another dimension model.
 - Added focused smoke coverage in `measurements.spec.ts`.
+## 2026-06-29 - Supermarket kitting template
+
+- Inspected automation memory, open CAD PRs #847/#844/#839/#838, required CAD docs, `Layout3DEditor.tsx`, route chrome, design docs, and the full `apps/web/src/lib/cad/**` tree.
+- Avoided `Layout3DEditor.tsx`, command registry, plot package files, and warehouse generator files because active CAD PRs own those areas.
+- Reused the existing `CAD_LAYOUT_TEMPLATES` launcher and `instantiateCadLayoutTemplate` path instead of creating another generator or editor surface.
+- Added a visible "Supermarket + kitting" editable template with receiving drop, incoming QC, kanban lanes, kitting carts, FIFO WIP, line-side delivery, aisles, ESD boundary, quarantine, annotations, tags, and material/flow connectors.
+- Added pure template spec coverage for kitting/kanban tags, safety/aisle layers, and connector kinds.
+- Pending: parametric supermarket lane/cart generator after active warehouse generator PRs settle.
+## 2026-06-29 - CAD EHS and utilities asset blocks
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, `apps/web/src/lib/cad/commands/**`, route chrome, design docs, the shared `asset-catalog.ts`, and open CAD PRs #870/#869/#864/#861/#858/#853/#850/#847/#844/#838/#746.
+- Avoided active `Layout3DEditor.tsx`, `symbols.ts`, `templates.ts`, DXF, layers, commands, validation, flow, measurements, plot, and warehouse-generator ownership areas.
+- Reused the existing shared asset catalog plus the current Equipment rail rendering of `ASSET_CATEGORIES`; no new editor, renderer, symbol system, block model, or export path was introduced.
+- Added Safety/EHS blocks for fire extinguisher, eyewash, emergency exit path, first aid, spill kit, and PPE station.
+- Added Utilities blocks for power panel, compressed-air drop, network drop, maintenance area, tool crib, and calibration station.
+- Added `asset-catalog.spec.ts` coverage for unique kinds, category grouping, positive footprints/heights, and reuse of existing mesh archetypes.
+- Pending: add native block-instance/default-layer metadata after active symbol/template PRs settle.

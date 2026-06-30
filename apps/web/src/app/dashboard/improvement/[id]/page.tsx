@@ -161,15 +161,15 @@ export default function InitiativeDetailPage() {
 
   if (forbidden) return <Guard />;
   if (isLoading) {
-    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
   if (!data) {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lightbulb className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lightbulb className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Iniciativa no encontrada</h2>
-          <p className="text-sm text-gray-400 mt-1">Pudo haber sido eliminada o el folio no existe.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Pudo haber sido eliminada o el folio no existe.</p>
           <Link href="/dashboard/improvement" className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: INDIGO }}>
             <ChevronLeft className="w-4 h-4" /> Volver a Mejora continua
           </Link>
@@ -221,13 +221,13 @@ export default function InitiativeDetailPage() {
       {/* Sticky glass header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard/improvement" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
+          <Link href="/dashboard/improvement" aria-label="Volver" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-10 h-10 rounded-xl grid place-items-center flex-shrink-0" style={{ background: `${INDIGO}1f` }}>
             <Lightbulb className="w-5 h-5" style={{ color: INDIGO }} />
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight truncate">{ini.title}</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">
               <span className="font-mono">{ini.folio || 'Sin folio'}</span>
               {ini.area ? ` · ${ini.area}` : ''}
             </p>
@@ -268,7 +268,7 @@ export default function InitiativeDetailPage() {
                 </span>
                 <h3 className="text-sm font-semibold">Etapa de la iniciativa</h3>
               </div>
-              <p className="text-[12px] text-gray-400 mb-5">
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-5">
                 Estado actual: <span className="font-medium" style={{ color: sm.color }}>{sm.label}</span>
                 {ageDays != null && <span> · {ageDays} d en marcha</span>}
               </p>
@@ -278,13 +278,13 @@ export default function InitiativeDetailPage() {
               {/* Transition actions */}
               <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/10">
                 {terminal ? (
-                  <div className="text-[13px] text-gray-400 flex items-center gap-2">
+                  <div className="text-[13px] text-gray-500 dark:text-gray-400 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4" style={{ color: ini.status === 'CLOSED' ? BLUE : RED }} />
                     {ini.status === 'CLOSED' ? `Cerrada el ${fmtDate(ini.closedAt)} — ciclo completado.` : 'Estado terminal — sin transiciones disponibles.'}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <span className="text-[11px] uppercase tracking-wide text-gray-400">Avanzar a</span>
+                    <span className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Avanzar a</span>
                     <div className="flex flex-wrap gap-2">
                       {NEXT[ini.status].map((to) => {
                         const m = STATUS_META[to];
@@ -336,7 +336,7 @@ export default function InitiativeDetailPage() {
                 <TimelineRow icon={ShieldCheck} color={GREEN} label="Verificada" value={fmtDateTime(ini.verifiedAt)} done={!!ini.verifiedAt} />
                 <TimelineRow icon={FlagIcon} color={BLUE} label="Cerrada" value={fmtDateTime(ini.closedAt)} done={!!ini.closedAt} />
               </div>
-              <p className="mt-3 text-[11px] text-gray-400">Las fechas se fijan automáticamente al avanzar por la máquina de estados.</p>
+              <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">Las fechas se fijan automáticamente al avanzar por la máquina de estados.</p>
             </div>
 
             <div className={`${glass} rounded-2xl p-5`}>
@@ -367,7 +367,7 @@ function Pipeline({ current }: { current: Status }) {
         <span className="w-8 h-8 rounded-full grid place-items-center flex-shrink-0" style={{ background: RED }}><Ban className="w-4 h-4 text-white" /></span>
         <div>
           <div className="text-sm font-medium" style={{ color: RED }}>Cancelada</div>
-          <div className="text-[11px] text-gray-400">Fuera del flujo de mejora</div>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400">Fuera del flujo de mejora</div>
         </div>
       </div>
     );
@@ -395,7 +395,7 @@ function Pipeline({ current }: { current: Status }) {
             </div>
             <div className={`pb-3 ${last ? 'pb-0' : ''}`}>
               <div className="text-sm font-medium" style={{ color: active ? m.color : undefined }}>{m.label}</div>
-              <div className="text-[11px] text-gray-400">{done ? 'Completada' : active ? 'En curso' : 'Pendiente'}</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">{done ? 'Completada' : active ? 'En curso' : 'Pendiente'}</div>
             </div>
           </div>
         );
@@ -420,7 +420,7 @@ function SavingsPanel({ ini, capture }: { ini: Initiative; capture: number | nul
         <Coins className="w-4 h-4" style={{ color: INDIGO }} />
         <h3 className="text-sm font-semibold">Captura de ahorros</h3>
       </div>
-      <p className="text-[12px] text-gray-400 mb-4">Estimado al proponer la iniciativa vs. realizado/verificado.</p>
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">Estimado al proponer la iniciativa vs. realizado/verificado.</p>
 
       <div className="space-y-3">
         <Bar label="Estimado" value={money(est, ini.currency)} pct={estPct} color={INDIGO} />
@@ -429,13 +429,13 @@ function SavingsPanel({ ini, capture }: { ini: Initiative; capture: number | nul
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-xl px-3.5 py-3" style={{ background: `${(capture ?? 0) >= 100 ? GREEN : INDIGO}0f` }}>
-          <div className="text-[10px] uppercase tracking-wide text-gray-400">% de captura</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">% de captura</div>
           <div className="text-xl font-semibold tabular-nums" style={{ color: capture === null ? GRAY : capture >= 100 ? GREEN : capture >= 60 ? AMBER : RED }}>
             {capture === null ? '—' : `${Math.round(capture)}%`}
           </div>
         </div>
         <div className="rounded-xl px-3.5 py-3" style={{ background: `${delta >= 0 ? GREEN : RED}0f` }}>
-          <div className="text-[10px] uppercase tracking-wide text-gray-400">Δ vs estimado</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Δ vs estimado</div>
           <div className="text-xl font-semibold tabular-nums" style={{ color: act === 0 ? GRAY : delta >= 0 ? GREEN : RED }}>
             {act === 0 ? '—' : `${delta >= 0 ? '+' : ''}${money(delta, ini.currency)}`}
           </div>
@@ -443,7 +443,7 @@ function SavingsPanel({ ini, capture }: { ini: Initiative; capture: number | nul
       </div>
 
       {!realized && (
-        <p className="mt-3 text-[11px] text-gray-400">El ahorro real se contabiliza al verificar la iniciativa. Captúralo al pasar a «Verificada» o edítalo abajo.</p>
+        <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">El ahorro real se contabiliza al verificar la iniciativa. Captúralo al pasar a «Verificada» o edítalo abajo.</p>
       )}
     </div>
   );
@@ -453,7 +453,7 @@ function Bar({ label, value, pct, color }: { label: string; value: string; pct: 
   return (
     <div>
       <div className="flex items-center justify-between text-[12px] mb-1">
-        <span className="text-gray-400">{label}</span>
+        <span className="text-gray-500 dark:text-gray-400">{label}</span>
         <span className="font-semibold tabular-nums" style={{ color }}>{value}</span>
       </div>
       <div className="h-2.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
@@ -516,7 +516,7 @@ function DetailEditor({ ini, onSaved }: { ini: Initiative; onSaved: () => void }
         <Pencil className="w-4 h-4" style={{ color: INDIGO }} />
         <h3 className="text-sm font-semibold">Detalle y ahorros</h3>
       </div>
-      <p className="text-[12px] text-gray-400 mb-4">Actualiza el alcance, los montos de ahorro y la asignación.</p>
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">Actualiza el alcance, los montos de ahorro y la asignación.</p>
 
       <div className="space-y-4">
         <label className="block">
@@ -550,7 +550,7 @@ function DetailEditor({ ini, onSaved }: { ini: Initiative; onSaved: () => void }
       </div>
 
       <div className="mt-5 flex items-center justify-between">
-        <span className="text-[12px] text-gray-400 inline-flex items-center gap-1.5">
+        <span className="text-[12px] text-gray-500 dark:text-gray-400 inline-flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5" />
           {ini.verifiedAt ? `Verificada el ${fmtDate(ini.verifiedAt)}` : 'Aún sin verificar'}
         </span>
@@ -662,7 +662,7 @@ function EditModal({ ini, onClose, onDone }: { ini: Initiative; onClose: () => v
 function Metric({ icon: Icon, label, value, color }: { icon: typeof Lightbulb; label: string; value: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3.5`}>
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400"><Icon className="w-3 h-3" />{label}</div>
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"><Icon className="w-3 h-3" />{label}</div>
       <div className="text-sm font-semibold mt-1 tabular-nums truncate" style={{ color }} title={value}>{value}</div>
     </div>
   );
@@ -671,9 +671,9 @@ function Metric({ icon: Icon, label, value, color }: { icon: typeof Lightbulb; l
 function Row({ icon: Icon, label, value, mono }: { icon: typeof Lightbulb; label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+      <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
       <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
         <div className={`text-sm font-medium truncate ${mono ? 'font-mono' : ''}`}>{value}</div>
       </div>
     </div>
@@ -688,7 +688,7 @@ function TimelineRow({ icon: Icon, color, label, value, done }: { icon: typeof L
       </span>
       <div className="min-w-0">
         <div className="text-[13px] font-medium">{label}</div>
-        <div className="text-[11px] text-gray-400">{done ? value : 'Pendiente'}</div>
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">{done ? value : 'Pendiente'}</div>
       </div>
     </div>
   );
@@ -698,9 +698,9 @@ function Guard() {
   return (
     <div className="min-h-screen grid place-items-center text-foreground">
       <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-        <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+        <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
         <h2 className="text-lg font-semibold">Sin acceso</h2>
-        <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver la iniciativa.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver la iniciativa.</p>
       </div>
     </div>
   );

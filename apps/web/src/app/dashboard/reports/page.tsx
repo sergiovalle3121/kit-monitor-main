@@ -69,7 +69,7 @@ export default function ReportsHubPage() {
         <div className={`${glass} mb-7 rounded-2xl p-4`}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex items-start gap-2.5">
-              <Printer className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+              <Printer className="mt-0.5 h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
               <p className="text-[13px] text-gray-600 dark:text-gray-300">
                 <span className="font-semibold">Impresión a PDF:</span> cada documento se genera en el
                 navegador. Usa <span className="font-medium">Imprimir / PDF</span> y elige “Guardar como
@@ -99,14 +99,14 @@ export default function ReportsHubPage() {
             >
               <Link
                 href={r.href}
-                className={`${glass} group flex h-full flex-col gap-3 rounded-2xl p-5 transition hover:shadow-md`}
+                className={`${glass} group flex h-full min-w-0 flex-col gap-3 rounded-2xl p-5 transition hover:shadow-md`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <IconTile domain={r.domain} size={46} icon={r.icon} />
-                  <h3 className="text-[15px] font-bold leading-tight tracking-tight">{r.name}</h3>
+                  <h3 className="min-w-0 truncate text-[15px] font-bold leading-tight tracking-tight">{r.name}</h3>
                 </div>
                 <p className="text-[13px] text-gray-500 dark:text-gray-400">{r.desc}</p>
-                <code className="mt-auto truncate text-[10px] text-gray-400">{r.source}</code>
+                <code className="mt-auto block truncate text-[10px] text-gray-500 dark:text-gray-400">{r.source}</code>
               </Link>
             </motion.div>
           ))}

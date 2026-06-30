@@ -67,7 +67,7 @@ export function WhereUsedView({ result }: { result: WhereUsedResult }) {
       {/* Conjunto deduplicado, copiable para actuar */}
       <section className={`${glass} rounded-2xl p-5`}>
         <h3 className="text-sm font-semibold">Lista para contención</h3>
-        <p className="mt-0.5 text-[12px] text-gray-400">
+        <p className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
           Conjunto deduplicado sobre el que actúa el recall. Cópialo para bloquear o notificar.
         </p>
         <div className="mt-4 space-y-4">
@@ -80,13 +80,13 @@ export function WhereUsedView({ result }: { result: WhereUsedResult }) {
       {/* Series afectadas */}
       <section className={`${glass} rounded-2xl p-5`}>
         <div className="mb-4 flex items-center gap-2">
-          <Boxes className="h-4 w-4 text-gray-400" />
+          <Boxes className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           <h3 className="text-sm font-semibold">Series afectadas</h3>
-          <span className="text-[12px] text-gray-400">({result.affectedSerials.length})</span>
+          <span className="text-[12px] text-gray-500 dark:text-gray-400">({result.affectedSerials.length})</span>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-[12px]">
-            <thead className="text-gray-400">
+            <thead className="text-gray-500 dark:text-gray-400">
               <tr className="border-b border-black/5 dark:border-white/10">
                 <th className="py-2 pr-3 font-medium">Serie</th>
                 <th className="py-2 pr-3 font-medium">NP</th>
@@ -112,7 +112,7 @@ export function WhereUsedView({ result }: { result: WhereUsedResult }) {
                       {s.lot && <span>L:{s.lot}</span>}
                       {s.lot && s.reel ? ' · ' : ''}
                       {s.reel && <span>R:{s.reel}</span>}
-                      {!s.lot && !s.reel && <span className="text-gray-400">—</span>}
+                      {!s.lot && !s.reel && <span className="text-gray-500 dark:text-gray-400">—</span>}
                     </td>
                     <td className="py-2 pr-3 text-right">{fmtQty(s.qty)}</td>
                     <td className="py-2 pr-3">{s.woFolio ?? '—'}</td>
@@ -134,13 +134,13 @@ export function WhereUsedView({ result }: { result: WhereUsedResult }) {
       {shipped && (
         <section className={`${glass} rounded-2xl p-5`}>
           <div className="mb-4 flex items-center gap-2">
-            <Truck className="h-4 w-4 text-gray-400" />
+            <Truck className="h-4 w-4 text-gray-500 dark:text-gray-400" />
             <h3 className="text-sm font-semibold">Embarques que contienen las series</h3>
-            <span className="text-[12px] text-gray-400">({result.shipments.length})</span>
+            <span className="text-[12px] text-gray-500 dark:text-gray-400">({result.shipments.length})</span>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-[12px]">
-              <thead className="text-gray-400">
+              <thead className="text-gray-500 dark:text-gray-400">
                 <tr className="border-b border-black/5 dark:border-white/10">
                   <th className="py-2 pr-3 font-medium">Serie</th>
                   <th className="py-2 pr-3 font-medium">Embarque</th>
@@ -184,7 +184,7 @@ function ScopeStat({
   return (
     <div className="rounded-xl bg-black/5 p-3 dark:bg-white/5">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wide text-gray-400">{label}</span>
+        <span className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
         <Icon className="h-4 w-4" style={{ color }} />
       </div>
       <div className="mt-1 text-2xl font-semibold" style={{ color }}>
@@ -209,7 +209,7 @@ function ScopeList({
     <div>
       <div className="mb-1.5 flex items-center gap-2">
         <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{title}</span>
-        <span className="text-[11px] text-gray-400">({items.length})</span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400">({items.length})</span>
         {items.length > 0 && (
           <span className="ml-auto">
             <CopyButton text={items.join('\n')} label={`Copiar ${title.toLowerCase()}`} />
@@ -217,7 +217,7 @@ function ScopeList({
         )}
       </div>
       {items.length === 0 ? (
-        <span className="text-[12px] text-gray-400">{empty}</span>
+        <span className="text-[12px] text-gray-500 dark:text-gray-400">{empty}</span>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {items.map((it) => (

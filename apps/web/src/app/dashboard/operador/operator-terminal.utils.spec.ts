@@ -51,6 +51,16 @@ assert.deepEqual(metrics, {
   wip: 0,
 });
 
+const startSummary = buildOperatorConfirmationSummary({
+  action: "start-work-order",
+  workOrder: "WO-99",
+  operator: "Luis",
+});
+assert.equal(startSummary.tone, "emerald");
+assert.equal(startSummary.primaryLabel, "Montar WO");
+assert.ok(startSummary.consequence.includes("ejecucion MES"));
+assert.deepEqual(startSummary.details, ["WO WO-99", "Operador Luis"]);
+
 const advanceSummary = buildOperatorConfirmationSummary({
   action: "confirm-advance",
   workOrder: "WO-77",

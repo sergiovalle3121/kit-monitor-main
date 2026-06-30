@@ -245,7 +245,7 @@ function MetricTile({
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-500">
             {label}
           </p>
           <p className="mt-4 text-2xl font-semibold tracking-tight md:text-3xl">
@@ -266,13 +266,13 @@ function CategoryBreakdown({ rows }: { rows: ChartRow[] }) {
     <motion.section variants={cardVariants} className={`${glass} rounded-3xl p-5`}>
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-500">
             Desglose
           </p>
           <h2 className="mt-2 text-lg font-semibold">Categorías de costo</h2>
         </div>
         <BarChart3
-          className="h-5 w-5 text-gray-400 dark:text-gray-500"
+          className="h-5 w-5 text-gray-500 dark:text-gray-500"
           strokeWidth={1.5}
         />
       </div>
@@ -297,7 +297,7 @@ function CategoryBreakdown({ rows }: { rows: ChartRow[] }) {
                   <p className="text-sm font-semibold">
                     {formatCurrency(row.amount)}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
                     {row.percentage.toFixed(1)}%
                   </p>
                 </div>
@@ -324,19 +324,19 @@ function CostItemsTable({ items }: { items: CostItem[] }) {
     <motion.section variants={cardVariants} className={`${glass} rounded-3xl p-5`}>
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-500">
             Detalle por orden
           </p>
           <h2 className="mt-2 text-lg font-semibold">Registros de costo</h2>
         </div>
         <Database
-          className="h-5 w-5 text-gray-400 dark:text-gray-500"
+          className="h-5 w-5 text-gray-500 dark:text-gray-500"
           strokeWidth={1.5}
         />
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-black/5 text-xs uppercase tracking-[0.18em] text-gray-400 dark:border-white/10 dark:text-gray-500">
+          <thead className="border-b border-black/5 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 dark:border-white/10 dark:text-gray-500">
             <tr>
               <th className="whitespace-nowrap px-3 py-3 font-medium">
                 Orden de trabajo
@@ -385,7 +385,7 @@ function CostItemsTable({ items }: { items: CostItem[] }) {
                   <td className="whitespace-nowrap px-3 py-4 text-right font-semibold text-foreground">
                     {formatCurrency(item.amount)}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-right text-gray-400 dark:text-gray-500">
+                  <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500 dark:text-gray-500">
                     {formatDate(item.recordedAt)}
                   </td>
                 </motion.tr>
@@ -482,7 +482,7 @@ export default function CostRollupPage() {
           <div className={`${glass} rounded-3xl p-3`}>
             <label
               htmlFor="work-order-filter"
-              className="mb-2 block px-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500"
+              className="mb-2 block px-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-500"
             >
               Filtro por orden de trabajo
             </label>
@@ -500,7 +500,7 @@ export default function CostRollupPage() {
               />
               {isBusy && (
                 <RefreshCw
-                  className="h-4 w-4 animate-spin text-gray-400 dark:text-gray-500"
+                  className="h-4 w-4 animate-spin text-gray-500 dark:text-gray-500"
                   strokeWidth={1.5}
                 />
               )}
@@ -580,7 +580,7 @@ export default function CostRollupPage() {
             >
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-500">
                     Distribución
                   </p>
                   <h2 className="mt-2 text-lg font-semibold">
@@ -588,7 +588,7 @@ export default function CostRollupPage() {
                   </h2>
                 </div>
                 <DollarSign
-                  className="h-5 w-5 text-gray-400 dark:text-gray-500"
+                  className="h-5 w-5 text-gray-500 dark:text-gray-500"
                   strokeWidth={1.5}
                 />
               </div>
@@ -658,7 +658,7 @@ export default function CostRollupPage() {
             >
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-500">
                     Comparativo
                   </p>
                   <h2 className="mt-2 text-lg font-semibold">
@@ -666,7 +666,7 @@ export default function CostRollupPage() {
                   </h2>
                 </div>
                 <BarChart3
-                  className="h-5 w-5 text-gray-400 dark:text-gray-500"
+                  className="h-5 w-5 text-gray-500 dark:text-gray-500"
                   strokeWidth={1.5}
                 />
               </div>

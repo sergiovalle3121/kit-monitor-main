@@ -176,7 +176,7 @@ export default function ErpPpPage() {
                   label: 'Acción',
                   render: (r) =>
                     r.action === 'none' ? (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-gray-500 dark:text-gray-400">—</span>
                     ) : (
                       <Pill
                         text={r.action === 'make' ? 'Fabricar' : 'Comprar'}
@@ -247,7 +247,7 @@ export default function ErpPpPage() {
                       Liberar (PP03)
                     </button>
                   ) : (
-                    <span className="text-[11px] text-gray-400">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
                       {r.releasedPlanId ? `Plan #${r.releasedPlanId}` : '—'}
                     </span>
                   ),

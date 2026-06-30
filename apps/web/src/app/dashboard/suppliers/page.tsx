@@ -222,9 +222,9 @@ export default function SuppliersPage() {
     return (
       <div className="grid min-h-[60vh] place-items-center text-foreground">
         <div className={`${glass} max-w-sm rounded-3xl p-10 text-center`}>
-          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="mt-1 text-sm text-gray-400">Inicia sesión para ver la lista de proveedores.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Inicia sesión para ver la lista de proveedores.</p>
         </div>
       </div>
     );
@@ -350,7 +350,7 @@ function ScarsPanel({ scars, onOpen }: { scars: ScarRow[]; onOpen: (supplierId: 
               <span className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-white/10">{s.scarNumber}</span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{s.issueSummary || s.partNumber}</div>
-                <div className="truncate text-[12px] text-gray-400">
+                <div className="truncate text-[12px] text-gray-500 dark:text-gray-400">
                   {s.supplier?.name ?? 'Proveedor'} · parte {s.partNumber}{s.quantityAffected ? ` · ${s.quantityAffected} pzas` : ''}
                 </div>
               </div>
@@ -424,11 +424,11 @@ function ForPartPanel({ onOpen }: { onOpen: (supplierId: number) => void }) {
       <div className="flex items-center gap-2 mb-3">
         <Boxes className="h-4 w-4" style={{ color: BLUE }} />
         <h2 className="text-sm font-semibold">¿Quién surte esta parte?</h2>
-        <span className="text-[12px] text-gray-400">— proveedores aprobados (AVL) ordenados por desempeño</span>
+        <span className="text-[12px] text-gray-500 dark:text-gray-400">— proveedores aprobados (AVL) ordenados por desempeño</span>
       </div>
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input
             value={part}
             onChange={(e) => setPart(e.target.value)}
@@ -444,13 +444,13 @@ function ForPartPanel({ onOpen }: { onOpen: (supplierId: number) => void }) {
 
       {result && (
         result.suppliers.length === 0 ? (
-          <div className="mt-3 rounded-xl border border-dashed border-black/10 px-4 py-6 text-center text-[13px] text-gray-400 dark:border-white/10">
+          <div className="mt-3 rounded-xl border border-dashed border-black/10 px-4 py-6 text-center text-[13px] text-gray-500 dark:text-gray-400 dark:border-white/10">
             Ningún proveedor APROBADO en el AVL para <span className="font-mono text-gray-500">{result.part}</span>. Aprueba una fuente desde el detalle del proveedor → Partes (AVL).
           </div>
         ) : (
           <div className="mt-3 overflow-hidden rounded-xl border border-black/5 dark:border-white/10">
             <table className="w-full text-[13px]">
-              <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-black/5 dark:border-white/10">
+              <thead><tr className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">
                 <th className="px-3 py-2 text-left font-medium">#</th>
                 <th className="px-3 py-2 text-left font-medium">Proveedor</th>
                 <th className="px-3 py-2 text-center font-medium">Grade</th>
@@ -466,7 +466,7 @@ function ForPartPanel({ onOpen }: { onOpen: (supplierId: number) => void }) {
                   const av = AVL_STATUS_META[sup.approvalStatus] ?? AVL_STATUS_META.APPROVED;
                   return (
                     <tr key={sup.avlId} onClick={() => onOpen(sup.supplierId)} className="cursor-pointer border-b border-black/[0.03] last:border-0 hover:bg-black/[0.025] dark:border-white/[0.04] dark:hover:bg-white/[0.04]">
-                      <td className="px-3 py-2.5 text-gray-400">{i === 0 ? <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> : i + 1}</td>
+                      <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{i === 0 ? <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> : i + 1}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
                           {sup.code && <span className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-white/10">{sup.code}</span>}

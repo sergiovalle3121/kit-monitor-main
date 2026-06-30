@@ -37,6 +37,10 @@ This slice starts the AXOS MES operator terminal redesign on the connected `plan
   and lets supervisors acknowledge or resolve active Andons through the existing
   `/mes/andon/:id/ack|resolve` endpoints; both transitions write Event Ledger
   evidence and stop-Andon resolution closes the linked downtime clock.
+- Operator material request context slice: manual requests from `/dashboard/operador`
+  now persist structured WO, line, station, part number, requested quantity and
+  unit on `material_requests`; `/dashboard/material-staging` renders those fields
+  directly instead of relying on note parsing.
 
 ### Next slices
 

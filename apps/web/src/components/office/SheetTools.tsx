@@ -132,7 +132,7 @@ export function SheetTools({
         className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl p-6 space-y-3 max-h-[88vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{mode === 'validation' ? 'Validación de datos' : 'Formato condicional'}</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
 
         {sheetNames.length > 1 && (
@@ -176,7 +176,7 @@ export function SheetTools({
             ) : dvType === 'custom_formula' ? (
               <label className="block text-xs text-gray-500">Fórmula segura por celda
                 <input value={dvV1} onChange={(e) => setDvV1(e.target.value)} placeholder="=AND(VALUE>=0,VALUE<=100)" className={`${field} font-mono`} />
-                <span className="mt-1 block text-[11px] text-gray-400">Soporta VALUE, LEN(VALUE), ISNUMBER(VALUE), ISTEXT(VALUE), AND, OR, NOT y comparaciones (=, &lt;&gt;, &gt;, &gt;=, &lt;, &lt;=) sin ejecutar código arbitrario.</span>
+                <span className="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">Soporta VALUE, LEN(VALUE), ISNUMBER(VALUE), ISTEXT(VALUE), AND, OR, NOT y comparaciones (=, &lt;&gt;, &gt;, &gt;=, &lt;, &lt;=) sin ejecutar código arbitrario.</span>
               </label>
             ) : dvType === 'text_content' ? (
               <div className="flex gap-2">
@@ -223,7 +223,7 @@ export function SheetTools({
             </div>
             <button onClick={() => submitValidation('clear')}
               className="w-full h-9 rounded-xl text-xs font-semibold text-gray-500 hover:bg-black/5 dark:hover:bg-white/10">Quitar validación del rango</button>
-            <p className="text-[11px] text-gray-400">«Rechazar» bloquea valores fuera de la regla; si no, solo avisa. «Marcar no válidos» rellena en rojo las celdas existentes que no cumplen.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">«Rechazar» bloquea valores fuera de la regla; si no, solo avisa. «Marcar no válidos» rellena en rojo las celdas existentes que no cumplen.</p>
           </>
         ) : (
           <>
@@ -277,7 +277,7 @@ export function SheetTools({
             {kind === 'databar' && (
               <>
                 <div className="text-xs text-gray-500">Color de la barra<div className="mt-1">{swatches(color, setColor)}</div></div>
-                <p className="text-[11px] text-gray-400">Dibuja una barra proporcional (█) en cada celda del rango.</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Dibuja una barra proporcional (█) en cada celda del rango.</p>
               </>
             )}
             {kind === 'scale2' && (
@@ -305,7 +305,7 @@ export function SheetTools({
                 </label>
               </>
             )}
-            {kind === 'clear' && <p className="text-xs text-gray-400">Quita relleno, color de texto e iconos del rango indicado.</p>}
+            {kind === 'clear' && <p className="text-xs text-gray-500 dark:text-gray-400">Quita relleno, color de texto e iconos del rango indicado.</p>}
 
             <button onClick={applyCond}
               className="w-full h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90">
@@ -313,7 +313,7 @@ export function SheetTools({
             </button>
           </>
         )}
-        <p className="text-[11px] text-gray-400">Se aplica sobre el rango indicado de la hoja seleccionada.</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">Se aplica sobre el rango indicado de la hoja seleccionada.</p>
       </motion.div>
     </motion.div>
   );

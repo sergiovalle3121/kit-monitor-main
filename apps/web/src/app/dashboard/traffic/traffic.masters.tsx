@@ -130,7 +130,7 @@ function CatalogTable<T extends { id: string }>({
           <button
             onClick={() => setModal({ edit: row.original })}
             title="Editar"
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+            className="rounded-lg p-1.5 text-gray-500 dark:text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -334,12 +334,12 @@ export function CarriersTab({
             </DrawerSection>
             <DrawerSection title={`Unidades (${units.length})`}>
               {units.length === 0 ? (
-                <p className="text-sm text-gray-400">Sin unidades ligadas.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Sin unidades ligadas.</p>
               ) : (
                 <div className="space-y-1.5">
                   {units.map((v) => (
                     <div key={v.id} className={`${glass} flex items-center justify-between gap-2 rounded-xl p-2.5`}>
-                      <span className="flex items-center gap-2 text-sm"><Truck className="h-3.5 w-3.5 text-gray-400" /> {v.plate}</span>
+                      <span className="flex items-center gap-2 text-sm"><Truck className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" /> {v.plate}</span>
                       <Pill label={VEHICLE_STATUS_META[v.status].label} color={VEHICLE_STATUS_META[v.status].color} dot />
                     </div>
                   ))}
@@ -348,12 +348,12 @@ export function CarriersTab({
             </DrawerSection>
             <DrawerSection title={`Choferes (${ops.length})`}>
               {ops.length === 0 ? (
-                <p className="text-sm text-gray-400">Sin choferes ligados.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Sin choferes ligados.</p>
               ) : (
                 <div className="space-y-1.5">
                   {ops.map((d) => (
                     <div key={d.id} className={`${glass} flex items-center justify-between gap-2 rounded-xl p-2.5`}>
-                      <span className="flex items-center gap-2 text-sm"><User className="h-3.5 w-3.5 text-gray-400" /> {d.name}</span>
+                      <span className="flex items-center gap-2 text-sm"><User className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" /> {d.name}</span>
                       <Pill label={DRIVER_STATUS_META[d.status].label} color={DRIVER_STATUS_META[d.status].color} dot />
                     </div>
                   ))}
@@ -611,7 +611,7 @@ export function DocksTab({ items, refresh }: { items: LoadingDock[]; refresh: ()
         header: "Antigüedad",
         cell: ({ row }) => {
           const mins = agingMinutes(row.original.occupiedAt);
-          if (mins == null) return <span className="text-gray-400">—</span>;
+          if (mins == null) return <span className="text-gray-500 dark:text-gray-400">—</span>;
           return <span className="font-medium tabular-nums" style={{ color: agingColor(mins) }}>{fmtAging(mins)}</span>;
         },
         meta: { align: "right" },
@@ -737,7 +737,7 @@ export function AssignmentTab({
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar embarque (folio, cliente)…" className="trf-input pl-9" />
         </div>
         <StatusChip label="Sin transporte" active={onlyUnassigned} color={ACCENT} onClick={() => setOnlyUnassigned((v) => !v)} />
@@ -757,8 +757,8 @@ export function AssignmentTab({
         />
       ) : rows.length === 0 ? (
         <div className={`${glass} rounded-2xl p-10 text-center`}>
-          <Inbox className="mx-auto mb-2 h-7 w-7 text-gray-400" />
-          <p className="text-sm text-gray-400">Ningún embarque coincide.</p>
+          <Inbox className="mx-auto mb-2 h-7 w-7 text-gray-500 dark:text-gray-400" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Ningún embarque coincide.</p>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -775,7 +775,7 @@ export function AssignmentTab({
                   )}
                 </div>
                 <div className="mt-1.5"><ProgressDots status={s.status} /></div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-gray-400">
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400">
                   {s.vehiclePlate ? (
                     <>
                       <span className="inline-flex items-center gap-1"><Truck className="h-3 w-3" />{s.vehiclePlate}</span>

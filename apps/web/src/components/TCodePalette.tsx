@@ -212,7 +212,7 @@ export function TCodePalette() {
                 <div className="text-sm text-gray-500">{item.category}</div>
               </div>
               {index === selected && (
-                <div className="text-xs text-gray-400">Enter ↵</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Enter ↵</div>
               )}
             </button>
           ))}

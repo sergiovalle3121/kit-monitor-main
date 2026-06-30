@@ -29,7 +29,7 @@ export function EventTimeline({
             <span className="text-[11px] font-semibold tracking-wide text-gray-500 first-letter:uppercase">
               {group.label}
             </span>
-            <span className="text-[11px] text-gray-400">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
               · {group.events.length} evento{group.events.length === 1 ? '' : 's'}
             </span>
             <span className="h-px flex-1 bg-black/5 dark:bg-white/10" />

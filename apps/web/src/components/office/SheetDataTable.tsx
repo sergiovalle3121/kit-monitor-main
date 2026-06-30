@@ -43,7 +43,7 @@ export function SheetDataTable({ defaultFormulaCell, onApply, onClose }: {
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10">
           <Grid3x3 className="w-5 h-5 text-emerald-600" />
           <h2 className="text-lg font-bold">Tabla de datos</h2>
-          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-3">
           <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-white/10 text-sm">
