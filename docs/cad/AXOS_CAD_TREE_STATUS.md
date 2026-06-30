@@ -57,6 +57,17 @@ This run adds an editable CAD template workflow:
 
 The workflow is visible in `Layout3DEditor` and reuses the current editable layout model. It does not introduce a parallel editor, duplicate symbol systems, duplicate flow scoring, or a new persistence path.
 
+## 2026-06-29 - Supermarket and kitting template
+
+This run extends the existing editable template workflow without touching the editor shell:
+
+- `templates.ts` now includes a "Supermarket + kitting" starter layout with receiving drop, incoming QC, material supermarket, kanban lanes, kitting carts, FIFO WIP, line-side delivery, replenishment rack, visual kanban board, forklift/pedestrian aisles, ESD boundary, quarantine, and operator position.
+- The existing `Layout3DEditor` template rail picks it up automatically because it already maps `CAD_LAYOUT_TEMPLATES`.
+- Applying it creates editable assets, annotations, layer assignments, object tags, connectors, local snapshot coverage, selection, flow-health priming, and DXF-exportable geometry through the current template path.
+- `templates.spec.ts` now covers the new template's kanban/kitting tags, safety/aisle layers, and material/flow connectors.
+
+This does not create a second warehouse generator, block system, editor, layer model, flow model, or DXF path. It keeps the current generator PRs independent while giving users another plant-layout starter they can apply immediately.
+
 ## Phase evidence
 
 | Backlog phase | Status | Evidence | Next step |
@@ -75,6 +86,7 @@ The workflow is visible in `Layout3DEditor` and reuses the current editable layo
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 11 - Blocks / industrial symbols pro | Stronger | `symbols.ts`, existing symbol rail, Cmd-K palette, and symbol spec coverage | Add native block instances after the persistence contract is settled. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
+| Phase 23 - Supermarket/kitting template | Usable | `templates.ts`, `templates.spec.ts`, existing `Layout3DEditor` template rail | Add parametric lane/cart counts after generator conflicts settle. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
 ## Next CAD PR
@@ -96,3 +108,15 @@ Recommended next phase: add an editable connector workflow or validation issue a
 
 PR #796 advances the existing validation center by making the design-check modal use the shared CAD validation report for collisions, clearances, safety, and flow. User-visible additions are clearance warning rows, selection/highlight on clearance issues, CAD validation severity in the status bar, and release-readiness counts that distinguish blockers from warnings. It does not add a parallel validation engine, collision helper, CAD shell, or flow model.
 Recommended next phase: add a parametric rack row or SMT line generator with user inputs, building on `templates.ts` and the existing editable asset/connector model.
+
+## 2026-06-29 - EHS and utilities asset blocks
+
+This run extends the existing shared asset catalog instead of creating a third symbol/block system:
+
+- `asset-catalog.ts` now includes Safety/EHS blocks for fire extinguishers, eyewash, emergency exits, first aid, spill kits, and PPE stations.
+- `asset-catalog.ts` now includes Utilities blocks for power panels, compressed air, network drops, maintenance areas, tool cribs, and calibration stations.
+- `Layout3DEditor.tsx` already renders `ASSET_CATEGORIES` in the Equipment rail, so these blocks are immediately insertable, editable, selectable, duplicateable, measurable, and included in the existing DXF export adapter.
+- The blocks reuse existing asset archetypes instead of adding new Three.js rendering paths.
+- `asset-catalog.spec.ts` covers uniqueness, grouping, footprints, and archetype reuse.
+
+Phase evidence: Phase 11 (Blocks / industrial symbols) advances from generic core equipment toward a fuller plant-layout library. Next non-redundant step is native block-instance metadata/default layer hints after active `symbols.ts` and template PRs settle.

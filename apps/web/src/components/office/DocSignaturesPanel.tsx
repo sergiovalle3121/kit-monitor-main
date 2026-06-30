@@ -113,7 +113,7 @@ export function DocSignaturesPanel({ docId, canSign }: { docId: string; canSign:
                   <div className="flex items-center gap-2 text-sm font-bold"><ShieldCheck className="h-4 w-4 text-emerald-500" /> Firmas electrónicas</div>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Evidencia de firma con hash de contenido para documentos controlados.</p>
                 </div>
-                <button onClick={() => setOpen(false)} className="rounded-full p-2 text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"><X className="h-4 w-4" /></button>
+                <button onClick={() => setOpen(false)} className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"><X className="h-4 w-4" /></button>
               </header>
 
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -130,14 +130,14 @@ export function DocSignaturesPanel({ docId, canSign }: { docId: string; canSign:
                   </div>
                 )}
 
-                {loading ? <div className="flex justify-center py-8 text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                {loading ? <div className="flex justify-center py-8 text-gray-500 dark:text-gray-400"><Loader2 className="h-5 w-5 animate-spin" /></div>
                   : error ? <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-600 dark:bg-red-500/10">{error}</div>
                   : items.length === 0 ? <div className="rounded-3xl border border-dashed border-black/10 p-6 text-center text-sm text-gray-500 dark:border-white/10">Sin firmas registradas.</div>
                   : <div className="space-y-3">{items.map((item) => (
                     <div key={item.id} className={`rounded-2xl border p-3 ${item.revoked ? 'border-red-500/20 bg-red-50 dark:bg-red-500/10' : 'border-black/5 bg-gray-50 dark:border-white/10 dark:bg-white/5'}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div><p className="text-sm font-bold"><CheckCircle2 className="mr-1 inline h-4 w-4 text-emerald-500" /> {MEANINGS.find((m) => m.id === item.meaning)?.label ?? item.meaning}</p><p className="text-xs text-gray-500">{item.signerName || item.signerEmail} · {item.signerRole || 'rol no definido'}</p></div>
-                        <span className="text-[11px] text-gray-400">{rel(item.signedAt)}</span>
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400">{rel(item.signedAt)}</span>
                       </div>
                       <p className="mt-2 text-xs text-gray-600 dark:text-gray-300">{item.statement}</p>
                       <p className="mt-2 rounded-lg bg-white px-2 py-1 font-mono text-[10px] text-gray-500 dark:bg-black/20">hash {shortHash(item.contentHash)}</p>

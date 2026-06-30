@@ -123,9 +123,9 @@ export default function ModelsPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el maestro de modelos.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver el maestro de modelos.</p>
         </div>
       </div>
     );
@@ -210,7 +210,7 @@ export default function ModelsPage() {
         {/* Search */}
         {list.length > 0 && (
           <div className={`${glass} flex items-center gap-2 px-3 py-2 rounded-2xl mb-5`}>
-            <Search className="w-4 h-4 text-gray-400" />
+            <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -223,18 +223,18 @@ export default function ModelsPage() {
 
         {/* List */}
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Aún no hay modelos</h3>
-            <p className="text-sm text-gray-400 mt-1 mb-4">Crea tu primer modelo para empezar a definir su BOM y publicar planes.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Crea tu primer modelo para empezar a definir su BOM y publicar planes.</p>
             <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2.5 rounded-full">
               <Plus className="w-4 h-4" /> Crea tu primer modelo
             </button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-400`}>Sin resultados para “{query}”.</div>
+          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-500 dark:text-gray-400`}>Sin resultados para “{query}”.</div>
         ) : (
           <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filtered.map((m) => (
@@ -255,7 +255,7 @@ export default function ModelsPage() {
                       <StatusPill status={m.status} />
                     </div>
                     <div className="font-semibold truncate">{m.name}</div>
-                    <div className="text-xs text-gray-400 truncate">{m.customer || 'Sin cliente'} · rev {m.revision}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{m.customer || 'Sin cliente'} · rev {m.revision}</div>
                   </div>
                 </Link>
                 <div className="flex items-center gap-3 border-t border-black/5 dark:border-white/5 pt-2.5">
@@ -294,7 +294,7 @@ export function StatusPill({ status }: { status: Status }) {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );

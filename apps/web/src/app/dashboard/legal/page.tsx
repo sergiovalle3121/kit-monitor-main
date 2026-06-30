@@ -138,10 +138,10 @@ function StatusPill({ status }: { status: Status }) {
 
 function DueBadge({ contract }: { contract: Contract }) {
   if (contract.status === 'TERMINATED' || contract.status === 'CANCELLED') {
-    return <span className="text-gray-400">—</span>;
+    return <span className="text-gray-500 dark:text-gray-400">—</span>;
   }
   const dl = daysLeft(contract.endDate);
-  if (dl === null) return <span className="text-gray-400">—</span>;
+  if (dl === null) return <span className="text-gray-500 dark:text-gray-400">—</span>;
   if (dl < 0) {
     return <span className="font-medium tabular-nums" style={{ color: RED }}>Vencido</span>;
   }
@@ -355,9 +355,9 @@ export default function LegalPage() {
     return (
       <div className="grid min-h-[60vh] place-items-center text-foreground">
         <div className={`${glass} max-w-sm rounded-3xl p-10 text-center`}>
-          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="mt-1 text-sm text-gray-400">Inicia sesión para ver contratos.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Inicia sesión para ver contratos.</p>
         </div>
       </div>
     );
@@ -390,7 +390,7 @@ export default function LegalPage() {
         }
       >
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -470,7 +470,7 @@ export default function LegalPage() {
               );
             })
           ) : (
-            <span className="text-[13px] text-gray-400">Estado terminal — sin transiciones.</span>
+            <span className="text-[13px] text-gray-500 dark:text-gray-400">Estado terminal — sin transiciones.</span>
           ))
         }
       >
@@ -490,7 +490,7 @@ export default function LegalPage() {
               </DrawerField>
               <DrawerField label="Auto-renueva">
                 <span className="inline-flex items-center gap-1.5">
-                  <Repeat className="h-3.5 w-3.5 text-gray-400" />
+                  <Repeat className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
                   {selected.autoRenew ? 'Sí' : 'No'}
                 </span>
               </DrawerField>
@@ -628,7 +628,7 @@ function DetailDrawerRelated({ contract }: { contract: Contract }) {
             <Building2 className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-wide text-gray-400">Contraparte</div>
+            <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Contraparte</div>
             <div className="truncate text-sm font-medium">{contract.counterparty || '—'}</div>
           </div>
         </div>
@@ -637,7 +637,7 @@ function DetailDrawerRelated({ contract }: { contract: Contract }) {
             <User className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-wide text-gray-400">Responsable</div>
+            <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Responsable</div>
             <div className="truncate text-sm font-medium">{contract.ownerEmail || '—'}</div>
           </div>
         </div>

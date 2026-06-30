@@ -215,7 +215,7 @@ export function EmojiStickerPicker({
 
 function CategoryLabel({ text, icon }: { text: string; icon?: React.ReactNode }) {
   return (
-    <p className="sticky top-0 flex items-center gap-1 bg-transparent px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+    <p className="sticky top-0 flex items-center gap-1 bg-transparent px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
       {icon}
       {text}
     </p>

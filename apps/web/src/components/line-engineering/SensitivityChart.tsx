@@ -127,7 +127,7 @@ export default function SensitivityChart({
         {error ? (
           <p className="text-[12px] text-amber-500 py-12 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-16 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-16 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (
           <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
             {/* infeasible region shading (demand beyond the ceiling) */}
@@ -169,7 +169,7 @@ export default function SensitivityChart({
             <text x={W - PAD_R} y={PAD_T - 4} fontSize={9} fill={BLUE} textAnchor="end">operadores</text>
           </svg>
         )}
-        <p className="text-[11px] text-gray-400 mt-2">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">
           Línea rosa: costo por unidad (eje izq.). Línea azul punteada: operadores (eje der.). La zona sombreada es demanda no factible (el cuello supera el takt); el punto verde es el menor costo factible.
         </p>
       </div>

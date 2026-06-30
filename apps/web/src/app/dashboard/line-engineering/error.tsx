@@ -48,13 +48,13 @@ export default function LineEngineeringError({
         <h2 className="text-lg font-semibold">
           {chunkError ? 'Hay una versión nueva de la app' : 'No se pudo cargar la disposición de líneas'}
         </h2>
-        <p className="text-sm text-gray-400 mt-1">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {chunkError
             ? 'Recarga la página para cargar los archivos actualizados.'
             : 'Ocurrió un error al mostrar esta vista. Reintenta; si persiste, comparte el código de abajo.'}
         </p>
         {!chunkError && error?.digest && (
-          <p className="mt-3 text-[11px] font-mono text-gray-400 break-all">ref: {error.digest}</p>
+          <p className="mt-3 text-[11px] font-mono text-gray-500 dark:text-gray-400 break-all">ref: {error.digest}</p>
         )}
         <div className="mt-5 flex items-center justify-center gap-2">
           <button

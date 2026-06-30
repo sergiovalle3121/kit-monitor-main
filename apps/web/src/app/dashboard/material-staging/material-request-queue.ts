@@ -14,8 +14,12 @@ export interface MaterialRequestQueueItem {
   createdAt?: string | null;
   model?: string | null;
   workOrder?: string | null;
-  line?: number | null;
+  line?: string | number | null;
   quantity?: number | null;
+  station?: string | null;
+  partNumber?: string | null;
+  requestedQty?: number | null;
+  unit?: string | null;
 }
 
 export interface MaterialRequestQueueSummary {
@@ -63,4 +67,25 @@ export function summarizeMaterialRequestQueue(
     },
     { active: 0, pending: 0, authorized: 0 },
   );
+}
+
+export function materialRequestContextLabel(
+  request: MaterialRequestQueueItem,
+): string {
+  const part = request.partNumber?.trim();
+  const unit = request.unit?.trim();
+  const requestedQty =
+    typeof request.requestedQty === 'number' && request.requestedQty > 0
+      ? request.requestedQty
+      : null;
+  const partLabel = part
+    ? `${part}${requestedQty ? ` x${requestedQty}${unit ? ` ${unit}` : ''}` : ''}`
+    : null;
+  return [
+    partLabel,
+    request.station?.trim(),
+    request.line ? `linea ${request.line}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }

@@ -93,7 +93,7 @@ export default function ApprovalsPage() {
           <ChevronLeft className="w-4 h-4" />
           Dashboard
         </Link>
-        <span className="text-xs uppercase tracking-[0.2em] font-bold text-gray-400">
+        <span className="text-xs uppercase tracking-[0.2em] font-bold text-gray-500 dark:text-gray-400">
           Admin · Approvals
         </span>
         <div className="w-24" />
@@ -126,7 +126,7 @@ export default function ApprovalsPage() {
         )}
 
         {loading ? (
-          <div className="flex items-center gap-3 text-gray-400">
+          <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
             <div className="w-4 h-4 border-2 border-gray-300 border-t-black dark:border-t-white rounded-full animate-spin" />
             Cargando...
           </div>
@@ -134,7 +134,7 @@ export default function ApprovalsPage() {
           <div className="p-12 text-center bg-white dark:bg-[#111] rounded-[2rem] border border-gray-100 dark:border-white/5">
             <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-4" />
             <h3 className="font-bold text-lg">Sin solicitudes pendientes</h3>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Cuando alguien cree una cuenta nueva aparecerá aquí.
             </p>
           </div>
@@ -193,7 +193,7 @@ export default function ApprovalsPage() {
                         ))}
                       </select>
                     </label>
-                    <p className="text-[10px] text-gray-400 w-full md:text-right">
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 w-full md:text-right">
                       Otorga {permissionsForRole(roleById[u.id] ?? u.role).length}{" "}
                       permisos ·{" "}
                       <Link

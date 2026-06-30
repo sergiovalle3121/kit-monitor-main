@@ -8,6 +8,11 @@ import {
   Lock, Maximize2, Minimize2, Keyboard, X,
 } from 'lucide-react';
 import { OfficeChromeProvider } from './ribbon/OfficeChrome';
+import {
+  OFFICE_SHORTCUT_AVAILABILITY_LABELS,
+  getOfficeShortcutGroups,
+  type OfficeShortcutAvailability,
+} from './officeShortcuts';
 
 export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error' | 'readonly';
 export type OfficeType = 'doc' | 'sheet' | 'slides';
@@ -89,6 +94,23 @@ export function OfficeShell({
     return () => document.removeEventListener('fullscreenchange', h);
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        setHelp(true);
+        return;
+      }
+      if (help && e.key === 'Escape') {
+        e.preventDefault();
+        setHelp(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [help]);
+
   function toggleFs() {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
     else document.exitFullscreen?.().catch(() => {});
@@ -130,7 +152,7 @@ export function OfficeShell({
           {actions}
           <button
             onClick={() => setHelp(true)}
-            title="Atajos de teclado"
+            title="Atajos de teclado (Ctrl/Cmd+/)"
             className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors"
           >
             <Keyboard className="w-4 h-4" />
@@ -146,7 +168,7 @@ export function OfficeShell({
       </header>
 
       <AnimatePresence>
-        {help && <ShortcutsHelp type={type} onClose={() => setHelp(false)} />}
+        {help && <ShortcutsHelp type={type} readOnly={readOnly} onClose={() => setHelp(false)} />}
       </AnimatePresence>
 
       {/* ── Ribbon (host del portal: cada editor inyecta su cinta aquí) ─── */}
@@ -171,34 +193,53 @@ export function OfficeShell({
   );
 }
 
-function ShortcutsHelp({ type, onClose }: { type: OfficeType; onClose: () => void }) {
-  const common: [string, string][] = [
-    ['Ctrl / ⌘ + S', 'Guardar'],
-    ['Ctrl / ⌘ + Z', 'Deshacer'],
-    ['Ctrl / ⌘ + Y', 'Rehacer'],
-    ['F11', 'Pantalla completa (navegador)'],
-  ];
-  const byType: Record<OfficeType, [string, string][]> = {
-    doc: [['Ctrl / ⌘ + B / I / U', 'Negrita / cursiva / subrayado'], ['Ctrl / ⌘ + F', 'Buscar y reemplazar']],
-    sheet: [['Ctrl / ⌘ + C / V', 'Copiar / pegar'], ['Supr', 'Borrar contenido de la celda']],
-    slides: [['← / →', 'Anterior / siguiente (presentación)'], ['N', 'Notas del orador (presentación)'], ['Esc', 'Salir de la presentación']],
-  };
-  const rows = [...common, ...byType[type]];
+function availabilityClass(availability: OfficeShortcutAvailability): string {
+  if (availability === 'available') return 'border-emerald-500/25 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200';
+  if (availability === 'focus-dependent') return 'border-sky-500/25 bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-200';
+  if (availability === 'read-only-blocked') return 'border-amber-500/25 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200';
+  return 'border-gray-300 bg-gray-50 text-gray-600 dark:border-white/10 dark:bg-white/10 dark:text-gray-300';
+}
+
+function ShortcutsHelp({ type, readOnly, onClose }: { type: OfficeType; readOnly?: boolean; onClose: () => void }) {
+  const groups = getOfficeShortcutGroups(type, !!readOnly);
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl p-6">
+        role="dialog"
+        aria-modal="true"
+        aria-label="Atajos de teclado"
+        className="w-full max-w-2xl rounded-2xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold">Atajos de teclado</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <div>
+            <h2 className="text-lg font-bold">Atajos de teclado</h2>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {type === 'sheet' ? 'AXOS Sheets muestra atajos reales del workbook, barra fx, impresion y rejilla.' : 'Comandos disponibles para el editor actual.'}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
-        <div className="space-y-1.5">
-          {rows.map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between text-sm py-1">
-              <span className="text-gray-600 dark:text-gray-300">{v}</span>
-              <kbd className="font-mono text-xs px-2 py-1 rounded-md bg-black/5 dark:bg-white/10">{k}</kbd>
-            </div>
+        <div className="grid max-h-[68vh] gap-3 overflow-auto pr-1 md:grid-cols-2">
+          {groups.map((group) => (
+            <section key={group.title} className="rounded-xl border border-black/10 bg-gray-50/70 p-2 dark:border-white/10 dark:bg-white/[0.04]">
+              <h3 className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{group.title}</h3>
+              <div className="space-y-1">
+                {group.commands.map((command) => (
+                  <div key={command.id} className="rounded-lg bg-white px-2 py-2 text-sm shadow-sm dark:bg-black/20">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-gray-800 dark:text-gray-100">{command.label}</div>
+                        <div className="mt-0.5 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{command.note}</div>
+                      </div>
+                      <kbd className="shrink-0 whitespace-nowrap rounded-md bg-black/5 px-2 py-1 font-mono text-[11px] text-gray-700 dark:bg-white/10 dark:text-gray-200">{command.keys}</kbd>
+                    </div>
+                    <span className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${availabilityClass(command.availability)}`}>
+                      {OFFICE_SHORTCUT_AVAILABILITY_LABELS[command.availability]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </motion.div>

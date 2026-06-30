@@ -40,24 +40,24 @@ export function SheetNameManager({
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
           <Tag className="w-5 h-5 text-emerald-500" />
           <h2 className="text-lg font-bold">Administrador de nombres</h2>
-          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
           {/* Lista */}
           <div className="rounded-2xl border border-gray-200 dark:border-white/10 divide-y divide-gray-100 dark:divide-white/5">
-            {names.length === 0 && <p className="text-sm text-gray-400 p-4 text-center">Aún no hay rangos con nombre.</p>}
+            {names.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">Aún no hay rangos con nombre.</p>}
             {names.map((n) => {
               const ref = qualifiedRef(n, sheetNames);
               return (
                 <div key={n.name} className="flex items-center gap-2 p-2.5">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold truncate">{n.name}</div>
-                    <code className="text-[11px] text-gray-400 truncate">{ref}</code>
+                    <code className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{ref}</code>
                   </div>
-                  <button onClick={() => { onInsert(ref); }} title="Insertar referencia en la celda activa" className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"><CornerDownLeft className="w-4 h-4" /></button>
-                  <button onClick={() => copy(ref)} title="Copiar referencia" className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10"><ClipboardCopy className="w-4 h-4" /></button>
-                  <button onClick={() => onRemove(n.name)} title="Eliminar" className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => { onInsert(ref); }} title="Insertar referencia en la celda activa" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"><CornerDownLeft className="w-4 h-4" /></button>
+                  <button onClick={() => copy(ref)} title="Copiar referencia" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10"><ClipboardCopy className="w-4 h-4" /></button>
+                  <button onClick={() => onRemove(n.name)} title="Eliminar" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></button>
                 </div>
               );
             })}
@@ -80,7 +80,7 @@ export function SheetNameManager({
             </div>
             {err && <p className="text-[11px] text-red-500">{err}</p>}
           </div>
-          <p className="text-[11px] text-gray-400">Los nombres se guardan con el documento. «Insertar» coloca la referencia A1 cualificada en la celda activa; también puedes copiarla para usarla en una fórmula.</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400">Los nombres se guardan con el documento. «Insertar» coloca la referencia A1 cualificada en la celda activa; también puedes copiarla para usarla en una fórmula.</p>
         </div>
       </motion.div>
     </motion.div>

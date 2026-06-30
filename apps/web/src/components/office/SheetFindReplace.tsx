@@ -34,7 +34,7 @@ export function SheetFindReplace({
       <div className="flex items-center gap-2">
         <input autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setDone(null); }}
           onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }} placeholder="Buscar" className={field} />
-        <span className={`text-[11px] tabular-nums flex-1 text-center ${invalid ? 'text-red-500' : 'text-gray-400'}`}>{invalid ? 'regex ✗' : (query ? `${matches.length}` : '0')} {invalid ? '' : 'coinc.'}</span>
+        <span className={`text-[11px] tabular-nums flex-1 text-center ${invalid ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>{invalid ? 'regex ✗' : (query ? `${matches.length}` : '0')} {invalid ? '' : 'coinc.'}</span>
         <button onClick={onClose} title="Cerrar" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500"><X className="w-4 h-4" /></button>
       </div>
       <div className="flex items-center gap-2">
@@ -60,7 +60,7 @@ export function SheetFindReplace({
           {matches.slice(0, 30).map((m, i) => (
             <div key={i} className="font-mono">{(sheetNames[m.sheetIndex] || `Hoja ${m.sheetIndex + 1}`)}!{m.addr}</div>
           ))}
-          {matches.length > 30 && <div className="text-gray-400">… y {matches.length - 30} más</div>}
+          {matches.length > 30 && <div className="text-gray-500 dark:text-gray-400">… y {matches.length - 30} más</div>}
         </div>
       )}
     </div>

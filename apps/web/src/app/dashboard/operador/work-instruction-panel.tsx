@@ -228,7 +228,7 @@ function EmbeddedAid({
   if (!aid || !href) {
     return (
       <div
-        className={`${frameClass} rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-gray-400 text-sm`}
+        className={`${frameClass} rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-gray-500 dark:text-gray-400 text-sm`}
       >
         <div className="flex flex-col items-center gap-2 text-center">
           <ImageIcon className="w-7 h-7" />

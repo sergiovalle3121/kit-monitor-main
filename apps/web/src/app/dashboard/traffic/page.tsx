@@ -63,9 +63,9 @@ export default function TrafficPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Necesitas permiso de logística para ver tráfico.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Necesitas permiso de logística para ver tráfico.</p>
         </div>
       </div>
     );
@@ -79,7 +79,7 @@ export default function TrafficPage() {
       <div className={`${glass} sticky top-0 z-40 px-6 pt-4`}>
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+            <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
               <ChevronLeft className="w-5 h-5" />
             </Link>
             <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: `${ACCENT}1f` }}>
@@ -87,7 +87,7 @@ export default function TrafficPage() {
             </span>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-semibold leading-tight">Logística · Tráfico</h1>
-              <p className="text-[12px] text-gray-400 leading-tight">Patio, maestros, citas y asignación de embarques</p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Patio, maestros, citas y asignación de embarques</p>
             </div>
           </div>
           <div className="flex items-center gap-1 mt-3 -mx-1 px-1 pb-1 overflow-x-auto">
@@ -104,7 +104,7 @@ export default function TrafficPage() {
 
       <main className="max-w-7xl mx-auto px-6 pt-6 pb-28">
         {firstLoad ? (
-          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : tab === "board" ? (
           <BoardTab docks={docks} shipments={shipments} appointments={appointments} carriers={carriers} vehicles={vehicles} drivers={drivers} refresh={refreshAll} onNewDock={() => setTab("docks")} />
         ) : tab === "carriers" ? (

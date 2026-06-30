@@ -111,9 +111,9 @@ export default function CrmPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el CRM.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver el CRM.</p>
         </div>
       </div>
     );
@@ -130,7 +130,7 @@ export default function CrmPage() {
       {/* Header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.12)' }}>
@@ -138,12 +138,12 @@ export default function CrmPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">CRM Comercial</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Cuentas, pipeline, cotizaciones y actividades</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Cuentas, pipeline, cotizaciones y actividades</p>
           </div>
-          <button onClick={() => setShowAccount(true)} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 border border-black/10 dark:border-white/10">
+          <button onClick={() => setShowAccount(true)} aria-label="Nueva cuenta" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 border border-black/10 dark:border-white/10">
             <Building2 className="w-4 h-4" /> <span className="hidden sm:inline">Nueva cuenta</span>
           </button>
-          <button onClick={() => setShowOpp(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}>
+          <button onClick={() => setShowOpp(true)} aria-label="Nueva oportunidad" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}>
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Oportunidad</span>
           </button>
         </div>
@@ -166,7 +166,7 @@ export default function CrmPage() {
             const active = tab === t.key;
             return (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className={`relative shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors ${active ? '' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+                className={`relative shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors ${active ? '' : 'text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
                 style={active ? { color: VIOLET } : undefined}>
                 <t.icon className="w-4 h-4" />
                 {t.label}
@@ -178,7 +178,7 @@ export default function CrmPage() {
         </div>
 
         {isLoading && tab === 'pipeline' ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : (
           <>
             {tab === 'pipeline' && (
@@ -219,9 +219,9 @@ function PipelineView({ opps, ccy, accountNameById, onTransition, onOpen }: {
             <div className="flex items-center gap-2 px-1">
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: OPP_META[stage].color }} />
               <h2 className="text-sm font-semibold">{OPP_META[stage].label}</h2>
-              <span className="text-[11px] text-gray-400">{items.length} · {compactMoney(value, ccy)}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">{items.length} · {compactMoney(value, ccy)}</span>
             </div>
-            {items.length === 0 && <div className="text-[12px] text-gray-400 px-1 py-6 text-center rounded-2xl border border-dashed border-black/10 dark:border-white/10">Vacío</div>}
+            {items.length === 0 && <div className="text-[12px] text-gray-500 dark:text-gray-400 px-1 py-6 text-center rounded-2xl border border-dashed border-black/10 dark:border-white/10">Vacío</div>}
             {items.map((o) => (
               <div key={o.id} className={`${glass} rounded-2xl p-4`}>
                 <button onClick={() => o.accountId && onOpen(o)} className="text-left w-full">
@@ -230,7 +230,7 @@ function PipelineView({ opps, ccy, accountNameById, onTransition, onOpen }: {
                     {o.productLine && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${VIOLET}1a`, color: VIOLET }}>{o.productLine}</span>}
                   </div>
                   <div className="font-semibold text-sm leading-snug">{o.title}</div>
-                  <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+                  <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                     <span className="font-medium text-gray-600 dark:text-gray-300">{money(o.estimatedValue, o.currency)}</span>
                     <span>·</span><span>{o.probability}%</span>
                     {(o.accountId && accountNameById.get(o.accountId)) && <><span>·</span><span className="truncate">{accountNameById.get(o.accountId)}</span></>}
@@ -262,13 +262,13 @@ function PipelineView({ opps, ccy, accountNameById, onTransition, onOpen }: {
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: OPP_META[stage].color }} />
                 <h3 className="text-sm font-semibold">{OPP_META[stage].label}</h3>
-                <span className="text-[11px] text-gray-400">{items.length} · {compactMoney(value, ccy)}</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">{items.length} · {compactMoney(value, ccy)}</span>
               </div>
               <div className="space-y-1.5">
                 {items.slice(0, 5).map((o) => (
                   <div key={o.id} className="flex items-center justify-between text-[12px] gap-2">
                     <span className="truncate">{o.title}</span>
-                    <span className="text-gray-400 flex-shrink-0">{compactMoney(o.estimatedValue, o.currency)}</span>
+                    <span className="text-gray-500 dark:text-gray-400 flex-shrink-0">{compactMoney(o.estimatedValue, o.currency)}</span>
                   </div>
                 ))}
               </div>
@@ -304,7 +304,7 @@ function AccountsView({ accounts, search, setSearch, opps }: {
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="min-w-0">
                   <div className="font-semibold truncate">{a.name}</div>
-                  <div className="text-[11px] text-gray-400 font-mono">{a.code}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{a.code}</div>
                 </div>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: `${TIER_META[a.tier].color}1a`, color: TIER_META[a.tier].color }}>{TIER_META[a.tier].label}</span>
               </div>
@@ -315,14 +315,14 @@ function AccountsView({ accounts, search, setSearch, opps }: {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1"><span>Salud</span><span>{a.healthScore}</span></div>
+                  <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-1"><span>Salud</span><span>{a.healthScore}</span></div>
                   <div className="h-1.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${a.healthScore}%`, background: healthColor(a.healthScore) }} />
                   </div>
                 </div>
                 {pipelineByAccount.get(a.id) ? (
                   <div className="text-right flex-shrink-0">
-                    <div className="text-[10px] text-gray-400">Pipeline</div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400">Pipeline</div>
                     <div className="text-sm font-semibold" style={{ color: VIOLET }}>{compactMoney(pipelineByAccount.get(a.id), a.currency)}</div>
                   </div>
                 ) : null}
@@ -345,9 +345,9 @@ function ActivitiesView({ tasks, recent, accountNameById, onComplete }: {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <section>
-        <h2 className="text-sm font-semibold mb-3 flex items-center gap-2"><Clock className="w-4 h-4" /> Mis tareas <span className="text-[11px] text-gray-400">({tasks.length})</span></h2>
+        <h2 className="text-sm font-semibold mb-3 flex items-center gap-2"><Clock className="w-4 h-4" /> Mis tareas <span className="text-[11px] text-gray-500 dark:text-gray-400">({tasks.length})</span></h2>
         {sortedTasks.length === 0 ? (
-          <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>Sin tareas pendientes. 🎉</div>
+          <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>Sin tareas pendientes. 🎉</div>
         ) : (
           <div className="space-y-2">
             {sortedTasks.map((t) => {
@@ -360,7 +360,7 @@ function ActivitiesView({ tasks, recent, accountNameById, onComplete }: {
                     <div className="mt-0.5 flex items-center gap-2 text-[11px] flex-wrap">
                       {t.account_id && accountNameById.get(t.account_id) && <span className="text-gray-500">{accountNameById.get(t.account_id)}</span>}
                       {t.dueAt && (
-                        <span className={`inline-flex items-center gap-1 ${overdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                        <span className={`inline-flex items-center gap-1 ${overdue ? 'text-red-500 font-semibold' : 'text-gray-500 dark:text-gray-400'}`}>
                           {overdue && <AlertTriangle className="w-3 h-3" />}
                           <CalendarDays className="w-3 h-3" />{new Date(t.dueAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
                           {overdue && ' · vencida'}
@@ -378,7 +378,7 @@ function ActivitiesView({ tasks, recent, accountNameById, onComplete }: {
       <section>
         <h2 className="text-sm font-semibold mb-3 flex items-center gap-2"><ActivityIcon className="w-4 h-4" /> Actividad reciente</h2>
         {recent.length === 0 ? (
-          <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>Sin actividad registrada.</div>
+          <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>Sin actividad registrada.</div>
         ) : (
           <div className={`${glass} rounded-2xl p-2`}>
             <div className="divide-y divide-black/5 dark:divide-white/5">
@@ -389,7 +389,7 @@ function ActivitiesView({ tasks, recent, accountNameById, onComplete }: {
                     <span className="w-8 h-8 rounded-lg grid place-items-center flex-shrink-0" style={{ background: `${VIOLET}14`, color: VIOLET }}><Icon className="w-4 h-4" /></span>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate">{a.subject}</div>
-                      <div className="text-[11px] text-gray-400">
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">
                         {a.account_id && accountNameById.get(a.account_id)}{a.account_id && a.created_at ? ' · ' : ''}{timeAgo(a.created_at)}
                       </div>
                     </div>
@@ -493,18 +493,18 @@ function NewAccountModal({ onClose, onCreated }: { onClose: () => void; onCreate
 function Kpi({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3.5`}>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-lg font-semibold mt-0.5 tabular-nums truncate" style={{ color }}>{value}</div>
-      {sub && <div className="text-[11px] text-gray-400 truncate">{sub}</div>}
+      {sub && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{sub}</div>}
     </div>
   );
 }
 function Empty({ title, hint }: { title: string; hint: string }) {
   return (
     <div className={`${glass} rounded-3xl p-12 text-center`}>
-      <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+      <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
       <h3 className="font-semibold">{title}</h3>
-      <p className="text-sm text-gray-400 mt-1">{hint}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{hint}</p>
     </div>
   );
 }

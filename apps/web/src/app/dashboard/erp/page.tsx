@@ -97,8 +97,8 @@ const MODULES = [
     code: 'SD01–03',
     desc: 'Pedidos · Despacho · Facturación',
     icon: ShoppingCart,
-    color: 'text-primary',
-    tint: 'bg-primary dark:bg-primary/10',
+    color: 'text-violet-500',
+    tint: 'bg-violet-50 dark:bg-violet-500/10',
   },
 ];
 
@@ -138,7 +138,7 @@ export default function ErpHubPage() {
           <ChevronLeft className="w-4 h-4" /> Dashboard
         </Link>
         <span className="text-lg font-bold tracking-tight">Axos Core ERP</span>
-        <span className="hidden sm:flex items-center gap-1 text-[11px] text-gray-400">
+        <span className="hidden sm:flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
           <Command className="w-3 h-3" />K para T-Codes
         </span>
       </div>
@@ -175,14 +175,14 @@ export default function ErpHubPage() {
           <StatCard
             label="Utilidad neta"
             value={fmtMoney(is?.netIncome)}
-            color={is && is.netIncome >= 0 ? GREEN : RED}
+            color={typeof is?.netIncome === 'number' ? (is.netIncome >= 0 ? GREEN : RED) : undefined}
             sub="Estado de resultados"
           />
           <StatCard
             label="Activos"
             value={fmtMoney(bs?.assets)}
             sub={bs?.balanced ? 'Balance cuadrado ✓' : 'Balance'}
-            color={bs?.balanced ? GREEN : AMBER}
+            color={typeof bs?.assets === 'number' ? (bs.balanced ? GREEN : AMBER) : undefined}
           />
           <StatCard label="Valor de inventario" value={fmtMoney(val?.totalValue)} sub="Valuación MM" />
           <StatCard
@@ -207,7 +207,7 @@ export default function ErpHubPage() {
                   <div className={`inline-flex p-3 rounded-2xl ${m.tint} w-fit`}>
                     <m.icon className={`w-6 h-6 ${m.color}`} strokeWidth={1.5} />
                   </div>
-                  <span className="text-[10px] font-mono text-gray-400">{m.code}</span>
+                  <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400">{m.code}</span>
                 </div>
                 <div>
                   <div className="font-bold text-lg">{m.name}</div>
@@ -219,7 +219,7 @@ export default function ErpHubPage() {
 
           <div className={`${glass} rounded-3xl p-5`}>
             <h3 className="font-bold mb-1">Resultado del periodo</h3>
-            <p className="text-[11px] text-gray-400 mb-3">Ingresos · Gastos · Utilidad</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3">Ingresos · Gastos · Utilidad</p>
             <div style={{ width: '100%', height: 220 }}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={chart} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>

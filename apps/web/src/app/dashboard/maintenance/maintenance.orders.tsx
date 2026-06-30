@@ -120,7 +120,7 @@ export function OrdersTab({
       {/* Buscador + filtros secundarios + alta */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar folio, título, activo, responsable…" className="m-input pl-9" />
         </div>
         <select value={type} onChange={(e) => setType(e.target.value as MaintenanceType | "")} className="m-input w-auto">
@@ -172,8 +172,8 @@ export function OrdersTab({
         </div>
       ) : rows.length === 0 ? (
         <div className={`${glass} rounded-2xl p-10 text-center`}>
-          <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-400">Ninguna orden coincide con el filtro.</p>
+          <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Ninguna orden coincide con el filtro.</p>
           {anyFilter && (
             <button onClick={() => { setQ(""); setStatus(""); setType(""); setAssetId(""); }} className="mt-3 text-[13px] underline underline-offset-2 text-gray-500">
               Limpiar filtros
@@ -223,7 +223,7 @@ function OrderRow({
             <span className="font-semibold truncate">{order.title}</span>
             <StatusPill status={order.status} />
           </div>
-          <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+          <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
             <TypePill type={order.type} />
             {order.priority === "HIGH" && <PriorityPill priority="HIGH" />}
             {order.assetName && <span className="inline-flex items-center gap-1"><Wrench className="w-3 h-3" />{order.assetName}</span>}
@@ -305,14 +305,14 @@ function OrderDrawer({
 
             {order.description && (
               <div>
-                <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Detalle</div>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Detalle</div>
                 <p className="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">{order.description}</p>
               </div>
             )}
 
             {/* Línea de tiempo */}
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Línea de tiempo</div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Línea de tiempo</div>
               <div className="space-y-2">
                 <TimelineRow icon={<Plus className="w-3.5 h-3.5" />} label="Creada" at={order.created_at} done />
                 <TimelineRow icon={<Play className="w-3.5 h-3.5" />} label="Iniciada" at={order.startedAt} done={!!order.startedAt} />
@@ -322,7 +322,7 @@ function OrderDrawer({
 
             {/* Máquina de estados */}
             <div className="pt-4 border-t border-black/5 dark:border-white/10">
-              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Acciones</div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Acciones</div>
               <TransitionControls order={order} onDone={onChanged} />
             </div>
 
@@ -351,11 +351,11 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="text-gray-400 mt-0.5">{icon}</span>
+      <span className="text-gray-500 dark:text-gray-400 mt-0.5">{icon}</span>
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] text-gray-400">{label}</div>
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">{label}</div>
         <div className="text-sm" style={valueColor ? { color: valueColor } : undefined}>{value}</div>
-        {sub && <div className="text-[12px] text-gray-400 truncate">{sub}</div>}
+        {sub && <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">{sub}</div>}
       </div>
     </div>
   );
@@ -381,7 +381,7 @@ function TimelineRow({
         {icon}
       </span>
       <span className="text-sm flex-1">{label}</span>
-      <span className="text-[12px] text-gray-400">{at ? fmtDateTime(at) : "—"}</span>
+      <span className="text-[12px] text-gray-500 dark:text-gray-400">{at ? fmtDateTime(at) : "—"}</span>
     </div>
   );
 }

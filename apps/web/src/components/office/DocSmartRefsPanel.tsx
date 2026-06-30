@@ -57,7 +57,7 @@ export function DocSmartRefsPanel({ content }: { content: any }) {
                 <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">AXOS refs y campos vivos detectados en el documento.</p>
               </div>
               <div className="overflow-y-auto p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">AXOS refs · {refs.length}</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">AXOS refs · {refs.length}</p>
                 {refs.length === 0 ? <p className="mb-4 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-white/5">Sin referencias AXOS.</p> : (
                   <div className="mb-4 space-y-1.5">
                     {refs.map((ref) => (
@@ -65,19 +65,19 @@ export function DocSmartRefsPanel({ content }: { content: any }) {
                         className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/5">
                         <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"><Link2 className="h-3.5 w-3.5" /></span>
                         <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{ref.label}</span><span className="block truncate text-xs text-gray-500">{axosEntityLabel(ref.entity)} · {ref.refId || 'sin id'}</span></span>
-                        {ref.href && <ExternalLink className="h-3.5 w-3.5 text-gray-400" />}
+                        {ref.href && <ExternalLink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />}
                       </a>
                     ))}
                   </div>
                 )}
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Campos vivos · {fields.length}</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Campos vivos · {fields.length}</p>
                 {fields.length === 0 ? <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-white/5">Sin campos vivos.</p> : (
                   <div className="space-y-1.5">
                     {fields.map((field) => (
                       <div key={field.key} className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/5">
                         <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300"><Braces className="h-3.5 w-3.5" /></span>
                         <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{field.label}</span><span className="block truncate text-xs text-gray-500">{field.value || field.key}</span></span>
-                        <FileText className="h-3.5 w-3.5 text-gray-400" />
+                        <FileText className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
                       </div>
                     ))}
                   </div>

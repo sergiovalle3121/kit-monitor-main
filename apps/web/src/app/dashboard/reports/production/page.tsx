@@ -85,7 +85,7 @@ export default function ProductionReportPage() {
           body="El reporte requiere el permiso production:read. Verifica tu rol y la conexión al backend."
         />
       ) : cLoading ? (
-        <div className="flex justify-center py-16 text-gray-400">
+        <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : !hasData ? (
@@ -180,7 +180,7 @@ function ShiftBlock({ group }: { group: ShiftGroup }) {
       </div>
       <DocTable columns={cols} rows={group.lines} rowKey={(r) => r.kitId} />
       {group.lines.some((l) => l.completedAt) && (
-        <p className="mt-2 text-[11px] text-gray-400">
+        <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
           Última corrida cerrada:{" "}
           {fmtDate(
             group.lines
@@ -198,7 +198,7 @@ function ShiftBlock({ group }: { group: ShiftGroup }) {
 function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
     <div className="axos-avoid-break rounded-xl border border-gray-200 px-3 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-lg font-bold tabular-nums" style={{ color: accent }}>
         {value}
       </div>

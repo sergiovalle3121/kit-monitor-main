@@ -55,12 +55,12 @@ export function DocSections({ editor }: { editor: Editor }) {
           className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-[#1b1b1d] border border-black/10 dark:border-white/10 shadow-2xl p-5 max-h-[88vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold flex items-center gap-2"><SeparatorVertical className="w-5 h-5 text-blue-500" /> Ajustes de sección</h3>
-            <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+            <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Tipo de salto</label>
+              <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tipo de salto</label>
               <div className="flex gap-2 mt-1">
                 <button onClick={() => upd({ breakType: 'nextPage' })} className={seg(form.breakType === 'nextPage')}>Página siguiente</button>
                 <button onClick={() => upd({ breakType: 'continuous' })} className={seg(form.breakType === 'continuous')}>Continuo</button>
@@ -69,17 +69,17 @@ export function DocSections({ editor }: { editor: Editor }) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Encabezado de la sección</label>
+                <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Encabezado de la sección</label>
                 <input value={form.header} onChange={(e) => upd({ header: e.target.value })} placeholder="(hereda del documento)" className={field} />
               </div>
               <div>
-                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Pie de la sección</label>
+                <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pie de la sección</label>
                 <input value={form.footer} onChange={(e) => upd({ footer: e.target.value })} placeholder="(hereda del documento)" className={field} />
               </div>
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Orientación</label>
+              <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Orientación</label>
               <div className="flex gap-2 mt-1">
                 <button onClick={() => upd({ orientation: '' })} className={seg(form.orientation === '')}>Heredar</button>
                 <button onClick={() => upd({ orientation: 'portrait' })} className={seg(form.orientation === 'portrait')}><RectangleVertical className="w-4 h-4" /> Vertical</button>
@@ -88,7 +88,7 @@ export function DocSections({ editor }: { editor: Editor }) {
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Columnas</label>
+              <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Columnas</label>
               <div className="flex gap-2 mt-1">
                 <button onClick={() => upd({ columns: 0 })} className={seg(form.columns === 0)}>Heredar</button>
                 <button onClick={() => upd({ columns: 1 })} className={seg(form.columns === 1)}><Square className="w-4 h-4" /> 1</button>
@@ -103,11 +103,11 @@ export function DocSections({ editor }: { editor: Editor }) {
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Reiniciar en</label>
+                  <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Reiniciar en</label>
                   <input type="number" min={0} value={form.pageNumberStart ?? ''} onChange={(e) => upd({ pageNumberStart: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })} placeholder="(continúa)" className={field} />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Formato</label>
+                  <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Formato</label>
                   <select value={form.pageNumberFormat} onChange={(e) => upd({ pageNumberFormat: e.target.value })} className={field}>
                     {Object.entries(PAGE_NUMBER_FORMATS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>

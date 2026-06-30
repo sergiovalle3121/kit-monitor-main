@@ -134,7 +134,7 @@ export function DocActions({
               >
                 <button onClick={word} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-blue-500" /> Word (.docx)</button>
                 <button onClick={markdown} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-emerald-500" /> Markdown (.md)</button>
-                <button onClick={plain} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-gray-400" /> Texto plano (.txt)</button>
+                <button onClick={plain} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Texto plano (.txt)</button>
                 <button onClick={html} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-orange-500" /> HTML (.html)</button>
                 <button onClick={pdf} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Printer className="w-4 h-4 text-red-500" /> PDF (.pdf)</button>
                 <button onClick={print} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Printer className="w-4 h-4 text-gray-500" /> Imprimir</button>

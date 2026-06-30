@@ -235,7 +235,7 @@ export function DataTable<T>({
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {searchable && (
             <div className="relative max-w-xs flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
               <input
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
@@ -411,13 +411,13 @@ export function DataTable<T>({
               <tr>
                 <td colSpan={leafCount} className="p-0">
                   {emptyState ?? (
-                    <div className="p-12 text-center text-sm text-gray-400">Sin registros.</div>
+                    <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400">Sin registros.</div>
                   )}
                 </td>
               </tr>
             ) : noMatch ? (
               <tr>
-                <td colSpan={leafCount} className="p-10 text-center text-sm text-gray-400">
+                <td colSpan={leafCount} className="p-10 text-center text-sm text-gray-500 dark:text-gray-400">
                   Sin resultados para los filtros aplicados.
                 </td>
               </tr>

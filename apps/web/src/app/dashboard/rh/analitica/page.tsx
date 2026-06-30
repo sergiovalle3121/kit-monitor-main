@@ -117,7 +117,7 @@ export default function AnaliticaPage() {
               <AlertTriangle className="w-4 h-4" style={{ color: COLORS.amber }} />
               <h3 className="font-semibold">Riesgo de staffing por área / turno</h3>
             </div>
-            <p className="text-[12px] text-gray-400 mb-4">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">
               Fusiona brecha de vacantes, rotación, ausentismo y cobertura de skills → ¿habrá gente certificada para correr el plan?
             </p>
             {riskCells.length === 0 ? (
@@ -126,7 +126,7 @@ export default function AnaliticaPage() {
               <div className="overflow-x-auto -mx-1">
                 <table className="w-full text-[13px]">
                   <thead>
-                    <tr className="text-left text-gray-400 text-[11px] uppercase tracking-wide">
+                    <tr className="text-left text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wide">
                       <th className="py-2 px-1 font-medium">Área · Turno</th>
                       <th className="py-2 px-1 font-medium text-right">HC</th>
                       <th className="py-2 px-1 font-medium text-right">Vacantes</th>
@@ -140,7 +140,7 @@ export default function AnaliticaPage() {
                   <tbody>
                     {riskCells.slice(0, 14).map((c, i) => (
                       <tr key={i} className="border-t border-black/5 dark:border-white/10">
-                        <td className="py-2 px-1 font-medium whitespace-nowrap">{c.area} <span className="text-gray-400">· T{c.shift}</span></td>
+                        <td className="py-2 px-1 font-medium whitespace-nowrap">{c.area} <span className="text-gray-500 dark:text-gray-400">· T{c.shift}</span></td>
                         <td className="py-2 px-1 text-right tabular-nums">{c.headcount}</td>
                         <td className="py-2 px-1 text-right tabular-nums" style={{ color: c.openOpenings > 0 ? COLORS.amber : undefined }}>{c.openOpenings || '—'}</td>
                         <td className="py-2 px-1 text-right tabular-nums">{fmtPct(c.attritionPct, 0)}</td>
@@ -197,14 +197,14 @@ export default function AnaliticaPage() {
                         <div className="w-1/2 rounded-t" style={{ height: `${(t.hires / maxTrend) * 100}%`, background: COLORS.green, minHeight: t.hires ? 4 : 0 }} title={`${t.hires} altas`} />
                         <div className="w-1/2 rounded-t" style={{ height: `${(t.separations / maxTrend) * 100}%`, background: COLORS.red, minHeight: t.separations ? 4 : 0 }} title={`${t.separations} bajas`} />
                       </div>
-                      <span className="text-[10px] text-gray-400">{t.month.slice(5)}</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">{t.month.slice(5)}</span>
                     </div>
                   ))}
                 </div>
               ) : (
                 <Empty>Sin histórico.</Empty>
               )}
-              <div className="flex items-center gap-4 mt-3 text-[11px] text-gray-400">
+              <div className="flex items-center gap-4 mt-3 text-[11px] text-gray-500 dark:text-gray-400">
                 <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.green }} /> Altas</span>
                 <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.red }} /> Bajas</span>
               </div>
@@ -246,7 +246,7 @@ export default function AnaliticaPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <section className={`${glass} rounded-2xl p-5`}>
               <h3 className="font-semibold mb-1">Colaboradores en riesgo de salida</h3>
-              <p className="text-[12px] text-gray-400 mb-4">Señal explicable: antigüedad, ausentismo, engagement y reconocimiento.</p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">Señal explicable: antigüedad, ausentismo, engagement y reconocimiento.</p>
               {flight?.length ? (
                 <div className="space-y-2">
                   {flight.slice(0, 8).map((f) => (
@@ -254,7 +254,7 @@ export default function AnaliticaPage() {
                       <div className="w-10 text-right tabular-nums font-semibold" style={{ color: RISK_COLOR[f.band] }}>{f.score}</div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[13px] font-medium truncate">{f.name}</div>
-                        <div className="text-[11px] text-gray-400 truncate">{f.area ?? 'Sin área'}{f.shift ? ` · T${f.shift}` : ''}{f.drivers.length ? ` · ${f.drivers[0]}` : ''}</div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{f.area ?? 'Sin área'}{f.shift ? ` · T${f.shift}` : ''}{f.drivers.length ? ` · ${f.drivers[0]}` : ''}</div>
                       </div>
                       <RiskPill band={f.band} />
                     </div>
@@ -303,12 +303,12 @@ function bandLabel(band: string): string {
 function Mini({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="rounded-xl bg-black/5 dark:bg-white/10 p-3">
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-sm font-semibold mt-0.5 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="text-[13px] text-gray-400 py-6 text-center">{children}</div>;
+  return <div className="text-[13px] text-gray-500 dark:text-gray-400 py-6 text-center">{children}</div>;
 }

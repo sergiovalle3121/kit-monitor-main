@@ -103,7 +103,7 @@ export default function YamazumiChart({
         {error ? (
           <p className="text-[12px] text-amber-500 py-10 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-16 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-16 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (
           <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
             {/* y baseline */}
@@ -131,7 +131,7 @@ export default function YamazumiChart({
             })}
           </svg>
         )}
-        <p className="text-[11px] text-gray-400 mt-2">Cada barra = tiempo de ciclo de la estación. Las que pasan la línea de takt (rojo) son las restricciones a rebalancear.</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">Cada barra = tiempo de ciclo de la estación. Las que pasan la línea de takt (rojo) son las restricciones a rebalancear.</p>
       </div>
     </div>
   );

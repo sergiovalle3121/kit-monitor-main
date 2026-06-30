@@ -60,7 +60,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
         className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-2xl bg-white dark:bg-[#161616] border border-black/10 dark:border-white/10 shadow-2xl overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
-          <h2 className="font-bold">Insertar gráfico <span className="text-sm font-normal text-gray-400">· datos editables</span></h2>
+          <h2 className="font-bold">Insertar gráfico <span className="text-sm font-normal text-gray-500 dark:text-gray-400">· datos editables</span></h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500"><X className="w-5 h-5" /></button>
         </div>
 
@@ -87,7 +87,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
             )}
             <Toggle label="Leyenda" on={spec.legend !== false} onClick={() => setSpec((s) => ({ ...s, legend: s.legend === false }))} />
             <Toggle label="Valores" on={!!spec.showValues} onClick={() => setSpec((s) => ({ ...s, showValues: !s.showValues }))} />
-            <span className="text-xs text-gray-400 ml-1">Paleta</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">Paleta</span>
             <select value={paletteId} onChange={(e) => setSpec((s) => ({ ...s, palette: CHART_PALETTES.find((p) => p.id === e.target.value)?.colors }))}
               className="h-8 text-xs rounded-lg bg-black/[0.03] dark:bg-white/[0.05] px-2 outline-none border border-transparent focus:border-blue-500/50">
               {CHART_PALETTES.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
@@ -96,7 +96,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
 
           {/* Vista previa */}
           <div className="rounded-xl bg-gray-50 dark:bg-black/30 border border-black/5 dark:border-white/10 flex items-center justify-center p-2" style={{ minHeight: 170 }}>
-            {preview ? <img src={preview} alt="Vista previa" className="max-h-[210px] w-auto" /> : <span className="text-sm text-gray-400">Generando vista previa…</span>}
+            {preview ? <img src={preview} alt="Vista previa" className="max-h-[210px] w-auto" /> : <span className="text-sm text-gray-500 dark:text-gray-400">Generando vista previa…</span>}
           </div>
           {pieNote && <p className="text-xs text-amber-600 dark:text-amber-400">Este tipo usa sólo la primera serie de datos.</p>}
 
@@ -105,7 +105,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
             <table className="border-separate" style={{ borderSpacing: 4 }}>
               <thead>
                 <tr>
-                  <th className="text-left"><span className="text-xs text-gray-400 px-1">Categoría</span></th>
+                  <th className="text-left"><span className="text-xs text-gray-500 dark:text-gray-400 px-1">Categoría</span></th>
                   {spec.series.map((s, c) => (
                     <th key={c} className="px-0.5">
                       <input value={s.name} onChange={(e) => setSeriesName(c, e.target.value)} className={`${cell} font-semibold min-w-[96px]`} />

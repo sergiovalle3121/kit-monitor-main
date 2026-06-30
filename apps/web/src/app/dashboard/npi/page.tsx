@@ -169,9 +169,9 @@ export default function NpiPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Necesitas permiso de ingeniería para ver el NPI.
           </p>
         </div>
@@ -342,7 +342,7 @@ export default function NpiPage() {
           <div
             className={`${glass} flex items-center gap-2 px-3 py-2 rounded-2xl mb-5`}
           >
-            <Search className="w-4 h-4 text-gray-400" />
+            <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -363,13 +363,13 @@ export default function NpiPage() {
         {/* List */}
         {isLoading ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
           </div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Aún no hay launches</h3>
-            <p className="text-sm text-gray-400 mt-1 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
               Crea un launch para orquestar la introducción de un modelo: BOM,
               routing, calidad, gates y liberación a producción.
             </p>
@@ -384,7 +384,7 @@ export default function NpiPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div
-            className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-400`}
+            className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-500 dark:text-gray-400`}
           >
             Sin resultados para “{query}”.
           </div>
@@ -431,7 +431,7 @@ function Kpi({
       >
         {value}
       </div>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400 mt-1.5">
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mt-1.5">
         {label}
       </div>
     </div>
@@ -446,10 +446,10 @@ function PhaseRail({ rail }: { rail: { phase: string; count: number }[] }) {
   return (
     <div className={`${glass} rounded-2xl p-5 mb-6`}>
       <div className="flex items-center justify-between mb-4">
-        <div className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">
+        <div className="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold">
           Pipeline de lanzamiento
         </div>
-        <div className="text-[11px] text-gray-400">
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">
           {total} en vuelo · QUOTE → MP
         </div>
       </div>
@@ -472,7 +472,7 @@ function PhaseRail({ rail }: { rail: { phase: string; count: number }[] }) {
                   {r.count}
                 </div>
                 <div className="text-[12px] font-semibold mt-2">{r.phase}</div>
-                <div className="text-[10px] text-gray-400 truncate">
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                   {PHASE_LABEL[r.phase as keyof typeof PHASE_LABEL] ?? r.phase}
                 </div>
               </div>
@@ -556,7 +556,7 @@ function LaunchCard({
           <div className="font-semibold truncate mt-0.5">
             {model?.name || p.customer || 'Sin cliente'}
           </div>
-          <div className="text-xs text-gray-400 truncate">
+          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
             rev {p.revision}
             {p.customer ? ` · ${p.customer}` : ''}
             {p.programId ? ` · ${p.programId}` : ''}
@@ -590,7 +590,7 @@ function LaunchCard({
       {s && s.criteriaTotal > 0 && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+            <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-1">
               <span>Readiness</span>
               <span className="tabular-nums">
                 {s.readyCount}/{s.criteriaTotal}
@@ -603,7 +603,7 @@ function LaunchCard({
             />
           </div>
           <div>
-            <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+            <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-1">
               <span>Gates</span>
               <span className="tabular-nums">
                 {s.gatesCleared}/{s.gatesTotal}
@@ -668,7 +668,7 @@ function ReadinessLookup() {
       <div className="flex items-center gap-2 mb-3">
         <Gauge className="w-4 h-4 text-primary" />
         <h3 className="font-semibold text-sm">Consulta de readiness</h3>
-        <span className="text-[11px] text-gray-400">
+        <span className="text-[11px] text-gray-500 dark:text-gray-400">
           Go / no-go en vivo para cualquier modelo+revisión
         </span>
       </div>
@@ -703,7 +703,7 @@ function ReadinessLookup() {
         <div className="mt-4">
           <div className="flex items-center gap-2 mb-2">
             <ReadinessPill status={report.gateReady ? 'READY' : 'NOT_READY'} />
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               {report.readyCount} listo · {report.notReadyCount} no listo ·{' '}
               {report.unknownCount} desconocido
             </span>
@@ -717,7 +717,7 @@ function ReadinessLookup() {
               >
                 <ReadinessPill status={c.status} />
                 <span className="font-medium">{c.label}</span>
-                <span className="text-gray-400 truncate">{c.detail}</span>
+                <span className="text-gray-500 dark:text-gray-400 truncate">{c.detail}</span>
               </div>
             ))}
           </div>

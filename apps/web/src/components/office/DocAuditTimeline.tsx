@@ -93,7 +93,7 @@ export function DocAuditTimeline({ docId }: { docId: string }) {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <p className="truncate text-sm font-semibold">{prettyAction(event.action)}</p>
-                          <span className="shrink-0 text-[11px] text-gray-400">{rel(event.at)}</span>
+                          <span className="shrink-0 text-[11px] text-gray-500 dark:text-gray-400">{rel(event.at)}</span>
                         </div>
                         <p className="truncate text-xs text-gray-500 dark:text-gray-400">{event.actor || 'Sistema'} · {event.kind}</p>
                       </div>
