@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import {
   Home,
   Boxes,
@@ -34,6 +37,7 @@ const LINES = [
 const RAIL = [Home, Boxes, Factory, ShieldCheck, LineChart, Cpu, Radio];
 
 export function LandingMockup() {
+  const t = useTranslations("landing.mockup");
   return (
     <div
       aria-hidden
@@ -45,7 +49,7 @@ export function LandingMockup() {
         <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
         <span className="h-3 w-3 rounded-full bg-[#28c840]" />
         <div className="mx-auto flex items-center gap-2 rounded-md bg-black/[0.04] px-3 py-1 text-[11px] text-gray-500 dark:text-gray-400 dark:bg-white/[0.06]">
-          <ShieldCheck className="h-3 w-3 text-emerald-500" /> axos.os / torre-de-control
+          <ShieldCheck className="h-3 w-3 text-emerald-500" /> {t("urlbar")}
         </div>
       </div>
 
@@ -76,12 +80,12 @@ export function LandingMockup() {
                 <Radio className="h-4 w-4" />
               </span>
               <div>
-                <div className="text-[13px] font-bold leading-none">Torre de Control</div>
-                <div className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">Vista ejecutiva · en vivo</div>
+                <div className="text-[13px] font-bold leading-none">{t("title")}</div>
+                <div className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">{t("subtitle")}</div>
               </div>
             </div>
             <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> En control
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> {t("inControl")}
             </span>
             <div className="hidden items-center gap-1.5 rounded-md bg-black/[0.04] px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 dark:bg-white/[0.06] md:flex">
               <Search className="h-3 w-3" /> ⌘K
@@ -113,7 +117,7 @@ export function LandingMockup() {
             <div className="rounded-xl border border-black/[0.06] bg-gray-50/60 p-3 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                  Throughput · últimas 12 h
+                  {t("throughput")}
                 </span>
                 <span className="text-[10px] font-bold text-indigo-500">+5.4%</span>
               </div>
@@ -132,7 +136,7 @@ export function LandingMockup() {
             {/* Andon por línea */}
             <div className="rounded-xl border border-black/[0.06] bg-gray-50/60 p-3 dark:border-white/10 dark:bg-white/[0.03]">
               <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                Andon por línea
+                {t("andonByLine")}
               </span>
               <div className="mt-2 space-y-2">
                 {LINES.map((l) => (

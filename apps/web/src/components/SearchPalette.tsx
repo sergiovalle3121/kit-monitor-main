@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
@@ -199,6 +200,7 @@ const optId = (id: string) => 'axos-opt-' + id.replace(/[^a-zA-Z0-9_-]/g, '-');
 export function SearchPalette() {
   const router = useRouter();
   const reduce = useReducedMotion();
+  const t = useTranslations('search');
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -293,26 +295,26 @@ export function SearchPalette() {
         .map((href) => allNav.find((d) => d.href === href))
         .filter((item): item is RenderHit => Boolean(item));
       if (recentItems.length) {
-        out.push({ key: 'recent', kind: 'nav', label: 'Recientes', tone: NAV_TONE, items: recentItems });
+        out.push({ key: 'recent', kind: 'nav', label: t('recent'), tone: NAV_TONE, items: recentItems });
       }
       for (const area of AREA_ORDER) {
         const items = allNav.filter((d) => d.area === area);
-        if (items.length) out.push({ key: `area:${area}`, kind: 'nav', label: AREA_META[area].label, tone: AREA_META[area], items });
+        if (items.length) out.push({ key: `area:${area}`, kind: 'nav', label: t(`areas.${area}`), tone: AREA_META[area], items });
       }
       return out;
     }
-    const navHits = allNav.filter((d) => terms.every((t) => d.haystack!.includes(t))).slice(0, NAV_CAP);
-    if (navHits.length) out.push({ key: 'nav', kind: 'nav', label: KIND_META.nav.label, tone: NAV_TONE, items: navHits });
+    const navHits = allNav.filter((d) => terms.every((term) => d.haystack!.includes(term))).slice(0, NAV_CAP);
+    if (navHits.length) out.push({ key: 'nav', kind: 'nav', label: t('kinds.nav.label'), tone: NAV_TONE, items: navHits });
     if (q.length >= 2) {
       for (const k of ENTITY_ORDER) {
         const items = entityHits
           .filter((h) => h.kind === k)
           .map<RenderHit>((h) => ({ kind: h.kind, id: h.id, title: h.title, subtitle: h.subtitle, href: h.href, badge: h.badge, icon: KIND_META[h.kind].icon, tone: KIND_META[h.kind] }));
-        if (items.length) out.push({ key: `rec:${k}`, kind: k, label: KIND_META[k].label, tone: KIND_META[k], items });
+        if (items.length) out.push({ key: `rec:${k}`, kind: k, label: t(`kinds.${k}.label`), tone: KIND_META[k], items });
       }
     }
     return out;
-  }, [terms, allNav, recentHrefs, entityHits, q]);
+  }, [terms, allNav, recentHrefs, entityHits, q, t]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const indexById = useMemo(() => new Map(flat.map((h, i) => [h.id, i])), [flat]);
@@ -365,7 +367,7 @@ export function SearchPalette() {
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Buscar y navegar"
+            aria-label={t('dialogLabel')}
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.975 }}
             animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.985 }}
@@ -385,14 +387,14 @@ export function SearchPalette() {
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setSelected(0); }}
                 onKeyDown={onKeyDown}
-                placeholder="Buscar área o pantalla…"
+                placeholder={t('placeholder')}
                 className="flex-1 bg-transparent outline-none text-base text-foreground placeholder:text-gray-400"
               />
               {recordsLoading && <Loader2 className="w-4 h-4 text-primary animate-spin flex-shrink-0" />}
               <button
                 onClick={() => setIsOpen(false)}
-                aria-label="Cerrar búsqueda"
-                title="Cerrar (Esc)"
+                aria-label={t('close')}
+                title={t('closeHint')}
                 className="flex-shrink-0 rounded-full p-1.5 text-rose-500 transition-colors hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
               >
                 <X className="w-4 h-4" />
@@ -400,7 +402,7 @@ export function SearchPalette() {
             </div>
 
             {/* Resultados */}
-            <div id="axos-search-listbox" role="listbox" aria-label="Resultados" className="max-h-[60vh] overflow-y-auto p-2">
+            <div id="axos-search-listbox" role="listbox" aria-label={t('results')} className="max-h-[60vh] overflow-y-auto p-2">
               {groups.map((group) => (
                 <div key={group.key} className="mb-1.5 last:mb-0">
                   <GroupHeader label={group.label} tone={group.tone} count={group.items.length} />
@@ -440,7 +442,7 @@ export function SearchPalette() {
                         )}
                         <span className={`flex-shrink-0 items-center gap-1 text-[10px] font-semibold text-primary ${active ? 'flex' : 'hidden'}`}>
                           <CornerDownLeft className="w-3 h-3" />
-                          <span className="hidden md:inline">Enter</span>
+                          <span className="hidden md:inline">{t('enter')}</span>
                         </span>
                       </button>
                     );
@@ -451,7 +453,7 @@ export function SearchPalette() {
               {/* Sin áreas que coincidan (pero el slot de registros sigue presente abajo). */}
               {searching && !hasNavMatch && (
                 <p className="px-3 py-2 text-[12.5px] text-gray-500 dark:text-gray-400">
-                  Ninguna área coincide con «{q}».
+                  {t('noAreaMatch', { q })}
                 </p>
               )}
 
@@ -463,17 +465,17 @@ export function SearchPalette() {
               {/* Aviso honesto cuando algunas fuentes responden y otras no. */}
               {searching && status === 'ready' && recordHitCount > 0 && degraded.length > 0 && (
                 <p className="px-3 py-2 text-[11px] text-amber-600 dark:text-amber-400">
-                  No se pudo consultar: {degraded.map((k) => KIND_META[k].label).join(', ')}. Mostrando el resto.
+                  {t('degraded', { sources: degraded.map((k) => t(`kinds.${k}.label`)).join(', ') })}
                 </p>
               )}
             </div>
 
             {/* Pie: atajos de teclado + nota de T-Codes */}
             <div className="px-4 py-2.5 border-t border-black/5 dark:border-white/10 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
-              <FooterKey k="↑↓" label="navegar" />
-              <FooterKey k="↵" label="abrir" />
-              <FooterKey k="esc" label="cerrar" />
-              <span className="ml-auto hidden sm:inline">¿T-Codes? Entra a <span className="text-gray-500 dark:text-gray-300 font-medium">Axos ERP</span></span>
+              <FooterKey k="↑↓" label={t('footer.navigate')} />
+              <FooterKey k="↵" label={t('footer.open')} />
+              <FooterKey k="esc" label={t('footer.close')} />
+              <span className="ml-auto hidden sm:inline">{t('tcodesNote')} <span className="text-gray-500 dark:text-gray-300 font-medium">Axos ERP</span></span>
             </div>
           </motion.div>
         </motion.div>
@@ -541,10 +543,11 @@ function FooterKey({ k, label }: { k: string; label: string }) {
  * qué aparecerá aquí (órdenes, NCR, partes, personas, documentos).
  */
 function RecordsSlot({ q, loading, authError, degraded }: { q: string; loading: boolean; authError: boolean; degraded: SearchKind[] }) {
+  const t = useTranslations('search');
   return (
     <div className="mt-1 mx-1 mb-1 rounded-2xl border border-dashed border-black/[0.1] dark:border-white/[0.12] bg-black/[0.015] dark:bg-white/[0.02] p-3">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Registros</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('records.title')}</span>
         {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 dark:text-gray-400" />}
       </div>
 
@@ -562,12 +565,12 @@ function RecordsSlot({ q, loading, authError, degraded }: { q: string; loading: 
         </div>
       ) : authError ? (
         <p className="text-[12.5px] leading-snug text-gray-500 dark:text-gray-400">
-          La búsqueda de registros aún no está conectada. Aparecerá aquí en cuanto el backend esté listo.
+          {t('records.notConnected')}
         </p>
       ) : (
         <p className="text-[12.5px] leading-snug text-gray-500 dark:text-gray-400">
-          Sin registros que coincidan con «{q}».
-          {degraded.length > 0 && ` No se pudo consultar: ${degraded.map((k) => KIND_META[k].label).join(', ')}.`}
+          {t('records.noMatch', { q })}
+          {degraded.length > 0 && ` ${t('records.couldntQuery', { sources: degraded.map((k) => t(`kinds.${k}.label`)).join(', ') })}`}
         </p>
       )}
 
@@ -581,7 +584,7 @@ function RecordsSlot({ q, loading, authError, degraded }: { q: string; loading: 
               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10.5px] font-medium text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.06]"
             >
               <Icon className="w-3 h-3" style={{ color: m.solid }} />
-              {m.short}
+              {t(`kinds.${k}.short`)}
             </span>
           );
         })}

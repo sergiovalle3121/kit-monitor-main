@@ -1,0 +1,23 @@
+{
+  "search": "Buscar",
+  "searchPlaceholder": "Busca módulos, órdenes, materiales…",
+  "commandHint": "Pulsa ⌘K para buscar",
+  "notifications": "Notificaciones",
+  "noNotifications": "Sin notificaciones",
+  "profile": "Perfil",
+  "settings": "Ajustes",
+  "logout": "Cerrar sesión",
+  "admin": "Administración",
+  "workspace": "Espacio de trabajo",
+  "switchWorkspace": "Cambiar de espacio",
+  "theme": {
+    "label": "Tema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema"
+  },
+  "toggleMenu": "Alternar menú",
+  "collapseSidebar": "Contraer panel lateral",
+  "expandSidebar": "Expandir panel lateral",
+  "breadcrumbHome": "Inicio"
+}

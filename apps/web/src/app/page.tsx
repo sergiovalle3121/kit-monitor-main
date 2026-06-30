@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { Reveal } from "@/components/Reveal";
 import { LandingMockup } from "@/components/landing/LandingMockup";
 import { LandingBento } from "@/components/landing/LandingBento";
 import { IconTile } from "@/components/ui/IconTile";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import type { DomainKey } from "@/lib/design/domains";
 import { hoverLift, press } from "@/lib/motion";
 import {
@@ -40,209 +42,60 @@ const MotionLink = motion.create(Link);
  * dominio (IconTile) y enlaza a su ruta real — sin inventar UI ni datos.
  */
 interface Program {
+  id: string;
   domain: DomainKey;
   icon?: LucideIcon;
-  name: string;
-  tag: string;
-  value: string;
   href: string;
 }
 
+// Datos estructurales (dominio/icono/ruta). El texto visible (name/tag/value)
+// vive en messages/{en,es}/landing.json bajo `galaxy.programs.<id>`.
 const PROGRAMS: Program[] = [
-  {
-    domain: "planning",
-    icon: Gauge,
-    name: "Control Tower",
-    tag: "Mando",
-    value: "Readiness, OEE, andons y holds en vivo.",
-    href: "/dashboard/mission-control",
-  },
-  {
-    domain: "mes",
-    name: "MES · Piso",
-    tag: "Ejecución",
-    value: "Poka-yoke, backflush y andon por estación.",
-    href: "/dashboard/operador",
-  },
-  {
-    domain: "erp",
-    name: "ERP · Supply Chain",
-    tag: "ERP",
-    value: "Compras, materiales y finanzas integradas.",
-    href: "/dashboard/erp",
-  },
-  {
-    domain: "inventory",
-    name: "Inventario",
-    tag: "Materiales",
-    value: "Kitting, e-kanban y conteos cíclicos.",
-    href: "/dashboard/inventory",
-  },
-  {
-    domain: "quality",
-    name: "Calidad · MRB",
-    tag: "Calidad",
-    value: "Holds, cuarentena y disposición MRB.",
-    href: "/dashboard/quality",
-  },
-  {
-    domain: "office",
-    name: "Office",
-    tag: "Productividad",
-    value: "Docs, Sheets y Slides nativos.",
-    href: "/dashboard/office",
-  },
-  {
-    domain: "engineering",
-    icon: Box,
-    name: "CAD · Layout",
-    tag: "Ingeniería",
-    value: "Layout de línea unificado 2D ⇄ 3D.",
-    href: "/dashboard/line-engineering",
-  },
-  {
-    domain: "plan",
-    icon: Sparkles,
-    name: "AI · CIDE",
-    tag: "Inteligencia",
-    value: "Tu analista de datos con IA propia.",
-    href: "/dashboard/intelligence",
-  },
-];
-
-/** Píldoras de breadth en el hero — comunica el alcance del OS de un vistazo. */
-const HERO_PILLS = [
-  "ERP",
-  "MES · Piso",
-  "Calidad · MRB",
-  "Inventario · e-kanban",
-  "CAD 2D ⇄ 3D",
-  "Office nativo",
-  "CIDE · IA",
-  "Trazabilidad",
-  "MRP",
-  "Backflush",
-  "Andon en vivo",
-  "Genealogía",
-];
-
-const FAQS = [
-  {
-    q: "¿AXOS OS reemplaza a un ERP o a un MES?",
-    a: "La ambición del producto es operar como ambos en una plataforma industrial: ERP para materiales, costos y supply chain; MES para piso, ejecución, calidad y trazabilidad.",
-  },
-  {
-    q: "¿La demo usa datos reales de clientes?",
-    a: "No. La demo pública debe tratarse como un entorno de muestra y de solo lectura; no se muestran clientes, certificaciones ni métricas comerciales inventadas.",
-  },
-  {
-    q: "¿Cómo se controla el acceso?",
-    a: "El login público existe, pero las cuentas nuevas quedan sujetas a aprobación administrativa y a roles antes de entrar a la consola.",
-  },
-  {
-    q: "¿AXOS depende de integraciones externas para contar su historia?",
-    a: "La landing describe capacidades nativas del repositorio: módulos de ERP, MES, Office, CAD, calidad, analítica e IA ya expuestos en rutas internas.",
-  },
+  { id: "controlTower", domain: "planning", icon: Gauge, href: "/dashboard/mission-control" },
+  { id: "mes", domain: "mes", href: "/dashboard/operador" },
+  { id: "erp", domain: "erp", href: "/dashboard/erp" },
+  { id: "inventory", domain: "inventory", href: "/dashboard/inventory" },
+  { id: "quality", domain: "quality", href: "/dashboard/quality" },
+  { id: "office", domain: "office", href: "/dashboard/office" },
+  { id: "cad", domain: "engineering", icon: Box, href: "/dashboard/line-engineering" },
+  { id: "ai", domain: "plan", icon: Sparkles, href: "/dashboard/intelligence" },
 ];
 
 /**
  * Flujo de extremo a extremo: AXOS cubre toda la operación, del diseño al
- * embarque, en un solo sistema. Usa firmas de dominio reales.
+ * embarque. Las etiquetas viven en `flow.steps.<id>`.
  */
-const FLOW: { domain: DomainKey; label: string }[] = [
-  { domain: "engineering", label: "Diseño · NPI" },
-  { domain: "planning", label: "Planeación" },
-  { domain: "staging", label: "Materiales" },
-  { domain: "production", label: "Producción" },
-  { domain: "quality", label: "Calidad" },
-  { domain: "logistics", label: "Logística" },
+const FLOW: { id: string; domain: DomainKey }[] = [
+  { id: "engineering", domain: "engineering" },
+  { id: "planning", domain: "planning" },
+  { id: "materials", domain: "staging" },
+  { id: "production", domain: "production" },
+  { id: "quality", domain: "quality" },
+  { id: "logistics", domain: "logistics" },
 ];
 
-/** Diferenciadores reales (sin métricas inventadas ni logos de terceros). */
-const DIFFERENTIATORS: {
-  icon: typeof Database;
-  title: string;
-  body: string;
-}[] = [
-  {
-    icon: Database,
-    title: "Una sola base de datos",
-    body: "Del diseño al embarque sin integraciones frágiles ni silos entre departamentos.",
-  },
-  {
-    icon: Workflow,
-    title: "Del plan al piso, en vivo",
-    body: "Publica el plan y ejecútalo con MES, backflush y bloqueos por calidad en tiempo real.",
-  },
-  {
-    icon: Fingerprint,
-    title: "Trazabilidad nativa",
-    body: "Serie/lote, as-built y where-used listos para auditorías de cliente y contención.",
-  },
-  {
-    icon: Sparkles,
-    title: "IA con contexto de tu planta",
-    body: "CIDE entiende todos tus módulos y datos — no es un chatbot genérico pegado encima.",
-  },
+/** Diferenciadores reales. El texto vive en `why.items.<id>`. */
+const DIFFERENTIATORS: { id: string; icon: typeof Database }[] = [
+  { id: "db", icon: Database },
+  { id: "planToFloor", icon: Workflow },
+  { id: "traceability", icon: Fingerprint },
+  { id: "ai", icon: Sparkles },
 ];
 
 interface Feature {
+  id: string;
   icon: React.ReactNode;
-  title: string;
-  desc: string;
-  details: string;
   href: string;
 }
 
+// El texto (title/desc/details) vive en `platform.features.<id>`.
 const FEATURES: Feature[] = [
-  {
-    icon: <LayoutDashboard />,
-    title: "Torre de control",
-    desc: "Visibilidad de la operación con KPIs en vivo: readiness, OEE, throughput y alertas.",
-    details:
-      "Mission Control y la torre de línea consolidan readiness, plan vs real, andons, holds y estado por línea en un solo panel. Para directores y supervisores.",
-    href: "/dashboard/mission-control",
-  },
-  {
-    icon: <Box />,
-    title: "Inventario y surtido",
-    desc: "Inventario, kitting y reposición e-kanban a línea, con alertas de faltante.",
-    details:
-      "Surtido por estación desde el ruteo, reposición pull (e-kanban) y conteos cíclicos. Conectado a la ejecución del piso.",
-    href: "/dashboard/inventory",
-  },
-  {
-    icon: <Activity />,
-    title: "Ejecución en piso (MES)",
-    desc: "Operador MES: poka-yoke, backflush de material y andon por estación.",
-    details:
-      "El operador escanea, el sistema valida el NP (poka-yoke), descuenta material (backflush) y registra el avance. Bloqueos por calidad, skill y faltante.",
-    href: "/dashboard/operador",
-  },
-  {
-    icon: <Zap />,
-    title: "Calidad y MRB",
-    desc: "Holds que ponen el lote en cuarentena y bloquean el consumo, con flujo MRB.",
-    details:
-      "Captura de rechazo → cuarentena → revisión MRB → disposición (use-as-is/rework/scrap/RTV) con firma y where-used. Bloquea el consumo de la WO retenida.",
-    href: "/dashboard/floor-quality",
-  },
-  {
-    icon: <Cpu />,
-    title: "Arquitectura",
-    desc: "NestJS + Next.js, TypeORM y diseño multi-tenant. Monolito modular.",
-    details:
-      "Backend NestJS modular, frontend Next.js, TypeORM y arquitectura preparada para multi-tenant (aislamiento por organización).",
-    href: "/dashboard/engineering",
-  },
-  {
-    icon: <Layers />,
-    title: "Roles por puesto",
-    desc: "Aislamiento por organización con roles y permisos por puesto del piso.",
-    details:
-      "Roles de planta (operador, materialista, supervisor, planeación, calidad/MRB, ingeniería industrial) con permisos por acción y scope por planta/línea.",
-    href: "/dashboard/settings/users",
-  },
+  { id: "controlTower", icon: <LayoutDashboard />, href: "/dashboard/mission-control" },
+  { id: "inventory", icon: <Box />, href: "/dashboard/inventory" },
+  { id: "mes", icon: <Activity />, href: "/dashboard/operador" },
+  { id: "quality", icon: <Zap />, href: "/dashboard/floor-quality" },
+  { id: "architecture", icon: <Cpu />, href: "/dashboard/engineering" },
+  { id: "roles", icon: <Layers />, href: "/dashboard/settings/users" },
 ];
 
 type Toast = { id: number; kind: "info" | "success" | "error"; text: string };
@@ -250,9 +103,23 @@ type Toast = { id: number; kind: "info" | "success" | "error"; text: string };
 export default function Home() {
   const router = useRouter();
   const reduce = useReducedMotion();
+  const t = useTranslations("landing");
   const [activeFeature, setActiveFeature] = useState<Feature | null>(null);
   const [demoLoading, setDemoLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // Listas que viven como arrays en el catálogo (t.raw devuelve el array crudo).
+  const heroPills = t.raw("heroPills") as string[];
+  const solutionItems = t.raw("solutions.items") as {
+    title: string;
+    summary: string;
+    points: string[];
+  }[];
+  const enterpriseItems = t.raw("enterprise.items") as {
+    title: string;
+    body: string;
+  }[];
+  const faqItems = t.raw("faq.items") as { q: string; a: string }[];
 
   function pushToast(kind: Toast["kind"], text: string) {
     const id = Date.now() + Math.random();
@@ -270,10 +137,10 @@ export default function Home() {
     try {
       const res = await fetch("/api/auth/demo", { method: "POST" });
       if (!res.ok) throw new Error();
-      pushToast("success", "Demo iniciada (sesión de 30 min, solo lectura).");
+      pushToast("success", t("toast.demoStarted"));
       setTimeout(() => router.push("/dashboard"), 600);
     } catch {
-      pushToast("error", "No se pudo iniciar la demo. Intenta de nuevo.");
+      pushToast("error", t("toast.demoError"));
       setDemoLoading(false);
     }
   }
@@ -310,45 +177,46 @@ export default function Home() {
               onClick={() => scrollTo("galaxy")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
-              Programs
+              {t("nav.programs")}
             </button>
             <button
               onClick={() => scrollTo("why")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
-              Por qué
+              {t("nav.why")}
             </button>
             <button
               onClick={() => scrollTo("capabilities")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
-              Módulos
+              {t("nav.modules")}
             </button>
             <button
               onClick={() => scrollTo("solutions")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
-              Solutions
+              {t("nav.solutions")}
             </button>
             <button
               onClick={() => scrollTo("enterprise")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
-              Enterprise
+              {t("nav.enterprise")}
             </button>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSwitcher variant="compact" className="hidden sm:inline-flex" />
             <Link
               href="/login"
               className="px-4 py-2 rounded-full text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all"
             >
-              Iniciar sesión
+              {t("nav.login")}
             </Link>
             <Link
               href="/login?register=1"
               className="px-5 py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/10 dark:shadow-white/5"
             >
-              Crear cuenta
+              {t("nav.signup")}
             </Link>
           </div>
         </div>
@@ -388,24 +256,22 @@ export default function Home() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
-            <span>Industrial OS · ERP · MES · Office · CAD · IA — en una sola plataforma</span>
+            <span>{t("hero.badge")}</span>
           </motion.div>
 
           <motion.h1
             variants={itemVariants}
             className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tighter mb-7 leading-[1.02]"
           >
-            El sistema operativo que corre{" "}
-            <span className="text-gradient-title">toda tu planta</span>.
+            {t("hero.titleLead")}{" "}
+            <span className="text-gradient-title">{t("hero.titleHighlight")}</span>.
           </motion.h1>
 
           <motion.p
             variants={itemVariants}
             className="text-lg md:text-2xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-9 font-light leading-relaxed"
           >
-            ERP, MES, calidad, inventario, CAD e IA en un solo lugar. Del diseño
-            al embarque, sobre una base de datos común — sin silos ni
-            integraciones frágiles, con la operación completa en una pantalla.
+            {t("hero.subtitle")}
           </motion.p>
 
           <motion.div
@@ -418,7 +284,7 @@ export default function Home() {
               whileTap={reduce ? undefined : press}
               className="group px-7 py-3.5 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-base font-semibold flex items-center gap-2 shadow-xl shadow-indigo-500/15 hover:shadow-2xl transition-all"
             >
-              Comenzar
+              {t("hero.ctaStart")}
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </MotionLink>
             <motion.button
@@ -433,12 +299,12 @@ export default function Home() {
               ) : (
                 <PlayCircle className="w-5 h-5" />
               )}
-              Ver demo en vivo
+              {t("hero.ctaDemo")}
             </motion.button>
           </motion.div>
 
           <motion.p variants={itemVariants} className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-            Demo de solo lectura · sesión de 30 min · sin tarjeta
+            {t("hero.demoNote")}
           </motion.p>
         </motion.div>
 
@@ -458,7 +324,7 @@ export default function Home() {
         {/* Marquesina de capacidades — el alcance del OS, en movimiento */}
         <div className="marquee-mask relative mx-auto mt-16 max-w-5xl overflow-hidden">
           <div className="marquee-track flex w-max items-center gap-3">
-            {[...HERO_PILLS, ...HERO_PILLS].map((p, i) => (
+            {[...heroPills, ...heroPills].map((p, i) => (
               <span
                 key={i}
                 className="whitespace-nowrap rounded-full border border-black/[0.06] dark:border-white/10 bg-white/60 dark:bg-white/[0.04] px-4 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400"
@@ -478,23 +344,22 @@ export default function Home() {
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-              De extremo a extremo
+              {t("flow.eyebrow")}
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
-              Del diseño al embarque, un solo sistema.
+              {t("flow.title")}
             </h2>
             <p className="text-gray-500 mt-3 font-light max-w-xl mx-auto">
-              Cada etapa de la operación vive en la misma plataforma — sin
-              saltar entre apps ni perder el hilo de la información.
+              {t("flow.subtitle")}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-6">
             {FLOW.map((s, i) => (
-              <div key={s.label} className="flex items-center gap-2">
+              <div key={s.id} className="flex items-center gap-2">
                 <div className="flex flex-col items-center gap-2 w-24">
                   <IconTile domain={s.domain} size={52} />
                   <span className="text-xs font-medium text-center leading-tight">
-                    {s.label}
+                    {t(`flow.steps.${s.id}`)}
                   </span>
                 </div>
                 {i < FLOW.length - 1 && (
@@ -511,20 +376,19 @@ export default function Home() {
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-              El sistema operativo
+              {t("galaxy.eyebrow")}
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
-              Un OS, todos los programas.
+              {t("galaxy.title")}
             </h2>
             <p className="text-gray-500 mt-3 font-light max-w-xl mx-auto">
-              Cada departamento es un programa nativo del mismo sistema — no
-              apps sueltas pegadas con integraciones.
+              {t("galaxy.subtitle")}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {PROGRAMS.map((p) => (
               <MotionLink
-                key={p.name}
+                key={p.id}
                 href={p.href}
                 whileHover={reduce ? undefined : { y: -4 }}
                 whileTap={reduce ? undefined : { scale: 0.98 }}
@@ -533,16 +397,16 @@ export default function Home() {
                 <div className="flex items-center justify-between">
                   <IconTile domain={p.domain} icon={p.icon} size={46} />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    {p.tag}
+                    {t(`galaxy.programs.${p.id}.tag`)}
                   </span>
                 </div>
                 <div>
                   <h3 className="text-base font-semibold flex items-center gap-1">
-                    {p.name}
+                    {t(`galaxy.programs.${p.id}.name`)}
                     <ChevronRight className="w-4 h-4 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-light leading-relaxed mt-1">
-                    {p.value}
+                    {t(`galaxy.programs.${p.id}.value`)}
                   </p>
                 </div>
               </MotionLink>
@@ -562,19 +426,19 @@ export default function Home() {
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-              Platform
+              {t("platform.eyebrow")}
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
-              Una sola plataforma. Toda la operación.
+              {t("platform.title")}
             </h2>
             <p className="text-gray-500 mt-3 font-light">
-              Haz click en cualquier módulo para ver el detalle.
+              {t("platform.subtitle")}
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {FEATURES.map((feature, i) => (
+            {FEATURES.map((feature) => (
               <motion.button
-                key={i}
+                key={feature.id}
                 onClick={() => setActiveFeature(feature)}
                 whileHover={{ y: -5 }}
                 whileTap={{ scale: 0.98 }}
@@ -583,12 +447,12 @@ export default function Home() {
                 <div className="w-12 h-12 bg-white dark:bg-white/10 rounded-xl flex items-center justify-center mb-6 shadow-sm border border-gray-100 dark:border-white/10 group-hover:scale-110 transition-transform">
                   {feature.icon}
                 </div>
-                <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
+                <h3 className="text-xl font-semibold mb-3">{t(`platform.features.${feature.id}.title`)}</h3>
                 <p className="text-gray-500 dark:text-gray-400 font-light leading-relaxed">
-                  {feature.desc}
+                  {t(`platform.features.${feature.id}.desc`)}
                 </p>
                 <p className="mt-4 text-xs font-bold text-black dark:text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                  Ver detalle <ChevronRight className="w-3 h-3" />
+                  {t("platform.viewDetail")} <ChevronRight className="w-3 h-3" />
                 </p>
               </motion.button>
             ))}
@@ -601,10 +465,10 @@ export default function Home() {
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-              Por qué AXOS
+              {t("why.eyebrow")}
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
-              No es otra suite. Es un sistema operativo.
+              {t("why.title")}
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -612,16 +476,16 @@ export default function Home() {
               const Icon = d.icon;
               return (
                 <div
-                  key={d.title}
+                  key={d.id}
                   className="flex items-start gap-4 p-6 rounded-3xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5"
                 >
                   <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-white dark:bg-white/10 border border-gray-100 dark:border-white/10 text-gray-700 dark:text-gray-200">
                     <Icon className="h-5 w-5" strokeWidth={1.75} />
                   </span>
                   <div>
-                    <h3 className="text-lg font-semibold">{d.title}</h3>
+                    <h3 className="text-lg font-semibold">{t(`why.items.${d.id}.title`)}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 font-light leading-relaxed mt-1">
-                      {d.body}
+                      {t(`why.items.${d.id}.body`)}
                     </p>
                   </div>
                 </div>
@@ -636,48 +500,17 @@ export default function Home() {
         <Reveal className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-              Solutions
+              {t("solutions.eyebrow")}
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
-              Pensado para manufactura por contrato.
+              {t("solutions.title")}
             </h2>
             <p className="text-gray-500 mt-3 font-light">
-              Despliega cada capacidad para ver qué hace, de verdad.
+              {t("solutions.subtitle")}
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            {[
-              {
-                title: "Trazabilidad y genealogía",
-                summary:
-                  "Serie/lote por unidad, as-built y where-used listos para auditoría.",
-                points: [
-                  "Genealogía cuna-a-tumba: lote/reel por NP, estación, operador y hora.",
-                  "Where-used inverso para contención cuando un lote sale dudoso.",
-                  "Certificado de Conformancia (CoC) por orden o por embarque.",
-                ],
-              },
-              {
-                title: "Del plan al piso",
-                summary:
-                  "Publica la WO, surte material a estación y ejecútala con backflush en vivo.",
-                points: [
-                  "Poka-yoke por NP y validaciones de skill/calidad por estación.",
-                  "Backflush automático de material al confirmar avance.",
-                  "Andon y holds que bloquean el consumo del lote retenido.",
-                ],
-              },
-              {
-                title: "BOM e ingeniería",
-                summary:
-                  "Ruteo por modelo, materiales por estación con factor de uso y revisiones.",
-                points: [
-                  "Estructura de producto y ruteo por modelo, versionados.",
-                  "Materiales por estación con factor de uso para el backflush.",
-                  "Layout de línea 2D ⇄ 3D para diseñar el flujo antes de ejecutarlo.",
-                ],
-              },
-            ].map((s) => (
+            {solutionItems.map((s) => (
               <details
                 key={s.title}
                 className="group rounded-3xl border border-gray-100 dark:border-white/5 bg-white/80 dark:bg-white/5 px-6 py-5 open:bg-gray-50/70 dark:open:bg-white/[0.07] transition-colors"
@@ -719,38 +552,23 @@ export default function Home() {
       >
         <Reveal className="max-w-4xl mx-auto text-center">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-            Enterprise
+            {t("enterprise.eyebrow")}
           </span>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2 mb-6">
-            Seguridad y control.
+            {t("enterprise.title")}
           </h2>
           <p className="text-gray-500 dark:text-gray-400 font-light max-w-2xl mx-auto mb-10">
-            El acceso a la consola requiere aprobación del administrador. Las
-            cuentas creadas quedan en cola hasta su validación. La sesión es
-            firmada (HMAC-SHA256) y se almacena en cookie HttpOnly.
+            {t("enterprise.body")}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-            {[
-              {
-                t: "Aprobación de cuentas",
-                d: "Los nuevos registros notifican al admin y quedan pendientes.",
-              },
-              {
-                t: "Roles granulares",
-                d: "Admin, Engineering, Production, Quality, Inventory, Finance.",
-              },
-              {
-                t: "Sesiones firmadas",
-                d: "Cookies HttpOnly + firma HMAC con expiración configurable.",
-              },
-            ].map((x) => (
+            {enterpriseItems.map((x) => (
               <div
-                key={x.t}
+                key={x.title}
                 className="p-6 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5"
               >
-                <h4 className="font-semibold mb-2 text-sm">{x.t}</h4>
+                <h4 className="font-semibold mb-2 text-sm">{x.title}</h4>
                 <p className="text-gray-500 dark:text-gray-400 text-xs font-light">
-                  {x.d}
+                  {x.body}
                 </p>
               </div>
             ))}
@@ -759,7 +577,7 @@ export default function Home() {
             href="/login"
             className="inline-flex items-center gap-2 mt-10 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all"
           >
-            Solicitar acceso <ChevronRight className="w-4 h-4" />
+            {t("enterprise.cta")} <ChevronRight className="w-4 h-4" />
           </Link>
         </Reveal>
       </section>
@@ -769,14 +587,14 @@ export default function Home() {
         <Reveal className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
-              FAQ
+              {t("faq.eyebrow")}
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
-              Preguntas reales antes de entrar.
+              {t("faq.title")}
             </h2>
           </div>
           <div className="divide-y divide-gray-100 dark:divide-white/10 rounded-3xl border border-gray-100 dark:border-white/5 bg-white/80 dark:bg-white/5">
-            {FAQS.map((faq) => (
+            {faqItems.map((faq) => (
               <details
                 key={faq.q}
                 className="group p-6 open:bg-gray-50/70 dark:open:bg-white/5 first:rounded-t-3xl last:rounded-b-3xl"
@@ -801,15 +619,13 @@ export default function Home() {
           <div className="relative grid gap-8 md:grid-cols-[1.4fr_0.6fr] md:items-end">
             <div>
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/50 dark:text-black/50">
-                Siguiente paso
+                {t("finalCta.eyebrow")}
               </span>
               <h2 className="mt-3 text-4xl md:text-6xl font-bold tracking-tight">
-                Entra al OS. Evalúa el flujo completo.
+                {t("finalCta.title")}
               </h2>
               <p className="mt-5 max-w-2xl text-white/65 dark:text-black/60 font-light leading-relaxed">
-                Inicia sesión si ya tienes acceso, solicita cuenta para
-                aprobación o abre la demo de solo lectura para recorrer la
-                experiencia sin promesas infladas.
+                {t("finalCta.body")}
               </p>
             </div>
             <div className="flex flex-col gap-3">
@@ -817,14 +633,14 @@ export default function Home() {
                 href="/login"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-bold text-black dark:bg-black dark:text-white hover:scale-[1.02] active:scale-[0.98] transition"
               >
-                Iniciar sesión <ChevronRight className="h-4 w-4" />
+                {t("finalCta.login")} <ChevronRight className="h-4 w-4" />
               </Link>
               <button
                 onClick={startDemo}
                 disabled={demoLoading}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 px-6 py-4 text-sm font-bold text-white/80 hover:bg-white/10 disabled:opacity-60 dark:border-black/15 dark:text-black/70 dark:hover:bg-black/10 transition"
               >
-                {demoLoading ? "Preparando demo…" : "Ver demo de solo lectura"}
+                {demoLoading ? t("finalCta.demoPreparing") : t("finalCta.demoIdle")}
               </button>
             </div>
           </div>
@@ -846,50 +662,49 @@ export default function Home() {
                 </span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-light max-w-[15rem]">
-                El sistema operativo industrial para manufactura electrónica
-                moderna.
+                {t("footer.tagline")}
               </p>
             </div>
 
             {/* Producto */}
-            <FooterCol title="Producto">
+            <FooterCol title={t("footer.product")}>
               <FooterLink onClick={() => scrollTo("galaxy")}>
-                Programas
+                {t("footer.links.programs")}
               </FooterLink>
               <FooterLink onClick={() => scrollTo("flow")}>
-                Flujo end-to-end
+                {t("footer.links.flow")}
               </FooterLink>
-              <FooterLink onClick={() => scrollTo("capabilities")}>Módulos</FooterLink>
+              <FooterLink onClick={() => scrollTo("capabilities")}>{t("footer.links.modules")}</FooterLink>
               <FooterLink onClick={() => scrollTo("solutions")}>
-                Soluciones
+                {t("footer.links.solutions")}
               </FooterLink>
-              <FooterLink onClick={() => scrollTo("faq")}>FAQ</FooterLink>
+              <FooterLink onClick={() => scrollTo("faq")}>{t("footer.links.faq")}</FooterLink>
             </FooterCol>
 
             {/* Empresa */}
-            <FooterCol title="Empresa">
+            <FooterCol title={t("footer.company")}>
               <FooterLink onClick={() => scrollTo("why")}>
-                Por qué AXOS
+                {t("footer.links.whyAxos")}
               </FooterLink>
               <FooterLink onClick={() => scrollTo("enterprise")}>
-                Enterprise
+                {t("footer.links.enterprise")}
               </FooterLink>
             </FooterCol>
 
             {/* Acceso */}
-            <FooterCol title="Acceso">
-              <FooterLink href="/login">Iniciar sesión</FooterLink>
-              <FooterLink href="/login?register=1">Crear cuenta</FooterLink>
-              <FooterLink onClick={startDemo}>Ver demo</FooterLink>
+            <FooterCol title={t("footer.access")}>
+              <FooterLink href="/login">{t("footer.links.login")}</FooterLink>
+              <FooterLink href="/login?register=1">{t("footer.links.signup")}</FooterLink>
+              <FooterLink onClick={startDemo}>{t("footer.links.demo")}</FooterLink>
             </FooterCol>
           </div>
 
           <div className="mt-12 pt-6 border-t border-gray-100 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-light">
-              © 2026 AXOS OS · Industrial Operating System
+              {t("footer.copyright")}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 font-light">
-              ERP · MES · Office · CAD · AI
+              {t("footer.stack")}
             </p>
           </div>
         </div>
@@ -926,23 +741,23 @@ export default function Home() {
                   </button>
                 </div>
                 <h3 className="text-2xl font-bold tracking-tight mb-3">
-                  {activeFeature.title}
+                  {t(`platform.features.${activeFeature.id}.title`)}
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400 font-light text-sm leading-relaxed mb-6">
-                  {activeFeature.details}
+                  {t(`platform.features.${activeFeature.id}.details`)}
                 </p>
                 <div className="flex gap-3">
                   <Link
                     href={activeFeature.href}
                     className="flex-1 px-4 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition"
                   >
-                    Abrir módulo <ChevronRight className="w-4 h-4" />
+                    {t("platform.openModule")} <ChevronRight className="w-4 h-4" />
                   </Link>
                   <button
                     onClick={() => setActiveFeature(null)}
                     className="px-4 py-3 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition"
                   >
-                    Cerrar
+                    {t("platform.close")}
                   </button>
                 </div>
               </div>
@@ -954,23 +769,23 @@ export default function Home() {
       {/* Toasts */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2">
         <AnimatePresence>
-          {toasts.map((t) => (
+          {toasts.map((toast) => (
             <motion.div
-              key={t.id}
+              key={toast.id}
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 30 }}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-sm font-medium ${
-                t.kind === "success"
+                toast.kind === "success"
                   ? "bg-green-50 border-green-100 text-green-700 dark:bg-green-500/10 dark:border-green-500/20 dark:text-green-300"
-                  : t.kind === "error"
+                  : toast.kind === "error"
                     ? "bg-red-50 border-red-100 text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300"
                     : "bg-white border-gray-100 text-black dark:bg-[#111] dark:border-white/10 dark:text-white"
               }`}
             >
-              {t.kind === "success" && <CheckCircle2 className="w-4 h-4" />}
-              {t.kind === "error" && <AlertCircle className="w-4 h-4" />}
-              <span>{t.text}</span>
+              {toast.kind === "success" && <CheckCircle2 className="w-4 h-4" />}
+              {toast.kind === "error" && <AlertCircle className="w-4 h-4" />}
+              <span>{toast.text}</span>
             </motion.div>
           ))}
         </AnimatePresence>

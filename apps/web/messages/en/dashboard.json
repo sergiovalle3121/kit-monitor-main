@@ -1,0 +1,45 @@
+{
+  "blocked": "You don't have access to that section with your current role.",
+  "eyebrow": "Operations hub · {role}",
+  "greeting": "Hi, {name}.",
+  "subtitle": "What needs your attention today, at a glance.",
+  "search": "Search",
+  "myActivity": "My activity",
+  "context": "Context",
+  "defaultUser": "User",
+  "defaultWorkspace": "AXOS Workspace",
+  "kpis": {
+    "plansToPublish": "Plans to publish",
+    "plansToPublishMeta": "require release",
+    "published": "Published",
+    "publishedMeta": "visible to operations",
+    "pendingRequests": "Pending requests",
+    "pendingRequestsMeta": "waiting on warehouse"
+  },
+  "attention": {
+    "title": "Needs attention",
+    "countSignals": "{count, plural, one {# actionable signal} other {# actionable signals}}",
+    "none": "No pending items",
+    "allClear": "All caught up. No plans to publish and no requests waiting to be kitted.",
+    "plansPending": "{count, plural, one {# plan to publish} other {# plans to publish}}",
+    "plansPendingMeta": "Release them so operations can see them",
+    "reqsPending": "{count, plural, one {# material request} other {# material requests}}",
+    "reqsPendingMeta": "Waiting on warehouse kitting"
+  },
+  "severity": {
+    "high": "High priority",
+    "medium": "Pending"
+  },
+  "quickAccess": {
+    "title": "Quick access",
+    "hint": "Open “Axos OS” (top) to see all modules"
+  },
+  "activity": {
+    "title": "Recent activity",
+    "subtitle": "Latest operational signals",
+    "empty": "No activity yet. Publish a plan to get started.",
+    "planPublished": "Plan {model} published",
+    "materialRequest": "Request for {model}",
+    "materialFallback": "material"
+  }
+}

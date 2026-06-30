@@ -1,0 +1,43 @@
+{
+  "dialogLabel": "Buscar y navegar",
+  "placeholder": "Buscar área o pantalla…",
+  "close": "Cerrar búsqueda",
+  "closeHint": "Cerrar (Esc)",
+  "results": "Resultados",
+  "enter": "Enter",
+  "recent": "Recientes",
+  "noAreaMatch": "Ninguna área coincide con «{q}».",
+  "degraded": "No se pudo consultar: {sources}. Mostrando el resto.",
+  "tcodesNote": "¿T-Codes? Entra a",
+  "footer": {
+    "navigate": "navegar",
+    "open": "abrir",
+    "close": "cerrar"
+  },
+  "records": {
+    "title": "Registros",
+    "notConnected": "La búsqueda de registros aún no está conectada. Aparecerá aquí en cuanto el backend esté listo.",
+    "noMatch": "Sin registros que coincidan con «{q}».",
+    "couldntQuery": "No se pudo consultar: {sources}."
+  },
+  "areas": {
+    "home": "Inicio y tableros",
+    "production": "Planeación y producción",
+    "supply": "Almacén y cadena de suministro",
+    "quality": "Calidad",
+    "materials": "Materiales e ingeniería",
+    "finance": "Finanzas",
+    "people": "Personas y soporte",
+    "comms": "Office y comunicación",
+    "erp": "ERP · T-Codes",
+    "admin": "Administración y datos"
+  },
+  "kinds": {
+    "wo": { "label": "Órdenes de trabajo", "short": "Órdenes" },
+    "ncr": { "label": "Calidad · NCR", "short": "NCR" },
+    "part": { "label": "Partes y modelos", "short": "Partes" },
+    "person": { "label": "Personas", "short": "Personas" },
+    "doc": { "label": "Documentos", "short": "Documentos" },
+    "nav": { "label": "Ir a un área", "short": "Áreas" }
+  }
+}

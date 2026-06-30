@@ -1,0 +1,23 @@
+{
+  "search": "Search",
+  "searchPlaceholder": "Search modules, orders, materials…",
+  "commandHint": "Press ⌘K to search",
+  "notifications": "Notifications",
+  "noNotifications": "No notifications",
+  "profile": "Profile",
+  "settings": "Settings",
+  "logout": "Sign out",
+  "admin": "Admin",
+  "workspace": "Workspace",
+  "switchWorkspace": "Switch workspace",
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "toggleMenu": "Toggle menu",
+  "collapseSidebar": "Collapse sidebar",
+  "expandSidebar": "Expand sidebar",
+  "breadcrumbHome": "Home"
+}

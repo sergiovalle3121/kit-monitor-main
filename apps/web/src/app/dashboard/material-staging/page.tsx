@@ -6,6 +6,7 @@ import {
   Truck, PackageCheck, Boxes, Zap, ClipboardList, ListChecks, RotateCcw,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ModelName } from '@/components/ui/ModelName';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
@@ -253,7 +254,7 @@ export default function MaterialStagingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Pick-list del plan {activePlanWO ? `· ${activePlanWO.model}` : ''}</h3>
+                  <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Pick-list del plan {activePlanWO ? <>· <ModelName code={activePlanWO.model} /></> : ''}</h3>
                   {activePlan && pickLines.length > 0 && (
                     <button onClick={stagePlanAll} disabled={busy === 'stage-all'} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-60" style={{ background: GREEN }}>
                       {busy === 'stage-all' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListChecks className="w-4 h-4" />} Surtir todo
@@ -318,7 +319,8 @@ export default function MaterialStagingPage() {
                       <button key={p.planId} onClick={() => setSelPlan(p.planId)} className={`${glass} rounded-xl p-3 w-full text-left ${p.planId === activePlan ? 'ring-2' : ''}`} style={p.planId === activePlan ? { boxShadow: `inset 0 0 0 2px ${BLUE}` } : undefined}>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-sm font-medium">{p.workOrder}</span>
-                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{p.model}</span>
+                          <ModelName code={p.model} className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500" />
+
                           {p.allStaged
                             ? <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${GREEN}1f`, color: GREEN }}><CheckCircle2 className="w-3 h-3" /> Listo</span>
                             : <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{pct(p.fillRatePct)}</span>}
@@ -485,7 +487,7 @@ function MaterialRequestQueue({
                       {request.workOrder && <span className="font-mono text-[12px] text-gray-500">{request.workOrder}</span>}
                       {isActivePlan && <span className="text-[10px] text-amber-500">plan activo</span>}
                     </div>
-                    <div className="text-sm font-semibold mt-1 truncate">{request.model ?? `Kit #${request.kitId}`}</div>
+                    <div className="text-sm font-semibold mt-1 truncate">{request.model ? <ModelName code={request.model} /> : `Kit #${request.kitId}`}</div>
                     {contextLabel && <div className="mt-1 text-[12px] font-semibold text-gray-600 dark:text-gray-300 truncate">{contextLabel}</div>}
                     <div className="text-[12px] text-gray-500 dark:text-gray-400">
                       {request.quantity ? `${request.quantity} u plan · ` : ''}Solicito {request.requestedBy}

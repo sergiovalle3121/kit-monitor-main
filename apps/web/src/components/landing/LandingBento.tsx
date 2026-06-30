@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import {
   ArrowRight,
   CheckCircle2,
@@ -70,10 +71,11 @@ function OeeRing({ pct = 94 }: { pct?: number }) {
 
 /* --- Mini-visual: tarjetas e-kanban --- */
 function KanbanCards() {
+  const t = useTranslations("landing.bento.kanban");
   const cards = [
-    { np: "R0402-10K", qty: "Reponer", tone: "bg-amber-500" },
-    { np: "C0603-100n", qty: "OK", tone: "bg-emerald-500" },
-    { np: "U-ATmega", qty: "OK", tone: "bg-emerald-500" },
+    { np: "R0402-10K", qty: t("replenish"), tone: "bg-amber-500" },
+    { np: "C0603-100n", qty: t("ok"), tone: "bg-emerald-500" },
+    { np: "U-ATmega", qty: t("ok"), tone: "bg-emerald-500" },
   ];
   return (
     <div aria-hidden className="space-y-1.5">
@@ -112,6 +114,7 @@ function TraceTimeline() {
 
 /* --- Mini-visual: pipeline plan → piso --- */
 function PlanToFloor() {
+  const t = useTranslations("landing.bento.planToFloor");
   const stations = [
     { name: "SMT", done: true },
     { name: "AOI", done: true },
@@ -124,10 +127,10 @@ function PlanToFloor() {
         <span className="rounded-lg bg-indigo-500/10 px-2.5 py-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-300">
           WO-4821
         </span>
-        <span className="text-[11px] text-gray-500 dark:text-gray-400">Publicada · 1,200 u</span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400">{t("published")}</span>
         <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-          En piso
+          {t("onFloor")}
         </span>
       </div>
       <div className="flex items-center gap-1.5">
@@ -155,7 +158,7 @@ function PlanToFloor() {
       </div>
       <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
         <Boxes className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-        Backflush automático de material por estación
+        {t("backflush")}
       </div>
     </div>
   );
@@ -163,16 +166,16 @@ function PlanToFloor() {
 
 /* --- Mini-visual: consulta a CIDE (IA) --- */
 function CideSnippet() {
+  const t = useTranslations("landing.bento.cide");
   return (
     <div aria-hidden className="space-y-2">
       <div className="ml-auto w-fit max-w-[88%] rounded-2xl rounded-tr-sm bg-foreground px-3 py-1.5 text-[11px] font-medium text-background">
-        ¿Por qué cayó el FPY en SMT-2 ayer?
+        {t("question")}
       </div>
       <div className="flex max-w-[92%] items-start gap-2 rounded-2xl rounded-tl-sm border border-black/[0.06] bg-white/80 px-3 py-2 text-[11px] leading-relaxed text-gray-600 dark:border-white/10 dark:bg-white/[0.05] dark:text-gray-300">
         <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-indigo-500" />
         <span>
-          3 NCR del reel <span className="font-mono">L-88</span> (solder skips). El
-          hold ya está activo; revisa el perfil de reflow.
+          {t("answerPre")} <span className="font-mono">L-88</span> {t("answerPost")}
         </span>
       </div>
     </div>
@@ -181,6 +184,7 @@ function CideSnippet() {
 
 export function LandingBento() {
   const reduce = useReducedMotion();
+  const t = useTranslations("landing.bento");
   const fade = (i: number) =>
     reduce
       ? {}
@@ -201,13 +205,12 @@ export function LandingBento() {
       />
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto mb-14 max-w-2xl text-center">
-          <span className={kicker}>Capacidades</span>
+          <span className={kicker}>{t("eyebrow")}</span>
           <h2 className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
-            No te lo contamos. Te lo enseñamos.
+            {t("title")}
           </h2>
           <p className="mt-3 font-light text-gray-500 dark:text-gray-400">
-            Cada pieza de la operación, viva y conectada a la misma base de datos.
-            Esto es lo que pasa dentro del OS.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -215,18 +218,17 @@ export function LandingBento() {
           {/* Plan → piso (grande) */}
           <motion.div {...fade(0)} className="md:col-span-2 md:row-span-2">
             <Link href="/dashboard/operador" className={`${tile} flex h-full flex-col`}>
-              <span className={kicker}>Del plan al piso · en vivo</span>
+              <span className={kicker}>{t("planToFloor.kicker")}</span>
               <h3 className="mt-2 text-2xl font-semibold tracking-tight">
-                Publica la orden y míralo ejecutarse.
+                {t("planToFloor.title")}
               </h3>
               <p className="mt-2 max-w-md text-sm font-light leading-relaxed text-gray-500 dark:text-gray-400">
-                MES con poka-yoke, andon por estación y backflush de material. El
-                plan deja de ser un PDF: es el piso, en tiempo real.
+                {t("planToFloor.body")}
               </p>
               <div className="mt-auto pt-7">
                 <PlanToFloor />
               </div>
-              <Cta>Abrir terminal de operador</Cta>
+              <Cta>{t("planToFloor.cta")}</Cta>
             </Link>
           </motion.div>
 
@@ -235,12 +237,12 @@ export function LandingBento() {
             <Link href="/dashboard/mission-control" className={`${tile} flex h-full items-center gap-4`}>
               <OeeRing pct={94} />
               <div>
-                <span className={kicker}>Torre de control</span>
+                <span className={kicker}>{t("oee.kicker")}</span>
                 <h3 className="mt-1 text-lg font-semibold tracking-tight">
-                  KPIs en vivo
+                  {t("oee.title")}
                 </h3>
                 <p className="mt-1 text-xs font-light leading-relaxed text-gray-500 dark:text-gray-400">
-                  Readiness, OEE y andons en una pantalla.
+                  {t("oee.body")}
                 </p>
               </div>
             </Link>
@@ -251,10 +253,10 @@ export function LandingBento() {
             <Link href="/dashboard/inventory" className={`${tile} flex h-full flex-col`}>
               <div className="mb-3 flex items-center gap-2">
                 <Boxes className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <span className={kicker}>Inventario · e-kanban</span>
+                <span className={kicker}>{t("kanban.kicker")}</span>
               </div>
               <KanbanCards />
-              <Cta>Surtido a línea</Cta>
+              <Cta>{t("kanban.cta")}</Cta>
             </Link>
           </motion.div>
 
@@ -263,13 +265,13 @@ export function LandingBento() {
             <Link href="/dashboard/quality" className={`${tile} flex h-full flex-col`}>
               <div className="mb-4 flex items-center gap-2">
                 <ScanLine className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <span className={kicker}>Trazabilidad nativa</span>
+                <span className={kicker}>{t("trace.kicker")}</span>
               </div>
               <h3 className="mb-4 text-lg font-semibold tracking-tight">
-                Cada unidad cuenta su historia: serie, lote y as-built.
+                {t("trace.title")}
               </h3>
               <TraceTimeline />
-              <Cta>Ver genealogía</Cta>
+              <Cta>{t("trace.cta")}</Cta>
             </Link>
           </motion.div>
 
@@ -278,17 +280,17 @@ export function LandingBento() {
             <Link href="/dashboard/floor-quality" className={`${tile} flex h-full flex-col justify-between`}>
               <div className="flex items-center gap-2">
                 <ShieldAlert className="h-4 w-4 text-amber-500" />
-                <span className={kicker}>Calidad · MRB</span>
+                <span className={kicker}>{t("quality.kicker")}</span>
               </div>
               <div aria-hidden className="my-4 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
                   HOLD · WO-4821
                 </span>
-                <span className="text-[11px] text-gray-500 dark:text-gray-400">cuarentena</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">{t("quality.quarantine")}</span>
               </div>
               <p className="text-xs font-light leading-relaxed text-gray-500 dark:text-gray-400">
-                Un hold bloquea el consumo del lote hasta la disposición MRB.
+                {t("quality.body")}
               </p>
             </Link>
           </motion.div>
@@ -298,17 +300,17 @@ export function LandingBento() {
             <Link href="/dashboard/intelligence" className={`${tile} flex h-full flex-col`}>
               <div className="mb-3 flex items-center gap-2">
                 <Cpu className="h-4 w-4 text-indigo-500" />
-                <span className={kicker}>CIDE · IA con contexto</span>
+                <span className={kicker}>{t("cide.kicker")}</span>
               </div>
               <CideSnippet />
-              <Cta>Preguntarle a tu planta</Cta>
+              <Cta>{t("cide.cta")}</Cta>
             </Link>
           </motion.div>
 
           {/* Office / nativo */}
           <motion.div {...fade(6)}>
             <Link href="/dashboard/office" className={`${tile} flex h-full flex-col justify-between`}>
-              <span className={kicker}>Office nativo</span>
+              <span className={kicker}>{t("office.kicker")}</span>
               <div aria-hidden className="my-4 flex gap-1.5">
                 {["Docs", "Sheets", "Slides"].map((d) => (
                   <span
@@ -320,7 +322,7 @@ export function LandingBento() {
                 ))}
               </div>
               <p className="text-xs font-light leading-relaxed text-gray-500 dark:text-gray-400">
-                SOPs y reportes conectados al trabajo real, dentro del OS.
+                {t("office.body")}
               </p>
             </Link>
           </motion.div>

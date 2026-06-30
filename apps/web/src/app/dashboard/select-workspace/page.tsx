@@ -3,6 +3,7 @@
 import React, { Suspense, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Building2, Briefcase, ArrowRight, AlertCircle } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +25,7 @@ export default function SelectWorkspacePage() {
 function SelectWorkspaceInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useTranslations('selectWorkspace');
   const next = params.get('next') || '/dashboard';
   const { user } = useAuth();
   const {
@@ -71,30 +73,31 @@ function SelectWorkspaceInner() {
         >
           <header className="mb-8">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Tu área de trabajo
+              {t('eyebrow')}
             </p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
-              Hola{user?.email ? `, ${user.email.split('@')[0]}` : ''}.
+              {user?.email
+                ? t('greetingNamed', { name: user.email.split('@')[0] })
+                : t('greetingPlain')}
             </h1>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Elige el edificio y el proyecto desde los que vas a trabajar. Puedes
-              cambiarlos en cualquier momento desde el header.
+              {t('subtitle')}
             </p>
           </header>
 
           {error && (
             <div className="mb-4 flex items-start gap-2 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>No se pudieron cargar los workspaces. Puedes continuar y seleccionar más tarde.</span>
+              <span>{t('loadError')}</span>
             </div>
           )}
 
           {/* Edificios */}
-          <Section title="Edificio / planta" icon={Building2}>
+          <Section title={t('building')} icon={Building2}>
             {isLoading ? (
               <Skeleton />
             ) : buildings.length === 0 ? (
-              <p className="text-sm text-gray-500">No tienes edificios asignados.</p>
+              <p className="text-sm text-gray-500">{t('noBuildings')}</p>
             ) : (
               <OptionGrid
                 options={buildings.map((b) => ({
@@ -109,11 +112,11 @@ function SelectWorkspaceInner() {
           </Section>
 
           {/* Proyectos */}
-          <Section title="Proyecto / cliente" icon={Briefcase}>
+          <Section title={t('project')} icon={Briefcase}>
             {isLoading ? (
               <Skeleton />
             ) : visibleProjects.length === 0 ? (
-              <p className="text-sm text-gray-500">No tienes proyectos asignados.</p>
+              <p className="text-sm text-gray-500">{t('noProjects')}</p>
             ) : (
               <OptionGrid
                 options={visibleProjects.map((p) => ({
@@ -135,14 +138,14 @@ function SelectWorkspaceInner() {
               }}
               className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             >
-              Continuar sin seleccionar
+              {t('continueWithout')}
             </button>
             <button
               onClick={enter}
               disabled={!canEnter}
               className="flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-40"
             >
-              Entrar <ArrowRight className="h-4 w-4" />
+              {t('enter')} <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </motion.div>
@@ -180,6 +183,7 @@ function OptionGrid({
   selectedId: string | null;
   onPick: (id: string) => void;
 }) {
+  const t = useTranslations('selectWorkspace');
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {options.map((opt) => {
@@ -203,7 +207,7 @@ function OptionGrid({
             </span>
             {active && (
               <span className="ml-2 text-xs font-semibold uppercase tracking-wide text-blue-600">
-                Seleccionado
+                {t('selected')}
               </span>
             )}
           </button>

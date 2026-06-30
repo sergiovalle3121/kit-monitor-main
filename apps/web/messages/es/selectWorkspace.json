@@ -1,0 +1,14 @@
+{
+  "eyebrow": "Tu área de trabajo",
+  "greetingNamed": "Hola, {name}.",
+  "greetingPlain": "Hola.",
+  "subtitle": "Elige el edificio y el proyecto desde los que vas a trabajar. Puedes cambiarlos en cualquier momento desde el header.",
+  "loadError": "No se pudieron cargar los workspaces. Puedes continuar y seleccionar más tarde.",
+  "building": "Edificio / planta",
+  "project": "Proyecto / cliente",
+  "noBuildings": "No tienes edificios asignados.",
+  "noProjects": "No tienes proyectos asignados.",
+  "continueWithout": "Continuar sin seleccionar",
+  "enter": "Entrar",
+  "selected": "Seleccionado"
+}

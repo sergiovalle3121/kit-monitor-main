@@ -2,6 +2,7 @@
 
 import React, { Suspense, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -20,6 +21,7 @@ import {
 import Link from "next/link";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { EntranceSweep } from "@/components/EntranceSweep";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { positionsByDepartment, getPosition, LEVELS } from "@/config/positions";
 
 type Status =
@@ -31,6 +33,8 @@ type Status =
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useTranslations("auth");
+  const tags = t.raw("tags") as string[];
   const next = params.get("next") || "/dashboard";
 
   const [showPassword, setShowPassword] = useState(false);
@@ -52,7 +56,7 @@ function LoginInner() {
     try {
       if (isRegistering) {
         if (!formData.position) {
-          setStatus({ kind: "error", message: "Selecciona tu puesto." });
+          setStatus({ kind: "error", message: t("errors.selectPosition") });
           return;
         }
         const res = await fetch("/api/auth/register", {
@@ -69,15 +73,13 @@ function LoginInner() {
         if (!res.ok) {
           setStatus({
             kind: "error",
-            message: data.error || "Error al crear la cuenta.",
+            message: data.error || t("errors.registerFailed"),
           });
           return;
         }
         setStatus({
           kind: "success",
-          message:
-            data.message ||
-            "Cuenta creada. Espera aprobación de un administrador.",
+          message: data.message || t("success.accountCreated"),
         });
         setIsRegistering(false);
         setFormData((f) => ({ ...f, password: "" }));
@@ -94,7 +96,7 @@ function LoginInner() {
         if (!res.ok) {
           setStatus({
             kind: "error",
-            message: data.error || "No se pudo iniciar sesión.",
+            message: data.error || t("errors.loginFailed"),
           });
           return;
         }
@@ -104,7 +106,7 @@ function LoginInner() {
     } catch {
       setStatus({
         kind: "error",
-        message: "Error de red. Intenta de nuevo.",
+        message: t("errors.network"),
       });
     }
   }
@@ -121,8 +123,12 @@ function LoginInner() {
         className="fixed top-8 left-8 z-20 flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
-        Volver al inicio
+        {t("back")}
       </Link>
+
+      <div className="fixed top-8 right-8 z-20">
+        <LanguageSwitcher variant="compact" />
+      </div>
 
       <div className="w-full max-w-5xl flex flex-col md:flex-row bg-white dark:bg-[#111] rounded-[2.5rem] overflow-hidden shadow-2xl shadow-black/10 dark:shadow-white/5 border border-gray-100 dark:border-white/5 min-h-[600px]">
         {/* Left: Brand Panel */}
@@ -147,17 +153,16 @@ function LoginInner() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tighter leading-tight mb-6">
-              Empowering <br />
-              Industrial <br />
-              Intelligence.
+              {t("brand.line1")} <br />
+              {t("brand.line2")} <br />
+              {t("brand.line3")}
             </h1>
             <p className="text-lg opacity-60 font-light max-w-xs mb-8">
-              The mission-critical operating system for the next generation of
-              manufacturing.
+              {t("brand.subtitle")}
             </p>
 
             <div className="flex flex-wrap gap-2">
-              {["ERP", "MES", "Office", "CAD", "AI", "Calidad"].map((tag) => (
+              {tags.map((tag) => (
                 <span
                   key={tag}
                   className="px-3 py-1 bg-white/10 dark:bg-black/5 rounded-full text-xs font-medium border border-white/10 dark:border-black/10"
@@ -169,7 +174,7 @@ function LoginInner() {
           </motion.div>
 
           <div className="z-10 text-xs opacity-40 font-light">
-            © 2026 AXOS OS. Engineering Excellence.
+            {t("brand.footer")}
           </div>
         </div>
 
@@ -182,15 +187,13 @@ function LoginInner() {
           >
             <div className="mb-10">
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 mb-2 block">
-                {isRegistering ? "Únete a AXOS" : "Acceso seguro"}
+                {isRegistering ? t("register.eyebrow") : t("login.eyebrow")}
               </span>
               <h2 className="text-3xl font-bold tracking-tight mb-2">
-                {isRegistering ? "Crear cuenta" : "Bienvenido de nuevo"}
+                {isRegistering ? t("register.title") : t("login.title")}
               </h2>
               <p className="text-gray-500 dark:text-gray-400 font-light text-sm">
-                {isRegistering
-                  ? "Tu solicitud quedará pendiente hasta que un administrador la apruebe."
-                  : "Ingresa tus credenciales para acceder a la consola AXOS."}
+                {isRegistering ? t("register.subtitle") : t("login.subtitle")}
               </p>
             </div>
 
@@ -227,7 +230,7 @@ function LoginInner() {
                   className="space-y-2 overflow-hidden"
                 >
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
-                    Nombre completo
+                    {t("register.nameLabel")}
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 dark:text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
@@ -240,7 +243,7 @@ function LoginInner() {
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      placeholder="Nombre y apellido"
+                      placeholder={t("register.namePlaceholder")}
                       className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none"
                     />
                   </div>
@@ -249,7 +252,7 @@ function LoginInner() {
 
               <div className="space-y-2">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
-                  Correo
+                  {t("fields.email")}
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 dark:text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
@@ -263,7 +266,7 @@ function LoginInner() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    placeholder="nombre@empresa.com"
+                    placeholder={t("fields.emailPlaceholder")}
                     className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none"
                   />
                 </div>
@@ -276,7 +279,7 @@ function LoginInner() {
                   className="space-y-2 overflow-hidden"
                 >
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
-                    Tu puesto
+                    {t("register.positionLabel")}
                   </label>
                   <div className="rounded-2xl border border-gray-100 dark:border-white/10 divide-y divide-gray-100 dark:divide-white/10 max-h-72 overflow-y-auto">
                     {positionsByDepartment().map(({ department, positions }) => {
@@ -293,7 +296,7 @@ function LoginInner() {
                               <Briefcase className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                               <span className="text-sm font-medium">{department.label}</span>
                               {disabled && (
-                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:text-gray-400 dark:bg-white/10">Próximamente</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:text-gray-400 dark:bg-white/10">{t("register.comingSoon")}</span>
                               )}
                             </span>
                             <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -331,8 +334,10 @@ function LoginInner() {
                   </div>
                   <p className="text-[10px] text-gray-500 dark:text-gray-400 ml-1 mt-1">
                     {formData.position
-                      ? `Seleccionado: ${getPosition(formData.position)?.label}`
-                      : "Elige tu departamento y puesto. El administrador aprobará tu acceso."}
+                      ? t("register.positionSelected", {
+                          label: getPosition(formData.position)?.label ?? "",
+                        })
+                      : t("register.positionHelp")}
                   </p>
                 </motion.div>
               )}
@@ -340,14 +345,14 @@ function LoginInner() {
               <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Contraseña
+                    {t("fields.password")}
                   </label>
                   {!isRegistering && (
                     <a
                       href="#"
                       className="text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                     >
-                      ¿Olvidaste?
+                      {t("fields.forgot")}
                     </a>
                   )}
                 </div>
@@ -370,7 +375,7 @@ function LoginInner() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    aria-label={showPassword ? t("fields.hidePassword") : t("fields.showPassword")}
                     className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                   >
                     {showPassword ? (
@@ -382,7 +387,7 @@ function LoginInner() {
                 </div>
                 {isRegistering && (
                   <p className="text-[10px] text-gray-500 dark:text-gray-400 ml-1 mt-1">
-                    Mínimo 6 caracteres.
+                    {t("register.passwordHint")}
                   </p>
                 )}
               </div>
@@ -397,7 +402,7 @@ function LoginInner() {
                   <div className="w-5 h-5 border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black rounded-full animate-spin" />
                 ) : (
                   <>
-                    {isRegistering ? "Crear cuenta" : "Entrar a AXOS"}
+                    {isRegistering ? t("register.submit") : t("login.submit")}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -412,18 +417,16 @@ function LoginInner() {
                 }}
                 className="text-sm font-bold text-gray-500 dark:text-gray-300 hover:text-black dark:hover:text-white transition-colors"
               >
-                {isRegistering
-                  ? "¿Ya tienes cuenta? Inicia sesión"
-                  : "¿No tienes cuenta? Regístrate"}
+                {isRegistering ? t("toggle.toLogin") : t("toggle.toRegister")}
               </button>
 
               <p className="text-xs text-gray-500 dark:text-gray-400 font-light">
-                ¿Necesitas ayuda?{" "}
+                {t("help.text")}{" "}
                 <a
                   href="mailto:admin@axos.com"
                   className="font-bold text-gray-500 dark:text-gray-300 hover:underline"
                 >
-                  Contactar al administrador
+                  {t("help.contact")}
                 </a>
               </p>
             </div>
