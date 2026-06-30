@@ -1,3 +1,279 @@
 {
-  "_": "Landing strings are migrated in Phase B."
+  "nav": {
+    "programs": "Programs",
+    "why": "Why",
+    "modules": "Modules",
+    "solutions": "Solutions",
+    "enterprise": "Enterprise",
+    "login": "Sign in",
+    "signup": "Create account"
+  },
+  "hero": {
+    "badge": "Industrial OS · ERP · MES · Office · CAD · AI — on a single platform",
+    "titleLead": "The operating system that runs",
+    "titleHighlight": "your whole plant",
+    "subtitle": "ERP, MES, quality, inventory, CAD and AI in one place. From design to shipment, on a shared database — no silos or brittle integrations, with the entire operation on one screen.",
+    "ctaStart": "Get started",
+    "ctaDemo": "Watch live demo",
+    "demoNote": "Read-only demo · 30-min session · no card required"
+  },
+  "heroPills": [
+    "ERP",
+    "MES · Floor",
+    "Quality · MRB",
+    "Inventory · e-kanban",
+    "CAD 2D ⇄ 3D",
+    "Native Office",
+    "CIDE · AI",
+    "Traceability",
+    "MRP",
+    "Backflush",
+    "Live Andon",
+    "Genealogy"
+  ],
+  "flow": {
+    "eyebrow": "End to end",
+    "title": "From design to shipment, one single system.",
+    "subtitle": "Every stage of the operation lives on the same platform — no app-hopping, no losing the thread of information.",
+    "steps": {
+      "engineering": "Design · NPI",
+      "planning": "Planning",
+      "materials": "Materials",
+      "production": "Production",
+      "quality": "Quality",
+      "logistics": "Logistics"
+    }
+  },
+  "galaxy": {
+    "eyebrow": "The operating system",
+    "title": "One OS, every program.",
+    "subtitle": "Each department is a native program of the same system — not loose apps glued together with integrations.",
+    "programs": {
+      "controlTower": { "name": "Control Tower", "tag": "Command", "value": "Live readiness, OEE, andons and holds." },
+      "mes": { "name": "MES · Floor", "tag": "Execution", "value": "Poka-yoke, backflush and andon per station." },
+      "erp": { "name": "ERP · Supply Chain", "tag": "ERP", "value": "Integrated purchasing, materials and finance." },
+      "inventory": { "name": "Inventory", "tag": "Materials", "value": "Kitting, e-kanban and cycle counts." },
+      "quality": { "name": "Quality · MRB", "tag": "Quality", "value": "Holds, quarantine and MRB disposition." },
+      "office": { "name": "Office", "tag": "Productivity", "value": "Native Docs, Sheets and Slides." },
+      "cad": { "name": "CAD · Layout", "tag": "Engineering", "value": "Unified 2D ⇄ 3D line layout." },
+      "ai": { "name": "AI · CIDE", "tag": "Intelligence", "value": "Your data analyst with built-in AI." }
+    }
+  },
+  "platform": {
+    "eyebrow": "Platform",
+    "title": "One platform. The whole operation.",
+    "subtitle": "Click any module to see the detail.",
+    "viewDetail": "View detail",
+    "openModule": "Open module",
+    "close": "Close",
+    "features": {
+      "controlTower": {
+        "title": "Control tower",
+        "desc": "Operation visibility with live KPIs: readiness, OEE, throughput and alerts.",
+        "details": "Mission Control and the line tower consolidate readiness, plan vs actual, andons, holds and line status in a single panel. For directors and supervisors."
+      },
+      "inventory": {
+        "title": "Inventory and kitting",
+        "desc": "Inventory, kitting and e-kanban replenishment to the line, with shortage alerts.",
+        "details": "Per-station kitting from the routing, pull replenishment (e-kanban) and cycle counts. Connected to floor execution."
+      },
+      "mes": {
+        "title": "Floor execution (MES)",
+        "desc": "MES operator: poka-yoke, material backflush and andon per station.",
+        "details": "The operator scans, the system validates the part number (poka-yoke), deducts material (backflush) and records progress. Holds for quality, skill and shortage."
+      },
+      "quality": {
+        "title": "Quality and MRB",
+        "desc": "Holds that quarantine the lot and block consumption, with an MRB flow.",
+        "details": "Reject capture → quarantine → MRB review → disposition (use-as-is/rework/scrap/RTV) with signature and where-used. Blocks consumption of the held Work Order."
+      },
+      "architecture": {
+        "title": "Architecture",
+        "desc": "NestJS + Next.js, TypeORM and multi-tenant design. Modular monolith.",
+        "details": "Modular NestJS backend, Next.js frontend, TypeORM and an architecture ready for multi-tenant (per-organization isolation)."
+      },
+      "roles": {
+        "title": "Roles by position",
+        "desc": "Per-organization isolation with roles and permissions by floor position.",
+        "details": "Plant roles (operator, material handler, supervisor, planning, quality/MRB, industrial engineering) with per-action permissions and per-plant/line scope."
+      }
+    }
+  },
+  "why": {
+    "eyebrow": "Why AXOS",
+    "title": "It's not another suite. It's an operating system.",
+    "items": {
+      "db": {
+        "title": "A single database",
+        "body": "From design to shipment with no fragile integrations or silos between departments."
+      },
+      "planToFloor": {
+        "title": "From plan to floor, live",
+        "body": "Publish the plan and execute it with MES, backflush and quality holds in real time."
+      },
+      "traceability": {
+        "title": "Native traceability",
+        "body": "Serial/lot, as-built and where-used ready for customer audits and containment."
+      },
+      "ai": {
+        "title": "AI with your plant's context",
+        "body": "CIDE understands all your modules and data — not a generic chatbot bolted on top."
+      }
+    }
+  },
+  "solutions": {
+    "eyebrow": "Solutions",
+    "title": "Built for contract manufacturing.",
+    "subtitle": "Expand each capability to see what it actually does.",
+    "items": [
+      {
+        "title": "Traceability and genealogy",
+        "summary": "Serial/lot per unit, as-built and where-used ready for audit.",
+        "points": [
+          "Cradle-to-grave genealogy: lot/reel by part number, station, operator and time.",
+          "Reverse where-used for containment when a lot turns out questionable.",
+          "Certificate of Conformance (CoC) per order or per shipment."
+        ]
+      },
+      {
+        "title": "From plan to floor",
+        "summary": "Publish the Work Order, kit material to the station and run it with live backflush.",
+        "points": [
+          "Poka-yoke by part number and skill/quality validations per station.",
+          "Automatic material backflush when progress is confirmed.",
+          "Andon and holds that block consumption of the held lot."
+        ]
+      },
+      {
+        "title": "BOM and engineering",
+        "summary": "Routing per model, materials per station with usage factor and revisions.",
+        "points": [
+          "Product structure and routing per model, versioned.",
+          "Materials per station with usage factor for backflush.",
+          "2D ⇄ 3D line layout to design the flow before executing it."
+        ]
+      }
+    ]
+  },
+  "enterprise": {
+    "eyebrow": "Enterprise",
+    "title": "Security and control.",
+    "body": "Console access requires administrator approval. Created accounts stay queued until validated. The session is signed (HMAC-SHA256) and stored in an HttpOnly cookie.",
+    "items": [
+      { "title": "Account approval", "body": "New sign-ups notify the admin and stay pending." },
+      { "title": "Granular roles", "body": "Admin, Engineering, Production, Quality, Inventory, Finance." },
+      { "title": "Signed sessions", "body": "HttpOnly cookies + HMAC signature with configurable expiry." }
+    ],
+    "cta": "Request access"
+  },
+  "faq": {
+    "eyebrow": "FAQ",
+    "title": "Real questions before signing in.",
+    "items": [
+      {
+        "q": "Does AXOS OS replace an ERP or an MES?",
+        "a": "The product's ambition is to operate as both on one industrial platform: ERP for materials, costs and supply chain; MES for floor, execution, quality and traceability."
+      },
+      {
+        "q": "Does the demo use real customer data?",
+        "a": "No. The public demo should be treated as a sample, read-only environment; no customers, certifications or invented commercial metrics are shown."
+      },
+      {
+        "q": "How is access controlled?",
+        "a": "Public login exists, but new accounts are subject to administrative approval and roles before entering the console."
+      },
+      {
+        "q": "Does AXOS rely on external integrations to tell its story?",
+        "a": "The landing describes native capabilities of the repository: ERP, MES, Office, CAD, quality, analytics and AI modules already exposed on internal routes."
+      }
+    ]
+  },
+  "finalCta": {
+    "eyebrow": "Next step",
+    "title": "Enter the OS. Evaluate the full flow.",
+    "body": "Sign in if you already have access, request an account for approval, or open the read-only demo to walk through the experience without inflated promises.",
+    "login": "Sign in",
+    "demoPreparing": "Preparing demo…",
+    "demoIdle": "Open read-only demo"
+  },
+  "footer": {
+    "tagline": "The industrial operating system for modern electronics manufacturing.",
+    "product": "Product",
+    "company": "Company",
+    "access": "Access",
+    "copyright": "© 2026 AXOS OS · Industrial Operating System",
+    "stack": "ERP · MES · Office · CAD · AI",
+    "links": {
+      "programs": "Programs",
+      "flow": "End-to-end flow",
+      "modules": "Modules",
+      "solutions": "Solutions",
+      "faq": "FAQ",
+      "whyAxos": "Why AXOS",
+      "enterprise": "Enterprise",
+      "login": "Sign in",
+      "signup": "Create account",
+      "demo": "Watch demo"
+    }
+  },
+  "toast": {
+    "demoStarted": "Demo started (30-min, read-only session).",
+    "demoError": "Could not start the demo. Please try again."
+  },
+  "mockup": {
+    "urlbar": "axos.os / control-tower",
+    "title": "Control Tower",
+    "subtitle": "Executive view · live",
+    "inControl": "In control",
+    "throughput": "Throughput · last 12 h",
+    "andonByLine": "Andon by line",
+    "running": "Running",
+    "andonAdjust": "Andon · adjust"
+  },
+  "bento": {
+    "eyebrow": "Capabilities",
+    "title": "We don't tell you. We show you.",
+    "subtitle": "Every piece of the operation, live and connected to the same database. This is what happens inside the OS.",
+    "planToFloor": {
+      "kicker": "From plan to floor · live",
+      "title": "Publish the order and watch it run.",
+      "body": "MES with poka-yoke, andon per station and material backflush. The plan stops being a PDF: it's the floor, in real time.",
+      "published": "Published · 1,200 u",
+      "onFloor": "On floor",
+      "backflush": "Automatic material backflush per station",
+      "cta": "Open operator terminal"
+    },
+    "oee": {
+      "kicker": "Control tower",
+      "title": "Live KPIs",
+      "body": "Readiness, OEE and andons on one screen."
+    },
+    "kanban": {
+      "kicker": "Inventory · e-kanban",
+      "replenish": "Replenish",
+      "ok": "OK",
+      "cta": "Kitting to the line"
+    },
+    "trace": {
+      "kicker": "Native traceability",
+      "title": "Every unit tells its story: serial, lot and as-built.",
+      "cta": "View genealogy"
+    },
+    "quality": {
+      "kicker": "Quality · MRB",
+      "quarantine": "quarantine",
+      "body": "A hold blocks consumption of the lot until MRB disposition."
+    },
+    "cide": {
+      "kicker": "CIDE · AI with context",
+      "question": "Why did FPY drop on SMT-2 yesterday?",
+      "answerPre": "3 NCRs from reel",
+      "answerPost": "(solder skips). The hold is already active; check the reflow profile.",
+      "cta": "Ask your plant"
+    },
+    "office": {
+      "kicker": "Native Office",
+      "body": "SOPs and reports connected to the real work, inside the OS."
+    }
+  }
 }

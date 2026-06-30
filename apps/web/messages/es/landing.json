@@ -1,3 +1,279 @@
 {
-  "_": "Las cadenas del landing se migran en la Fase B."
+  "nav": {
+    "programs": "Programas",
+    "why": "Por qué",
+    "modules": "Módulos",
+    "solutions": "Soluciones",
+    "enterprise": "Enterprise",
+    "login": "Iniciar sesión",
+    "signup": "Crear cuenta"
+  },
+  "hero": {
+    "badge": "Industrial OS · ERP · MES · Office · CAD · IA — en una sola plataforma",
+    "titleLead": "El sistema operativo que corre",
+    "titleHighlight": "toda tu planta",
+    "subtitle": "ERP, MES, calidad, inventario, CAD e IA en un solo lugar. Del diseño al embarque, sobre una base de datos común — sin silos ni integraciones frágiles, con la operación completa en una pantalla.",
+    "ctaStart": "Comenzar",
+    "ctaDemo": "Ver demo en vivo",
+    "demoNote": "Demo de solo lectura · sesión de 30 min · sin tarjeta"
+  },
+  "heroPills": [
+    "ERP",
+    "MES · Piso",
+    "Calidad · MRB",
+    "Inventario · e-kanban",
+    "CAD 2D ⇄ 3D",
+    "Office nativo",
+    "CIDE · IA",
+    "Trazabilidad",
+    "MRP",
+    "Backflush",
+    "Andon en vivo",
+    "Genealogía"
+  ],
+  "flow": {
+    "eyebrow": "De extremo a extremo",
+    "title": "Del diseño al embarque, un solo sistema.",
+    "subtitle": "Cada etapa de la operación vive en la misma plataforma — sin saltar entre apps ni perder el hilo de la información.",
+    "steps": {
+      "engineering": "Diseño · NPI",
+      "planning": "Planeación",
+      "materials": "Materiales",
+      "production": "Producción",
+      "quality": "Calidad",
+      "logistics": "Logística"
+    }
+  },
+  "galaxy": {
+    "eyebrow": "El sistema operativo",
+    "title": "Un OS, todos los programas.",
+    "subtitle": "Cada departamento es un programa nativo del mismo sistema — no apps sueltas pegadas con integraciones.",
+    "programs": {
+      "controlTower": { "name": "Control Tower", "tag": "Mando", "value": "Readiness, OEE, andons y holds en vivo." },
+      "mes": { "name": "MES · Piso", "tag": "Ejecución", "value": "Poka-yoke, backflush y andon por estación." },
+      "erp": { "name": "ERP · Supply Chain", "tag": "ERP", "value": "Compras, materiales y finanzas integradas." },
+      "inventory": { "name": "Inventario", "tag": "Materiales", "value": "Kitting, e-kanban y conteos cíclicos." },
+      "quality": { "name": "Calidad · MRB", "tag": "Calidad", "value": "Holds, cuarentena y disposición MRB." },
+      "office": { "name": "Office", "tag": "Productividad", "value": "Docs, Sheets y Slides nativos." },
+      "cad": { "name": "CAD · Layout", "tag": "Ingeniería", "value": "Layout de línea unificado 2D ⇄ 3D." },
+      "ai": { "name": "AI · CIDE", "tag": "Inteligencia", "value": "Tu analista de datos con IA propia." }
+    }
+  },
+  "platform": {
+    "eyebrow": "Platform",
+    "title": "Una sola plataforma. Toda la operación.",
+    "subtitle": "Haz click en cualquier módulo para ver el detalle.",
+    "viewDetail": "Ver detalle",
+    "openModule": "Abrir módulo",
+    "close": "Cerrar",
+    "features": {
+      "controlTower": {
+        "title": "Torre de control",
+        "desc": "Visibilidad de la operación con KPIs en vivo: readiness, OEE, throughput y alertas.",
+        "details": "Mission Control y la torre de línea consolidan readiness, plan vs real, andons, holds y estado por línea en un solo panel. Para directores y supervisores."
+      },
+      "inventory": {
+        "title": "Inventario y surtido",
+        "desc": "Inventario, kitting y reposición e-kanban a línea, con alertas de faltante.",
+        "details": "Surtido por estación desde el ruteo, reposición pull (e-kanban) y conteos cíclicos. Conectado a la ejecución del piso."
+      },
+      "mes": {
+        "title": "Ejecución en piso (MES)",
+        "desc": "Operador MES: poka-yoke, backflush de material y andon por estación.",
+        "details": "El operador escanea, el sistema valida el NP (poka-yoke), descuenta material (backflush) y registra el avance. Bloqueos por calidad, skill y faltante."
+      },
+      "quality": {
+        "title": "Calidad y MRB",
+        "desc": "Holds que ponen el lote en cuarentena y bloquean el consumo, con flujo MRB.",
+        "details": "Captura de rechazo → cuarentena → revisión MRB → disposición (use-as-is/rework/scrap/RTV) con firma y where-used. Bloquea el consumo de la WO retenida."
+      },
+      "architecture": {
+        "title": "Arquitectura",
+        "desc": "NestJS + Next.js, TypeORM y diseño multi-tenant. Monolito modular.",
+        "details": "Backend NestJS modular, frontend Next.js, TypeORM y arquitectura preparada para multi-tenant (aislamiento por organización)."
+      },
+      "roles": {
+        "title": "Roles por puesto",
+        "desc": "Aislamiento por organización con roles y permisos por puesto del piso.",
+        "details": "Roles de planta (operador, materialista, supervisor, planeación, calidad/MRB, ingeniería industrial) con permisos por acción y scope por planta/línea."
+      }
+    }
+  },
+  "why": {
+    "eyebrow": "Por qué AXOS",
+    "title": "No es otra suite. Es un sistema operativo.",
+    "items": {
+      "db": {
+        "title": "Una sola base de datos",
+        "body": "Del diseño al embarque sin integraciones frágiles ni silos entre departamentos."
+      },
+      "planToFloor": {
+        "title": "Del plan al piso, en vivo",
+        "body": "Publica el plan y ejecútalo con MES, backflush y bloqueos por calidad en tiempo real."
+      },
+      "traceability": {
+        "title": "Trazabilidad nativa",
+        "body": "Serie/lote, as-built y where-used listos para auditorías de cliente y contención."
+      },
+      "ai": {
+        "title": "IA con contexto de tu planta",
+        "body": "CIDE entiende todos tus módulos y datos — no es un chatbot genérico pegado encima."
+      }
+    }
+  },
+  "solutions": {
+    "eyebrow": "Soluciones",
+    "title": "Pensado para manufactura por contrato.",
+    "subtitle": "Despliega cada capacidad para ver qué hace, de verdad.",
+    "items": [
+      {
+        "title": "Trazabilidad y genealogía",
+        "summary": "Serie/lote por unidad, as-built y where-used listos para auditoría.",
+        "points": [
+          "Genealogía cuna-a-tumba: lote/reel por NP, estación, operador y hora.",
+          "Where-used inverso para contención cuando un lote sale dudoso.",
+          "Certificado de Conformancia (CoC) por orden o por embarque."
+        ]
+      },
+      {
+        "title": "Del plan al piso",
+        "summary": "Publica la WO, surte material a estación y ejecútala con backflush en vivo.",
+        "points": [
+          "Poka-yoke por NP y validaciones de skill/calidad por estación.",
+          "Backflush automático de material al confirmar avance.",
+          "Andon y holds que bloquean el consumo del lote retenido."
+        ]
+      },
+      {
+        "title": "BOM e ingeniería",
+        "summary": "Ruteo por modelo, materiales por estación con factor de uso y revisiones.",
+        "points": [
+          "Estructura de producto y ruteo por modelo, versionados.",
+          "Materiales por estación con factor de uso para el backflush.",
+          "Layout de línea 2D ⇄ 3D para diseñar el flujo antes de ejecutarlo."
+        ]
+      }
+    ]
+  },
+  "enterprise": {
+    "eyebrow": "Enterprise",
+    "title": "Seguridad y control.",
+    "body": "El acceso a la consola requiere aprobación del administrador. Las cuentas creadas quedan en cola hasta su validación. La sesión es firmada (HMAC-SHA256) y se almacena en cookie HttpOnly.",
+    "items": [
+      { "title": "Aprobación de cuentas", "body": "Los nuevos registros notifican al admin y quedan pendientes." },
+      { "title": "Roles granulares", "body": "Admin, Engineering, Production, Quality, Inventory, Finance." },
+      { "title": "Sesiones firmadas", "body": "Cookies HttpOnly + firma HMAC con expiración configurable." }
+    ],
+    "cta": "Solicitar acceso"
+  },
+  "faq": {
+    "eyebrow": "FAQ",
+    "title": "Preguntas reales antes de entrar.",
+    "items": [
+      {
+        "q": "¿AXOS OS reemplaza a un ERP o a un MES?",
+        "a": "La ambición del producto es operar como ambos en una plataforma industrial: ERP para materiales, costos y supply chain; MES para piso, ejecución, calidad y trazabilidad."
+      },
+      {
+        "q": "¿La demo usa datos reales de clientes?",
+        "a": "No. La demo pública debe tratarse como un entorno de muestra y de solo lectura; no se muestran clientes, certificaciones ni métricas comerciales inventadas."
+      },
+      {
+        "q": "¿Cómo se controla el acceso?",
+        "a": "El login público existe, pero las cuentas nuevas quedan sujetas a aprobación administrativa y a roles antes de entrar a la consola."
+      },
+      {
+        "q": "¿AXOS depende de integraciones externas para contar su historia?",
+        "a": "La landing describe capacidades nativas del repositorio: módulos de ERP, MES, Office, CAD, calidad, analítica e IA ya expuestos en rutas internas."
+      }
+    ]
+  },
+  "finalCta": {
+    "eyebrow": "Siguiente paso",
+    "title": "Entra al OS. Evalúa el flujo completo.",
+    "body": "Inicia sesión si ya tienes acceso, solicita cuenta para aprobación o abre la demo de solo lectura para recorrer la experiencia sin promesas infladas.",
+    "login": "Iniciar sesión",
+    "demoPreparing": "Preparando demo…",
+    "demoIdle": "Ver demo de solo lectura"
+  },
+  "footer": {
+    "tagline": "El sistema operativo industrial para manufactura electrónica moderna.",
+    "product": "Producto",
+    "company": "Empresa",
+    "access": "Acceso",
+    "copyright": "© 2026 AXOS OS · Industrial Operating System",
+    "stack": "ERP · MES · Office · CAD · AI",
+    "links": {
+      "programs": "Programas",
+      "flow": "Flujo end-to-end",
+      "modules": "Módulos",
+      "solutions": "Soluciones",
+      "faq": "FAQ",
+      "whyAxos": "Por qué AXOS",
+      "enterprise": "Enterprise",
+      "login": "Iniciar sesión",
+      "signup": "Crear cuenta",
+      "demo": "Ver demo"
+    }
+  },
+  "toast": {
+    "demoStarted": "Demo iniciada (sesión de 30 min, solo lectura).",
+    "demoError": "No se pudo iniciar la demo. Intenta de nuevo."
+  },
+  "mockup": {
+    "urlbar": "axos.os / torre-de-control",
+    "title": "Torre de Control",
+    "subtitle": "Vista ejecutiva · en vivo",
+    "inControl": "En control",
+    "throughput": "Throughput · últimas 12 h",
+    "andonByLine": "Andon por línea",
+    "running": "Corriendo",
+    "andonAdjust": "Andon · ajuste"
+  },
+  "bento": {
+    "eyebrow": "Capacidades",
+    "title": "No te lo contamos. Te lo enseñamos.",
+    "subtitle": "Cada pieza de la operación, viva y conectada a la misma base de datos. Esto es lo que pasa dentro del OS.",
+    "planToFloor": {
+      "kicker": "Del plan al piso · en vivo",
+      "title": "Publica la orden y míralo ejecutarse.",
+      "body": "MES con poka-yoke, andon por estación y backflush de material. El plan deja de ser un PDF: es el piso, en tiempo real.",
+      "published": "Publicada · 1,200 u",
+      "onFloor": "En piso",
+      "backflush": "Backflush automático de material por estación",
+      "cta": "Abrir terminal de operador"
+    },
+    "oee": {
+      "kicker": "Torre de control",
+      "title": "KPIs en vivo",
+      "body": "Readiness, OEE y andons en una pantalla."
+    },
+    "kanban": {
+      "kicker": "Inventario · e-kanban",
+      "replenish": "Reponer",
+      "ok": "OK",
+      "cta": "Surtido a línea"
+    },
+    "trace": {
+      "kicker": "Trazabilidad nativa",
+      "title": "Cada unidad cuenta su historia: serie, lote y as-built.",
+      "cta": "Ver genealogía"
+    },
+    "quality": {
+      "kicker": "Calidad · MRB",
+      "quarantine": "cuarentena",
+      "body": "Un hold bloquea el consumo del lote hasta la disposición MRB."
+    },
+    "cide": {
+      "kicker": "CIDE · IA con contexto",
+      "question": "¿Por qué cayó el FPY en SMT-2 ayer?",
+      "answerPre": "3 NCR del reel",
+      "answerPost": "(solder skips). El hold ya está activo; revisa el perfil de reflow.",
+      "cta": "Preguntarle a tu planta"
+    },
+    "office": {
+      "kicker": "Office nativo",
+      "body": "SOPs y reportes conectados al trabajo real, dentro del OS."
+    }
+  }
 }
