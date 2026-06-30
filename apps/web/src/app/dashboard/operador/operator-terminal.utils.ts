@@ -75,7 +75,10 @@ export function deriveMaterialRequestReadiness({
   };
 }
 
-export type OperatorCriticalAction = "confirm-advance" | "line-stop";
+export type OperatorCriticalAction =
+  | "start-work-order"
+  | "confirm-advance"
+  | "line-stop";
 
 export interface OperatorActionSignatureInput {
   action: OperatorCriticalAction;
@@ -139,6 +142,20 @@ export function buildOperatorConfirmationSummary({
   scrap?: number;
   operator?: string | null;
 }): OperatorConfirmationSummary {
+  if (action === "start-work-order") {
+    return {
+      title: "Confirmar montaje de WO",
+      primaryLabel: "Montar WO",
+      consequence:
+        "Creara la ejecucion MES de la orden y la dejara activa para captura en piso.",
+      details: [
+        `WO ${workOrder}`,
+        operator ? `Operador ${operator}` : "Operador no identificado",
+      ],
+      tone: "emerald",
+    };
+  }
+
   if (action === "line-stop") {
     return {
       title: "Confirmar paro de línea",

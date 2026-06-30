@@ -67,7 +67,7 @@ export function SlideInspectorPanel({
     <aside className="w-72 flex-shrink-0 rounded-2xl border border-black/10 dark:border-white/10 bg-white/85 dark:bg-[#111]/85 backdrop-blur overflow-hidden flex flex-col min-h-0">
       <div className="h-11 px-3 flex items-center justify-between border-b border-black/5 dark:border-white/10">
         <span className="inline-flex items-center gap-2 text-sm font-bold"><PanelRight className="w-4 h-4 text-amber-500" /> Workbench</span>
-        <span className="text-[10px] uppercase tracking-wide text-gray-400">Inspector</span>
+        <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Inspector</span>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
         <Section title="Deck health" icon={<Activity className="w-3.5 h-3.5" />}>
@@ -135,7 +135,7 @@ export function SlideInspectorPanel({
               {(health.pptxIssueMessages || []).slice(0, 5).map((msg, idx) => (
                 <p key={idx} className="rounded-lg bg-amber-50 dark:bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">{msg}</p>
               ))}
-              {health.pptxIssues > 5 && <p className="text-[11px] text-gray-400">+{health.pptxIssues - 5} avisos adicionales en el reporte de importación.</p>}
+              {health.pptxIssues > 5 && <p className="text-[11px] text-gray-500 dark:text-gray-400">+{health.pptxIssues - 5} avisos adicionales en el reporte de importación.</p>}
             </div>
           </Section>
         )}
@@ -177,7 +177,7 @@ export function SlideInspectorPanel({
                 </div>
               </div>
             </div>
-          ) : <p className="text-xs text-gray-400">Selecciona un objeto para editar posición, tamaño, metadata y bindings.</p>}
+          ) : <p className="text-xs text-gray-500 dark:text-gray-400">Selecciona un objeto para editar posición, tamaño, metadata y bindings.</p>}
         </Section>
 
 

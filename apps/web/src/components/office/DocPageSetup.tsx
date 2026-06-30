@@ -68,7 +68,7 @@ export function DocPageSetup({ editor }: { editor: Editor }) {
         <RibbonButton icon={Hash} label="Números de línea" active={!!a.pageLineNumbers} onClick={() => set({ pageLineNumbers: !a.pageLineNumbers })} />
         <RibbonButton icon={Files} label="Primera página distinta" active={!!a.pageFirstDifferent} onClick={() => set({ pageFirstDifferent: !a.pageFirstDifferent })} />
       </RibbonGroup>
-      <span className="self-center text-[10px] text-gray-400 px-2 max-w-[150px]" title="Vista de página">{sizeLabel[size]} · {marginLabel[margin]}</span>
+      <span className="self-center text-[10px] text-gray-500 dark:text-gray-400 px-2 max-w-[150px]" title="Vista de página">{sizeLabel[size]} · {marginLabel[margin]}</span>
     </>
   );
 }

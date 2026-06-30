@@ -143,7 +143,7 @@ export function DockLoading({
           </span>
           <div className="flex-1 min-w-0">
             <h2 className="font-semibold leading-tight truncate">Carga verificada</h2>
-            <p className="text-[12px] text-gray-400 leading-tight truncate">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight truncate">
               {shipment.folio ? `${shipment.folio} · ` : ''}{shipment.title}
             </p>
           </div>
@@ -154,12 +154,12 @@ export function DockLoading({
 
         <div className="px-5 py-4">
           {isLoading && !state ? (
-            <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
           ) : !state || !state.hasUnits ? (
             <div className="text-center py-16">
-              <PackageCheck className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+              <PackageCheck className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
               <p className="text-sm font-medium">Sin unidades de manejo</p>
-              <p className="text-[13px] text-gray-400 mt-1 max-w-xs mx-auto">
+              <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">
                 Crea las tarimas/cajas de este embarque en <span className="font-medium">Empaque</span> (con su SSCC) para poder verificar la carga.
               </p>
             </div>
@@ -189,7 +189,7 @@ export function DockLoading({
               <label className="block text-[12px] font-medium text-gray-500 mb-1.5">Escanea el SSCC</label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <ScanLine className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <ScanLine className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
                   <input
                     ref={inputRef}
                     value={scan}
@@ -231,7 +231,7 @@ export function DockLoading({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="font-mono text-[12px] truncate">{u.sscc ?? '—'}</div>
-                      <div className="text-[11px] text-gray-400">
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">
                         {TYPE_LABEL[u.type ?? ''] ?? u.type ?? '—'} · {u.loaded ? 'Cargada' : 'Pendiente'}
                       </div>
                     </div>
@@ -240,7 +240,7 @@ export function DockLoading({
                         onClick={() => reset(u.id)}
                         disabled={busy}
                         title="Regresar a pendiente"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-amber-500 hover:bg-amber-500/10 disabled:opacity-50"
+                        className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-amber-500 hover:bg-amber-500/10 disabled:opacity-50"
                       >
                         <RotateCcw className="w-4 h-4" />
                       </button>

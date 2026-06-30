@@ -65,19 +65,24 @@ export class MaterialRequestsService {
   /** Flatten the request with its plan context for the warehouse board. */
   private serialize(r: MaterialRequest): any {
     const plan = r.kit?.plan;
+    const planLine = plan?.line === undefined ? null : String(plan.line);
     return {
       id: r.id,
       kitId: r.kitId,
       requestedBy: r.requestedBy,
       status: r.status,
       note: r.note,
+      workOrder: r.workOrder ?? plan?.workOrder ?? null,
+      line: r.line ?? planLine,
+      station: r.station,
+      partNumber: r.partNumber,
+      requestedQty: r.requestedQty,
+      unit: r.unit,
       decidedBy: r.decidedBy,
       decidedAt: r.decidedAt,
       decisionNote: r.decisionNote,
       createdAt: r.createdAt,
       model: plan?.model ?? null,
-      workOrder: plan?.workOrder ?? null,
-      line: plan?.line ?? null,
       quantity: plan?.quantity ?? null,
     };
   }
@@ -117,6 +122,14 @@ export class MaterialRequestsService {
         requestedBy: actor,
         status: 'pending',
         note: dto.note ?? null,
+        workOrder: this.cleanText(dto.workOrder) ?? kit.plan?.workOrder ?? null,
+        line:
+          this.cleanText(dto.line) ??
+          (kit.plan?.line === undefined ? null : String(kit.plan.line)),
+        station: this.cleanText(dto.station),
+        partNumber: this.cleanText(dto.partNumber),
+        requestedQty: this.cleanQty(dto.requestedQty),
+        unit: this.cleanText(dto.unit),
       }),
     );
 
@@ -211,9 +224,13 @@ export class MaterialRequestsService {
       status: request.status,
       requestedBy: request.requestedBy,
       decidedBy: request.decidedBy,
-      workOrder: kit?.plan?.workOrder,
+      workOrder: request.workOrder ?? kit?.plan?.workOrder,
+      station: request.station,
+      partNumber: request.partNumber,
+      requestedQty: request.requestedQty,
+      unit: request.unit,
       model: kit?.plan?.model,
-      line: kit?.plan?.line,
+      line: request.line ?? kit?.plan?.line,
     });
   }
 
@@ -231,9 +248,16 @@ export class MaterialRequestsService {
         referenceId: String(request.id),
         actorName: actor,
         model: kit?.plan?.model,
-        workOrder: kit?.plan?.workOrder,
-        line: kit?.plan?.line?.toString(),
-        metadata: { kitId: request.kitId, status: request.status },
+        workOrder: request.workOrder ?? kit?.plan?.workOrder,
+        line: request.line ?? kit?.plan?.line?.toString(),
+        metadata: {
+          kitId: request.kitId,
+          status: request.status,
+          station: request.station,
+          partNumber: request.partNumber,
+          requestedQty: request.requestedQty,
+          unit: request.unit,
+        },
       });
     } catch (err) {
       this.logger.error(
@@ -241,5 +265,16 @@ export class MaterialRequestsService {
         err as Error,
       );
     }
+  }
+
+  private cleanText(value: unknown): string | null {
+    if (value === undefined || value === null) return null;
+    const trimmed = String(value).trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private cleanQty(value: unknown): number | null {
+    const qty = Number(value);
+    return Number.isFinite(qty) && qty > 0 ? qty : null;
   }
 }

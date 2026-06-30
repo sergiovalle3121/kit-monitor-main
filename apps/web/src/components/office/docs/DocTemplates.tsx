@@ -40,7 +40,7 @@ export function DocTemplates({ editor, notifyChange }: { editor: Editor; notifyC
       <div className="max-h-[60vh] overflow-y-auto pr-0.5">
         {groups.map((g) => (
           <div key={g.cat} className="mb-1.5 last:mb-0">
-            <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{g.cat}</p>
+            <p className="px-2 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{g.cat}</p>
             <div className="grid grid-cols-1 gap-1">
               {g.items.map((t) => {
                 const Icon = ICONS[t.id] || FileText;
@@ -58,7 +58,7 @@ export function DocTemplates({ editor, notifyChange }: { editor: Editor; notifyC
                     </span>
                     <span className="min-w-0">
                       <span className="block text-sm font-medium truncate">{t.title}</span>
-                      <span className="block text-[11px] text-gray-400 truncate">{t.description}</span>
+                      <span className="block text-[11px] text-gray-500 dark:text-gray-400 truncate">{t.description}</span>
                     </span>
                   </button>
                 );

@@ -507,6 +507,7 @@ export default function OperadorPage() {
             list={list}
             loading={listLoading}
             gloveMode={gloveMode}
+            operator={operator}
             onPick={(id) => {
               setExecutionId(id);
               setStepId(null);
@@ -529,7 +530,7 @@ export default function OperadorPage() {
         )}
 
         {!forbidden && executionId && !board && (
-          <div className="flex items-center justify-center py-24 text-gray-400">
+          <div className="flex items-center justify-center py-24 text-gray-500 dark:text-gray-400">
             <Loader2 className="w-7 h-7 animate-spin" />
           </div>
         )}
@@ -597,16 +598,26 @@ function Picker({
   list,
   loading,
   gloveMode,
+  operator,
   onPick,
 }: {
   list: ExecListItem[];
   loading: boolean;
   gloveMode: boolean;
+  operator: string;
   onPick: (id: number) => void;
 }) {
   const [wo, setWo] = useState("");
+  const [pendingStartWo, setPendingStartWo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const startSummary = pendingStartWo
+    ? buildOperatorConfirmationSummary({
+        action: "start-work-order",
+        workOrder: pendingStartWo,
+        operator,
+      })
+    : null;
 
   const openByValue = useCallback(
     async (rawValue: string) => {
@@ -615,11 +626,12 @@ function Picker({
         classified.kind === "wo" ? classified.normalized : rawValue.trim();
       if (!value) return;
       setWo(value);
+      setPendingStartWo(null);
       setBusy(true);
       setError(null);
       try {
-        // Try an already-open execution first, else open a new one from the plan.
-        let res = await apiFetch(
+        // Try an already-open execution first; creating a new one requires review.
+        const res = await apiFetch(
           `${API_BASE}/mes/board?workOrder=${encodeURIComponent(value)}`,
         );
         if (res.ok) {
@@ -627,20 +639,14 @@ function Picker({
           onPick(b.execution.id);
           return;
         }
-        res = await apiFetch(`${API_BASE}/mes/executions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workOrder: value }),
-        });
-        if (res.ok) {
-          const b = (await res.json()) as Board;
-          onPick(b.execution.id);
-        } else {
+        if (res.status === 401 || res.status === 403) {
           const j = (await res.json().catch(() => ({}))) as {
             message?: string;
           };
-          setError(j.message || `No se encontró la WO ${value}.`);
+          setError(j.message || "Tu sesion no permite montar esta WO.");
+          return;
         }
+        setPendingStartWo(value);
       } catch {
         setError("No se pudo contactar el backend.");
       } finally {
@@ -652,12 +658,47 @@ function Picker({
 
   const scanner = useIndustrialScanner((scan) => {
     if (scan.kind === "wo") void openByValue(scan.normalized);
-    else setError(`${scan.message} Escanea una WO para montar la orden.`);
+    else {
+      setPendingStartWo(null);
+      setError(`${scan.message} Escanea una WO para montar la orden.`);
+    }
   });
 
   async function openByWo(e: React.FormEvent) {
     e.preventDefault();
     await openByValue(wo);
+  }
+
+  function cancelPendingStart() {
+    setPendingStartWo(null);
+    setError(null);
+  }
+
+  async function confirmPendingStart() {
+    if (!pendingStartWo) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`${API_BASE}/mes/executions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workOrder: pendingStartWo }),
+      });
+      if (res.ok) {
+        const b = (await res.json()) as Board;
+        setPendingStartWo(null);
+        onPick(b.execution.id);
+        return;
+      }
+      const j = (await res.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      setError(j.message || `No se encontro la WO ${pendingStartWo}.`);
+    } catch {
+      setError("No se pudo contactar el backend.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -679,15 +720,18 @@ function Picker({
 
       <form
         onSubmit={openByWo}
-        className={`${glass} rounded-3xl p-4 mb-8 flex items-center gap-3 ${gloveMode ? "min-h-24" : ""}`}
+        className={`${glass} rounded-3xl p-4 mb-8 flex flex-wrap items-center gap-3 ${gloveMode ? "min-h-24" : ""}`}
       >
         <ScanLine className="w-6 h-6 text-amber-500 flex-shrink-0" />
         <input
           value={wo}
-          onChange={(e) => setWo(e.target.value)}
+          onChange={(e) => {
+            setWo(e.target.value);
+            setPendingStartWo(null);
+          }}
           autoFocus
           placeholder="Escanea / escribe la WO  (ej. 00001)"
-          className="flex-1 bg-transparent outline-none text-2xl font-mono tracking-wide placeholder:text-gray-400"
+          className="min-w-0 flex-1 bg-transparent outline-none text-2xl font-mono tracking-wide placeholder:text-gray-400"
         />
         <button
           type="submit"
@@ -705,12 +749,38 @@ function Picker({
       {error && (
         <p className="text-sm text-rose-500 -mt-5 mb-6 px-2">{error}</p>
       )}
+      {pendingStartWo && startSummary && (
+        <div className={`${glass} rounded-3xl p-4 mb-8 space-y-4`}>
+          <ConfirmationReview summary={startSummary} armed={false} />
+          <div className="grid grid-cols-1 sm:grid-cols-[0.8fr_1.2fr] gap-3">
+            <button
+              onClick={cancelPendingStart}
+              disabled={busy}
+              className="w-full bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200 text-base font-bold py-4 rounded-2xl hover:bg-gray-200 dark:hover:bg-white/15 active:scale-[0.98] transition-all disabled:opacity-40"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmPendingStart}
+              disabled={busy}
+              className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {busy ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <PlayCircle className="w-5 h-5" />
+              )}
+              {startSummary.primaryLabel}
+            </button>
+          </div>
+        </div>
+      )}
 
       <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">
         Órdenes en la línea
       </h2>
       {loading && (
-        <div className="flex items-center justify-center py-16 text-gray-400">
+        <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
           <Loader2 className="w-6 h-6 animate-spin" />
         </div>
       )}
@@ -730,7 +800,7 @@ function Picker({
             className={`${glass} rounded-3xl p-6 text-left flex flex-col gap-3 min-h-44`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-gray-400">
+              <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">
                 WO {e.workOrder}
               </span>
               {e.blocked ? (
@@ -832,7 +902,7 @@ function BoardView({
               />
               {currentStepDetail?.name ?? "Estación"}
             </h3>
-            <span className="text-[11px] text-gray-400">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
               {currentStep ? stationStatusMeta(currentStep.status).label : ""}
             </span>
           </div>
@@ -1112,7 +1182,7 @@ function ConfirmForm({
             className="mt-1 w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 font-mono outline-none"
           />
         </div>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
           Disponible de la estación previa: {step.maxConfirmable} u. Al
           confirmar se descuenta el material del paso (backflush).
         </p>
@@ -1430,7 +1500,12 @@ function MaterialRequestForm({
       material.availableQty < material.qtyPerUnit,
   );
   const defaultMaterial = attentionMaterials[0] ?? materials[0] ?? null;
+  const suggestedQtyFor = (material: Material | null) =>
+    Math.max(1, Math.ceil(material?.remaining || material?.qtyPerUnit || 1));
   const [partNumber, setPartNumber] = useState(defaultMaterial?.partNumber ?? "");
+  const [requestedQty, setRequestedQty] = useState(
+    suggestedQtyFor(defaultMaterial),
+  );
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1450,7 +1525,7 @@ function MaterialRequestForm({
       `WO ${board.execution.workOrder}`,
       partNumber ? `Parte ${partNumber}` : "Solicitud general",
       selectedMaterial
-        ? `Disponible ${selectedMaterial.availableQty}/${selectedMaterial.remaining} ${selectedMaterial.unit}`
+        ? `Solicitado ${requestedQty} ${selectedMaterial.unit} · disponible ${selectedMaterial.availableQty}/${selectedMaterial.remaining}`
         : null,
       note.trim() || null,
     ]
@@ -1469,6 +1544,15 @@ function MaterialRequestForm({
       kitId,
       requestedBy: operator,
       note: buildNote(),
+      workOrder: board.execution.workOrder,
+      line:
+        board.execution.line === null || board.execution.line === undefined
+          ? undefined
+          : String(board.execution.line),
+      station: stepName,
+      partNumber: partNumber || undefined,
+      requestedQty: partNumber ? requestedQty : undefined,
+      unit: selectedMaterial?.unit,
     };
     setBusy(true);
     setError(null);
@@ -1538,7 +1622,10 @@ function MaterialRequestForm({
                 return (
                   <button
                     key={material.id}
-                    onClick={() => setPartNumber(material.partNumber)}
+                    onClick={() => {
+                      setPartNumber(material.partNumber);
+                      setRequestedQty(suggestedQtyFor(material));
+                    }}
                     className={`rounded-2xl border px-3 py-3 text-left transition-all ${
                       active
                         ? "border-amber-500 bg-amber-500 text-white"
@@ -1579,6 +1666,30 @@ function MaterialRequestForm({
             Esta estacion no trae materiales detallados; se levantara una
             solicitud general contra el kit.
           </div>
+        )}
+
+        {selectedMaterial && (
+          <label className="block">
+            <span className="mb-2 block text-xs font-black uppercase tracking-widest text-gray-500">
+              Cantidad a surtir
+            </span>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                type="number"
+                min={1}
+                value={requestedQty}
+                onChange={(event) =>
+                  setRequestedQty(
+                    Math.max(1, Math.ceil(Number(event.target.value) || 1)),
+                  )
+                }
+                className="w-full rounded-2xl bg-gray-100 px-4 py-3 text-sm font-semibold outline-none dark:bg-white/5"
+              />
+              <span className="flex items-center rounded-2xl bg-gray-100 px-4 text-xs font-black text-gray-500 dark:bg-white/5">
+                {selectedMaterial.unit}
+              </span>
+            </div>
+          </label>
         )}
 
         <textarea
@@ -1921,7 +2032,7 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center text-center py-20 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">
         {icon}
       </div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>

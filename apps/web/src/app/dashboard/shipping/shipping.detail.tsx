@@ -84,9 +84,9 @@ export function ShipmentDrawer({
         </div>
 
         {isLoading && !data ? (
-          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : !data ? (
-          <div className="p-10 text-center text-sm text-gray-400">No se encontró el embarque.</div>
+          <div className="p-10 text-center text-sm text-gray-500 dark:text-gray-400">No se encontró el embarque.</div>
         ) : (
           <div className="p-5 space-y-6">
             {/* Manifiesto / logística */}
@@ -114,21 +114,21 @@ export function ShipmentDrawer({
               <div className="flex items-center justify-between mb-2">
                 <SectionLabel>Material surtido</SectionLabel>
                 {items.length > 0 && (
-                  <span className="text-[11px] text-gray-400 tabular-nums">{items.length} líneas · {totalQty} pzs</span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">{items.length} líneas · {totalQty} pzs</span>
                 )}
               </div>
               {items.length === 0 ? (
-                <div className="text-sm text-gray-400 flex items-center gap-2 py-2">
+                <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 py-2">
                   <Boxes className="w-4 h-4" /> Aún sin material surtido.
                 </div>
               ) : (
                 <div className="space-y-1.5">
                   {items.map((it) => (
                     <div key={it.id} className="flex items-center gap-3 rounded-xl px-3 py-2 bg-black/[0.03] dark:bg-white/[0.04]">
-                      <Package className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <Package className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium truncate">{it.partNumber}</div>
-                        <div className="text-[11px] text-gray-400 truncate">
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                           {[it.lotNumber && `Lote ${it.lotNumber}`, it.workOrder && `WO ${it.workOrder}`, it.fromLocation].filter(Boolean).join(" · ") || "—"}
                         </div>
                       </div>
@@ -143,17 +143,17 @@ export function ShipmentDrawer({
             <section>
               <SectionLabel>Listas de empaque</SectionLabel>
               {packingLists.length === 0 ? (
-                <div className="text-sm text-gray-400 flex items-center gap-2 py-2">
+                <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 py-2">
                   <ClipboardList className="w-4 h-4" /> Sin listas generadas.
                 </div>
               ) : (
                 <div className="space-y-1.5">
                   {packingLists.map((pl) => (
                     <div key={pl.id} className="flex items-center gap-3 rounded-xl px-3 py-2 bg-black/[0.03] dark:bg-white/[0.04]">
-                      <ClipboardList className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <ClipboardList className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium font-mono truncate">{pl.packingListNumber}</div>
-                        <div className="text-[11px] text-gray-400 truncate">
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                           {[`${pl.items?.length ?? 0} líneas`, pl.generatedBy, fmtDateTime(pl.createdAt)].filter(Boolean).join(" · ")}
                         </div>
                       </div>
@@ -198,10 +198,10 @@ export function ShipmentDrawer({
                 {data.status === "loading" && <DispatchButton shipment={data} onChanged={refresh} full />}
                 {data.status === "dispatched" && <CloseButton shipment={data} onChanged={refresh} full />}
                 {data.status === "planning" && (
-                  <p className="text-[12px] text-gray-400">Surte material para mover el embarque a <strong>Surtido</strong>.</p>
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400">Surte material para mover el embarque a <strong>Surtido</strong>.</p>
                 )}
                 {data.status === "closed" && (
-                  <p className="text-[12px] text-gray-400 inline-flex items-center gap-1.5">
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 inline-flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Estado final — sin más transiciones.
                   </p>
                 )}
@@ -245,7 +245,7 @@ function TimelineRow({
         {icon}
       </span>
       <span className="text-sm flex-1">{label}</span>
-      <span className="text-[12px] text-gray-400">{at ? fmtDateTime(at) : "—"}</span>
+      <span className="text-[12px] text-gray-500 dark:text-gray-400">{at ? fmtDateTime(at) : "—"}</span>
     </div>
   );
 }
@@ -266,7 +266,7 @@ function LabelsAsnPanel({ shipmentId, trackingNumber }: { shipmentId: number; tr
           sub={trackingNumber ? "Capturado en el manifiesto de carga" : "Se captura al iniciar la carga"}
         />
         <LabelAsnActions shipmentId={shipmentId} />
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
           La etiqueta usa el prefijo GS1 de la empresa (configurable con
           <code> GS1_COMPANY_PREFIX</code>); hasta entonces el SSCC sale con un
           prefijo de marcador, pero el ZPL y el ASN son reales.

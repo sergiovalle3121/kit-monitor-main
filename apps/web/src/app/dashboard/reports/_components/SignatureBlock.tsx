@@ -19,8 +19,8 @@ export function SignatureBlock({
           <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
             {r.label}
           </div>
-          {r.hint && <div className="text-[10px] text-gray-400">{r.hint}</div>}
-          <div className="text-[10px] text-gray-400">Nombre · Firma · Fecha</div>
+          {r.hint && <div className="text-[10px] text-gray-500 dark:text-gray-400">{r.hint}</div>}
+          <div className="text-[10px] text-gray-500 dark:text-gray-400">Nombre · Firma · Fecha</div>
         </div>
       ))}
     </div>

@@ -42,6 +42,25 @@ export class MaterialRequest {
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  workOrder: string | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  line: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  station: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Index()
+  partNumber: string | null;
+
+  @Column({ type: 'float', nullable: true })
+  requestedQty: number | null;
+
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  unit: string | null;
+
   @Column({ type: 'varchar', length: 120, nullable: true })
   decidedBy: string | null;
 

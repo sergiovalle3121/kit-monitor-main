@@ -113,7 +113,7 @@ export default function GenealogyPage() {
       <main className="mx-auto max-w-7xl px-6 pb-24 pt-10">
         <Link
           href="/dashboard"
-          className="mb-4 inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
         >
           <ChevronLeft className="h-4 w-4" /> Dashboard
         </Link>
@@ -148,7 +148,7 @@ export default function GenealogyPage() {
               Número de serie
             </label>
             <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 shrink-0 text-gray-400" />
+              <Search className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
               <input
                 value={serialInput}
                 onChange={(e) => setSerialInput(e.target.value)}
@@ -207,7 +207,7 @@ export default function GenealogyPage() {
               </Labeled>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-[12px] text-gray-400">
+              <span className="text-[12px] text-gray-500 dark:text-gray-400">
                 Indica al menos un lote o un reel. El NP acota la búsqueda.
               </span>
               <button

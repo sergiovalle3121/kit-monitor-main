@@ -125,9 +125,9 @@ export default function LayoutHistory({
         {error ? (
           <p className="text-[12px] text-amber-500 py-10 text-center">{error}</p>
         ) : !entries ? (
-          <div className="py-16 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-16 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : entries.length === 0 ? (
-          <p className="text-[12px] text-gray-400 py-10 text-center">
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 py-10 text-center">
             Sin movimientos registrados todavía. Guarda, versiona o aprueba el layout y aparecerán aquí.
           </p>
         ) : (
@@ -144,17 +144,17 @@ export default function LayoutHistory({
                   </span>
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-sm font-medium" style={{ color }}>{e.title}</span>
-                    <span className="text-[11px] text-gray-400 shrink-0" title={absTime(e.at)}>{relTime(e.at)}</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0" title={absTime(e.at)}>{relTime(e.at)}</span>
                   </div>
                   {e.detail && <div className="text-[12px] text-gray-500 mt-0.5 leading-snug">{e.detail}</div>}
-                  <div className="text-[11px] text-gray-400 mt-0.5">{e.actor}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{e.actor}</div>
                 </li>
               );
             })}
           </ol>
         )}
 
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
           Registro de auditoría inmutable. Se anota automáticamente cada guardado, aprobación, snapshot, restauración, plano y clonación.
         </p>
       </div>
