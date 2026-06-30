@@ -278,6 +278,24 @@ Please confirm:
   migration supersede them, then deletes the branches.
 
 ### Owner hand-off — branches to delete (SHAs are restore points)
-Run your cleanup script / GitHub branch auto-delete against the 67 PR-less branches in the
-table above (every row except PR #831, already closed). To restore any branch later:
-`git push origin <sha>:refs/heads/<branch>`.
+
+**2026-06-30 — owner authorized deleting the 60 CLOSE branches (keeping the 8 quarantine).**
+Automated deletion from this session is **not possible**: `git push origin --delete` returns
+**HTTP 403** (the agent egress proxy denies ref deletion by policy — the README says do not
+retry), and the GitHub MCP server exposes **no delete-branch tool**. This matches the original
+brief's design ("el borrado de rama lo hace el owner"). Branch deletion must be run by the
+owner with their own credentials.
+
+Ready-to-run scripts are committed for this:
+
+- **`docs/office-convergence/delete_office_close_branches.sh`** — deletes exactly the 60 CLOSE
+  branches, leaves the 8 quarantine branches intact. Run locally:
+  ```bash
+  bash docs/office-convergence/delete_office_close_branches.sh
+  ```
+- **`docs/office-convergence/restore_office_close_branches.sh`** — restores any/all of them
+  from the recorded SHAs if needed (`git push origin <sha>:refs/heads/<branch>`).
+
+The 8 QUARANTINE branches (B·Docs roadmap ×5, H·cell/range-comments ×3) are **deliberately
+excluded** from the delete script — dispose of them only after confirming `main`'s schema
+supersedes them.
