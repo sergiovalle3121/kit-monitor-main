@@ -174,9 +174,9 @@ export default function NpiProjectDetailPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Necesitas permiso de ingeniería para ver este proyecto.
           </p>
         </div>
@@ -187,7 +187,7 @@ export default function NpiProjectDetailPage() {
   if (isLoading || !project) {
     return (
       <div className="flex justify-center py-32">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
       </div>
     );
   }
@@ -272,7 +272,7 @@ export default function NpiProjectDetailPage() {
         <DependencyMatrix dependencies={dependencies} />
 
         {/* Gates */}
-        <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 mt-8 mb-3">
+        <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400 mt-8 mb-3">
           Gates de fase
         </h2>
         <div className="space-y-2.5">
@@ -291,7 +291,7 @@ export default function NpiProjectDetailPage() {
         </div>
 
         {/* History */}
-        <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 mt-10 mb-3 flex items-center gap-2">
+        <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400 mt-10 mb-3 flex items-center gap-2">
           <History className="w-4 h-4" /> Historial de readiness
         </h2>
         {history && history.length > 0 ? (
@@ -301,11 +301,11 @@ export default function NpiProjectDetailPage() {
             {history.map((s) => (
               <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
                 <ReadinessPill status={s.gateReady ? 'READY' : 'NOT_READY'} />
-                <span className="text-xs text-gray-400 w-32 shrink-0">
+                <span className="text-xs text-gray-500 dark:text-gray-400 w-32 shrink-0">
                   {fmtDate(s.created_at)}
                 </span>
                 <span className="text-xs font-medium">{s.reason}</span>
-                <span className="text-xs text-gray-400 truncate flex-1">
+                <span className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1">
                   {s.readyCount}✓ · {s.notReadyCount}✗ · {s.unknownCount}?
                   {s.note ? ` · ${s.note}` : ''}
                 </span>
@@ -314,7 +314,7 @@ export default function NpiProjectDetailPage() {
           </div>
         ) : (
           <div
-            className={`${glass} rounded-2xl p-6 text-center text-sm text-gray-400`}
+            className={`${glass} rounded-2xl p-6 text-center text-sm text-gray-500 dark:text-gray-400`}
           >
             Aún no hay snapshots para este proyecto.
           </div>
@@ -441,7 +441,7 @@ function ReleaseBanner({
               ? 'Listo para liberar a MP'
               : '¿Puedo producir esto mañana? Aún no.'}
         </div>
-        <div className="text-xs text-gray-400">
+        <div className="text-xs text-gray-500 dark:text-gray-400">
           {released
             ? `${project.releasedBy || 'Alguien'} · ${fmtDate(project.releasedAt)}${
                 project.releaseNote ? ` · ${project.releaseNote}` : ''
@@ -547,7 +547,7 @@ function PhaseTimeline({
   const rail = phaseRailForProject(currentPhase, status);
   return (
     <div className={`${glass} rounded-2xl p-4 mb-6`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-3">
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
         Pipeline · QUOTE → MP
       </div>
       <div className="flex items-stretch gap-1.5 overflow-x-auto">
@@ -572,7 +572,7 @@ function PhaseTimeline({
                 >
                   {r.phase}
                 </div>
-                <div className="text-[10px] text-gray-400 mt-0.5">
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                   {r.done ? 'hecho' : r.current ? 'actual' : 'pendiente'}
                 </div>
               </div>
@@ -603,7 +603,7 @@ function ReadinessPanel({ report }: { report: ReadinessReport }) {
           <div className="font-semibold">
             {ready ? 'Listo para avanzar' : 'Aún no listo'}
           </div>
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {report.readyCount} listo · {report.notReadyCount} no listo ·{' '}
             {report.unknownCount} desconocido
           </div>
@@ -619,7 +619,7 @@ function ReadinessPanel({ report }: { report: ReadinessReport }) {
             <ReadinessPill status={c.status} />
             <div className="min-w-0">
               <div className="text-sm font-medium">{c.label}</div>
-              <div className="text-xs text-gray-400">{c.detail}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{c.detail}</div>
             </div>
           </div>
         ))}
@@ -632,7 +632,7 @@ function ReadinessPanel({ report }: { report: ReadinessReport }) {
 function MissingPanel({ items }: { items: MissingItem[] }) {
   return (
     <section className="mb-6">
-      <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 mb-3 flex items-center gap-2">
+      <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
         <ListChecks className="w-4 h-4" /> Qué falta para liberar
       </h2>
       {items.length === 0 ? (
@@ -662,7 +662,7 @@ function MissingPanel({ items }: { items: MissingItem[] }) {
                 )}
                 <div className="min-w-0">
                   <div className="text-sm font-medium">{it.label}</div>
-                  <div className="text-xs text-gray-400">{it.detail}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{it.detail}</div>
                 </div>
                 <span
                   className="ml-auto text-[10px] font-semibold uppercase tracking-wide shrink-0"
@@ -788,10 +788,10 @@ function RiskPanel({
   return (
     <section className="mb-6">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 flex items-center gap-2">
+        <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-2">
           <ShieldAlert className="w-4 h-4" /> Riesgos
           {open.length > 0 && (
-            <span className="text-[11px] font-medium text-gray-400 normal-case tracking-normal">
+            <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 normal-case tracking-normal">
               · {open.length} abierto(s)
             </span>
           )}
@@ -912,7 +912,7 @@ function RiskPanel({
                   <span className="text-sm font-medium">{r.title}</span>
                   <RiskStatusPill status={r.status} />
                 </div>
-                <div className="text-xs text-gray-400 mt-0.5">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {r.owner ? `Owner ${r.owner}` : 'Sin owner'}
                   {r.dueDate ? ` · vence ${fmtDate(r.dueDate)}` : ''}
                   {r.description ? ` · ${r.description}` : ''}
@@ -949,7 +949,7 @@ function RiskPanel({
                   )}
                   <button
                     onClick={() => remove(r)}
-                    className="p-1 rounded-lg text-gray-400 hover:text-red-500"
+                    className="p-1 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-500"
                     title="Eliminar"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -972,7 +972,7 @@ function DependencyMatrix({
 }) {
   return (
     <section className="mb-2">
-      <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 mb-3 flex items-center gap-2">
+      <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
         <Network className="w-4 h-4" /> Dependencias de ingeniería
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -987,7 +987,7 @@ function DependencyMatrix({
                 <span className="text-sm font-medium">{d.label}</span>
                 <DependencyStatusPill status={d.status} />
               </div>
-              <div className="text-xs text-gray-400 mt-0.5">{d.detail}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{d.detail}</div>
             </div>
             <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600 shrink-0 mt-0.5 group-hover:text-gray-500" />
           </Link>
@@ -1017,13 +1017,13 @@ function GateRow({
     >
       <div className="w-20 shrink-0">
         <div className="text-sm font-semibold">{gate.phase}</div>
-        <div className="text-[11px] text-gray-400">
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">
           {PHASE_LABEL[gate.phase] ?? gate.phase}
         </div>
       </div>
       <div className="flex-1 min-w-0">
         <GateStatusPill status={gate.status} />
-        <div className="text-xs text-gray-400 mt-1 truncate">
+        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
           {gate.decidedByEmail
             ? `${gate.decidedByEmail} · ${fmtDate(gate.decidedAt)}`
             : 'Sin decidir'}

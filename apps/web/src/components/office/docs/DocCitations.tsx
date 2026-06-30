@@ -33,14 +33,14 @@ export function DocCitations({ editor }: { editor: Editor }) {
           className="relative w-full max-w-md rounded-3xl bg-white dark:bg-[#1b1b1d] border border-black/10 dark:border-white/10 shadow-2xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold flex items-center gap-2"><Quote className="w-5 h-5 text-blue-500" /> Insertar cita</h3>
-            <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+            <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
           </div>
           <div className="space-y-2">
             <input autoFocus value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Autor (Apellido)" className="w-full h-9 text-sm rounded-xl bg-gray-100 dark:bg-white/10 px-3 outline-none focus:ring-2 ring-blue-500/40" />
             <input value={year} onChange={(e) => setYear(e.target.value)} placeholder="Año" className="w-full h-9 text-sm rounded-xl bg-gray-100 dark:bg-white/10 px-3 outline-none focus:ring-2 ring-blue-500/40" />
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título de la obra (opcional)" className="w-full h-9 text-sm rounded-xl bg-gray-100 dark:bg-white/10 px-3 outline-none focus:ring-2 ring-blue-500/40" />
           </div>
-          <p className="text-[11px] text-gray-400 mt-2">Vista previa: <span className="font-semibold">({author.trim() || 'Autor'}, {year.trim() || 's. f.'})</span></p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">Vista previa: <span className="font-semibold">({author.trim() || 'Autor'}, {year.trim() || 's. f.'})</span></p>
           <div className="mt-4 flex justify-end gap-2">
             <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
             <button onClick={commit} className="px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700">Insertar</button>

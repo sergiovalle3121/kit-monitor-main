@@ -356,7 +356,7 @@ export default function QualityPage() {
             {/* Filtros */}
             <div className={`${glass} rounded-2xl p-3 mb-5 flex flex-wrap items-center gap-2`}>
               <div className="flex items-center gap-2 flex-1 min-w-[180px] px-2">
-                <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                <Search className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0" />
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -393,7 +393,7 @@ export default function QualityPage() {
             </div>
 
             {isLoading ? (
-              <div className="flex justify-center py-20 text-gray-400">
+              <div className="flex justify-center py-20 text-gray-500 dark:text-gray-400">
                 <Loader2 className="w-6 h-6 animate-spin" />
               </div>
             ) : all.length === 0 ? (
@@ -1068,7 +1068,7 @@ function NcrRow({ ncr }: { ncr: Ncr }) {
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
-          <span className="text-[11px] font-mono text-gray-400">{ncr.ncrNumber}</span>
+          <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">{ncr.ncrNumber}</span>
           <span
             className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
             style={{ background: `${st.color}1f`, color: st.color }}
@@ -1091,13 +1091,13 @@ function NcrRow({ ncr }: { ncr: Ncr }) {
         </div>
         <h3 className="font-semibold truncate">
           <span className="font-mono">{ncr.partNumber}</span>
-          <span className="text-gray-400 font-normal"> · {ncr.category}</span>
+          <span className="text-gray-500 dark:text-gray-400 font-normal"> · {ncr.category}</span>
         </h3>
         <p className="text-[13px] text-gray-500 dark:text-gray-400 truncate">{ncr.description}</p>
       </div>
       <div className="text-right shrink-0 hidden sm:block">
-        <div className="text-[12px] text-gray-400">{ncr.quantityAffected} u</div>
-        <div className="text-[11px] text-gray-400">{NCR_SOURCE_META[ncr.sourceType] ?? ncr.sourceType}</div>
+        <div className="text-[12px] text-gray-500 dark:text-gray-400">{ncr.quantityAffected} u</div>
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">{NCR_SOURCE_META[ncr.sourceType] ?? ncr.sourceType}</div>
       </div>
       <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 shrink-0" />
     </Link>
@@ -1226,7 +1226,7 @@ function NewNcrModal({
           <Field label="Programa"><input value={form.program} onChange={(e) => setForm({ ...form, program: e.target.value })} className="q-input" /></Field>
         </div>
         <div className="mt-5 flex items-center justify-between gap-2">
-          <span className="text-[11px] text-gray-400">Levantada por {createdBy}</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">Levantada por {createdBy}</span>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
             <button data-testid="ncr-create-submit" onClick={submit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: NCR_SEVERITY_META.critical.color }}>
@@ -1244,7 +1244,7 @@ function NewNcrModal({
 function Select({ value, onChange, label, children }: { value: string; onChange: (v: string) => void; label: string; children: React.ReactNode }) {
   return (
     <label className="inline-flex items-center gap-1.5 text-sm">
-      <span className="text-[11px] font-medium text-gray-400">{label}</span>
+      <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} className="bg-transparent outline-none text-sm rounded-lg px-1.5 py-1 hover:bg-black/5 dark:hover:bg-white/10">
         {children}
       </select>

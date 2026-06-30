@@ -333,7 +333,7 @@ export function DashboardWayfinding() {
                   {hasCollapsed && i === firstCollapsibleIdx && (
                     <li aria-hidden className="flex flex-shrink-0 items-center gap-1.5 sm:hidden">
                       {sep}
-                      <span className="px-0.5 text-gray-400 dark:text-gray-500">…</span>
+                      <span className="px-0.5 text-gray-500 dark:text-gray-500">…</span>
                     </li>
                   )}
                   <li

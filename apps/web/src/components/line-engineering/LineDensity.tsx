@@ -46,9 +46,9 @@ function cellStyle(pct: number): React.CSSProperties {
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-xl bg-black/[0.03] dark:bg-white/[0.04] px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-lg font-semibold tabular-nums leading-tight">{value}</div>
-      {hint && <div className="text-[10px] text-gray-400 mt-0.5">{hint}</div>}
+      {hint && <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{hint}</div>}
     </div>
   );
 }
@@ -104,9 +104,9 @@ export default function LineDensity({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : data.boxCount === 0 ? (
-          <p className="text-[12px] text-gray-400 py-8 text-center">Coloca estaciones o equipo en el plano para ver la ocupación.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 py-8 text-center">Coloca estaciones o equipo en el plano para ver la ocupación.</p>
         ) : (
           <>
             <div className="grid grid-cols-4 gap-2 mb-4">
@@ -131,7 +131,7 @@ export default function LineDensity({
                 )),
               )}
             </div>
-            <div className="flex items-center justify-between text-[10px] text-gray-400 mb-4">
+            <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-4">
               <span>Vista superior del piso · cada celda es una zona</span>
               <span className="inline-flex items-center gap-1">
                 menos

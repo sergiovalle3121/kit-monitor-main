@@ -166,7 +166,7 @@ export default function FixedAssetDetailPage() {
 
   if (forbidden) return <Guard />;
   if (isLoading || !a || !schedule) {
-    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
 
   const isDisposed = a.status === 'DISPOSED';
@@ -184,7 +184,7 @@ export default function FixedAssetDetailPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight truncate">{a.name}</h1>
-            <p className="text-[12px] text-gray-400 leading-tight font-mono">{a.folio || 'Sin folio'}{a.location ? ` · ${a.location}` : ''}</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight font-mono">{a.folio || 'Sin folio'}{a.location ? ` · ${a.location}` : ''}</p>
           </div>
           {a.category && <span className="hidden sm:inline text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: `${TEAL}14`, color: TEAL }}>{a.category}</span>}
           <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: `${isDisposed ? GRAY : GREEN}1f`, color: isDisposed ? GRAY : GREEN }}>
@@ -267,7 +267,7 @@ function ScheduleCard({ asset, schedule, lifePct }: { asset: Asset; schedule: Sc
     return (
       <div className={`${glass} rounded-2xl p-5`}>
         <h3 className="text-sm font-semibold mb-2">Calendario de depreciación</h3>
-        <p className="text-sm text-gray-400">Sin vida útil o base depreciable — no hay calendario que calcular.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Sin vida útil o base depreciable — no hay calendario que calcular.</p>
       </div>
     );
   }
@@ -275,9 +275,9 @@ function ScheduleCard({ asset, schedule, lifePct }: { asset: Asset; schedule: Sc
     <div className={`${glass} rounded-2xl p-5`}>
       <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
         <h3 className="text-sm font-semibold flex items-center gap-2"><TrendingDown className="w-4 h-4" style={{ color: TEAL }} /> Calendario de depreciación</h3>
-        <span className="text-[12px] text-gray-400">línea recta · {money2(schedule.perMonth, ccy)}/mes</span>
+        <span className="text-[12px] text-gray-500 dark:text-gray-400">línea recta · {money2(schedule.perMonth, ccy)}/mes</span>
       </div>
-      <p className="text-[12px] text-gray-400 mb-3">
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">
         (costo − rescate) ÷ vida útil = ({money(asset.acquisitionCost, ccy)} − {money(asset.salvageValue, ccy)}) ÷ {asset.usefulLifeMonths} m
       </p>
 
@@ -295,7 +295,7 @@ function ScheduleCard({ asset, schedule, lifePct }: { asset: Asset; schedule: Sc
       <div className="overflow-x-auto -mx-1">
         <table className="w-full text-[13px]">
           <thead>
-            <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-black/5 dark:border-white/10">
+            <tr className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">
               <th className="text-left font-medium px-2 py-2">Periodo</th>
               <th className="text-right font-medium px-2 py-2">Depreciación</th>
               <th className="text-right font-medium px-2 py-2">Acumulada</th>
@@ -310,11 +310,11 @@ function ScheduleCard({ asset, schedule, lifePct }: { asset: Asset; schedule: Sc
                   {/* Year subtotal header */}
                   <tr className="border-b border-black/[0.04] dark:border-white/[0.05] bg-black/[0.015] dark:bg-white/[0.02]">
                     <td className="px-2 py-1.5 font-semibold flex items-center gap-1.5">
-                      <CalendarDays className="w-3.5 h-3.5 text-gray-400" />
+                      <CalendarDays className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                       {asset.acquisitionDate ? yr.year : `Año ${yr.year}`}
                       {hasCurrent && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: `${TEAL}1f`, color: TEAL }}>actual</span>}
                     </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-400">{money2(yr.depreciation, ccy)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-500 dark:text-gray-400">{money2(yr.depreciation, ccy)}</td>
                     <td className="px-2 py-1.5" />
                     <td className="px-2 py-1.5 text-right tabular-nums font-medium">{money2(yr.endBookValue, ccy)}</td>
                   </tr>
@@ -328,9 +328,9 @@ function ScheduleCard({ asset, schedule, lifePct }: { asset: Asset; schedule: Sc
                         style={isCurrent ? { background: `${TEAL}14` } : undefined}
                       >
                         <td className="px-2 py-1.5 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1.5 ${isCurrent ? 'font-semibold' : isPast ? 'text-gray-400' : ''}`} style={isCurrent ? { color: TEAL } : undefined}>
+                          <span className={`inline-flex items-center gap-1.5 ${isCurrent ? 'font-semibold' : isPast ? 'text-gray-500 dark:text-gray-400' : ''}`} style={isCurrent ? { color: TEAL } : undefined}>
                             {isCurrent && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TEAL }} />}
-                            <span className="text-gray-400 tabular-nums">{r.index}.</span>
+                            <span className="text-gray-500 dark:text-gray-400 tabular-nums">{r.index}.</span>
                             {asset.acquisitionDate ? r.date.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' }) : `Mes ${r.index}`}
                           </span>
                         </td>
@@ -354,7 +354,7 @@ function ScheduleCard({ asset, schedule, lifePct }: { asset: Asset; schedule: Sc
           </tfoot>
         </table>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">El valor en libros desciende del costo de adquisición hasta el valor de rescate al término de la vida útil.</p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">El valor en libros desciende del costo de adquisición hasta el valor de rescate al término de la vida útil.</p>
     </div>
   );
 }
@@ -416,7 +416,7 @@ function DisposeModal({ asset, onClose, onDone }: { asset: Asset; onClose: () =>
 function Metric({ icon: Icon, label, value, color }: { icon: typeof Building; label: string; value: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3.5`}>
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
         <Icon className="w-3 h-3" />{label}
       </div>
       <div className="text-sm font-semibold mt-1 tabular-nums truncate" style={{ color }} title={value}>{value}</div>
@@ -426,9 +426,9 @@ function Metric({ icon: Icon, label, value, color }: { icon: typeof Building; la
 function Row({ icon: Icon, label, value, mono }: { icon: typeof Building; label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+      <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
       <div className="min-w-0 flex-1 flex items-center justify-between gap-2">
-        <span className="text-[12px] text-gray-400">{label}</span>
+        <span className="text-[12px] text-gray-500 dark:text-gray-400">{label}</span>
         <span className={`text-[13px] font-medium truncate text-right ${mono ? 'font-mono' : ''}`}>{value}</span>
       </div>
     </div>
@@ -439,7 +439,7 @@ function SummaryBar({ label, value, color, detail }: { label: string; value: num
     <div className="mb-3 last:mb-0">
       <div className="flex items-center justify-between text-[12px] mb-1"><span className="text-gray-500">{label}</span><span className="font-medium tabular-nums">{value}%</span></div>
       <div className="h-2 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${Math.min(100, value)}%`, background: color }} /></div>
-      <div className="text-[11px] text-gray-400 mt-1">{detail}</div>
+      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{detail}</div>
     </div>
   );
 }
@@ -467,7 +467,7 @@ function ModalActions({ busy, onClose, onSubmit, label, danger }: { busy: boolea
 function Guard() {
   return (
     <div className="min-h-screen grid place-items-center text-foreground">
-      <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el activo.</p></div>
+      <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver el activo.</p></div>
     </div>
   );
 }

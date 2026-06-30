@@ -434,7 +434,7 @@ export default function InventoryPage() {
         {showSearch && (
           <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_18rem] mb-5">
             <div className={`${glass} flex items-center gap-2 px-4 py-2.5 rounded-2xl`}>
-            <Search className="w-4 h-4 text-gray-400" />
+            <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -449,7 +449,7 @@ export default function InventoryPage() {
             </div>
             {tab === "positions" && (
               <div className={`${glass} flex items-center gap-2 px-4 py-2.5 rounded-2xl`}>
-                <MapPin className="w-4 h-4 text-gray-400" />
+                <MapPin className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 <input
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
@@ -460,7 +460,7 @@ export default function InventoryPage() {
                   <button
                     onClick={() => setLocationFilter("")}
                     title="Limpiar filtro de ubicacion"
-                    className="p-1 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                    className="p-1 rounded-lg text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -503,7 +503,7 @@ export default function InventoryPage() {
                 <FlowKpi label="Bajo mínimo" value={String(shortageKpis.belowMin)} icon={<Repeat className="w-3.5 h-3.5" />} color={AMBER} />
                 <FlowKpi label="Confirmadas en línea" value={String(shortageKpis.confirmed)} icon={<PackageSearch className="w-3.5 h-3.5" />} color={RED} />
               </div>
-              <p className="text-[11px] text-gray-400 mb-3">
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3">
                 Demanda = requerido aún sin surtir de las WO activas (líneas de surtido). Disponible = on-hand menos asignado, solo material liberado.
               </p>
               <div className={`${glass} rounded-2xl p-2`}>
@@ -516,7 +516,7 @@ export default function InventoryPage() {
                           {r.confirmed && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> faltante en línea</span>}
                           {r.belowMin && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>bajo mínimo</span>}
                         </div>
-                        <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                           demanda {fmtQty(r.demandQty)} · disponible {fmtQty(r.available)}
                           {r.rule ? ` · min ${fmtQty(r.rule.minStock)}/máx ${fmtQty(r.rule.maxStock)}` : ""}
                           {r.rule && Number(r.rule.maxStock ?? 0) - r.available > 0 ? ` · pedir ${fmtQty(Math.max(0, Number(r.rule.maxStock) - r.available))}` : ""}
@@ -527,7 +527,7 @@ export default function InventoryPage() {
                         <p className="font-semibold tabular-nums" style={{ color: r.shortage > 0 ? RED : AMBER }}>
                           {r.shortage > 0 ? `−${fmtQty(r.shortage)}` : "OK"}
                         </p>
-                        <p className="text-[10px] text-gray-400">{r.shortage > 0 ? "faltante" : "stock bajo"}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{r.shortage > 0 ? "faltante" : "stock bajo"}</p>
                       </div>
                     </div>
                   ))}
@@ -580,12 +580,12 @@ export default function InventoryPage() {
                             <button onClick={() => goPositions(item.partNumber)} className="font-mono font-semibold text-sm truncate hover:underline" title="Ver existencias de esta parte">
                               {item.partNumber}
                             </button>
-                            {item.location && <span className="text-[11px] text-gray-400">{item.location}</span>}
+                            {item.location && <span className="text-[11px] text-gray-500 dark:text-gray-400">{item.location}</span>}
                             <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${over ? AMBER : RED}1f`, color: over ? AMBER : RED }}>
                               {over ? "sobrante" : "faltante"}
                             </span>
                           </div>
-                          <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                             sistema {fmtQty(item.systemQty)} {item.uom} · contado {fmtQty(item.countedQty)} {item.uom}
                             {item.relativeVariancePct !== null ? ` · ${item.relativeVariancePct}%` : ""}
                             {item.countedBy ? ` · ${item.countedBy}` : ""}
@@ -599,7 +599,7 @@ export default function InventoryPage() {
                           <p className="font-semibold tabular-nums" style={{ color: over ? AMBER : RED }}>
                             {item.variance > 0 ? "+" : ""}{fmtQty(item.variance)}
                           </p>
-                          <p className="text-[10px] text-gray-400">{fmtQty(item.absVariance)} abs</p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">{fmtQty(item.absVariance)} abs</p>
                         </div>
                       </div>
                     );
@@ -637,7 +637,7 @@ export default function InventoryPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="font-mono font-semibold text-sm truncate">{m.partNumber}</p>
-                          <p className="text-[11px] text-gray-400 truncate">
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                             {where || "—"}
                             {m.referenceType ? ` · ${m.referenceType}${m.referenceId ? ` ${m.referenceId}` : ""}` : ""}
                             {m.actorName ? ` · ${m.actorName}` : ""}
@@ -645,7 +645,7 @@ export default function InventoryPage() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="font-semibold tabular-nums" style={{ color: meta.color }}>{sign}{fmtQty(m.quantity)}</p>
-                          <p className="text-[10px] text-gray-400">{timeAgo(m.createdAt)}</p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">{timeAgo(m.createdAt)}</p>
                         </div>
                       </div>
                     );
@@ -677,11 +677,11 @@ export default function InventoryPage() {
                           {belowMin && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${RED}1f`, color: RED }}>bajo mínimo</span>}
                           {belowMin && suggested > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>pedir {fmtQty(suggested)}</span>}
                         </div>
-                        <p className="text-[11px] text-gray-400 truncate">{r.warehouseId || "—"}{r.priority ? ` · ${r.priority}` : ""} · on-hand {fmtQty(available)}</p>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{r.warehouseId || "—"}{r.priority ? ` · ${r.priority}` : ""} · on-hand {fmtQty(available)}</p>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-semibold tabular-nums">{fmtQty(r.minStock)} → {fmtQty(r.maxStock)}</p>
-                        <p className="text-[10px] text-gray-400">min → max{r.safetyStock ? ` · ss ${fmtQty(r.safetyStock)}` : ""}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">min → max{r.safetyStock ? ` · ss ${fmtQty(r.safetyStock)}` : ""}</p>
                       </div>
                     </div>
                   );
@@ -709,19 +709,19 @@ function PartGroupCard({ g, onTrace, onCount, busyCount }: {
     <div className={`${glass} rounded-2xl`}>
       <div className="flex items-center">
         <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-3 px-4 py-3 text-left flex-1 min-w-0">
-          <ChevronRight className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+          <ChevronRight className={`w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
           <div className="min-w-0 flex-1">
             <p className="font-mono font-semibold text-sm truncate">{g.partNumber}</p>
-            <p className="text-[11px] text-gray-400 truncate">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
               {g.description || "—"} · {g.rows.length} ubicación{g.rows.length === 1 ? "" : "es"}
             </p>
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="font-semibold tabular-nums">{fmtQty(g.available)}<span className="text-[11px] text-gray-400 ml-1">{g.uom}</span></p>
-            <p className="text-[10px] text-gray-400">disponible{g.allocated > 0 ? ` · ${fmtQty(g.allocated)} asignado` : ""}</p>
+            <p className="font-semibold tabular-nums">{fmtQty(g.available)}<span className="text-[11px] text-gray-500 dark:text-gray-400 ml-1">{g.uom}</span></p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">disponible{g.allocated > 0 ? ` · ${fmtQty(g.allocated)} asignado` : ""}</p>
           </div>
         </button>
-        <button onClick={() => onTrace(g.partNumber)} title="Trazabilidad (where-used)" className="px-3.5 py-3 text-gray-400 hover:text-[#16a394] flex-shrink-0">
+        <button onClick={() => onTrace(g.partNumber)} title="Trazabilidad (where-used)" className="px-3.5 py-3 text-gray-500 dark:text-gray-400 hover:text-[#16a394] flex-shrink-0">
           <GitBranch className="w-4 h-4" />
         </button>
       </div>
@@ -733,12 +733,12 @@ function PartGroupCard({ g, onTrace, onCount, busyCount }: {
               const avail = Number(p.onHand ?? 0) - Number(p.allocated ?? 0);
               return (
                 <div key={p.id} className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-white/5">
-                  <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
                     <span className="font-medium">{p.location || "BULK"}</span>
-                    {p.warehouse?.name && <span className="text-[11px] text-gray-400 ml-1.5">{p.warehouse.name}</span>}
+                    {p.warehouse?.name && <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-1.5">{p.warehouse.name}</span>}
                     {(p.lotNumber || p.serialNumber) && (
-                      <span className="text-[11px] text-gray-400 ml-1.5">
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-1.5">
                         {p.lotNumber ? `lote ${p.lotNumber}` : ""}{p.lotNumber && p.serialNumber ? " · " : ""}{p.serialNumber ? `s/n ${p.serialNumber}` : ""}
                       </span>
                     )}
@@ -746,13 +746,13 @@ function PartGroupCard({ g, onTrace, onCount, busyCount }: {
                   <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: `${hold.color}1f`, color: hold.color }}>{hold.label}</span>
                   <span className="tabular-nums text-xs flex-shrink-0 w-20 text-right">
                     <span className="font-semibold">{fmtQty(avail)}</span>
-                    {Number(p.allocated ?? 0) > 0 && <span className="text-gray-400"> / {fmtQty(p.onHand)}</span>}
+                    {Number(p.allocated ?? 0) > 0 && <span className="text-gray-500 dark:text-gray-400"> / {fmtQty(p.onHand)}</span>}
                   </span>
                   <button
                     onClick={() => onCount(p, g.uom)}
                     disabled={busyCount === p.id}
                     title="Crear conteo cíclico de este bin"
-                    className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-[#16a394] hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50"
+                    className="flex-shrink-0 p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-[#16a394] hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50"
                   >
                     {busyCount === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ClipboardCheck className="w-3.5 h-3.5" />}
                   </button>
@@ -802,7 +802,7 @@ function TraceabilityPanel({ initialPart = "" }: { initialPart?: string }) {
             <Search className="w-4 h-4" /> Rastrear
           </button>
         </div>
-        <p className="text-[11px] text-gray-400 mt-2">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">
           Where-used (contención): dado un componente, muestra en qué unidades/WO se consumió (genealogía del ledger de consumo). Para la vista inversa (unidad → componentes as-built), abre{" "}
           <Link
             href={serialInput.trim() ? `/dashboard/genealogy?serial=${encodeURIComponent(serialInput.trim())}` : "/dashboard/genealogy"}
@@ -824,7 +824,7 @@ function TraceabilityPanel({ initialPart = "" }: { initialPart?: string }) {
         <Empty icon={<Inbox className="w-6 h-6" />} title="Sin consumo registrado" body={`No hay eventos de consumo para ${query.part}${query.serial ? ` · serial ${query.serial}` : ""}. Aparecerán cuando el operador confirme producción con genealogía.`} />
       ) : (
         <>
-          <p className="text-[11px] text-gray-400 mb-2">{events.length} evento{events.length === 1 ? "" : "s"} de consumo de <span className="font-mono">{query.part}</span>{query.serial ? <> · serial <span className="font-mono">{query.serial}</span></> : null}</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">{events.length} evento{events.length === 1 ? "" : "s"} de consumo de <span className="font-mono">{query.part}</span>{query.serial ? <> · serial <span className="font-mono">{query.serial}</span></> : null}</p>
           <div className={`${glass} rounded-2xl p-2`}>
             <div className="divide-y divide-gray-100 dark:divide-white/5">
               {events.map((e) => (
@@ -833,15 +833,15 @@ function TraceabilityPanel({ initialPart = "" }: { initialPart?: string }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-semibold text-sm">{e.woFolio || e.woId}</span>
                       <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{e.station}</span>
-                      {e.unitSerial && <span className="text-[11px] text-gray-400">s/n {e.unitSerial}</span>}
+                      {e.unitSerial && <span className="text-[11px] text-gray-500 dark:text-gray-400">s/n {e.unitSerial}</span>}
                     </div>
-                    <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                       {e.model}{e.operatorEmail ? ` · ${e.operatorEmail}` : ""}{e.createdAt ? ` · ${timeAgo(e.createdAt)}` : ""}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-semibold tabular-nums">{fmtQty(e.backflushQty)}</p>
-                    <p className="text-[10px] text-gray-400">{fmtQty(e.units)} u</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{fmtQty(e.units)} u</p>
                   </div>
                 </div>
               ))}
@@ -887,7 +887,7 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 function FlowKpi({ label, value, icon, color }: { label: string; value: string; icon: React.ReactNode; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3`}>
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
         <span style={{ color }}>{icon}</span> {label}
       </div>
       <div className="text-xl font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
@@ -896,13 +896,13 @@ function FlowKpi({ label, value, icon, color }: { label: string; value: string; 
 }
 
 function Spinner() {
-  return <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  return <div className="flex justify-center py-20 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>;
 }
 
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>

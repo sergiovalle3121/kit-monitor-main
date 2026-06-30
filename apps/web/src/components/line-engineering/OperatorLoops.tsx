@@ -113,7 +113,7 @@ export default function OperatorLoops({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !plan ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 text-sm mb-4">
@@ -123,7 +123,7 @@ export default function OperatorLoops({
             </div>
 
             {plan.loops.length === 0 ? (
-              <p className="text-[12px] text-gray-400 py-6 text-center">Se necesita al menos una estación con tiempo de ciclo para balancear.</p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 py-6 text-center">Se necesita al menos una estación con tiempo de ciclo para balancear.</p>
             ) : (
               <div className="space-y-2 max-h-[42vh] overflow-y-auto -mx-1 px-1">
                 {plan.loops.map((l) => {
@@ -154,7 +154,7 @@ export default function OperatorLoops({
           </>
         )}
 
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
           Un operador puede atender varias estaciones rápidas y contiguas mientras su trabajo total no pase el takt. Menos bucles = menos operadores; los bucles «sobre takt» son una sola estación que excede el takt y requiere división.
         </p>
       </div>
@@ -166,7 +166,7 @@ function Stat({ title, main, sub, tone }: { title: string; main: string; sub: st
   const color = tone === 'ok' ? '#10b981' : tone === 'warn' ? '#f59e0b' : tone === 'bad' ? '#ef4444' : '#3b82f6';
   return (
     <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{title}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</div>
       <div className="text-lg font-semibold mt-0.5" style={{ color }}>{main}</div>
       <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{sub}</div>
     </div>

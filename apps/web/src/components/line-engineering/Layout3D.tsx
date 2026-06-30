@@ -330,11 +330,11 @@ export default function Layout3D({
         {error ? (
           <p className="text-[12px] text-amber-500 py-16 text-center">{error}</p>
         ) : !data ? (
-          <div className="grid place-items-center text-gray-400" style={{ height: VIEW_H }}><Loader2 className="w-6 h-6 animate-spin" /></div>
+          <div className="grid place-items-center text-gray-500 dark:text-gray-400" style={{ height: VIEW_H }}><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : (
           <div ref={mountRef} className="rounded-xl overflow-hidden" style={{ width: '100%', height: VIEW_H }} />
         )}
-        <p className="text-[11px] text-gray-400 mt-2">Arrastra para rotar · rueda para zoom · clic derecho para desplazar. Bloques = estaciones, tubos = flujo, tintes de piso = celdas{heat ? '. «por ciclo»: altura y color por tiempo de ciclo.' : '.'}</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">Arrastra para rotar · rueda para zoom · clic derecho para desplazar. Bloques = estaciones, tubos = flujo, tintes de piso = celdas{heat ? '. «por ciclo»: altura y color por tiempo de ciclo.' : '.'}</p>
       </div>
     </div>
   );

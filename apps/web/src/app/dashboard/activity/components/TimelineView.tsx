@@ -136,7 +136,7 @@ export function TimelineView({
   if (forbidden) {
     return (
       <Notice
-        icon={<Lock className="h-8 w-8 text-gray-400" />}
+        icon={<Lock className="h-8 w-8 text-gray-500 dark:text-gray-400" />}
         title="Sin acceso"
         body="Inicia sesión para ver la bitácora de eventos del piso."
       />
@@ -148,7 +148,7 @@ export function TimelineView({
   if (pendingBackend) {
     return (
       <Notice
-        icon={<ServerCog className="h-8 w-8 text-gray-400" />}
+        icon={<ServerCog className="h-8 w-8 text-gray-500 dark:text-gray-400" />}
         title="Feed global pendiente de backend"
         body={
           <>
@@ -175,7 +175,7 @@ export function TimelineView({
   if (error) {
     return (
       <Notice
-        icon={<ServerCog className="h-8 w-8 text-gray-400" />}
+        icon={<ServerCog className="h-8 w-8 text-gray-500 dark:text-gray-400" />}
         title="No se pudo cargar el feed"
         body="Hubo un problema al leer la bitácora. Reintenta en un momento."
         action={
@@ -205,7 +205,7 @@ export function TimelineView({
       <div className={`${glass} rounded-2xl p-4 mb-6 space-y-3`}>
         {/* Dominios */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="h-4 w-4 text-gray-400" />
+          <Filter className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           {DOMAIN_ORDER.map((d) => {
             const m = domainMeta(d);
             const active = domains.has(d);
@@ -268,7 +268,7 @@ export function TimelineView({
             className="al-input w-auto"
             aria-label="Desde"
           />
-          <span className="text-gray-400 text-sm">→</span>
+          <span className="text-gray-500 dark:text-gray-400 text-sm">→</span>
           <input
             type="date"
             value={to}
@@ -281,7 +281,7 @@ export function TimelineView({
           />
 
           <div className={`${glass} flex items-center gap-2 px-3 py-1.5 rounded-xl flex-1 min-w-[180px]`}>
-            <Search className="h-4 w-4 text-gray-400" />
+            <Search className="h-4 w-4 text-gray-500 dark:text-gray-400" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -304,11 +304,11 @@ export function TimelineView({
       {/* Lista */}
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" />
         </div>
       ) : filtered.length === 0 ? (
         <Notice
-          icon={<Inbox className="h-8 w-8 text-gray-400" />}
+          icon={<Inbox className="h-8 w-8 text-gray-500 dark:text-gray-400" />}
           title={all.length === 0 ? 'Bitácora vacía' : 'Sin coincidencias'}
           body={
             all.length === 0
@@ -337,7 +337,7 @@ export function TimelineView({
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>
         {value}
       </div>
@@ -360,7 +360,7 @@ function Notice({
     <div className={`${glass} rounded-3xl p-12 text-center max-w-xl mx-auto`}>
       <div className="mx-auto mb-3 flex justify-center">{icon}</div>
       <h3 className="font-semibold">{title}</h3>
-      <p className="text-sm text-gray-400 mt-1 leading-relaxed">{body}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{body}</p>
       {action && <div className="mt-5 flex justify-center">{action}</div>}
     </div>
   );

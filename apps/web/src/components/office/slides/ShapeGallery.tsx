@@ -28,7 +28,7 @@ export function ShapeGallery({ onPick }: { onPick: (kind: string) => void }) {
     <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
       {SHAPE_LIBRARY.map((cat) => (
         <div key={cat.label}>
-          <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 px-1 mb-1">{cat.label}</p>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-500 px-1 mb-1">{cat.label}</p>
           <div className="grid grid-cols-6 gap-1">
             {cat.shapes.map((s) => (
               <button

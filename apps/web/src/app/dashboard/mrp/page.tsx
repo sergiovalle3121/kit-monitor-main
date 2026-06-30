@@ -88,7 +88,7 @@ export default function MrpPage() {
   }
 
   if (forbidden) {
-    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
+    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
   }
 
   return (
@@ -130,7 +130,7 @@ export default function MrpPage() {
         </div>
 
         {running ? (
-          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : result ? (
           <>
             <div className="grid grid-cols-3 gap-3 mb-4">
@@ -144,13 +144,13 @@ export default function MrpPage() {
             </div>
 
             {result.rows.length === 0 ? (
-              <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>Este BOM no tiene componentes que requerir.</div>
+              <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>Este BOM no tiene componentes que requerir.</div>
             ) : (
               <div className={`${glass} rounded-2xl overflow-hidden`}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-white/10">
+                      <tr className="text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/10">
                         <th className="px-3 py-2">Parte</th>
                         <th className="px-3 py-2 text-right">Bruto</th>
                         <th className="px-3 py-2 text-right">Disp.</th>
@@ -172,9 +172,9 @@ export default function MrpPage() {
                               </span>
                               <span className="font-mono text-xs text-gray-500">{r.partNumber}</span>
                             </div>
-                            <div className="text-xs text-gray-400 truncate max-w-[220px]">{r.description}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[220px]">{r.description}</div>
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums">{r.gross} <span className="text-gray-400 text-xs">{r.uom}</span></td>
+                          <td className="px-3 py-2 text-right tabular-nums">{r.gross} <span className="text-gray-500 dark:text-gray-400 text-xs">{r.uom}</span></td>
                           <td className="px-3 py-2 text-right tabular-nums text-gray-500">{r.available}</td>
                           <td className="px-3 py-2 text-right tabular-nums text-gray-500">{r.inTransit}</td>
                           <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ color: r.net > 0 ? '#f43f5e' : '#10b981' }}>{r.net}</td>
@@ -187,7 +187,7 @@ export default function MrpPage() {
                 </div>
               </div>
             )}
-            <div className="mt-3 text-[11px] text-gray-400 flex items-center gap-1.5">
+            <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" /> Disponible = on-hand − asignado (solo stock <b>available</b>).
             </div>
 
@@ -208,7 +208,7 @@ export default function MrpPage() {
 
                 {poSuggest && (
                   <>
-                    <p className="text-xs text-gray-400 mb-3">{poSuggest.drafts.length} orden(es) agrupadas por proveedor (fabricante AVL preferido).</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{poSuggest.drafts.length} orden(es) agrupadas por proveedor (fabricante AVL preferido).</p>
                     <div className="space-y-2">
                       {poSuggest.drafts.map((d, i) => (
                         <div key={i} className="rounded-xl border border-gray-100 dark:border-white/10 p-3">
@@ -216,7 +216,7 @@ export default function MrpPage() {
                             <span className="font-medium text-sm">{d.supplierName}</span>
                             <span className="text-sm tabular-nums text-gray-500">{money(d.totalValue)} · {d.lineCount} parte(s)</span>
                           </div>
-                          <div className="text-xs text-gray-400 mt-1 truncate">{d.parts.map((p) => `${p.partNumber}×${p.qty}`).join(' · ')}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{d.parts.map((p) => `${p.partNumber}×${p.qty}`).join(' · ')}</div>
                         </div>
                       ))}
                     </div>
@@ -253,7 +253,7 @@ export default function MrpPage() {
             )}
           </>
         ) : (
-          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-400`}>Elige un ensamble y calcula el requerimiento neto.</div>
+          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-500 dark:text-gray-400`}>Elige un ensamble y calcula el requerimiento neto.</div>
         )}
       </main>
     </div>
@@ -263,7 +263,7 @@ export default function MrpPage() {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-xl font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );

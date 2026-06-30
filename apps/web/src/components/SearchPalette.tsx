@@ -469,7 +469,7 @@ export function SearchPalette() {
             </div>
 
             {/* Pie: atajos de teclado + nota de T-Codes */}
-            <div className="px-4 py-2.5 border-t border-black/5 dark:border-white/10 flex items-center gap-3 text-[11px] text-gray-400">
+            <div className="px-4 py-2.5 border-t border-black/5 dark:border-white/10 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
               <FooterKey k="↑↓" label="navegar" />
               <FooterKey k="↵" label="abrir" />
               <FooterKey k="esc" label="cerrar" />
@@ -545,7 +545,7 @@ function RecordsSlot({ q, loading, authError, degraded }: { q: string; loading: 
     <div className="mt-1 mx-1 mb-1 rounded-2xl border border-dashed border-black/[0.1] dark:border-white/[0.12] bg-black/[0.015] dark:bg-white/[0.02] p-3">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Registros</span>
-        {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
+        {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 dark:text-gray-400" />}
       </div>
 
       {loading ? (

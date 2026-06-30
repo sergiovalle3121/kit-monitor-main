@@ -21,9 +21,9 @@ export function Kpi({
 }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
-      {sub && <div className="text-[12px] text-gray-400 mt-0.5 truncate">{sub}</div>}
+      {sub && <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{sub}</div>}
     </div>
   );
 }
@@ -58,7 +58,7 @@ export function Empty({
 }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
       {cta && <div className="mt-5">{cta}</div>}

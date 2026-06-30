@@ -243,6 +243,14 @@
 - Added `command-line-assist.ts` to rank existing command registry examples by query and current selection count.
 - Wired the existing Copiloto CAD dock to show ready/pending suggestions that reuse selected object labels and call the existing preview-first command path.
 - Pending: richer command history reconciliation and Enter-to-apply after active editor/registry PRs settle.
+## 2026-06-29 - Supermarket kitting template
+
+- Inspected automation memory, open CAD PRs #847/#844/#839/#838, required CAD docs, `Layout3DEditor.tsx`, route chrome, design docs, and the full `apps/web/src/lib/cad/**` tree.
+- Avoided `Layout3DEditor.tsx`, command registry, plot package files, and warehouse generator files because active CAD PRs own those areas.
+- Reused the existing `CAD_LAYOUT_TEMPLATES` launcher and `instantiateCadLayoutTemplate` path instead of creating another generator or editor surface.
+- Added a visible "Supermarket + kitting" editable template with receiving drop, incoming QC, kanban lanes, kitting carts, FIFO WIP, line-side delivery, aisles, ESD boundary, quarantine, annotations, tags, and material/flow connectors.
+- Added pure template spec coverage for kitting/kanban tags, safety/aisle layers, and connector kinds.
+- Pending: parametric supermarket lane/cart generator after active warehouse generator PRs settle.
 ## 2026-06-29 - CAD EHS and utilities asset blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, `apps/web/src/lib/cad/commands/**`, route chrome, design docs, the shared `asset-catalog.ts`, and open CAD PRs #870/#869/#864/#861/#858/#853/#850/#847/#844/#838/#746.

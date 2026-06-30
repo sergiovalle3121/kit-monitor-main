@@ -10,7 +10,7 @@ export function HoverArrow({ className = '' }: { className?: string }) {
   return (
     <ArrowUpRight
       strokeWidth={ICON_STROKE}
-      className={`h-4 w-4 text-gray-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100 ${className}`}
+      className={`h-4 w-4 text-gray-500 dark:text-gray-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100 ${className}`}
     />
   );
 }
