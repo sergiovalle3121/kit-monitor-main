@@ -268,6 +268,14 @@
 - Extended exported CAD PDF title blocks with connectors, dimensions, labels, layer visibility/locks, active layer, validation severity, DXF warnings, package target, and approval state.
 - Added `plot-sheet.spec.ts` for default package rows, warning metadata, layer summaries, and defensive clamping.
 - Pending: vector paper-space output using `plot-scale.ts` after viewport/minimap PRs settle.
+## 2026-06-29 - CAD validation quick fixes
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and open CAD PRs #853/#850/#847/#844/#839/#838.
+- Avoided active template, flow-reorder, plot package, warehouse/rack generator, DXF, and command-registry ownership areas.
+- Reused the existing `buildCadValidationReport`, collision/clearance/safety/flow helpers, editor validation state, selection/rebuild path, and Flow Health modal.
+- Extended `CadValidationReport` with normalized issue rows that include severity, affected objects, action labels, and suggested fixes.
+- Wired the existing design-check modal in `Layout3DEditor.tsx` to show top validation quick fixes and select affected objects from those rows.
+- Added focused validation-report coverage for collision, clearance, and safety issue rows.
 ## 2026-06-29 - Manufacturing CAD symbol blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.

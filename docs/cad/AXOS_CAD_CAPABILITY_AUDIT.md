@@ -67,6 +67,19 @@ Open CAD PRs touched validation, layers, shortcuts, and command-registry workflo
 
 Open CAD PRs #844 and #839 touch warehouse/rack generators plus `Layout3DEditor.tsx`, and #838 owns command-registry line-balance work. This run avoided generators, command expansion, layers, DXF, validation internals, and shell extraction. The selected improvement extends the existing `flow-optimization.ts` scoring helper with a reorder preview and wires the existing Flow Health modal to show before/after deltas plus a layer-lock-aware apply action. No parallel flow model, editor, command system, or backend path was added.
 Open CAD PR #838 touches `apps/web/src/lib/cad/commands/*`, `line-balance.ts`, and command-contract docs, so this run avoided the command registry. The selected improvement adds a visible rack row generator in the existing `Layout3DEditor` equipment rail and reuses the existing editable asset, annotation, CAD layer, tag, snapshot, selection, validation, and DXF export paths. It complements the existing `arrange_rack_rows` command, which rearranges selected racks, by creating new rack rows from user parameters.
+## 2026-06-29 validation quick fixes update
+
+Open CAD PRs #853, #850, #847, #844, #839, and #838 touch templates, flow, plot/DXF package metadata, warehouse/rack generators, and command registry work. This run avoided those primary ownership areas and extended the existing validation path instead.
+
+Inspected files included `Layout3DEditor.tsx`, `validation-report.ts`, `collisions.ts`, `safety-zones.ts`, `flow-optimization.ts`, `commands/*`, DXF helpers, layer/object-property helpers, templates, symbols, keyboard/toolbar helpers, route chrome, CAD docs, and design docs.
+
+Existing capability found: `buildCadValidationReport` already aggregates collisions, clearance issues, safety-zone issues, and flow score, and `Layout3DEditor.tsx` already opens a visible design-check modal from that report.
+
+What was reused: existing collision/clearance/safety/flow helpers, existing validation state, existing selection/rebuild/toast paths, and the existing Flow Health modal handoff.
+
+What was extended: `CadValidationReport` now includes normalized issue rows with severity, affected object ids, action labels, and suggested fixes. The validation modal now shows those quick-fix rows without adding a new validation engine.
+
+What was intentionally not duplicated: no new CAD editor, validation center, collision helper, safety helper, flow model, command registry branch, DXF workflow, or layer model.
 ## 2026-06-29 - EHS and utilities asset catalog update
 
 Open CAD PRs at run start included #870 (layer visibility), #869 (manufacturing symbols), #864 (DXF critical label preflight), #861 (validation quick fixes), #858 (edge clearance dimensions), #853 (supermarket kitting template), #850 (flow health reorder preview), #847 (plot package metadata), #844 (warehouse generator), #838 (line-balance command), and draft #746 (viewport/minimap/editor shell). This run avoided `Layout3DEditor.tsx`, `apps/web/src/lib/cad/symbols.ts`, `apps/web/src/lib/cad/templates.ts`, DXF helpers, layers, commands, validation, flow, and measurements.

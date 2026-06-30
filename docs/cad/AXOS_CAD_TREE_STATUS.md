@@ -146,6 +146,19 @@ This run adds the first parametric warehouse generator:
 The workflow is visible in CAD and reuses the current editable layout model. It does not duplicate the existing `arrange_rack_rows` command, because that command arranges selected racks while this generator creates new rack rows.
 
 Recommended next phase: add a supermarket lane generator or receiving/shipping dock generator using the same generator output contract.
+## 2026-06-29 - Validation quick fixes
+
+This run hardens the visible CAD validation center:
+
+- `validation-report.ts` now emits normalized issue rows for collisions, clearances, safety-zone issues, and poor flow score.
+- Each issue row carries severity, affected object ids, a suggested fix, and a user action label.
+- The existing `Layout3DEditor` design-check modal now shows the top validation quick fixes inside the CAD validation card.
+- Clicking a collision, clearance, or safety quick fix reuses the current select/rebuild path to select the affected objects.
+- Clicking a flow quick fix reuses the existing Flow Health modal instead of adding another flow panel.
+
+The workflow is visible through the existing `Shift+V`/design-check validation path. It does not introduce a second validation engine, validation modal, collision helper, safety helper, flow model, or command registry path.
+
+Recommended next phase: add zoom-to-issue or one-click safe remediation after the active editor/generator PRs settle.
 ## 2026-06-29 - EHS and utilities asset blocks
 
 This run extends the existing shared asset catalog instead of creating a third symbol/block system:
