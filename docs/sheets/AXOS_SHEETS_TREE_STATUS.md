@@ -12,6 +12,11 @@ AXOS Sheets is no longer only a helper-backed grid. The current tree has these f
 - `formulaEngine.ts` patches the Fortune-Sheet parser once and registers Excel/AXOS function fidelity layers.
 - `axosConnectors.ts`, `axosConnectorApi.ts`, and the Office connector API expose governed connector metadata and refresh contracts.
 - `workbookHealth.ts`, `workbookApproval.ts`, and `workbookPublishGate.ts` combine performance, formulas, connectors, comments, approval snapshot drift, protection, and governance into readiness signals.
+- `SheetActions.tsx` owns import/export controls and already surfaces XLSX readiness from `xlsxCompatibility.ts`.
+- `sheetOps.ts` holds pure spreadsheet operations for formatting, sorting, duplicate removal, text-to-columns, pivots, named ranges, printing, and validation.
+- `formulaEngine.ts` patches the Fortune-Sheet parser once and registers Excel/AXOS function fidelity layers.
+- `axosConnectors.ts`, `axosConnectorApi.ts`, and the Office connector API expose governed connector metadata and refresh contracts.
+- `formulaDependencies.ts`, `workbookHealth.ts`, and `workbookPublishGate.ts` combine formula dependency/recalc analysis, performance, formulas, connectors, comments, approvals, protection, and governance into readiness signals.
 - `xlsxCompatibility.ts`, `xlsx.ts`, and `xlsxStyled.ts` provide import/export and compatibility scanning.
 - `workbookHealth.ts` and `workbookPublishGate.ts` combine performance, formulas, connectors, comments, approvals, protection, and governance into readiness signals.
 - `xlsxCompatibility.ts`, `xlsx.ts`, and `xlsxStyled.ts` provide import/export and compatibility scanning, including table metadata, print-layout review, import warnings, cell notes, filters, and dimensions.
@@ -23,10 +28,11 @@ AXOS Sheets is no longer only a helper-backed grid. The current tree has these f
 | Phase | Status | Evidence | Next tree action |
 | --- | --- | --- | --- |
 | 0. Capability audit + visible fix | Maintained | `docs/sheets/AXOS_SHEETS_CAPABILITY_AUDIT.md`, visible Workbook Health signoff drift metric | Keep audit current as each Sheets slice lands. |
+| 0. Capability audit + visible fix | Done | `docs/sheets/AXOS_SHEETS_CAPABILITY_AUDIT.md`, visible workbench status/readiness badges | Keep this audit current as Sheets PRs land. |
 | 1. Full-screen Excel-grade shell | strong | `OfficeShell.tsx`, `SheetEditor.tsx` workbench v2 | Avoid editor changes until #765/#762/#753 resolve. |
 | 2. Formula bar/name box | usable | `SheetEditor.tsx`, formula bar state, `formulaEngine.ts` | Harden warnings later. |
 | 3. Formula engine hardening | strong | `formulaEngine.ts`, many formula specs | Continue targeted parity specs. |
-| 4. Dependency graph/recalc UI | partial/usable | `formulaDependencies.ts`, `workbookHealth.ts` | Add visual formula map after editor conflicts clear. |
+| 4. Dependency graph/recalc UI | usable | `formulaDependencies.ts`, `SheetEditor.tsx`, `workbookHealth.ts` | Add jump-to-cell and graphical dependency map after the inspector contract settles. |
 | 5. Excel tables | seed/partial | `tableRefs.ts`, table registry references | Build table creation UX and metadata export. |
 | 6. Power Query-style transforms | seed | `sheetOps.ts` has some data tools | Add transform preview/apply panel. |
 | 7. Live AXOS connectors | partial | `axosConnectors.ts`, contracts, Office connector endpoint | Converge catalog and add more real module-backed endpoints. |
@@ -53,6 +59,7 @@ AXOS Sheets is no longer only a helper-backed grid. The current tree has these f
 After this PR, the safest next mergeable slice is either:
 
 - Add an MRP Shortages or Packing Readiness industrial template with formulas, charts, validations, and tests in `templates.ts`, avoiding open editor PR collisions.
+- Add jump-to-cell support from the recalc diagnostics once the Fortune-Sheet selection API is verified, then show a graphical formula map for blocked industrial workbooks.
 - Emit native Excel table objects or page setup metadata from `xlsxStyled.ts`, backed by focused round-trip specs.
 
 Avoid touching `SheetEditor.tsx`, `workbookHealth.ts`, `sheetComments.ts`, and `slicer.ts` until PRs #765, #762, and #753 are resolved.
