@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Loader2, FileWarning } from 'lucide-react';
+import { Loader2, FileWarning, RefreshCw } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -27,6 +27,7 @@ import { DocTrainingPanel } from '@/components/office/DocTrainingPanel';
 import { DocReviewRoutePanel } from '@/components/office/DocReviewRoutePanel';
 import { DocImpactPanel } from '@/components/office/DocImpactPanel';
 import { DocEvidencePackagePanel } from '@/components/office/DocEvidencePackagePanel';
+import { connectorFreshnessBadge, type AxosConnectorInstance, type AxosConnectorStatusTone } from '@/lib/office/axosConnectors';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const AUTOSAVE_MS = 800;
@@ -52,6 +53,17 @@ interface OfficeDoc {
   approvedBy?: string | null;
   releasedBy?: string | null;
   obsoletedBy?: string | null;
+}
+
+const SHEET_CONNECTOR_TONE_CLASS: Record<AxosConnectorStatusTone, string> = {
+  empty: 'text-gray-500 dark:text-gray-400',
+  ok: 'text-emerald-600 dark:text-emerald-300',
+  due: 'text-amber-600 dark:text-amber-300',
+  stale: 'text-red-600 dark:text-red-300',
+};
+
+function sheetConnectorsOf(content: any): AxosConnectorInstance[] {
+  return Array.isArray(content?.connectors) ? content.connectors : [];
 }
 
 export default function OfficeEditorPage() {
@@ -219,7 +231,14 @@ export default function OfficeEditorPage() {
   const pptxIssues = doc.type === 'slides' && Array.isArray(content?.pptxCompatibility?.issues)
     ? content.pptxCompatibility.issues
     : [];
-  const statusBarRight = doc.type === 'doc' && docStats
+  const sheetConnectorBadge = doc.type === 'sheet' ? connectorFreshnessBadge(sheetConnectorsOf(content)) : null;
+  const statusBarRight = doc.type === 'sheet' && sheetConnectorBadge
+    ? (
+      <span className={`inline-flex items-center gap-1 ${SHEET_CONNECTOR_TONE_CLASS[sheetConnectorBadge.tone]}`} title={sheetConnectorBadge.title}>
+        <RefreshCw className="h-3.5 w-3.5" /> {sheetConnectorBadge.label}
+      </span>
+    )
+    : doc.type === 'doc' && docStats
     ? <span>{docStats.words} palabras · {docStats.chars} caracteres</span>
     : doc.type === 'slides' && pptxIssues.length
       ? (
