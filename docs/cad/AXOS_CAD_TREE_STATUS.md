@@ -64,6 +64,14 @@ This run hardens the existing Flow Health workbench:
 - Users can apply the suggested physical slot order directly from Flow Health; the action records a local snapshot, uses the existing undo stack, respects locked CAD layers, selects affected stations, and recomputes Flow Health.
 - The workflow reuses current station placements, connectors, layers, snapping, snapshots, and rebuild paths.
 - It does not add another flow engine, another command registry path, another editor, or backend optimization dependency.
+This run adds a command-dock line balance workflow:
+
+- `line-balance.ts` computes takt load, bottleneck, missing cycle-time metadata, over-takt stations, balance efficiency, and a deterministic score.
+- `analyze_line_balance` is registered in the existing CAD command registry, parser, palette, and CIDE/OpenAI-compatible schema path.
+- The current `Layout3DEditor` command preview already renders `report` operations, so users can type `analiza balanceo de linea takt 45s` and see the balance report without a new editor surface.
+- The command is honest about partial data: station labels like `CT=42s` are supported, explicit tool metadata is supported, and missing takt/cycle times produce warnings instead of fabricated capacity data.
+
+The workflow does not introduce a parallel Yamazumi panel, backend endpoint, or fake production routing integration. It reuses the command dock, command palette, selected-object context, and report operation rendering that already exist.
 ## 2026-06-29 - Supermarket and kitting template
 
 This run extends the existing editable template workflow without touching the editor shell:
@@ -91,6 +99,7 @@ This does not create a second warehouse generator, block system, editor, layer m
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, and command workflows | Add richer flow recommendations and before/after preview cards. |
 | Phase 0 - Audit plus visible fix | Complete for this run | `AXOS_CAD_CAPABILITY_AUDIT.md` plus a reachable command workflow | Keep audit current as PRs land. |
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, `arrange_flow_line`, and template-seeded flow health | Add richer flow recommendations and before/after preview cards. |
+| Phase 18 - Line balance / capacity overlay | Partial | `line-balance.ts`, `analyze_line_balance`, command-dock report rows | Wire load colors/Yamazumi overlay into the analysis panel after editor conflicts settle. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 11 - Blocks / industrial symbols pro | Stronger | `symbols.ts`, existing symbol rail, Cmd-K palette, and symbol spec coverage | Add native block instances after the persistence contract is settled. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
