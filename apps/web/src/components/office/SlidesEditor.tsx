@@ -19,7 +19,7 @@ import {
   BarChart3, Workflow, Spline, Waypoints,
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
-  ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
+  ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check, AlertTriangle, CheckCircle2, ShieldAlert,
   AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette, Move, PlayCircle,
   Repeat, Timer, Pause, Factory,
 } from 'lucide-react';
@@ -55,6 +55,7 @@ import { SlideCommentsPanel, type SlideComment } from './SlideCommentsPanel';
 import { SlideInspectorPanel, type SlideInspectorHealth, type SlideInspectorSelection } from './SlideInspectorPanel';
 import { SlideStatusBar } from './SlideStatusBar';
 import { SlideAssetLibrary, type SlideAssetSymbol } from './slides/AssetLibrary';
+import { buildPresenterReadiness, type PresenterReadiness } from './slides/presenterReadiness';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -1747,6 +1748,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
       height: ch,
     });
   })();
+  const presenterReadiness = buildPresenterReadiness({ health: inspectorHealth });
 
 
   return (
@@ -2140,6 +2142,15 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
             <RibbonButton icon={LayoutGrid} label="Clasificador" hideLabel={false} onClick={() => { capture(); setSorter(true); }} />
             {!readOnly && <RibbonButton icon={ListTree} label="Esquema" hideLabel={false} onClick={() => { capture(); setOutlineOpen(true); }} />}
           </RibbonGroup>
+          <RibbonSeparator />
+          <RibbonGroup label="Readiness">
+            <PresenterReadinessCard
+              readiness={presenterReadiness}
+              onOpenComments={() => setShowComments(true)}
+              onOpenLayers={() => { setShowLayers(true); setShowAnimPanel(false); }}
+              onOpenAnimations={() => { setShowAnimPanel(true); setShowLayers(false); }}
+            />
+          </RibbonGroup>
         </RibbonTab>
       </OfficeRibbon>
 
@@ -2275,7 +2286,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
         </div>
       )}
 
-      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} advanceAfters={advanceRef.current} loop={loop} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} advanceAfters={advanceRef.current} loop={loop} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} readiness={presenterReadiness} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       {preview && <Present slides={slides} transitions={transitionsRef.current} transDurs={transDursRef.current} master={masterImgRef.current} ratio={ratio} previewOne startAt={presentStartRef.current} onClose={() => setPreview(false)} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
@@ -2458,10 +2469,70 @@ function AnimatedDeck({ deck, master, plan, revealed }: { deck?: Deck; master?: 
   );
 }
 
-function Present({
-  slides, notes, transition, transitions, transDurs, advanceAfters, loop, master, footer, showNumbers, presenter, previewOne, ratio, startAt, onClose,
+function presenterTone(readiness: PresenterReadiness): string {
+  if (readiness.level === 'blocked') return 'border-rose-300/60 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300';
+  if (readiness.level === 'review') return 'border-amber-300/60 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300';
+  return 'border-emerald-300/60 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300';
+}
+
+function PresenterReadinessIcon({ readiness, className = 'h-3.5 w-3.5' }: { readiness: PresenterReadiness; className?: string }) {
+  if (readiness.level === 'blocked') return <ShieldAlert className={className} />;
+  if (readiness.level === 'review') return <AlertTriangle className={className} />;
+  return <CheckCircle2 className={className} />;
+}
+
+function presenterIssueAction(
+  readiness: PresenterReadiness,
+  onOpenComments: () => void,
+  onOpenLayers: () => void,
+  onOpenAnimations: () => void,
+) {
+  const ids = new Set(readiness.topIssues.map((issue) => issue.id));
+  if (ids.has('open-comments')) return { label: 'Review', onClick: onOpenComments };
+  if (ids.has('off-canvas') || ids.has('hidden-objects') || ids.has('locked-objects')) return { label: 'Layers', onClick: onOpenLayers };
+  if (ids.has('animations') || ids.has('auto-advance')) return { label: 'Preview', onClick: onOpenAnimations };
+  return null;
+}
+
+function PresenterReadinessCard({
+  readiness,
+  onOpenComments,
+  onOpenLayers,
+  onOpenAnimations,
 }: {
-  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; advanceAfters?: number[]; loop?: boolean; master?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; previewOne?: boolean; ratio?: string; startAt?: number; onClose: () => void;
+  readiness: PresenterReadiness;
+  onOpenComments: () => void;
+  onOpenLayers: () => void;
+  onOpenAnimations: () => void;
+}) {
+  const action = presenterIssueAction(readiness, onOpenComments, onOpenLayers, onOpenAnimations);
+  return (
+    <div className={`flex min-w-[270px] max-w-[360px] items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs ${presenterTone(readiness)}`} title={readiness.summary}>
+      <PresenterReadinessIcon readiness={readiness} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 font-bold">
+          <span>{readiness.label}</span>
+          <span className="tabular-nums">{readiness.score}%</span>
+          <span className="text-[10px] font-semibold opacity-75">~{readiness.estimatedDurationLabel}</span>
+        </div>
+        <p className="truncate text-[10px] font-medium opacity-80">
+          {readiness.topIssues[0]?.label || 'No launch blockers'}
+          {readiness.topIssues.length > 1 ? ` +${readiness.topIssues.length - 1}` : ''}
+        </p>
+      </div>
+      {action && (
+        <button type="button" onClick={action.onClick} className="rounded-lg bg-white/70 px-2 py-1 text-[10px] font-bold text-gray-700 hover:bg-white dark:bg-black/20 dark:text-gray-100 dark:hover:bg-black/35">
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Present({
+  slides, notes, transition, transitions, transDurs, advanceAfters, loop, master, footer, showNumbers, presenter, readiness, previewOne, ratio, startAt, onClose,
+}: {
+  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; advanceAfters?: number[]; loop?: boolean; master?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; readiness?: PresenterReadiness; previewOne?: boolean; ratio?: string; startAt?: number; onClose: () => void;
 }) {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [i, setI] = useState(Math.max(0, Math.min((slides?.length ?? 1) - 1, startAt ?? 0)));
@@ -2663,6 +2734,12 @@ function Present({
           <span className="ml-2 font-mono text-2xl tabular-nums" title="Tiempo transcurrido">{mmss}</span>
           <button onClick={() => setElapsed(0)} title="Reiniciar el temporizador" className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20">Reiniciar</button>
           <span className="font-mono text-base text-white/70 tabular-nums" title="Hora actual">{clock}</span>
+          {readiness && (
+            <span className={`hidden xl:inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${presenterTone(readiness)}`} title={readiness.summary}>
+              <PresenterReadinessIcon readiness={readiness} />
+              {readiness.score}% ready
+            </span>
+          )}
           <span className="ml-auto text-sm text-white/60">Diapositiva {i + 1} de {slides.length}</span>
           <button onClick={() => setGridNav((v) => !v)} title="Buscar / saltar a diapositiva (G o /)" className={`text-xs px-2.5 py-1.5 rounded-lg ${gridNav ? 'bg-rose-500 text-white' : 'bg-white/10 hover:bg-white/20'}`}>Navegador</button>
           <button onClick={() => { setWhited(false); setBlacked((v) => !v); }} title="Pantalla en negro (B)" className={`text-xs px-2.5 py-1.5 rounded-lg ${blacked ? 'bg-rose-500 text-white' : 'bg-white/10 hover:bg-white/20'}`}>Negro</button>
@@ -2698,6 +2775,31 @@ function Present({
                 </div>
               )}
             </div>
+            {readiness && (
+              <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs text-white/50">Run health</p>
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${presenterTone(readiness)}`}>
+                    <PresenterReadinessIcon readiness={readiness} className="h-3 w-3" />
+                    {readiness.level}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 text-center text-[11px]">
+                  <span className="rounded-md bg-white/10 px-1.5 py-1"><b>{readiness.notesCoverage}%</b><br />notes</span>
+                  <span className="rounded-md bg-white/10 px-1.5 py-1"><b>{readiness.animatedSlides}</b><br />anim</span>
+                  <span className="rounded-md bg-white/10 px-1.5 py-1"><b>{readiness.estimatedDurationLabel}</b><br />run</span>
+                </div>
+                {readiness.topIssues.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {readiness.topIssues.slice(0, 3).map((issue) => (
+                      <p key={issue.id} className="truncate text-[11px] text-white/65" title={issue.detail}>
+                        {issue.severity === 'blocker' ? 'Blocker' : issue.severity === 'warning' ? 'Review' : 'Info'}: {issue.label}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="rounded-lg bg-white/5 border border-white/10 p-3">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-white/50">Saltos rápidos</p>
