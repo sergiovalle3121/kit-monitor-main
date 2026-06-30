@@ -415,6 +415,103 @@
   background-repeat: repeat;
 }
 
+/* ===========================================================================
+   LANDING PREMIUM — aurora viva + producto flotante
+   Movimiento traslúcido y continuo (estilo OpenAI / Google) para que la primera
+   impresión se sienta "viva" y de altísimo valor, sin saturar.
+   =========================================================================== */
+
+/* Orbes de aurora del hero: manchas de color difusas que derivan en bucle. */
+.hero-orb {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+  filter: blur(72px);
+  opacity: 0.65;
+}
+.dark .hero-orb {
+  opacity: 0.5;
+  filter: blur(80px);
+}
+@keyframes hero-orb-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(6%, -7%, 0) scale(1.18); }
+  66%      { transform: translate3d(-7%, 5%, 0) scale(1.06); }
+}
+@keyframes hero-orb-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50%      { transform: translate3d(-9%, 8%, 0) scale(1.22); }
+}
+@keyframes hero-orb-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(11%, 9%, 0) scale(1.14); }
+}
+.hero-orb-1 { animation: hero-orb-1 26s ease-in-out infinite; }
+.hero-orb-2 { animation: hero-orb-2 32s ease-in-out infinite; }
+.hero-orb-3 { animation: hero-orb-3 29s ease-in-out infinite; }
+
+/* Malla cónica que gira lentísimo bajo el hero (el "shimmer" traslúcido). */
+@keyframes hero-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.hero-conic {
+  position: absolute;
+  inset: -40%;
+  border-radius: 9999px;
+  will-change: transform;
+  animation: hero-spin 48s linear infinite;
+  background: conic-gradient(
+    from 0deg,
+    rgba(99, 102, 241, 0.16),
+    rgba(168, 85, 247, 0.12),
+    rgba(56, 189, 248, 0.14),
+    rgba(16, 185, 129, 0.10),
+    rgba(99, 102, 241, 0.16)
+  );
+  filter: blur(70px);
+  opacity: 0.55;
+}
+.dark .hero-conic { opacity: 0.4; }
+
+/* Flotación suave para el mockup de producto (parallax sutil). */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
+}
+.float-slow { animation: float-slow 8s ease-in-out infinite; will-change: transform; }
+
+/* Brillo bajo el mockup (halo de producto). */
+.product-halo {
+  background: radial-gradient(60% 60% at 50% 40%, rgba(99, 102, 241, 0.35), transparent 70%);
+  filter: blur(60px);
+}
+
+/* Línea de "scan" que recorre tarjetas premium al hover (vida sutil). */
+@keyframes sheen {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* Marquesina de logos/keywords que se desliza en bucle. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track { animation: marquee 32s linear infinite; will-change: transform; }
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+/* Respeta prefers-reduced-motion: nada se mueve. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb-1, .hero-orb-2, .hero-orb-3, .hero-conic,
+  .float-slow, .marquee-track {
+    animation: none !important;
+  }
+}
+
 /* Recharts: su tooltip por defecto trae un fondo claro embebido (estilo inline)
    que en modo oscuro queda como una caja blanca ilegible sobre el tablero. Lo
    alineamos al tema oscuro del sistema. El modo oscuro de la app se rige por

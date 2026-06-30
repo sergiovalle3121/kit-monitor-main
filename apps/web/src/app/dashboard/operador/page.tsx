@@ -679,7 +679,7 @@ function Picker({
 
       <form
         onSubmit={openByWo}
-        className={`${glass} rounded-3xl p-4 mb-8 flex items-center gap-3 ${gloveMode ? "min-h-24" : ""}`}
+        className={`${glass} rounded-3xl p-4 mb-8 flex flex-wrap items-center gap-3 ${gloveMode ? "min-h-24" : ""}`}
       >
         <ScanLine className="w-6 h-6 text-amber-500 flex-shrink-0" />
         <input
@@ -687,7 +687,7 @@ function Picker({
           onChange={(e) => setWo(e.target.value)}
           autoFocus
           placeholder="Escanea / escribe la WO  (ej. 00001)"
-          className="flex-1 bg-transparent outline-none text-2xl font-mono tracking-wide placeholder:text-gray-400"
+          className="min-w-0 flex-1 bg-transparent outline-none text-2xl font-mono tracking-wide placeholder:text-gray-400"
         />
         <button
           type="submit"
@@ -1430,7 +1430,12 @@ function MaterialRequestForm({
       material.availableQty < material.qtyPerUnit,
   );
   const defaultMaterial = attentionMaterials[0] ?? materials[0] ?? null;
+  const suggestedQtyFor = (material: Material | null) =>
+    Math.max(1, Math.ceil(material?.remaining || material?.qtyPerUnit || 1));
   const [partNumber, setPartNumber] = useState(defaultMaterial?.partNumber ?? "");
+  const [requestedQty, setRequestedQty] = useState(
+    suggestedQtyFor(defaultMaterial),
+  );
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1450,7 +1455,7 @@ function MaterialRequestForm({
       `WO ${board.execution.workOrder}`,
       partNumber ? `Parte ${partNumber}` : "Solicitud general",
       selectedMaterial
-        ? `Disponible ${selectedMaterial.availableQty}/${selectedMaterial.remaining} ${selectedMaterial.unit}`
+        ? `Solicitado ${requestedQty} ${selectedMaterial.unit} · disponible ${selectedMaterial.availableQty}/${selectedMaterial.remaining}`
         : null,
       note.trim() || null,
     ]
@@ -1469,6 +1474,15 @@ function MaterialRequestForm({
       kitId,
       requestedBy: operator,
       note: buildNote(),
+      workOrder: board.execution.workOrder,
+      line:
+        board.execution.line === null || board.execution.line === undefined
+          ? undefined
+          : String(board.execution.line),
+      station: stepName,
+      partNumber: partNumber || undefined,
+      requestedQty: partNumber ? requestedQty : undefined,
+      unit: selectedMaterial?.unit,
     };
     setBusy(true);
     setError(null);
@@ -1538,7 +1552,10 @@ function MaterialRequestForm({
                 return (
                   <button
                     key={material.id}
-                    onClick={() => setPartNumber(material.partNumber)}
+                    onClick={() => {
+                      setPartNumber(material.partNumber);
+                      setRequestedQty(suggestedQtyFor(material));
+                    }}
                     className={`rounded-2xl border px-3 py-3 text-left transition-all ${
                       active
                         ? "border-amber-500 bg-amber-500 text-white"
@@ -1579,6 +1596,30 @@ function MaterialRequestForm({
             Esta estacion no trae materiales detallados; se levantara una
             solicitud general contra el kit.
           </div>
+        )}
+
+        {selectedMaterial && (
+          <label className="block">
+            <span className="mb-2 block text-xs font-black uppercase tracking-widest text-gray-500">
+              Cantidad a surtir
+            </span>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                type="number"
+                min={1}
+                value={requestedQty}
+                onChange={(event) =>
+                  setRequestedQty(
+                    Math.max(1, Math.ceil(Number(event.target.value) || 1)),
+                  )
+                }
+                className="w-full rounded-2xl bg-gray-100 px-4 py-3 text-sm font-semibold outline-none dark:bg-white/5"
+              />
+              <span className="flex items-center rounded-2xl bg-gray-100 px-4 text-xs font-black text-gray-500 dark:bg-white/5">
+                {selectedMaterial.unit}
+              </span>
+            </div>
+          </label>
         )}
 
         <textarea

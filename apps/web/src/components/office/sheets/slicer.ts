@@ -41,6 +41,37 @@ export interface AxosFilterSummary {
   evaluatedRows: number;
 }
 
+export type AxosTimelinePreset = 'last_7_days' | 'last_30_days' | 'last_90_days' | 'month_to_date' | 'year_to_date';
+
+export interface AxosTimelinePresetDefinition {
+  id: AxosTimelinePreset;
+  label: string;
+  description: string;
+}
+
+export interface AxosTimelinePresetRange {
+  from: string;
+  to: string;
+  label: string;
+}
+
+export interface AxosSlicerSelectionSummary {
+  totalValues: number;
+  selectedValues: number;
+  hiddenValues: number;
+  active: boolean;
+  mode: 'empty' | 'all' | 'partial' | 'none';
+  label: string;
+}
+
+export const AXOS_TIMELINE_PRESETS: AxosTimelinePresetDefinition[] = [
+  { id: 'last_7_days', label: '7d', description: 'Ultimos 7 dias' },
+  { id: 'last_30_days', label: '30d', description: 'Ultimos 30 dias' },
+  { id: 'last_90_days', label: '90d', description: 'Ultimos 90 dias' },
+  { id: 'month_to_date', label: 'Mes', description: 'Mes a la fecha' },
+  { id: 'year_to_date', label: 'YTD', description: 'Year to date' },
+];
+
 /** Display value for value buttons and field comparisons. */
 function disp(v: any): string {
   if (v === null || v === undefined) return '';
@@ -66,6 +97,43 @@ export function axosDateValue(v: any): number | null {
 }
 
 const dateNum = (s?: string | null): number | null => (s == null || s === '') ? null : axosDateValue(s);
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function addUtcDays(d: Date, days: number): Date {
+  const next = new Date(d.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function startOfUtcMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+function startOfUtcYear(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+}
+
+export function timelinePresetRange(preset: AxosTimelinePreset, now = new Date()): AxosTimelinePresetRange {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const def = AXOS_TIMELINE_PRESETS.find((item) => item.id === preset);
+  switch (preset) {
+    case 'last_7_days':
+      return { from: isoDate(addUtcDays(today, -6)), to: isoDate(today), label: def?.description ?? 'Ultimos 7 dias' };
+    case 'last_30_days':
+      return { from: isoDate(addUtcDays(today, -29)), to: isoDate(today), label: def?.description ?? 'Ultimos 30 dias' };
+    case 'last_90_days':
+      return { from: isoDate(addUtcDays(today, -89)), to: isoDate(today), label: def?.description ?? 'Ultimos 90 dias' };
+    case 'month_to_date':
+      return { from: isoDate(startOfUtcMonth(today)), to: isoDate(today), label: def?.description ?? 'Mes a la fecha' };
+    case 'year_to_date':
+      return { from: isoDate(startOfUtcYear(today)), to: isoDate(today), label: def?.description ?? 'Year to date' };
+    default:
+      return { from: isoDate(today), to: isoDate(today), label: 'Hoy' };
+  }
+}
 
 /** Map `"r_c" → cell value` for O(1) access. */
 function cellMap(sheet: any): Map<string, any> {
@@ -98,6 +166,25 @@ export function uniqueValuesForRange(sheet: any, range: string, colRel: number):
 
 /** Backward-compatible name used by the current floating slicer UI. */
 export const slicerValues = uniqueValuesForRange;
+
+export function summarizeSlicerSelection(slicer: Pick<AxosSlicer, 'selected'>, values: string[]): AxosSlicerSelectionSummary {
+  const uniqueValues = [...new Set(values)];
+  const totalValues = uniqueValues.length;
+  if (!totalValues) return { totalValues: 0, selectedValues: 0, hiddenValues: 0, active: false, mode: 'empty', label: 'Sin valores' };
+  if (slicer.selected == null) return { totalValues, selectedValues: totalValues, hiddenValues: 0, active: false, mode: 'all', label: `Todos (${totalValues})` };
+  const selected = new Set(slicer.selected.map(String));
+  const selectedValues = uniqueValues.filter((value) => selected.has(value)).length;
+  const hiddenValues = totalValues - selectedValues;
+  const mode: AxosSlicerSelectionSummary['mode'] = selectedValues === 0 ? 'none' : selectedValues === totalValues ? 'all' : 'partial';
+  return {
+    totalValues,
+    selectedValues,
+    hiddenValues,
+    active: mode !== 'all',
+    mode,
+    label: mode === 'none' ? `Ninguno (0/${totalValues})` : mode === 'all' ? `Todos (${totalValues})` : `${selectedValues}/${totalValues} activos`,
+  };
+}
 
 export function rowPassesTimeline(value: any, filter: Pick<AxosTimelineFilter, 'from' | 'to'>): boolean {
   const n = axosDateValue(value);

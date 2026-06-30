@@ -1,6 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Spec for AXOS slicers and timeline filters. */
-import { applySlicers, applySlicersToPivotConfig, axosDateValue, makeSlicer, makeTimeline, rowPassesTimeline, uniqueValuesForRange } from './slicer';
+import {
+  applySlicers,
+  applySlicersToPivotConfig,
+  axosDateValue,
+  makeSlicer,
+  makeTimeline,
+  rowPassesTimeline,
+  summarizeSlicerSelection,
+  timelinePresetRange,
+  uniqueValuesForRange,
+} from './slicer';
 import { buildPivot, type PivotConfig } from '@/lib/office/sheetOps';
 
 let passed = 0; const fails: string[] = [];
@@ -20,6 +30,9 @@ eq(uniqueValuesForRange(sheet, 'A1:C5', 0), ['Norte', 'Oeste', 'Sur'], 'unique v
 ok(axosDateValue(46022)! > 0, 'Excel serial dates are comparable');
 eq(rowPassesTimeline('2026-02-05', { from: '2026-02-01', to: '2026-03-01' }), true, 'date inside timeline passes');
 eq(rowPassesTimeline('2026-04-20', { from: '2026-02-01', to: '2026-03-01' }), false, 'date outside timeline is rejected');
+eq(timelinePresetRange('last_30_days', new Date('2026-06-29T12:00:00Z')), { from: '2026-05-31', to: '2026-06-29', label: 'Ultimos 30 dias' }, 'last 30 day timeline preset is deterministic');
+eq(timelinePresetRange('month_to_date', new Date('2026-06-29T12:00:00Z')), { from: '2026-06-01', to: '2026-06-29', label: 'Mes a la fecha' }, 'month-to-date timeline preset starts on first day');
+eq(timelinePresetRange('year_to_date', new Date('2026-06-29T12:00:00Z')), { from: '2026-01-01', to: '2026-06-29', label: 'Year to date' }, 'year-to-date timeline preset starts on Jan 1');
 
 const filtered = JSON.parse(JSON.stringify(sheet));
 const slicer = makeSlicer('A1:C5', 0, 'Region');
@@ -29,6 +42,11 @@ timeline.from = '2026-01-01';
 timeline.to = '2026-02-28';
 filtered.slicers = [slicer];
 filtered.timelines = [timeline];
+eq(summarizeSlicerSelection(makeSlicer('A1:C5', 0, 'Region'), ['Norte', 'Sur']).label, 'Todos (2)', 'slicer summary labels all-values mode');
+eq(summarizeSlicerSelection(slicer, ['Norte', 'Oeste', 'Sur']), { totalValues: 3, selectedValues: 1, hiddenValues: 2, active: true, mode: 'partial', label: '1/3 activos' }, 'slicer summary reports partial active filters');
+slicer.selected = [];
+eq(summarizeSlicerSelection(slicer, ['Norte', 'Oeste', 'Sur']).label, 'Ninguno (0/3)', 'slicer summary reports empty active set');
+slicer.selected = ['Norte'];
 eq(applySlicers(filtered), 3, 'slicer AND timeline hide non-matching rows');
 eq(filtered.config.rowhidden, { 2: 0, 3: 0, 4: 0 }, 'rowhidden metadata is persisted for hidden rows');
 
