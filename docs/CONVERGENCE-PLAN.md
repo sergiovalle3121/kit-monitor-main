@@ -327,3 +327,21 @@ Se mergearon 10 PRs del lote nocturno. **Uno toca la zona roja** y debe entrar a
 - **FASE 5**: este doc final con 3 listas (✅ mergeadas · 🗑️ cerradas · 🔬 revisión). Objetivo: solo quedan abiertas las RED.
 
 ## ⏸️ DETENIDO — esperando tu aprobación para iniciar FASE 1.
+
+---
+
+## FASE 1 — Ejecución (estado: 2026-06-30)
+
+Aprobado por el owner: **solo FASE 1** (cerrar muerto, cero merges).
+
+**Hecho:**
+- ✅ PR **#875** (`night-slides-layer-health-0629`, DUPLICATE) comentado y **cerrado** (superseded by `night-slides-layer-health`).
+- De las 64 ramas STALE+DUPLICATE objetivo, **solo #875 tenía PR abierto**; el resto ya tenían PR mergeado/cerrado o sin PR.
+
+**Bloqueado por el entorno (no por las reglas):**
+- El borrado de ramas remotas está **prohibido en este entorno**: el relay git devuelve `403` en `push --delete`, y el proxy de Anthropic bloquea escrituras directas a la API REST de GitHub (`Write access ... not permitted through this proxy`). La única vía de escritura es el MCP de GitHub, que **no expone borrado de ramas**.
+- Por tanto, el borrado de las 64 ramas debe ejecutarlo el owner con sus credenciales.
+
+**Acción para el owner:** ejecutar `scripts/convergence-fase1-delete.sh` (incluye las 64 ramas y su tabla de recuperación SHA). Alternativa: activar en Settings → General → "Automatically delete head branches" para que GitHub limpie las de PRs mergeados.
+
+Tras el borrado, FASE 1 queda completa: ~65 ramas eliminadas sin mergear una sola línea de riesgo.
