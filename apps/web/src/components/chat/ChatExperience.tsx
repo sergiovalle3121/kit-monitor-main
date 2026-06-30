@@ -2736,7 +2736,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         <div
           className={`${glass} fixed bottom-6 left-1/2 z-[300] flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-2xl px-4 py-3 shadow-lg`}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white">
             <Video className="h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1">

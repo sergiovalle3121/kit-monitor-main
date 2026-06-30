@@ -2196,7 +2196,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
               <span className="text-amber-700/70 dark:text-amber-300/70 hidden sm:inline">Lo que agregues aquí (logo, barras, marcos) aparece detrás de todas las diapositivas.</span>
               <div className="ml-auto flex items-center gap-2">
                 <button onClick={clearMaster} className="text-xs px-2.5 py-1 rounded-lg bg-white/60 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 text-amber-800 dark:text-amber-200">Vaciar patrón</button>
-                <button onClick={exitMasterMode} className="text-xs px-3 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium">Salir del patrón</button>
+                <button onClick={exitMasterMode} className="text-xs px-3 py-1 rounded-lg bg-amber-700 text-white hover:bg-amber-800 font-medium">Salir del patrón</button>
               </div>
             </div>
           )}

@@ -131,7 +131,7 @@ export function SlideSorter({
                     <span className="min-w-0 truncate rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 shadow dark:bg-black/60 dark:text-gray-200">
                       {item.title || 'Sin titulo'}
                     </span>
-                    {!item.hasTitle && <span title="Falta titulo de slide" className="flex-shrink-0 rounded bg-amber-500/90 p-1 text-white shadow"><AlertTriangle className="h-3 w-3" /></span>}
+                    {!item.hasTitle && <span title="Falta titulo de slide" className="flex-shrink-0 rounded bg-amber-700/90 p-1 text-white shadow"><AlertTriangle className="h-3 w-3" /></span>}
                   </div>
                   {slides.length > 1 && (
                     <button onClick={() => onDelete(i)} className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-white/90 dark:bg-black/60 text-gray-500 dark:text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><Trash2 className="w-3.5 h-3.5" /></button>

@@ -60,7 +60,7 @@ export default function LineEngineeringError({
           <button
             onClick={() => (chunkError ? window.location.reload() : reset())}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
-            style={{ background: '#f43f5e' }}
+            style={{ background: '#e11d48' }}
           >
             <RotateCcw className="w-4 h-4" /> {chunkError ? 'Recargar' : 'Reintentar'}
           </button>

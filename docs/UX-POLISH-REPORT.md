@@ -417,3 +417,37 @@ desaparecen los peores (2.53). Gates: `tsc` 0 · `eslint` 0 (warnings pre-existe
 (b) un gris hardcodeado `#86868b` en un componente; (c) ~7 botones/píldoras con
 texto blanco/acento sobre tinte claro (naranja/azul/ámbar). Son de otra naturaleza
 (token estricto / por componente) y se dejan como follow-up.
+
+---
+
+## 15. Pase 8 — Bugs de contraste reales (audit multi-agente)
+
+Los follow-ups del §14 (gris `#86868b`, botones/píldoras de acento) resultaron más
+extensos de lo estimado. Se midió **en claro y oscuro** (axe, 36 rutas) capturando
+los colores reales y filtrando el tier de gris muted ya resuelto → **163 nodos de
+bug genuino, 133 distintos**.
+
+**Orquestación (Workflow):** se hizo *scout* inline (axe) y luego un workflow de
+**4 cazadores en paralelo** (uno por tipo de defecto: `#86868b`, blanco-sobre-acento,
+acento-sobre-tinte, valores-acento en oscuro) que localizan cada instancia y calculan
+el fix mínimo que pasa AA en su familia de tono; después una **fase de verificación
+adversarial** (un agente por edit) que recomputa el ratio y descarta falsos positivos.
+De **82 ediciones propuestas → 70 confirmadas** (69 low-risk, 1 med, 12 rechazadas).
+Las ediciones de los agentes se **descartaron del árbol** y se re-aplicaron solo las
+70 verificadas (find/replace exacto), para no introducir cambios sin verificar.
+
+| Tipo | Fix |
+| --- | --- |
+| `#86868b` (Apple-gray hardcodeado, módulo settings) | → `text-gray-600 dark:text-gray-400` (token estándar, ~7:1; oscuro conserva tono) — 32 edits |
+| Blanco sobre acento claro (botones amber/emerald/orange) | bg al tono `-700`/`-800` donde el blanco pasa ≥4.5 — 35 edits |
+| Valor-acento en **oscuro** (botón `bg-primary` blanco) | `--primary` (solo en `.dark`) de 70%→60% L para que el blanco pase — 3 edits |
+
+**Resultado:** nodos de bug genuino **163 → 69 (−58 %)**; desaparecen `#86868b` y los
+peores blanco-sobre-acento. `tsc` 0 · `eslint` 0 · `next build` OK. Verificado en
+claro y oscuro.
+
+**Cola restante (documentada):** ~35 botones blanco-sobre-acento adicionales (patrón
+muy extendido) y los **colores semánticos de valores KPI** (ámbar/esmeralda/azul como
+números) — estos últimos son decisión de paleta (como el gris del §14) y conviene el
+visto bueno del owner antes de oscurecerlos. Siguiente paso natural si se quiere
+cerrar del todo.

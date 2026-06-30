@@ -82,7 +82,7 @@ export function DocTrainingPanel({ docId, isOwner }: { docId: string; isOwner: b
     <div className="relative">
       <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/10" title="Entrenamiento / lectura requerida">
         <GraduationCap className="h-4 w-4" /> <span className="hidden xl:inline">Entrenamiento</span>
-        {minePending.length > 0 && <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] text-white">{minePending.length}</span>}
+        {minePending.length > 0 && <span className="rounded-full bg-amber-700 px-1.5 py-0.5 text-[10px] text-white">{minePending.length}</span>}
       </button>
       <AnimatePresence>
         {open && (

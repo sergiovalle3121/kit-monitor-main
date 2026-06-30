@@ -115,7 +115,7 @@ export default function ErpPpPage() {
                       key={m}
                       onClick={() => setMode(m)}
                       className={`text-xs font-semibold px-3 py-1.5 rounded-full transition ${
-                        mode === m ? 'bg-amber-500 text-white' : 'text-gray-500'
+                        mode === m ? 'bg-amber-700 text-white' : 'text-gray-500'
                       }`}
                     >
                       {m === 'propose' ? 'Proponer' : 'Auto'}
@@ -125,7 +125,7 @@ export default function ErpPpPage() {
                 <button
                   onClick={runMrp}
                   disabled={busy}
-                  className="flex items-center gap-2 bg-amber-500 text-white text-sm font-bold px-5 py-2.5 rounded-full hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-60"
+                  className="flex items-center gap-2 bg-amber-700 text-white text-sm font-bold px-5 py-2.5 rounded-full hover:bg-amber-800 active:scale-95 transition-all disabled:opacity-60"
                 >
                   {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                   Correr MRP

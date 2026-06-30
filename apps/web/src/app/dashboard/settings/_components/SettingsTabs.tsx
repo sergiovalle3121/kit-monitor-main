@@ -26,7 +26,7 @@ export default function SettingsTabs() {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               active
                 ? 'bg-white dark:bg-white/15 text-[#1D1D1F] dark:text-white shadow-sm'
-                : 'text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white'
+                : 'text-gray-600 dark:text-gray-400 hover:text-[#1D1D1F] dark:hover:text-white'
             }`}
           >
             <t.icon className="w-4 h-4" />

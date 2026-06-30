@@ -150,7 +150,7 @@ export function CallOverlay(props: CallOverlayProps) {
               <span className="text-xs text-gray-500">Rechazar</span>
             </button>
             <button onClick={onAccept} className="flex flex-col items-center gap-1.5" aria-label="Aceptar">
-              <span className="flex h-16 w-16 animate-bounce items-center justify-center rounded-full bg-green-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
+              <span className="flex h-16 w-16 animate-bounce items-center justify-center rounded-full bg-green-700 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
                 {isVideo ? <Video className="h-7 w-7" /> : <Phone className="h-7 w-7" />}
               </span>
               <span className="text-xs text-gray-500">Aceptar</span>

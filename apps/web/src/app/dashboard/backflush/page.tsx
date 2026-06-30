@@ -240,7 +240,7 @@ export default function BackflushPage() {
               <AlertTriangle className="w-3.5 h-3.5" /> Descuenta stock <b>available</b> del almacén indicado. Las partes sin stock o sin alta en el master de inventario se reportan por línea (no se descuentan).
             </div>
             <div className="mt-4 flex justify-end">
-              <button onClick={commit} disabled={busy === 'commit'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white dark:text-black bg-orange-500 disabled:opacity-60">
+              <button onClick={commit} disabled={busy === 'commit'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white dark:text-black bg-orange-700 dark:bg-orange-500 disabled:opacity-60">
                 {busy === 'commit' ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageMinus className="w-4 h-4" />} Consumir {preview.lines.length} materiales
               </button>
             </div>

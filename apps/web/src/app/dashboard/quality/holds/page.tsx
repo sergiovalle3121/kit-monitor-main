@@ -200,7 +200,7 @@ export default function QualityHoldsPage() {
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {d.status === "proposed" && <button onClick={() => dispoAction(d, "approve")} disabled={busy === `d${d.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: "#3b82f61f", color: "#3b82f6" }}>{busy === `d${d.id}` ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowRight className="w-3 h-3" />} Aprobar</button>}
-                        {d.status === "approved" && <button onClick={() => dispoAction(d, "execute")} disabled={busy === `d${d.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: "#10b981" }}>{busy === `d${d.id}` ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowRight className="w-3 h-3" />} Ejecutar</button>}
+                        {d.status === "approved" && <button onClick={() => dispoAction(d, "execute")} disabled={busy === `d${d.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: "#047857" }}>{busy === `d${d.id}` ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowRight className="w-3 h-3" />} Ejecutar</button>}
                       </div>
                     </div>
                   );

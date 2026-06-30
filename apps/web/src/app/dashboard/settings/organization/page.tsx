@@ -238,7 +238,7 @@ function Section<T extends { id: string }>({
               ))}
             </div>
             <div className="flex justify-end mt-3">
-              <button onClick={submit} disabled={busy} className="flex items-center gap-2 bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-60">
+              <button onClick={submit} disabled={busy} className="flex items-center gap-2 bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-emerald-800 active:scale-95 transition-all disabled:opacity-60">
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Crear
               </button>
             </div>
