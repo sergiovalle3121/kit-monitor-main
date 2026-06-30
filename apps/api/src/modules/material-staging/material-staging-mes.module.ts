@@ -8,6 +8,7 @@ import { MaterialStagingMesController } from './material-staging-mes.controller'
 import { PickListModule } from '../pick-lists/pick-list.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { InventoryModule } from '../inventory/inventory.module';
 import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 /**
@@ -27,6 +28,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
     PickListModule, // PickListService.getByPlan(planId)
     EventLedgerModule, // auditoría best-effort
     GovernanceModule, // AuditService requerido por PermissionsGuard
+    InventoryModule, // surtir deposita en el tanque de línea (LINE-<n>)
   ],
   controllers: [MaterialStagingMesController],
   providers: [

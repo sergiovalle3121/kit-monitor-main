@@ -18,6 +18,7 @@ import {
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
+import { InventoryService } from '../inventory/inventory.service';
 import {
   MesStagingLine,
   MesStagingStatus,
@@ -90,8 +91,35 @@ export class MaterialStagingMesService {
     private readonly planRepo: Repository<Plan>,
     private readonly pickList: PickListService,
     private readonly tenantCtx: TenantContextService,
+    private readonly inventory: InventoryService,
     @Optional() private readonly ledger?: EventLedgerService,
   ) {}
+
+  /**
+   * Surtir a línea = abastecer el "tanque" `LINE-<línea>` del que el operador
+   * consume en /operador. Resuelve la línea del PLAN (la que hereda la ejecución)
+   * y delega en `InventoryService.issueToLine` (ISSUE; crea la posición destino
+   * si no existe; sin línea registra y omite; un fallo se PROPAGA). Cierra el
+   * lazo de inventario para el flujo principal de surtido por plan.
+   */
+  private async depositStagedToLine(opts: {
+    planId: number;
+    line: number | string | null;
+    workOrder: string | null;
+    partNumber: string;
+    stagedQty: number;
+  }): Promise<void> {
+    await this.inventory.issueToLine({
+      partNumber: opts.partNumber,
+      quantity: opts.stagedQty,
+      line: opts.line,
+      actorName: this.tenantCtx.getUserEmail() ?? 'mes-staging',
+      referenceType: 'MES_STAGING',
+      referenceId: String(opts.planId),
+      reason:
+        `Surtido a línea ${opts.line ?? '—'} · ${opts.workOrder ?? ''}`.trim(),
+    });
+  }
 
   // ── Cola de surtido: planes publicados (kit ligado, status != cancelled) ──────
   async listPublishedPlans(filters: { status?: string } = {}): Promise<any[]> {
@@ -208,6 +236,15 @@ export class MaterialStagingMesService {
       requiredQty,
       stagedQty,
     );
+    // Cerrar el lazo: el material surtido ENTRA al tanque `LINE-<línea>`.
+    const plan = await this.planRepo.findOne({ where: { id: planId } });
+    await this.depositStagedToLine({
+      planId,
+      line: plan?.line ?? null,
+      workOrder: pick.workOrder ?? null,
+      partNumber: line.partNumber,
+      stagedQty,
+    });
     await this.record('MES_STAGING_LINE_STAGED', planId, {
       kitMaterialId,
       part: line.partNumber,
@@ -220,6 +257,8 @@ export class MaterialStagingMesService {
     const pick = (await this.pickList.getByPlan(planId)) as PickListResult;
     const lines = pick.lines ?? [];
     await this.assertAllStockAvailable(lines);
+    // Línea del plan resuelta una vez para abastecer el tanque `LINE-<línea>`.
+    const plan = await this.planRepo.findOne({ where: { id: planId } });
     for (const line of lines) {
       const requiredQty = Number(line.quantityRequired) || 0;
       await this.upsert(
@@ -229,6 +268,13 @@ export class MaterialStagingMesService {
         requiredQty,
         requiredQty,
       );
+      await this.depositStagedToLine({
+        planId,
+        line: plan?.line ?? null,
+        workOrder: pick.workOrder ?? null,
+        partNumber: line.partNumber,
+        stagedQty: requiredQty,
+      });
     }
     await this.record('MES_STAGING_PLAN_STAGED', planId, {
       lines: lines.length,
@@ -295,7 +341,9 @@ export class MaterialStagingMesService {
     const shortages = [...demandByPart.entries()]
       .map(([partNumber, demand]) => {
         const availableQty = availableByPart.get(partNumber) ?? 0;
-        const shortageQty = round(Math.max(0, demand.requiredQty - availableQty));
+        const shortageQty = round(
+          Math.max(0, demand.requiredQty - availableQty),
+        );
         return {
           partNumber,
           requiredQty: demand.requiredQty,
@@ -400,7 +448,10 @@ export class MaterialStagingMesService {
       unit: string;
     }
   > {
-    const demandByPart = new Map<string, { requiredQty: number; unit: string }>();
+    const demandByPart = new Map<
+      string,
+      { requiredQty: number; unit: string }
+    >();
     for (const line of lines) {
       if (!line.partNumber) continue;
       const existing = demandByPart.get(line.partNumber) ?? {

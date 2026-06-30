@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { InventoryPosition } from './entities/inventory-position.entity';
 import { InventoryMovement, InventoryTransactionType } from './entities/inventory-movement.entity';
+import { LINE_STOCK_LOCATION, lineStockWarehouse } from './line-stock';
 import { MaterialMaster } from './entities/material-master.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { AuditService } from '../governance/audit.service';
@@ -17,6 +18,8 @@ import {
 
 @Injectable()
 export class InventoryService {
+  private readonly logger = new Logger(InventoryService.name);
+
   constructor(
     @Inject(getTenantRepositoryToken(InventoryPosition))
     private readonly positionRepo: TenantScopedRepository<InventoryPosition>,
@@ -30,6 +33,54 @@ export class InventoryService {
     private readonly dataSource: DataSource,
     private readonly tenantCtx: TenantContextService,
   ) {}
+
+  /**
+   * Deposita material en el "tanque" de una línea: `LINE-<línea>` /
+   * `LINE_STOCK_LOCATION`, vía `recordTransaction` (tipo ISSUE: WH→Producción).
+   * Es el punto único que usa el surtido para abastecer el tanque del que luego
+   * el operador consume en /operador (cerrar el lazo de inventario).
+   *
+   * - `recordTransaction` crea la posición destino si no existe (sin migración).
+   * - Sin línea o sin cantidad → NO mueve a un almacén inexistente: lo registra
+   *   de forma visible y devuelve `deposited: false`.
+   * - Un fallo de inventario se PROPAGA (no se traga en silencio).
+   */
+  async issueToLine(opts: {
+    partNumber: string | null | undefined;
+    quantity: number | null | undefined;
+    line: number | string | null | undefined;
+    actorName: string;
+    referenceType?: string;
+    referenceId?: string;
+    reason?: string;
+  }): Promise<{ deposited: boolean; warehouseId: string | null }> {
+    const qty = opts.quantity ?? 0;
+    if (!opts.partNumber || qty <= 0) {
+      return { deposited: false, warehouseId: null };
+    }
+
+    const warehouseId = lineStockWarehouse(opts.line);
+    if (!warehouseId) {
+      this.logger.warn(
+        `Surtido sin línea: se omite el depósito de inventario a un almacén de ` +
+          `línea inexistente (parte ${opts.partNumber}, ${qty}).`,
+      );
+      return { deposited: false, warehouseId: null };
+    }
+
+    await this.recordTransaction({
+      type: 'ISSUE',
+      partNumber: opts.partNumber,
+      quantity: qty,
+      toWarehouseId: warehouseId,
+      toLocation: LINE_STOCK_LOCATION,
+      actorName: opts.actorName,
+      referenceType: opts.referenceType,
+      referenceId: opts.referenceId,
+      reason: opts.reason,
+    });
+    return { deposited: true, warehouseId };
+  }
 
   private applyScope<T extends ObjectLiteral>(
     qb: SelectQueryBuilder<T>,
