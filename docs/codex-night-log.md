@@ -252,6 +252,14 @@
 - Registered `analyze_line_balance` in the existing CAD command registry/parser so the current command dock and palette can preview takt load, bottleneck, overloads, missing metadata, balance efficiency, and score through existing report rows.
 - Added pure smoke coverage in `line-balance.spec.ts` and command-registry coverage for parser routing and over-takt warnings.
 - Pending: visual Yamazumi/load overlay in the analysis panel after active `Layout3DEditor.tsx` conflicts settle.
+## 2026-06-29 - Parametric warehouse rack generator
+
+- Inspected open CAD PR #838 and avoided its command-registry/line-balance files.
+- Reused the existing `Layout3DEditor` asset, annotation, layer, tag, snapshot, selection, validation, and DXF export paths.
+- Added `warehouse-generators.ts` to generate editable rack bays, forklift aisles, and labels from rows, bays, bay width, rack depth, aisle width, orientation, and prefix.
+- Wired the generator into the existing equipment rail so users can create warehouse rack rows without leaving CAD.
+- Added pure smoke coverage for horizontal racks, vertical rack aisles, footprint bounds, scaling warnings, and large-layout caps.
+- Pending: add supermarket lane and receiving/shipping dock generators using the same output contract.
 ## 2026-06-29 - Manufacturing CAD symbol blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.
