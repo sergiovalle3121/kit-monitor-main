@@ -12,6 +12,7 @@ import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import {
   activeMaterialRequestQueue,
+  materialRequestContextLabel,
   summarizeMaterialRequestQueue,
   type MaterialRequestQueueItem,
 } from './material-request-queue';
@@ -474,6 +475,7 @@ function MaterialRequestQueue({
             const meta = REQUEST_META[request.status as 'pending' | 'authorized'] ?? { label: request.status, color: GRAY };
             const isBusy = busy === `mr-${request.id}`;
             const isActivePlan = activePlanKitId !== null && request.kitId === activePlanKitId;
+            const contextLabel = materialRequestContextLabel(request);
             return (
               <div key={request.id} className={`${glass} rounded-xl p-3 ${isBusy ? 'opacity-70' : ''}`} style={isActivePlan ? { boxShadow: `inset 0 0 0 2px ${AMBER}` } : undefined}>
                 <div className="flex items-start justify-between gap-3">
@@ -484,8 +486,9 @@ function MaterialRequestQueue({
                       {isActivePlan && <span className="text-[10px] text-amber-500">plan activo</span>}
                     </div>
                     <div className="text-sm font-semibold mt-1 truncate">{request.model ?? `Kit #${request.kitId}`}</div>
+                    {contextLabel && <div className="mt-1 text-[12px] font-semibold text-gray-600 dark:text-gray-300 truncate">{contextLabel}</div>}
                     <div className="text-[12px] text-gray-400">
-                      {request.quantity ? `${request.quantity} u · ` : ''}{request.line ? `linea ${request.line} · ` : ''}Solicito {request.requestedBy}
+                      {request.quantity ? `${request.quantity} u plan · ` : ''}Solicito {request.requestedBy}
                     </div>
                     {request.note && <div className="text-[11px] text-gray-400 mt-1 truncate">{request.note}</div>}
                   </div>
