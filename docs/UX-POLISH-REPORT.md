@@ -300,3 +300,31 @@ clientWidth` (sin overflow horizontal) en móvil.
 
 Archivos: `src/app/page.tsx`, `src/app/globals.css`,
 `src/components/landing/LandingMockup.tsx`, `src/components/landing/LandingBento.tsx`.
+
+---
+
+## 11. Pase 4 — Pulir la app por dentro (defectos concretos)
+
+Tras la landing, el owner pidió **elevar el dashboard y los módulos núcleo** al
+mismo nivel premium, "arreglando lo que se vea barato o roto". Se capturaron las
+superficies núcleo **autenticadas** (sesión de owner + mock backend, vía
+`e2e/visual-sweep/evidence3.spec.ts`, opt-in `EVIDENCE3=1`) en claro/oscuro y
+escritorio/móvil. De ahí salieron dos defectos reales y sistémicos:
+
+| Defecto | Detalle | Fix |
+| --- | --- | --- |
+| **Ícono invisible en losetas** | El patrón `color: 'text-primary'` + `tint: 'bg-primary dark:bg-primary/10'` pinta, en **modo claro**, una loseta de color sólido con un glifo **del mismo color** → cuadro liso sin ícono. Aparecía en **5 hubs**: ERP (Ventas), RH (Analítica), Métricas (Forecast), Ingeniería Industrial (Forecast) y Finanzas (Contabilidad). | Tinte suave + glifo de color visible (igual que las losetas hermanas): violeta/índigo según la lista, sin colisión de color. Visible en claro **y** oscuro. |
+| **Hub ERP "alarmado" en vacío** | Los `StatCard` de Utilidad neta y Activos pintaban **rojo/ámbar** cuando no hay datos (el endpoint devuelve vacío `{}`, no un número), haciendo ver el ERP como en pérdida/descuadre al entrar. | Se colorea **solo cuando hay un número real** (`typeof … === 'number'`); sin dato → color neutro. El rojo/verde por signo se conserva con datos reales. |
+
+**Decisión de alcance:** la navegación (doble "volver" breadcrumb + cabecera de
+workbench en Mission Control/ERP/Operador) se dejó **como está** — es chrome ya
+iterado y aprobado en los pases 1–2; reabrirlo añadiría riesgo sin defecto claro.
+
+**QA:** `tsc` 0 · `eslint` 0 · `next build` OK · sin `console.*` nuevos.
+Verificado en claro y oscuro (ERP: Ventas con ícono violeta y StatCards neutros;
+Finanzas: Contabilidad con ícono violeta visible).
+
+Archivos: `src/app/dashboard/erp/page.tsx`, `src/app/dashboard/rh/page.tsx`,
+`src/app/dashboard/metrics/page.tsx`,
+`src/app/dashboard/industrial-engineering/page.tsx`,
+`src/app/dashboard/finance/page.tsx`, `e2e/visual-sweep/evidence3.spec.ts`.
