@@ -38,6 +38,7 @@ import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 import { ProcessStep } from '../process-routing/entities/process-step.entity';
 
 import { InventoryService } from '../inventory/inventory.service';
+import { LINE_STOCK_LOCATION, lineStockWarehouse } from '../inventory/line-stock';
 import { GenealogyService } from '../genealogy/genealogy.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
@@ -606,11 +607,11 @@ export class MesExecutionService {
         error: string;
       }[] = [];
       // Almacén virtual de línea del que se descuenta el material consumido.
-      // Convención compartida con production-runtime (`LINE-<línea>`). Si la WO
-      // no trae línea, el descuento formal no tiene origen válido: se omite y se
-      // registra (en vez de apuntar a un `LINE-0` inexistente).
-      const lineWarehouseId =
-        execution.line != null ? `LINE-${execution.line}` : null;
+      // Convención compartida (`LINE-<línea>` + location de línea) con el surtido
+      // que ABASTECE ese tanque (material-requests.fulfill → recordTransaction
+      // ISSUE a `LINE-<línea>` / `LINE_STOCK_LOCATION`). Si la WO no trae línea,
+      // el descuento formal no tiene origen válido: se omite y se registra.
+      const lineWarehouseId = lineStockWarehouse(execution.line);
 
       for (const m of materials) {
         const consume = round6(m.qtyPerUnit * consumeUnits);
@@ -645,7 +646,10 @@ export class MesExecutionService {
               partNumber: m.partNumber,
               quantity: consume,
               fromWarehouseId: lineWarehouseId,
-              fromLocation: step.name,
+              // Lee del tanque a nivel de LÍNEA (no por estación): la misma
+              // location en la que el surtido depositó. `step.name` se conserva
+              // en `reason` como contexto, no como llave de la posición.
+              fromLocation: LINE_STOCK_LOCATION,
               actorName: operator,
               referenceType: 'MES_EXECUTION_EVENT',
               referenceId: clientRequestId,

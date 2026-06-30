@@ -7,6 +7,7 @@ import { MaterialRequestsController } from './material-requests.controller';
 import { SignalModule } from '../../common/gateway/signal.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { InventoryModule } from '../inventory/inventory.module';
 import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
@@ -15,6 +16,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
     SignalModule,
     EventLedgerModule,
     GovernanceModule, // provides AuditService required by PermissionsGuard
+    InventoryModule, // surtir mueve inventario al tanque de línea (LINE-<n>)
   ],
   controllers: [MaterialRequestsController],
   providers: [
