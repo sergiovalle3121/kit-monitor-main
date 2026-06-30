@@ -174,20 +174,29 @@ describe('InventoryService', () => {
     it('camino feliz RECEIVE: crea posición destino, registra movimiento y audita ALLOWED', async () => {
       materialRepo.findOne.mockResolvedValue({ partNumber: 'RES-10K' });
       qrManager.findOne.mockResolvedValueOnce(undefined); // no hay posición destino previa
-      const mov = await service.recordTransaction({ ...baseDto, toWarehouseId: 'WH-1' });
+      const expiresAt = new Date('2026-12-31T00:00:00.000Z');
+      const mov = await service.recordTransaction({ ...baseDto, toWarehouseId: 'WH-1', expiresAt });
 
       // Creó la posición destino con el holdStatus por defecto 'available'.
       // (onHand parte en 0 y se incrementa después; jest retiene la referencia
       // mutada, por eso aquí sólo se afirman los campos estables.)
       expect(qrManager.create).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ partNumber: 'RES-10K', warehouseId: 'WH-1', holdStatus: 'available' }),
+        expect.objectContaining({ partNumber: 'RES-10K', warehouseId: 'WH-1', holdStatus: 'available', expiresAt }),
       );
       expect(audit.recordAction).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'INVENTORY_RECEIVE', outcome: 'ALLOWED' }),
       );
       expect(queryRunner.commitTransaction).toHaveBeenCalled();
       expect(mov).toBeDefined();
+    });
+
+    it('rejects an invalid lot expiry before mutating inventory', async () => {
+      await expect(
+        service.recordTransaction({ ...baseDto, toWarehouseId: 'WH-1', expiresAt: 'not-a-date' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(qrManager.findOne).not.toHaveBeenCalled();
+      expect(queryRunner.rollbackTransaction).toHaveBeenCalled();
     });
 
     it('TRANSFER con stock disponible descuenta del origen y suma al destino', async () => {

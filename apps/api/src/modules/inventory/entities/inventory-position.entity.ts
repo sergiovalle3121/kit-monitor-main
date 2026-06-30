@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, Unique, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { MaterialMaster } from './material-master.entity';
 import { EnterpriseWarehouse } from '../../enterprise-campus/entities/enterprise-warehouse.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 @Entity('inventory_positions')
 @Unique(['material', 'warehouse', 'location', 'programId'])
@@ -53,6 +54,9 @@ export class InventoryPosition {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   serialNumber?: string;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'expires_at' })
+  expiresAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

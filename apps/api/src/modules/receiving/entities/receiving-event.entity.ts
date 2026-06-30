@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 @Entity('receiving_events')
 export class ReceivingEvent {
@@ -25,6 +26,9 @@ export class ReceivingEvent {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   serialNumber?: string;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'expires_at' })
+  expiresAt: Date | null;
 
   @Column({ type: 'float' })
   quantity: number;
