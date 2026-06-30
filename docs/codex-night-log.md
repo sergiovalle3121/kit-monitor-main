@@ -243,6 +243,14 @@
 - Added `command-line-assist.ts` to rank existing command registry examples by query and current selection count.
 - Wired the existing Copiloto CAD dock to show ready/pending suggestions that reuse selected object labels and call the existing preview-first command path.
 - Pending: richer command history reconciliation and Enter-to-apply after active editor/registry PRs settle.
+## 2026-06-29 - Manufacturing CAD symbol blocks
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.
+- Avoided active `Layout3DEditor.tsx`, DXF preflight, validation, dimensions, flow, template, warehouse generator, and command-registry ownership areas.
+- Extended the existing `CAD_SYMBOL_LIBRARY` with manufacturing blocks for SMT front-end, placement, reflow, X-ray, ICT, functional test, coating, depaneling, assembly, quality gate, label print, and calibration.
+- Reused the existing symbol rail and Cmd-K palette wiring; inserted symbols become editable CAD assets and flow through existing layer, selection, validation, and DXF export paths.
+- Added symbol spec coverage for manufacturing availability, search, Equipment-layer assignment, flow ports, normalized port bounds, and placement metadata.
+- Pending: native block instances and richer warehouse/EHS utility symbols after the persistence contract and editor conflict queue settle.
 ## 2026-06-29 - Supermarket kitting template
 
 - Inspected automation memory, open CAD PRs #847/#844/#839/#838, required CAD docs, `Layout3DEditor.tsx`, route chrome, design docs, and the full `apps/web/src/lib/cad/**` tree.
