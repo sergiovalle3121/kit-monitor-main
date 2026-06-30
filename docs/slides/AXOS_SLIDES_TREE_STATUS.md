@@ -14,9 +14,16 @@ New/changed implementation files:
 - `apps/web/src/components/office/slides/deckHealth.spec.ts`
 - `apps/web/src/components/office/slides/presentationQuality.ts`
 - `apps/web/src/components/office/slides/presentationQuality.spec.ts`
+This run extends the existing Slides presenter path with a PowerPoint-grade
+readiness preflight derived from the already-mounted deck health analyzer.
+The workbench now shows presenter blockers/warnings before launch, and the
+presenter view shows the same run-health summary while rehearsing.
+
+New/changed implementation files:
+
 - `apps/web/src/components/office/SlidesEditor.tsx`
-- `apps/web/src/components/office/SlideInspectorPanel.tsx`
-- `apps/web/src/components/office/SlideStatusBar.tsx`
+- `apps/web/src/components/office/slides/presenterReadiness.ts`
+- `apps/web/src/components/office/slides/presenterReadiness.spec.ts`
 
 ## Non-Redundant Slice
 
@@ -27,6 +34,9 @@ Existing capability found:
 - `SlidesEditor` already tracked notes, sections, transitions, comments,
   animations, master objects, Smart Objects, and PPTX compatibility.
 - `slides/sections.ts` already provided pure section counting/grouping.
+- `SlidesEditor` already had presenter mode with current/next slide, speaker
+  notes, timer/clock, black/white screens, navigator, laser, pen, highlighter,
+  auto-advance pause, and keyboard shortcuts.
 
 What changed:
 
@@ -45,6 +55,13 @@ What changed:
   details, and quality metrics; the status bar shows a compact quality badge.
 - `SlidesEditor.tsx` now preserves `altText` / `alt` in Fabric serialization so
   accessibility metadata survives save/export workflows.
+- Added a pure `presenterReadiness` helper that turns existing deck health into
+  presenter-specific blockers, warnings, checklist items, note coverage, and
+  rehearsal duration estimates.
+- Wired a readiness card into the existing Slides ribbon under the presentation
+  controls.
+- Passed readiness into the existing presenter view so the presenter sees run
+  health, notes coverage, animation count, duration estimate, and top issues.
 
 What was intentionally not duplicated:
 
@@ -52,7 +69,9 @@ What was intentionally not duplicated:
 - No new Fabric canvas.
 - No new OfficeShell.
 - No duplicate comments model.
-- No separate Deck Health panel outside the existing inspector/status-bar path.
+- No separate presenter mode or slide-show renderer.
+- No duplicate navigation, sorter, outline, or reuse system while open PR #831
+  owns those files.
 - No fake live AXOS data fetches.
 
 ## Phase Status
@@ -76,7 +95,7 @@ What was intentionally not duplicated:
 | Phase 14 generator | Partial | `lib/office/deckGen.ts` | Add generator wizard and contract markers |
 | Phase 15 visual aids | Seed | visual aid layout/assets exist | Add visual-aid mode and print/export path |
 | Phase 16 comments/review | Partial | `SlideCommentsPanel.tsx`, generic `office_comments` backend | Persist Slides comments through existing generic model |
-| Phase 17 presenter | Strong seed | Presenter mode in `SlidesEditor.tsx` | Add preflight/rehearsal readiness |
+| Phase 17 presenter | Strong | Presenter mode and `slides/presenterReadiness.ts` | Add rehearsal capture/export summary |
 | Phase 18 animations | Usable | `SlideAnimationPanel.tsx` | Add issue navigation and preset application |
 | Phase 19 transitions | Usable | `SLIDE_TRANSITIONS`, presenter transitions | Add section/all consistency workflow |
 | Phase 20 sorter/outline/reuse | Usable | `SlideSorter.tsx`, `SlideOutline.tsx`, `SlideReusePanel.tsx` | Add section collapse and bulk operations |
