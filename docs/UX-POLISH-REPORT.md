@@ -328,3 +328,33 @@ Archivos: `src/app/dashboard/erp/page.tsx`, `src/app/dashboard/rh/page.tsx`,
 `src/app/dashboard/metrics/page.tsx`,
 `src/app/dashboard/industrial-engineering/page.tsx`,
 `src/app/dashboard/finance/page.tsx`, `e2e/visual-sweep/evidence3.spec.ts`.
+
+---
+
+## 12. Pase 5 — A11y: nombres accesibles en los back-links de ícono
+
+Tras verificar que el interior está visualmente sólido (no había más defectos
+visuales que arreglar), se ataca lo único concreto y verificable que quedaba del
+barrido: **`axe:link-name`**. El mismo back-link de ícono (`‹` → volver) estaba
+**copiado en 31 páginas sin nombre accesible** — un `<Link>` que envuelve solo un
+`<ChevronLeft/>`, sin texto ni `aria-label`. Para un lector de pantalla era un
+enlace "en blanco".
+
+| Patrón | Páginas | `aria-label` |
+| --- | --- | --- |
+| `‹` → `/dashboard` (volver al hub) | 21 | `Volver al inicio` |
+| `‹` → lista padre (páginas de detalle `[id]`/`[code]`) | 9 | `Volver` |
+| `‹` → `/dashboard/rh` (sub-cabecera RH) | 1 | `Volver a Recursos Humanos` |
+
+Cambio quirúrgico: **31 archivos, 1 línea cada uno** (solo se añade el atributo;
+sin cambio visual ni de comportamiento). Mission Control ya tenía su `aria-label`,
+así que queda consistente con el resto.
+
+**Evidencia:** barrido axe sobre rutas afectadas (`crm`, `traffic`,
+`line-engineering`, `maintenance`, `skills`) → **`axe:link-name` = 0** (antes
+fallaban). `tsc` + `eslint` limpios, `next build` OK.
+
+**Pendiente (no en este PR):** el resto de la deuda de a11y del barrido es
+`axe:color-contrast` (texto *muted* por debajo de 4.5:1) y algún `axe:button-name`
+— son cambios a nivel de token/iconos sueltos, de otra naturaleza; se dejan como
+follow-up trackeable.
