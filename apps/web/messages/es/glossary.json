@@ -1,0 +1,86 @@
+{
+  "wo": {
+    "term": "Orden de Trabajo",
+    "abbr": "OT",
+    "short": "Orden de Trabajo",
+    "def": "Una orden ejecutable para fabricar una cantidad concreta de un producto. Consume materiales y reporta producción en piso."
+  },
+  "plan": {
+    "term": "Carril de Plan",
+    "abbr": "Plan",
+    "short": "Plan",
+    "def": "Un carril de planeación que programa y secuencia el trabajo futuro. Agrupa y ordena Órdenes de Trabajo, pero no se ejecuta directamente en piso."
+  },
+  "bom": {
+    "term": "Lista de Materiales",
+    "abbr": "BOM",
+    "short": "BOM",
+    "def": "La lista estructurada de componentes y cantidades necesarias para fabricar un producto."
+  },
+  "routing": {
+    "term": "Ruteo",
+    "abbr": "Ruteo",
+    "short": "Ruteo",
+    "def": "La secuencia ordenada de operaciones y centros de trabajo por los que pasa un producto para fabricarse."
+  },
+  "kitting": {
+    "term": "Surtido (Kitting)",
+    "abbr": "Surtido",
+    "short": "Surtido",
+    "def": "Reunir todos los materiales de una Orden de Trabajo en un kit antes de iniciar la producción."
+  },
+  "backflush": {
+    "term": "Backflush (descarga automática)",
+    "abbr": "Backflush",
+    "short": "Backflush",
+    "def": "Descontar automáticamente del inventario los materiales consumidos según lo producido, en vez de escanear cada pieza."
+  },
+  "ctb": {
+    "term": "Listo para Fabricar",
+    "abbr": "CTB",
+    "short": "CTB",
+    "def": "Una verificación de disponibilidad que confirma que todos los materiales de una Orden de Trabajo están listos para iniciar."
+  },
+  "mes": {
+    "term": "Sistema de Ejecución de Manufactura",
+    "abbr": "MES",
+    "short": "MES",
+    "def": "El sistema de piso que usan los operadores para ejecutar Órdenes de Trabajo, reportar producción y consumir materiales en tiempo real."
+  },
+  "npi": {
+    "term": "Introducción de Nuevo Producto",
+    "abbr": "NPI",
+    "short": "NPI",
+    "def": "El proceso de llevar un producto nuevo desde el diseño hasta una manufactura estable y repetible."
+  },
+  "wip": {
+    "term": "Trabajo en Proceso",
+    "abbr": "WIP",
+    "short": "WIP",
+    "def": "Productos que ya iniciaron pero aún no terminan su producción."
+  },
+  "wms": {
+    "term": "Sistema de Gestión de Almacén",
+    "abbr": "WMS",
+    "short": "WMS",
+    "def": "El sistema que gestiona la entrada, almacenamiento, surtido y salida de materiales del almacén."
+  },
+  "mrp": {
+    "term": "Planeación de Requerimientos de Material",
+    "abbr": "MRP",
+    "short": "MRP",
+    "def": "La lógica de planeación que calcula qué materiales comprar o fabricar, y cuándo, para cubrir la demanda."
+  },
+  "andon": {
+    "term": "Andon",
+    "abbr": "Andon",
+    "short": "Andon",
+    "def": "Un sistema de señalización que permite a los operadores avisar problemas en la línea para que el soporte responda rápido."
+  },
+  "genealogy": {
+    "term": "Genealogía",
+    "abbr": "Genealogía",
+    "short": "Genealogía",
+    "def": "La trazabilidad completa de cómo se construyó una unidad: qué materiales, lotes y operaciones la conforman."
+  }
+}

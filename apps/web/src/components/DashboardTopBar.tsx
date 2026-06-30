@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   Bell,
@@ -21,6 +22,7 @@ import {
   PanelLeftClose,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useTheme, type ColorScheme } from "@/contexts/ThemeContext";
 import { glass } from "@/lib/glass";
 import { toggleNav, useNavOpen } from "@/lib/navDrawer";
@@ -200,6 +202,19 @@ function ThemeChoice() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** Selector de idioma (EN / ES) para el menú de avatar. */
+function LanguageChoice() {
+  const t = useTranslations("language");
+  return (
+    <div className="px-2 pb-2">
+      <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        {t("label")}
+      </p>
+      <LanguageSwitcher className="w-full justify-between" />
     </div>
   );
 }
@@ -534,6 +549,7 @@ export function DashboardTopBar() {
                   </div>
                 </div>
                 <ThemeChoice />
+                <LanguageChoice />
                 <div className="space-y-1">
                   {isAdmin && (
                     <Link

@@ -10,6 +10,7 @@ import { Reveal } from "@/components/Reveal";
 import { LandingMockup } from "@/components/landing/LandingMockup";
 import { LandingBento } from "@/components/landing/LandingBento";
 import { IconTile } from "@/components/ui/IconTile";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import type { DomainKey } from "@/lib/design/domains";
 import { hoverLift, press } from "@/lib/motion";
 import {
@@ -338,6 +339,7 @@ export default function Home() {
             </button>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSwitcher variant="compact" className="hidden sm:inline-flex" />
             <Link
               href="/login"
               className="px-4 py-2 rounded-full text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all"

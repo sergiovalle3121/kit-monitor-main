@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { getLocale, getMessages } from "next-intl/server";
+import { I18nProvider } from "@/components/I18nProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
     default: "AXOS OS",
     template: "%s · AXOS OS",
   },
-  description: "Sistema operativo industrial para ERP, MES y Control Tower multi-tenant",
+  description: "Industrial operating system for multi-tenant ERP, MES and Control Tower",
   applicationName: "AXOS OS",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
@@ -32,31 +34,37 @@ export const viewport: Viewport = {
  */
 const themeInitScript = `(function(){try{var s=localStorage.getItem('axos_theme');var d=s==='dark'||((!s||s==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.style.colorScheme=d?'dark':'light';}catch(e){}})();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Idioma resuelto por next-intl desde la cookie (SSR-safe). Default = inglés.
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="es-MX" className="h-full antialiased" suppressHydrationWarning>
+    <html lang={locale} className="h-full antialiased" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <ThemeProvider>
-          <AuthProvider>
-            <WorkspaceProvider>
-              <ToastProvider>
-                <ConfirmProvider>
-                  {children}
-                  <ChatWidget />
-                  <Cide />
-                  <SearchPalette />
-                </ConfirmProvider>
-              </ToastProvider>
-            </WorkspaceProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <I18nProvider locale={locale} messages={messages}>
+          <ThemeProvider>
+            <AuthProvider>
+              <WorkspaceProvider>
+                <ToastProvider>
+                  <ConfirmProvider>
+                    {children}
+                    <ChatWidget />
+                    <Cide />
+                    <SearchPalette />
+                  </ConfirmProvider>
+                </ToastProvider>
+              </WorkspaceProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

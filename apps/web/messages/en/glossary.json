@@ -1,0 +1,86 @@
+{
+  "wo": {
+    "term": "Work Order",
+    "abbr": "WO",
+    "short": "Work Order",
+    "def": "An executable order to build a specific quantity of a product. It consumes materials and reports production on the floor."
+  },
+  "plan": {
+    "term": "Plan Lane",
+    "abbr": "Plan",
+    "short": "Plan",
+    "def": "A planning lane that schedules and sequences future work. It groups and orders Work Orders but is not executed directly on the floor."
+  },
+  "bom": {
+    "term": "Bill of Materials",
+    "abbr": "BOM",
+    "short": "BOM",
+    "def": "The structured list of components and quantities required to build a product."
+  },
+  "routing": {
+    "term": "Routing",
+    "abbr": "Routing",
+    "short": "Routing",
+    "def": "The ordered sequence of operations and workcenters a product passes through to be built."
+  },
+  "kitting": {
+    "term": "Kitting",
+    "abbr": "Kitting",
+    "short": "Kitting",
+    "def": "Gathering all the materials for a Work Order into a kit before production starts."
+  },
+  "backflush": {
+    "term": "Backflush",
+    "abbr": "Backflush",
+    "short": "Backflush",
+    "def": "Automatically deducting consumed materials from inventory based on what was produced, rather than scanning each part."
+  },
+  "ctb": {
+    "term": "Clear to Build",
+    "abbr": "CTB",
+    "short": "CTB",
+    "def": "A readiness check confirming that all materials needed for a Work Order are available so it can start."
+  },
+  "mes": {
+    "term": "Manufacturing Execution System",
+    "abbr": "MES",
+    "short": "MES",
+    "def": "The shop-floor system operators use to execute Work Orders, report production and consume materials in real time."
+  },
+  "npi": {
+    "term": "New Product Introduction",
+    "abbr": "NPI",
+    "short": "NPI",
+    "def": "The process of taking a new product from design into stable, repeatable manufacturing."
+  },
+  "wip": {
+    "term": "Work in Process",
+    "abbr": "WIP",
+    "short": "WIP",
+    "def": "Products that have started but not yet finished production."
+  },
+  "wms": {
+    "term": "Warehouse Management System",
+    "abbr": "WMS",
+    "short": "WMS",
+    "def": "The system that manages inbound, storage, picking and outbound of materials in the warehouse."
+  },
+  "mrp": {
+    "term": "Material Requirements Planning",
+    "abbr": "MRP",
+    "short": "MRP",
+    "def": "Planning logic that calculates what materials to buy or build, and when, to meet demand."
+  },
+  "andon": {
+    "term": "Andon",
+    "abbr": "Andon",
+    "short": "Andon",
+    "def": "A signaling system that lets operators flag problems on the line so support can respond quickly."
+  },
+  "genealogy": {
+    "term": "Genealogy",
+    "abbr": "Genealogy",
+    "short": "Genealogy",
+    "def": "The full as-built traceability of a unit: which materials, lots and operations went into it."
+  }
+}

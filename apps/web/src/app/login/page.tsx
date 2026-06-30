@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { EntranceSweep } from "@/components/EntranceSweep";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { positionsByDepartment, getPosition, LEVELS } from "@/config/positions";
 
 type Status =
@@ -123,6 +124,10 @@ function LoginInner() {
         <ChevronLeft className="w-4 h-4" />
         Volver al inicio
       </Link>
+
+      <div className="fixed top-8 right-8 z-20">
+        <LanguageSwitcher variant="compact" />
+      </div>
 
       <div className="w-full max-w-5xl flex flex-col md:flex-row bg-white dark:bg-[#111] rounded-[2.5rem] overflow-hidden shadow-2xl shadow-black/10 dark:shadow-white/5 border border-gray-100 dark:border-white/5 min-h-[600px]">
         {/* Left: Brand Panel */}
