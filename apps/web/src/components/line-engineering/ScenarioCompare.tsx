@@ -116,14 +116,14 @@ export default function ScenarioCompare({
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="rounded-xl p-2.5 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
-            <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Escenario A</div>
+            <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Escenario A</div>
             <div className="flex gap-2">
               <input value={modelA} onChange={(e) => setModelA(e.target.value)} placeholder="Modelo A" className="flex-1 min-w-0 rounded-lg px-2 py-1.5 bg-white/60 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm" />
               <input value={revA} onChange={(e) => setRevA(e.target.value)} className="w-12 rounded-lg px-2 py-1.5 bg-white/60 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm" />
             </div>
           </div>
           <div className="rounded-xl p-2.5 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
-            <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Escenario B</div>
+            <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Escenario B</div>
             <div className="flex gap-2">
               <input value={modelB} onChange={(e) => setModelB(e.target.value)} placeholder="Modelo B" className="flex-1 min-w-0 rounded-lg px-2 py-1.5 bg-white/60 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm" />
               <input value={revB} onChange={(e) => setRevB(e.target.value)} className="w-12 rounded-lg px-2 py-1.5 bg-white/60 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm" />
@@ -136,7 +136,7 @@ export default function ScenarioCompare({
           <label>M.O. ($/hora)<input type="number" min={0} value={labor} onChange={(e) => setLabor(e.target.value)} className="mt-1 w-20 rounded-lg px-2 py-1.5 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm block" /></label>
           {data && (
             <span className="ml-auto self-center inline-flex items-center gap-2">
-              <span className="text-[11px] text-gray-400">A {data.scoreA} · {data.scoreB} B</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">A {data.scoreA} · {data.scoreB} B</span>
               <span className="px-2.5 py-1 rounded-full text-white text-[12px] font-semibold" style={{ background: verdictColor }}>{verdictText}</span>
             </span>
           )}
@@ -145,12 +145,12 @@ export default function ScenarioCompare({
         {error ? (
           <p className="text-[12px] text-amber-500 py-10 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-14 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-14 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (
           <div className="max-h-[44vh] overflow-y-auto -mx-1 px-1">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="text-[11px] uppercase tracking-wide text-gray-400 text-left">
+                <tr className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 text-left">
                   <th className="py-1.5 font-medium">KPI</th>
                   <th className="py-1.5 font-medium text-right">A</th>
                   <th className="py-1.5 font-medium text-right">B</th>
@@ -161,7 +161,7 @@ export default function ScenarioCompare({
                   <tr key={d.key} className="border-t border-black/5 dark:border-white/10">
                     <td className="py-1.5 text-gray-600 dark:text-gray-300">
                       {d.label}
-                      <span className="text-[10px] text-gray-400 ml-1">{d.lowerIsBetter ? '↓' : '↑'}</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-1">{d.lowerIsBetter ? '↓' : '↑'}</span>
                     </td>
                     <td className="py-1.5 text-right tabular-nums" style={{ color: d.betterSide === 'a' ? WIN : undefined, fontWeight: d.betterSide === 'a' ? 600 : 400 }}>{fmt(d.key, d.a)}</td>
                     <td className="py-1.5 text-right tabular-nums" style={{ color: d.betterSide === 'b' ? WIN : undefined, fontWeight: d.betterSide === 'b' ? 600 : 400 }}>{fmt(d.key, d.b)}</td>
@@ -172,7 +172,7 @@ export default function ScenarioCompare({
           </div>
         )}
 
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
           ↑ = más alto es mejor, ↓ = más bajo es mejor. La celda verde gana ese KPI. El veredicto cuenta KPIs ganados por cada lado; los no disponibles no puntúan.
         </p>
       </div>

@@ -1832,9 +1832,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   if (!model) {
     return (
       <div className={`${glass} rounded-3xl p-12 text-center`}>
-        <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+        <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
         <h3 className="font-semibold">Elige un modelo</h3>
-        <p className="text-sm text-gray-400 mt-1">Selecciona un modelo arriba para disponer su layout físico.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Selecciona un modelo arriba para disponer su layout físico.</p>
       </div>
     );
   }
@@ -1941,7 +1941,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           </select>
         </label>
         <label className="flex items-center gap-1">Grilla<input type="number" min={1} value={footprint.gridSize} onChange={(e) => updateFootprint({ gridSize: Math.max(1, Number(e.target.value) || 1) })} className="w-16 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
-        <span className="text-gray-400">· {grid}{unit} por celda</span>
+        <span className="text-gray-500 dark:text-gray-400">· {grid}{unit} por celda</span>
       </div>
 
       {/* DXF background (Fase 2) — read-only client/plant floor plan */}
@@ -1961,7 +1961,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
             <label className="flex items-center gap-1">Rot°<input type="number" value={dxf.rotation} onChange={(e) => updateDxf({ rotation: Number(e.target.value) || 0 }, true)} className="w-14 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
             <label className="flex items-center gap-1">ΔX<input type="number" value={Math.round(dxf.offsetX)} onChange={(e) => updateDxf({ offsetX: Number(e.target.value) || 0 }, true)} className="w-16 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
             <label className="flex items-center gap-1">ΔY<input type="number" value={Math.round(dxf.offsetY)} onChange={(e) => updateDxf({ offsetY: Number(e.target.value) || 0 }, true)} className="w-16 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
-            <button onClick={removeDxf} disabled={dxfBusy} title="Quitar plano" className="p-1 rounded text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10">{dxfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
+            <button onClick={removeDxf} disabled={dxfBusy} title="Quitar plano" className="p-1 rounded text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10">{dxfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
           </>
         )}
       </div>
@@ -1973,8 +1973,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           <Workflow className="w-3.5 h-3.5" /> {linkMode ? 'Conectando… (clic origen → destino)' : 'Conectar estaciones'}
         </button>
         <button onClick={autoConnect} title="Conectar según la secuencia de ruteo" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]"><Wand2 className="w-3.5 h-3.5" /> Auto secuencia</button>
-        <button onClick={clearConnectors} disabled={connCount === 0} title="Quitar todas las conexiones" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-gray-400 hover:text-rose-500 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /> Limpiar</button>
-        <span className="text-gray-400">· {connCount} {connCount === 1 ? 'conexión' : 'conexiones'}{linkMode ? ' · clic en una flecha para borrarla' : ''}</span>
+        <button onClick={clearConnectors} disabled={connCount === 0} title="Quitar todas las conexiones" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-gray-500 dark:text-gray-400 hover:text-rose-500 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /> Limpiar</button>
+        <span className="text-gray-500 dark:text-gray-400">· {connCount} {connCount === 1 ? 'conexión' : 'conexiones'}{linkMode ? ' · clic en una flecha para borrarla' : ''}</span>
       </div>
 
       {/* Equipment palette (Fase 5) */}
@@ -1992,8 +1992,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <span className="font-medium inline-flex items-center gap-1"><Type className="w-3.5 h-3.5" /> Notas:</span>
         <button onClick={() => setAnnTool((t) => (t === 'text' ? null : 'text'))} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors ${annTool === 'text' ? 'text-white border-transparent' : 'border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]'}`} style={annTool === 'text' ? { background: '#0f172a' } : undefined}><Type className="w-3.5 h-3.5" /> Texto</button>
         <button onClick={() => setAnnTool((t) => (t === 'dim' ? null : 'dim'))} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors ${annTool === 'dim' ? 'text-white border-transparent' : 'border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]'}`} style={annTool === 'dim' ? { background: '#0ea5e9' } : undefined}><MoveHorizontal className="w-3.5 h-3.5" /> Cota</button>
-        <button onClick={clearAnnotations} disabled={annCount === 0} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-gray-400 hover:text-rose-500 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /> Limpiar</button>
-        <span className="text-gray-400">· {annCount} {annCount === 1 ? 'nota' : 'notas'}{annTool === 'text' ? ' · clic para colocar (doble clic edita)' : annTool === 'dim' ? ' · clic en 2 puntos; clic en una cota la borra' : ''}</span>
+        <button onClick={clearAnnotations} disabled={annCount === 0} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-gray-500 dark:text-gray-400 hover:text-rose-500 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /> Limpiar</button>
+        <span className="text-gray-500 dark:text-gray-400">· {annCount} {annCount === 1 ? 'nota' : 'notas'}{annTool === 'text' ? ' · clic para colocar (doble clic edita)' : annTool === 'dim' ? ' · clic en 2 puntos; clic en una cota la borra' : ''}</span>
       </div>
 
       {mesOn && (
@@ -2006,7 +2006,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           <LegendDot color="#f59e0b" label={`Aviso ${mesData?.counts.warn ?? 0}`} />
           <LegendDot color="#ef4444" label={`Paro ${mesData?.counts.down ?? 0}`} />
           <LegendDot color="#94a3b8" label={`Inactivo ${mesData?.counts.idle ?? 0}`} />
-          <span className="text-gray-400 ml-auto">{mesData ? `actualizado ${new Date(mesData.updatedAt).toLocaleTimeString()}` : 'cargando…'}</span>
+          <span className="text-gray-500 dark:text-gray-400 ml-auto">{mesData ? `actualizado ${new Date(mesData.updatedAt).toLocaleTimeString()}` : 'cargando…'}</span>
         </div>
       )}
 
@@ -2127,48 +2127,48 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               </span>
             )
           ) : 'cargando…'}
-          <span className="text-gray-400 ml-auto">sobre el plano guardado</span>
+          <span className="text-gray-500 dark:text-gray-400 ml-auto">sobre el plano guardado</span>
         </div>
       )}
 
       <div className="flex min-h-0">
         {/* Tray of stations not yet placed */}
         <div className="w-52 shrink-0 border-r border-black/5 dark:border-white/10 p-3 overflow-y-auto" style={{ height: hostH }}>
-          <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Por colocar ({tray.length})</div>
+          <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Por colocar ({tray.length})</div>
           {stations.length === 0 ? (
-            <p className="text-[12px] text-gray-400">Este modelo aún no tiene estaciones. Créalas en la pestaña Balanceo.</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400">Este modelo aún no tiene estaciones. Créalas en la pestaña Balanceo.</p>
           ) : tray.length === 0 ? (
-            <p className="text-[12px] text-gray-400">Todas las estaciones están en el plano.</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400">Todas las estaciones están en el plano.</p>
           ) : (
             <div className="space-y-1.5">
               {tray.map((s) => (
                 <button key={s.id} onClick={() => placeStation(s)} className="w-full text-left px-2.5 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.05] hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors group">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-gray-400">#{s.sequence}</span>
+                    <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400">#{s.sequence}</span>
                     <span className="text-[13px] font-medium truncate flex-1">{s.station}</span>
                     {s.ctq && <span className="w-1.5 h-1.5 rounded-full" style={{ background: AMBER }} />}
                   </div>
-                  <div className="text-[10px] text-gray-400 mt-0.5 group-hover:text-rose-500">{s.line} · clic para colocar</div>
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 group-hover:text-rose-500">{s.line} · clic para colocar</div>
                 </button>
               ))}
             </div>
           )}
           {placed.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/10 text-[11px] text-gray-400">{placed.length} en el plano</div>
+            <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/10 text-[11px] text-gray-500 dark:text-gray-400">{placed.length} en el plano</div>
           )}
         </div>
 
         {/* Canvas */}
         <div ref={wrapRef} className="relative flex-1 min-w-0 bg-gradient-to-br from-black/[0.015] to-transparent dark:from-white/[0.02]" style={{ height: hostH }}>
           {loading && (
-            <div className="absolute inset-0 grid place-items-center z-10"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+            <div className="absolute inset-0 grid place-items-center z-10"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
           )}
           {!loading && stations.length > 0 && placed.length === 0 && (
             <div className="absolute inset-0 grid place-items-center z-10 pointer-events-none">
               <div className="text-center px-6">
                 <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                 <h3 className="font-semibold text-sm">Coloca tu primera estación</h3>
-                <p className="text-[12px] text-gray-400 mt-1 max-w-xs">Haz clic en una estación de la izquierda para soltarla en el plano, luego arrástrala, redimensiona o rota.</p>
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-1 max-w-xs">Haz clic en una estación de la izquierda para soltarla en el plano, luego arrástrala, redimensiona o rota.</p>
               </div>
             </div>
           )}
@@ -2189,7 +2189,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         </div>
       </div>
 
-      <div className="px-4 py-2 border-t border-black/5 dark:border-white/10 text-[11px] text-gray-400 flex items-center gap-3 flex-wrap">
+      <div className="px-4 py-2 border-t border-black/5 dark:border-white/10 text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-3 flex-wrap">
         <span className="inline-flex items-center gap-1"><RotateCcw className="w-3 h-3" /> Arrastra, redimensiona y rota</span>
         <span>· Flechas: mover (Shift = fino)</span>
         <span>· Supr: quitar del plano</span>
@@ -2205,7 +2205,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               <h3 className="font-semibold inline-flex items-center gap-2"><CopyPlus className="w-4 h-4" style={{ color: ROSE }} /> Clonar layout desde plantilla</h3>
               <button onClick={() => setShowClone(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-[12px] text-gray-400 mb-3">Copia footprint, plano DXF, equipos y notas. Las posiciones y el flujo se reasignan por nombre de estación (revisiones del mismo modelo se copian completas).</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">Copia footprint, plano DXF, equipos y notas. Las posiciones y el flujo se reasignan por nombre de estación (revisiones del mismo modelo se copian completas).</p>
             <label className="block text-[12px] font-medium text-gray-500 mb-1">Modelo origen</label>
             <select value={cloneSrc} onChange={(e) => setCloneSrc(e.target.value)} className="w-full rounded-lg px-2.5 py-2 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm">
               <option value="">Selecciona…</option>
@@ -2213,7 +2213,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
                 <option key={`${m.model}|${m.revision}`} value={`${m.model}|${m.revision}`}>{m.model} · {m.revision}</option>
               ))}
             </select>
-            <div className="mt-3 text-[12px] text-gray-400">Destino: <span className="font-medium text-gray-600 dark:text-gray-300">{model} · {revision}</span></div>
+            <div className="mt-3 text-[12px] text-gray-500 dark:text-gray-400">Destino: <span className="font-medium text-gray-600 dark:text-gray-300">{model} · {revision}</span></div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowClone(false)} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
               <button onClick={cloneFrom} disabled={!cloneSrc || cloneBusy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
@@ -2231,7 +2231,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               <h3 className="font-semibold inline-flex items-center gap-2"><History className="w-4 h-4" style={{ color: ROSE }} /> Versiones del layout</h3>
               <button onClick={() => setShowVersions(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-[12px] text-gray-400 mb-3">Guarda la disposición actual ({model} · {revision}) como una versión con nombre y restáurala cuando quieras. Restaurar reemplaza posiciones, footprint, flujo, equipos y notas.</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">Guarda la disposición actual ({model} · {revision}) como una versión con nombre y restáurala cuando quieras. Restaurar reemplaza posiciones, footprint, flujo, equipos y notas.</p>
             <div className="flex gap-2 mb-4">
               <input value={versName} onChange={(e) => setVersName(e.target.value)} placeholder="Nombre de la versión (opcional)" className="flex-1 rounded-lg px-2.5 py-2 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm" />
               <button onClick={saveVersion} disabled={versBusy} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50 shrink-0" style={{ background: ROSE }}>
@@ -2240,7 +2240,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
             </div>
             <div className="max-h-72 overflow-y-auto -mx-1 px-1">
               {versions.length === 0 ? (
-                <p className="text-[12px] text-gray-400 py-6 text-center">Aún no hay versiones guardadas.</p>
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 py-6 text-center">Aún no hay versiones guardadas.</p>
               ) : (
                 <div className="space-y-1.5">
                   {versions.map((v) => (
@@ -2248,11 +2248,11 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
                       <div className="flex items-center gap-2 px-3 py-2">
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-medium truncate">{v.name}</div>
-                          <div className="text-[11px] text-gray-400">{new Date(v.createdAt).toLocaleString()} · {v.stationCount} est · {v.connectorCount} flujo · {v.assetCount} eq</div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400">{new Date(v.createdAt).toLocaleString()} · {v.stationCount} est · {v.connectorCount} flujo · {v.assetCount} eq</div>
                         </div>
-                        <button onClick={() => compareVersion(v.id)} title="Comparar con el layout actual" className={`p-1.5 rounded-lg shrink-0 transition-colors ${diffFor === v.id ? 'text-white' : 'text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'}`} style={diffFor === v.id ? { background: '#0ea5e9' } : undefined}><GitCompare className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => compareVersion(v.id)} title="Comparar con el layout actual" className={`p-1.5 rounded-lg shrink-0 transition-colors ${diffFor === v.id ? 'text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'}`} style={diffFor === v.id ? { background: '#0ea5e9' } : undefined}><GitCompare className="w-3.5 h-3.5" /></button>
                         <button onClick={() => restoreVersion(v.id)} disabled={versBusy} title="Restaurar esta versión" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] disabled:opacity-50 shrink-0"><RotateCw className="w-3.5 h-3.5" /> Restaurar</button>
-                        <button onClick={() => deleteVersion(v.id)} title="Eliminar versión" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => deleteVersion(v.id)} title="Eliminar versión" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                       {diffFor === v.id && (
                         <div className="px-3 pb-2.5 text-[11px] text-gray-500 border-t border-black/5 dark:border-white/10 pt-2">
@@ -2267,7 +2267,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
                                 {diffData.footprintChanged && <span className="text-amber-500">footprint cambió</span>}
                                 {diffData.connectorsDelta !== 0 && <span>flujo {diffData.connectorsDelta > 0 ? '+' : ''}{diffData.connectorsDelta}</span>}
                                 {diffData.assetsDelta !== 0 && <span>equipos {diffData.assetsDelta > 0 ? '+' : ''}{diffData.assetsDelta}</span>}
-                                {diffData.moved.length > 0 && <span className="w-full text-gray-400">mayor movimiento: {diffData.moved[0].station} ({Math.round(diffData.moved[0].distance)} {footprint.unit})</span>}
+                                {diffData.moved.length > 0 && <span className="w-full text-gray-500 dark:text-gray-400">mayor movimiento: {diffData.moved[0].station} ({Math.round(diffData.moved[0].distance)} {footprint.unit})</span>}
                               </div>
                             )
                           )}
@@ -2290,7 +2290,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               <button onClick={() => setShowReport(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
             </div>
             {!reportData ? (
-              <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+              <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
             ) : (
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <ReportCard title="Readiness" main={`${reportData.stations.readinessPct}%`} sub={`${reportData.stations.placed}/${reportData.stations.total} colocadas · ${reportData.stations.unplaced} pendientes`} tone={reportData.stations.unplaced === 0 ? 'ok' : 'warn'} />
@@ -2333,21 +2333,21 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               <h3 className="font-semibold inline-flex items-center gap-2"><Frame className="w-4 h-4" style={{ color: ROSE }} /> Celdas / zonas</h3>
               <button onClick={() => setShowCells(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-[12px] text-gray-400 mb-3">Agrupa estaciones en celdas de manufactura. Selecciona estaciones en el plano y créalas; la celda se dibuja como un contorno. Guarda para persistir.</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">Agrupa estaciones en celdas de manufactura. Selecciona estaciones en el plano y créalas; la celda se dibuja como un contorno. Guarda para persistir.</p>
             <button onClick={createCellFromSelection} disabled={selCount === 0} className="w-full mb-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
               <Frame className="w-4 h-4" /> Crear celda con la selección ({selCount})
             </button>
             <div className="max-h-72 overflow-y-auto -mx-1 px-1">
               {cells.length === 0 ? (
-                <p className="text-[12px] text-gray-400 py-6 text-center">Aún no hay celdas. Selecciona estaciones y crea una.</p>
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 py-6 text-center">Aún no hay celdas. Selecciona estaciones y crea una.</p>
               ) : (
                 <div className="space-y-1.5">
                   {cells.map((cell) => (
                     <div key={cell.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
                       <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: cell.color }} />
                       <input value={cell.name} onChange={(e) => renameCell(cell.id, e.target.value)} className="flex-1 min-w-0 bg-transparent text-sm font-medium border-b border-transparent focus:border-black/20 dark:focus:border-white/20 outline-none" />
-                      <span className="text-[11px] text-gray-400 shrink-0">{cell.stationIds.length} est</span>
-                      <button onClick={() => deleteCell(cell.id)} title="Eliminar celda" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">{cell.stationIds.length} est</span>
+                      <button onClick={() => deleteCell(cell.id)} title="Eliminar celda" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   ))}
                 </div>
@@ -2380,7 +2380,7 @@ function ReportCard({ title, main, sub, tone }: { title: string; main: string; s
   const color = tone === 'ok' ? '#10b981' : tone === 'warn' ? '#f59e0b' : tone === 'bad' ? '#ef4444' : '#3b82f6';
   return (
     <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{title}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</div>
       <div className="text-xl font-semibold mt-0.5" style={{ color }}>{main}</div>
       <div className="text-[11px] text-gray-500 mt-1 leading-snug">{sub}</div>
     </div>

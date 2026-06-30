@@ -125,7 +125,7 @@ export function AssetsTab({
       {/* Filtros + alta */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -171,8 +171,8 @@ export function AssetsTab({
         </div>
       ) : rows.length === 0 ? (
         <div className={`${glass} rounded-2xl p-10 text-center`}>
-          <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-400">Ningún activo coincide con el filtro.</p>
+          <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Ningún activo coincide con el filtro.</p>
           {anyFilter && (
             <button onClick={() => { setQ(""); setStatus(""); setCriticality(""); }} className="mt-3 text-[13px] underline underline-offset-2 text-gray-500">
               Limpiar filtros
@@ -197,7 +197,7 @@ export function AssetsTab({
                       <span className="font-semibold truncate">{a.name}</span>
                       <CriticalityPill criticality={a.criticality} />
                     </div>
-                    <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+                    <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                       {a.category && <span className="inline-flex items-center gap-1"><Tag className="w-3 h-3" />{a.category}</span>}
                       {a.location && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{a.location}</span>}
                       {(a.manufacturer || a.model) && <span>{[a.manufacturer, a.model].filter(Boolean).join(" ")}</span>}
@@ -206,7 +206,7 @@ export function AssetsTab({
                   </button>
                   <button
                     onClick={() => setEditing(a)}
-                    className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"
+                    className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"
                     title="Editar activo"
                   >
                     <Pencil className="w-4 h-4" />
@@ -304,7 +304,7 @@ function AssetDetailDrawer({
           </span>
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold truncate">{asset?.name ?? "Activo"}</h3>
-            <div className="text-[12px] text-gray-400 truncate">
+            <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
               {asset ? [asset.code, asset.location].filter(Boolean).join(" · ") || "Sin ubicación" : ""}
             </div>
           </div>
@@ -312,9 +312,9 @@ function AssetDetailDrawer({
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : error || !asset || !r ? (
-          <div className="p-8 text-center text-sm text-gray-400">
+          <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
             No se pudo cargar el detalle del activo.
             <button onClick={load} className="block mx-auto mt-3 text-[13px] underline underline-offset-2">Reintentar</button>
           </div>
@@ -324,19 +324,19 @@ function AssetDetailDrawer({
               <AssetStatusPill status={asset.status} />
               <CriticalityPill criticality={asset.criticality} />
               {(asset.manufacturer || asset.model) && (
-                <span className="text-[12px] text-gray-400">{[asset.manufacturer, asset.model].filter(Boolean).join(" ")}</span>
+                <span className="text-[12px] text-gray-500 dark:text-gray-400">{[asset.manufacturer, asset.model].filter(Boolean).join(" ")}</span>
               )}
             </div>
 
             {/* Cambio de estado operativo (semáforo) */}
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Estado operativo</div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Estado operativo</div>
               <AssetStatusSelect asset={asset} onChanged={() => { onChanged(); load(); }} />
             </div>
 
             {/* Confiabilidad: MTTR / MTBF / fallas / paro */}
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1.5">
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1.5">
                 <Gauge className="w-3.5 h-3.5" /> Confiabilidad
               </div>
               <div className="grid grid-cols-2 gap-2.5">
@@ -346,7 +346,7 @@ function AssetDetailDrawer({
                 <MiniKpi icon={<Clock className="w-3.5 h-3.5" />} label="Paro acumulado" value={fmtMinutes(r.totalDowntimeMinutes)} sub={`${r.openOrders} abiertas`} color={COLORS.amber} />
               </div>
               {r.lastFailureAt && (
-                <div className="text-[11px] text-gray-400 mt-2">Última falla: {fmtDateTime(r.lastFailureAt)}</div>
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">Última falla: {fmtDateTime(r.lastFailureAt)}</div>
               )}
             </div>
 
@@ -361,9 +361,9 @@ function AssetDetailDrawer({
 
             {/* Historial de órdenes (correctivas y preventivas) */}
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Historial de órdenes ({orders.length})</div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Historial de órdenes ({orders.length})</div>
               {orders.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">Sin órdenes para este activo todavía.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">Sin órdenes para este activo todavía.</p>
               ) : (
                 <div className="space-y-2">
                   {orders.map((o) => <HistoryRow key={o.id} order={o} />)}
@@ -396,9 +396,9 @@ function MiniKpi({
 }) {
   return (
     <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04]">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400 flex items-center gap-1">{icon}{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-1">{icon}{label}</div>
       <div className="text-lg font-semibold mt-0.5" style={{ color }}>{value}</div>
-      {sub && <div className="text-[11px] text-gray-400 truncate">{sub}</div>}
+      {sub && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{sub}</div>}
     </div>
   );
 }
@@ -411,7 +411,7 @@ function HistoryRow({ order }: { order: MaintenanceOrder }) {
         <span className="text-sm font-medium truncate flex-1 min-w-0">{order.title}</span>
         <StatusPill status={order.status} />
       </div>
-      <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+      <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
         <TypePill type={order.type} />
         {order.dueDate && <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{dueLabel(order.dueDate)}</span>}
         {order.downtimeMinutes > 0 && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{fmtMinutes(order.downtimeMinutes)} paro</span>}

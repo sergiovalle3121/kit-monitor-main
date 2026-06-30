@@ -85,7 +85,7 @@ export function SlideReusePanel({ current, ratio, onInsert, onClose }: {
       >
         <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <h2 className="text-lg font-bold flex items-center gap-2"><Layers className="w-5 h-5 text-amber-500" /> Reutilizar diapositivas</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
           <button onClick={() => setTab('deck')} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors ${tab === 'deck' ? 'bg-amber-500 text-white' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20'}`}>Esta presentación</button>
@@ -96,10 +96,10 @@ export function SlideReusePanel({ current, ratio, onInsert, onClose }: {
           </label>
         </div>
         {error && <p className="text-xs text-red-500 mb-3 flex-shrink-0">{error}</p>}
-        <p className="text-xs text-gray-400 mb-3 flex-shrink-0">Inserta una copia después de la diapositiva actual (conserva el formato de origen).</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 flex-shrink-0">Inserta una copia después de la diapositiva actual (conserva el formato de origen).</p>
         <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
           {!items.length ? (
-            <div className="text-center text-sm text-gray-400 py-16">{tab === 'file' ? 'Importa un archivo .json de presentación para ver sus diapositivas.' : 'No hay diapositivas.'}</div>
+            <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-16">{tab === 'file' ? 'Importa un archivo .json de presentación para ver sus diapositivas.' : 'No hay diapositivas.'}</div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-1">
               {items.map((it, i) => (

@@ -105,9 +105,9 @@ export default function TestFlowPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el flujo de unidades.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver el flujo de unidades.</p>
         </div>
       </div>
     );
@@ -117,7 +117,7 @@ export default function TestFlowPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(16,185,129,0.12)' }}>
@@ -125,7 +125,7 @@ export default function TestFlowPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Flujo de Unidades · Pruebas</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Ensamble → Prueba → Empaque / Disposición · por número de serie</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Ensamble → Prueba → Empaque / Disposición · por número de serie</p>
           </div>
         </div>
       </div>
@@ -171,13 +171,13 @@ export default function TestFlowPage() {
               </div>
               {trace.events?.length > 0 && (
                 <div className="mt-4">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Bitácora (Event Ledger)</div>
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Bitácora (Event Ledger)</div>
                   <div className="space-y-1">
                     {trace.events.map((e, i) => (
                       <div key={i} className="flex items-center gap-2 text-[12px]">
-                        <CircleDot className="w-3 h-3 text-gray-400" />
+                        <CircleDot className="w-3 h-3 text-gray-500 dark:text-gray-400" />
                         <span className="font-mono">{e.action}</span>
-                        <span className="text-gray-400 ml-auto">{e.timestamp ? new Date(e.timestamp).toLocaleString() : ''}</span>
+                        <span className="text-gray-500 dark:text-gray-400 ml-auto">{e.timestamp ? new Date(e.timestamp).toLocaleString() : ''}</span>
                       </div>
                     ))}
                   </div>
@@ -203,12 +203,12 @@ export default function TestFlowPage() {
 
         {/* Queue list */}
         {isLoading ? (
-          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin unidades en esta etapa</h3>
-            <p className="text-sm text-gray-400 mt-1">Las unidades aparecen aquí al completarse en la última estación del MES.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Las unidades aparecen aquí al completarse en la última estación del MES.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -216,7 +216,7 @@ export default function TestFlowPage() {
               <div key={u.id} className={`${glass} rounded-xl p-3 flex items-center gap-3`}>
                 <span className="font-mono text-sm truncate flex-1">{u.serialNumber}</span>
                 {u.workOrder && <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{u.workOrder}</span>}
-                {u.model && <span className="text-[11px] text-gray-400">{u.model}</span>}
+                {u.model && <span className="text-[11px] text-gray-500 dark:text-gray-400">{u.model}</span>}
                 {u.failureCode && <span className="text-[11px]" style={{ color: RED }}>{u.failureCode}</span>}
                 <StageBadge stage={u.stage} />
               </div>
@@ -248,7 +248,7 @@ export default function TestFlowPage() {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
   );
@@ -257,7 +257,7 @@ function Kpi({ label, value, color }: { label: string; value: number | string; c
 function Field({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="font-medium">{value ?? '—'}</div>
     </div>
   );

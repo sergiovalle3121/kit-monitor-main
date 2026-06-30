@@ -88,7 +88,7 @@ export function FilterBar({
           const v = (value[def.key] as DateRange) ?? {};
           return (
             <div key={def.key} className="flex items-center gap-1.5">
-              <span className="text-[12px] text-gray-400">{def.label}</span>
+              <span className="text-[12px] text-gray-500 dark:text-gray-400">{def.label}</span>
               <input
                 type="date"
                 value={v.from ?? ''}
@@ -96,7 +96,7 @@ export function FilterBar({
                 aria-label={`${def.label} desde`}
                 className={clsx(CTRL, 'w-[9.5rem]')}
               />
-              <span className="text-gray-400">–</span>
+              <span className="text-gray-500 dark:text-gray-400">–</span>
               <input
                 type="date"
                 value={v.to ?? ''}

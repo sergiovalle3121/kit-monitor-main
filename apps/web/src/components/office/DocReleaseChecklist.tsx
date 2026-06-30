@@ -64,14 +64,14 @@ export function DocReleaseChecklist({ content, docId }: { content: any; docId: s
             >
               <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-black/5 px-4 dark:border-white/10">
                 <span className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-500" />Checklist de liberación</span>
-                <button onClick={() => setOpen(false)} className="rounded-full p-1.5 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+                <button onClick={() => setOpen(false)} className="rounded-full p-1.5 text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
               </div>
 
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
                 <div className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Readiness score</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Readiness score</p>
                       <p className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">{report.score}</p>
                     </div>
                     {report.ready ? <CheckCircle2 className="h-9 w-9 text-emerald-500" /> : <AlertTriangle className="h-9 w-9 text-red-500" />}

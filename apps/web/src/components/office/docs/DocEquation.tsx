@@ -97,7 +97,7 @@ export function DocEquation({ editor }: { editor: Editor }) {
           className="relative w-full max-w-xl rounded-3xl bg-white dark:bg-[#1b1b1d] border border-black/10 dark:border-white/10 shadow-2xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold flex items-center gap-2"><Sigma className="w-5 h-5 text-blue-500" /> {editing ? 'Editar ecuación' : 'Insertar ecuación'}</h3>
-            <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+            <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
           </div>
 
           {!editing && (
@@ -116,7 +116,7 @@ export function DocEquation({ editor }: { editor: Editor }) {
           <div className="mt-3 max-h-44 overflow-y-auto space-y-2">
             {PALETTE.map((cat) => (
               <div key={cat.label}>
-                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{cat.label}</div>
+                <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{cat.label}</div>
                 <div className="flex flex-wrap gap-1">
                   {cat.items.map((it, i) => (
                     <button key={i} title={it.ins} onMouseDown={(e) => e.preventDefault()} onClick={() => insertSnippet(it.ins)}

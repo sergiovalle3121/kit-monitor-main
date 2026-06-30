@@ -130,7 +130,7 @@ export default function CsvImportPanel({ onClose, onImported }: { onClose: () =>
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h3 className="font-semibold">Cargar pull-list (CSV)</h3>
-          <p className="text-[12px] text-gray-400">
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">
             Sube un archivo CSV y se crea un pull por fila. Columnas: <code className="text-[11px]">partNumber, quantity, fromWarehouseId</code> (obligatorias), y opcionales <code className="text-[11px]">project, toLocation, requestor, slaMinutes, urgent, referenceId</code>. Un conector SAP futuro alimentaría este mismo flujo.
           </p>
         </div>

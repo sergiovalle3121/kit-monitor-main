@@ -64,7 +64,7 @@ export function StatCard({
         {value}
       </div>
       {sublabel != null && (
-        <div className="mt-0.5 text-[12px] text-gray-400">{sublabel}</div>
+        <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">{sublabel}</div>
       )}
     </div>
   );

@@ -32,7 +32,7 @@ export function DocWordCount({ editor }: { editor: Editor }) {
   return (
     <RibbonMenuButton icon={BarChart3} label="Recuento" menuWidth={260}>
       <div className="px-1.5 py-1" onClick={(e) => e.stopPropagation()}>
-        <div className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">Estadísticas</div>
+        <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Estadísticas</div>
         <Row k="Palabras" v={s.wc} />
         <Row k="Caracteres (con espacios)" v={s.charsWith} />
         <Row k="Caracteres (sin espacios)" v={s.charsNo} />
