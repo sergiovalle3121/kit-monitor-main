@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { OfficeShell, OfficeShellMessage, type SaveStatus, type OfficeType } from '@/components/office/OfficeShell';
 import { SheetActions } from '@/components/office/SheetActions';
+import { SheetGovernanceBadge } from '@/components/office/SheetGovernanceBadge';
 import { SlideActions } from '@/components/office/SlideActions';
 import { DocActions } from '@/components/office/DocActions';
 import { VersionHistory } from '@/components/office/VersionHistory';
@@ -240,6 +241,8 @@ export default function OfficeEditorPage() {
     )
     : doc.type === 'doc' && docStats
     ? <span>{docStats.words} palabras · {docStats.chars} caracteres</span>
+    : doc.type === 'sheet'
+      ? <SheetGovernanceBadge content={content} />
     : doc.type === 'slides' && pptxIssues.length
       ? (
         <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-300" title={pptxIssues.slice(0, 5).map((x: any) => x.message).join(' ')}>
