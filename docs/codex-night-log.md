@@ -235,6 +235,15 @@
 - Template-generated flow connectors prime the existing Flow Health panel without adding another flow model.
 - Pending: parametric generators for rack rows, supermarket lanes, SMT variants, and assembly/test cells.
 
+## 2026-06-29 - Flow Health reorder preview
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and open CAD PRs #844, #839, and #838.
+- Avoided warehouse/rack generators, command-registry expansion, layers, DXF, validation internals, and shell extraction because open PRs already touch those concerns.
+- Extended the existing `flow-optimization.ts` helper with a deterministic reorder preview instead of adding a second flow engine.
+- Wired the existing Flow Health modal to show before/after score, distance, crossing, and backtracking deltas.
+- Added an apply action that moves current station placements into the suggested physical order using the existing local snapshot, undo, lock-guard, selection, snap, and rebuild paths.
+- Added pure smoke coverage for the reorder preview.
+- Pending: from-to table, operator walking path, and richer flow recommendation categories.
 ## 2026-06-29 - Manufacturing CAD symbol blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.
