@@ -35,7 +35,7 @@ export default function LineControlTowerPage() {
   if (forbidden) {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
-        <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-400 mt-1">Necesitas permiso de producción.</p></div>
+        <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Necesitas permiso de producción.</p></div>
       </div>
     );
   }
@@ -50,7 +50,7 @@ export default function LineControlTowerPage() {
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(6,182,212,0.14)' }}><RadioTower className="w-5 h-5" style={{ color: '#06b6d4' }} /></span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Torre de control de línea</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Readiness, plan vs real, andons, holds y reposición — la vista de la mañana del gerente.</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Readiness, plan vs real, andons, holds y reposición — la vista de la mañana del gerente.</p>
           </div>
           <button onClick={() => mutate()} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><RefreshCw className="w-4 h-4" /></button>
         </div>
@@ -74,9 +74,9 @@ export default function LineControlTowerPage() {
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : lines.length === 0 ? (
-          <div className={`${glass} rounded-3xl p-12 text-center`}><Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h3 className="font-semibold">Sin líneas activas</h3><p className="text-sm text-gray-400 mt-1">Publica WOs en el muro del plan para verlas aquí.</p></div>
+          <div className={`${glass} rounded-3xl p-12 text-center`}><Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h3 className="font-semibold">Sin líneas activas</h3><p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Publica WOs en el muro del plan para verlas aquí.</p></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {lines.map((l) => (
@@ -89,13 +89,13 @@ export default function LineControlTowerPage() {
                   <span className="text-[11px] px-2 py-0.5 rounded" style={{ background: `${LIGHT[l.light].color}1f`, color: LIGHT[l.light].color }}>{LIGHT[l.light].label}</span>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2 text-[12px] text-gray-400">
+                <div className="mt-3 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400">
                   <PackageCheck className="w-4 h-4" style={{ color: l.woReady === l.woOpen ? GREEN : AMBER }} />
                   Readiness {l.woReady}/{l.woOpen} WO
                 </div>
 
                 <div className="mt-3">
-                  <div className="flex items-center justify-between text-[12px] text-gray-400"><span>Plan vs real</span><span>{l.unitsCompleted}/{l.unitsPlanned} · {pct(l.adherencePct)}</span></div>
+                  <div className="flex items-center justify-between text-[12px] text-gray-500 dark:text-gray-400"><span>Plan vs real</span><span>{l.unitsCompleted}/{l.unitsPlanned} · {pct(l.adherencePct)}</span></div>
                   <div className="mt-1 h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round(l.adherencePct * 100))}%`, background: LIGHT[l.light].color }} /></div>
                 </div>
 
@@ -105,7 +105,7 @@ export default function LineControlTowerPage() {
                   <Mini icon={Truck} label="Repos." value={l.openReplenish} color={l.openReplenish ? AMBER : undefined} />
                 </div>
 
-                {l.models.length > 0 && <div className="mt-3 text-[11px] text-gray-400">Modelos: {l.models.join(', ')}</div>}
+                {l.models.length > 0 && <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">Modelos: {l.models.join(', ')}</div>}
 
                 {l.reasons.length > 0 ? (
                   <ul className="mt-3 space-y-1">
@@ -118,7 +118,7 @@ export default function LineControlTowerPage() {
             ))}
           </div>
         )}
-        {data && <div className="mt-6 text-center text-[11px] text-gray-400">Actualizado {new Date(data.generatedAt).toLocaleTimeString()}</div>}
+        {data && <div className="mt-6 text-center text-[11px] text-gray-500 dark:text-gray-400">Actualizado {new Date(data.generatedAt).toLocaleTimeString()}</div>}
       </main>
     </div>
   );
@@ -132,7 +132,7 @@ function Mini({ icon: Icon, label, value, color }: { icon: React.ElementType; la
     <div className="rounded-xl p-2 bg-black/[0.03] dark:bg-white/[0.04]">
       <Icon className="w-3.5 h-3.5 mx-auto" style={{ color: color ?? '#9ca3af' }} />
       <div className="text-lg font-semibold" style={{ color }}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
     </div>
   );
 }

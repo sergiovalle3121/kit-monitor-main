@@ -117,7 +117,7 @@ export function DocStyleGallery({ editor }: { editor: Editor }) {
             className={`flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors border ${s.active() ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'border-transparent hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
           >
             <span className="flex-1 min-w-0 truncate">{s.preview}</span>
-            <span className="text-[10px] text-gray-400 flex-shrink-0">{s.label}</span>
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-shrink-0">{s.label}</span>
           </button>
         ))}
       </div>
@@ -134,7 +134,7 @@ export function DocStyleGallery({ editor }: { editor: Editor }) {
             type="button" onMouseDown={(e) => e.preventDefault()} onClick={resetStyle}
             className="w-full flex items-center gap-2 text-left text-[12px] font-medium px-2.5 py-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <RotateCcw className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
             Restablecer «{curKeyLabel}»
           </button>
         )}

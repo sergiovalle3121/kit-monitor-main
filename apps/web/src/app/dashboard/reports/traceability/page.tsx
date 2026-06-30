@@ -36,7 +36,7 @@ export default function TraceabilityPage() {
   const controls = (
     <div className="axos-no-print space-y-2">
       <div className={`${glass} flex items-center gap-2 rounded-xl px-3 py-2`}>
-        <ScanLine className="h-4 w-4 shrink-0 text-gray-400" />
+        <ScanLine className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -53,7 +53,7 @@ export default function TraceabilityPage() {
         </button>
       </div>
       {serial && (
-        <p className="text-[12px] text-gray-400">
+        <p className="text-[12px] text-gray-500 dark:text-gray-400">
           Serie consultada: <span className="font-mono">{serial}</span>
         </p>
       )}
@@ -80,7 +80,7 @@ export default function TraceabilityPage() {
           body="La trazabilidad as-built requiere el permiso production:report. Verifica tu rol y la conexión al backend."
         />
       ) : isLoading ? (
-        <div className="flex justify-center py-16 text-gray-400">
+        <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : !hasData ? (

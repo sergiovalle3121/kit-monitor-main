@@ -35,7 +35,7 @@ export function SlideFindReplace({ onClose, onCount, onNext, onReplaceAll }: {
             className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border transition-colors ${cs ? 'bg-blue-500 text-white border-blue-500' : 'border-black/10 dark:border-white/15 text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`}>
             <CaseSensitive className="w-4 h-4" /> Aa
           </button>
-          <span className="text-xs text-gray-400">{query ? `${count} coincidencia${count === 1 ? '' : 's'}` : ''}{info && ` · ${info}`}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{query ? `${count} coincidencia${count === 1 ? '' : 's'}` : ''}{info && ` · ${info}`}</span>
         </div>
         <div className="flex items-center gap-2 pt-1">
           <button onClick={() => query && onNext(query, cs)} disabled={!query || !count}

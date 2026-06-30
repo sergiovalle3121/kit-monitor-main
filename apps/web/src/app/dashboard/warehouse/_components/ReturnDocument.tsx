@@ -94,7 +94,7 @@ export function ReturnDocument({ ret, onClose }: { ret: MaterialReturn; onClose:
             <div className="border-t border-black pt-1 text-[11px] text-gray-600">Recibe (almacén)</div>
           </div>
         </div>
-        <div className="mt-6 text-[10px] text-gray-400">Generado {fmtTime(new Date().toISOString())} · AXOS OS</div>
+        <div className="mt-6 text-[10px] text-gray-500 dark:text-gray-400">Generado {fmtTime(new Date().toISOString())} · AXOS OS</div>
       </div>
     </div>
   );

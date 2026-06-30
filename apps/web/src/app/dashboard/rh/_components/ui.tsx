@@ -65,7 +65,7 @@ export function RhShell({
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight truncate">{title}</h1>
-            <p className="text-[12px] text-gray-400 leading-tight truncate">{subtitle}</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight truncate">{subtitle}</p>
           </div>
           {action}
         </div>
@@ -88,11 +88,11 @@ export function Kpi({
 }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1 tabular-nums" style={{ color }}>
         {value}
       </div>
-      {sub != null && <div className="text-[12px] text-gray-400 mt-0.5 truncate">{sub}</div>}
+      {sub != null && <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{sub}</div>}
     </div>
   );
 }
@@ -116,7 +116,7 @@ export function Bar({
     <div>
       <div className="flex items-center justify-between text-[12px] mb-1">
         <span className="truncate">{label}</span>
-        <span className="text-gray-400 tabular-nums">{right ?? value}</span>
+        <span className="text-gray-500 dark:text-gray-400 tabular-nums">{right ?? value}</span>
       </div>
       <div className="h-2 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
@@ -140,9 +140,9 @@ export function Forbidden() {
   return (
     <div className="min-h-screen grid place-items-center text-foreground">
       <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-        <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+        <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
         <h2 className="text-lg font-semibold">Sin acceso</h2>
-        <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver esta sección de RH.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver esta sección de RH.</p>
       </div>
     </div>
   );
@@ -151,7 +151,7 @@ export function Forbidden() {
 export function Spinner() {
   return (
     <div className="flex justify-center py-20">
-      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+      <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
     </div>
   );
 }

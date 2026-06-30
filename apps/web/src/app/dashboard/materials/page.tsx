@@ -155,9 +155,9 @@ export default function MaterialsPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el maestro de materiales.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver el maestro de materiales.</p>
         </div>
       </div>
     );
@@ -262,7 +262,7 @@ export default function MaterialsPage() {
         {list.length > 0 && (
           <div className="flex flex-col sm:flex-row gap-2 mb-5">
             <div className={`${glass} flex items-center gap-2 px-3 py-2 rounded-2xl flex-1`}>
-              <Search className="w-4 h-4 text-gray-400" />
+              <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -272,7 +272,7 @@ export default function MaterialsPage() {
               {query && <button onClick={() => setQuery('')} className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-3.5 h-3.5" /></button>}
             </div>
             <div className={`${glass} flex items-center gap-2 px-3 py-2 rounded-2xl`}>
-              <SlidersHorizontal className="w-4 h-4 text-gray-400" />
+              <SlidersHorizontal className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as ItemType | '')} className="bg-transparent outline-none text-sm">
                 <option value="">Todos los tipos</option>
                 {ITEM_TYPES.map((t) => <option key={t} value={t}>{ITEM_TYPE_META[t].label}</option>)}
@@ -283,18 +283,18 @@ export default function MaterialsPage() {
 
         {/* List */}
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Aún no hay materiales</h3>
-            <p className="text-sm text-gray-400 mt-1 mb-4">Crea tu primera parte para empezar a armar BOMs y rutas eligiendo del maestro.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Crea tu primera parte para empezar a armar BOMs y rutas eligiendo del maestro.</p>
             <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2.5 rounded-full">
               <Plus className="w-4 h-4" /> Crea tu primer material
             </button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-400`}>Sin resultados.</div>
+          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-500 dark:text-gray-400`}>Sin resultados.</div>
         ) : (
           <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filtered.map((m) => (
@@ -314,7 +314,7 @@ export default function MaterialsPage() {
                     <LifecyclePill status={m.lifecycle} />
                   </div>
                   <div className="font-semibold truncate">{m.description}</div>
-                  <div className="text-xs text-gray-400 truncate">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {m.category || 'Sin categoría'} · {m.baseUom} · {m.makeBuy}
                   </div>
                 </div>
@@ -350,7 +350,7 @@ export function TypePill({ type }: { type: ItemType }) {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );

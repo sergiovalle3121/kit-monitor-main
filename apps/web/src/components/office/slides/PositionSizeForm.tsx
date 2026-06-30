@@ -14,7 +14,7 @@ export function PositionSizeForm({ initial, canSize, onChange }: {
   const set = (k: keyof Geom, v: number) => { setG((s) => ({ ...s, [k]: v })); onChange({ [k]: v } as Partial<Geom>); };
   const field = (label: string, k: keyof Geom, disabled = false) => (
     <label className="flex flex-col gap-0.5">
-      <span className="text-[10px] text-gray-400">{label}</span>
+      <span className="text-[10px] text-gray-500 dark:text-gray-400">{label}</span>
       <input type="number" disabled={disabled} value={Math.round(g[k])} onChange={(e) => set(k, Number(e.target.value))}
         className="w-full h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-2 outline-none border border-transparent focus:border-blue-500/40 disabled:opacity-40 text-foreground" />
     </label>

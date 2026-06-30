@@ -23,7 +23,7 @@ const tile =
   "group relative overflow-hidden rounded-3xl border border-black/[0.07] bg-white/70 p-6 backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-black/[0.05] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]";
 
 const kicker =
-  "text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400";
+  "text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400";
 
 function Cta({ children }: { children: React.ReactNode }) {
   return (
@@ -62,7 +62,7 @@ function OeeRing({ pct = 94 }: { pct?: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl font-bold tabular-nums">{pct}%</span>
-        <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">OEE</span>
+        <span className="text-[9px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">OEE</span>
       </div>
     </div>
   );
@@ -84,7 +84,7 @@ function KanbanCards() {
         >
           <span className={`h-1.5 w-1.5 rounded-full ${k.tone}`} />
           <span className="font-mono font-medium">{k.np}</span>
-          <span className="ml-auto text-[10px] font-semibold text-gray-400">{k.qty}</span>
+          <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400">{k.qty}</span>
         </div>
       ))}
     </div>
@@ -124,7 +124,7 @@ function PlanToFloor() {
         <span className="rounded-lg bg-indigo-500/10 px-2.5 py-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-300">
           WO-4821
         </span>
-        <span className="text-[11px] text-gray-400">Publicada · 1,200 u</span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400">Publicada · 1,200 u</span>
         <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
           En piso
@@ -154,7 +154,7 @@ function PlanToFloor() {
         ))}
       </div>
       <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-        <Boxes className="h-3.5 w-3.5 text-gray-400" />
+        <Boxes className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
         Backflush automático de material por estación
       </div>
     </div>
@@ -250,7 +250,7 @@ export function LandingBento() {
           <motion.div {...fade(2)}>
             <Link href="/dashboard/inventory" className={`${tile} flex h-full flex-col`}>
               <div className="mb-3 flex items-center gap-2">
-                <Boxes className="h-4 w-4 text-gray-400" />
+                <Boxes className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                 <span className={kicker}>Inventario · e-kanban</span>
               </div>
               <KanbanCards />
@@ -262,7 +262,7 @@ export function LandingBento() {
           <motion.div {...fade(3)} className="md:col-span-2">
             <Link href="/dashboard/quality" className={`${tile} flex h-full flex-col`}>
               <div className="mb-4 flex items-center gap-2">
-                <ScanLine className="h-4 w-4 text-gray-400" />
+                <ScanLine className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                 <span className={kicker}>Trazabilidad nativa</span>
               </div>
               <h3 className="mb-4 text-lg font-semibold tracking-tight">
@@ -285,7 +285,7 @@ export function LandingBento() {
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
                   HOLD · WO-4821
                 </span>
-                <span className="text-[11px] text-gray-400">cuarentena</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">cuarentena</span>
               </div>
               <p className="text-xs font-light leading-relaxed text-gray-500 dark:text-gray-400">
                 Un hold bloquea el consumo del lote hasta la disposición MRB.

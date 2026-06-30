@@ -12,7 +12,7 @@ function Item({ label, danger, onClick }: { label: string; danger?: boolean; onC
   return <button onClick={onClick} className={`w-full text-left text-sm px-3 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${danger ? 'text-red-500' : ''}`}>{label}</button>;
 }
 function Section({ title }: { title: string }) {
-  return <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-0.5">{title}</div>;
+  return <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-3 pt-2 pb-0.5">{title}</div>;
 }
 
 /** Menú contextual de tabla (sólo visible con el cursor dentro de una tabla):

@@ -63,18 +63,18 @@ export function DocTrackChanges({ editor, suggesting, setSuggesting, trackView, 
                 <span className="font-semibold text-sm flex items-center gap-2">Control de cambios
                   {changes.length > 0 && <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">{changes.length}</span>}
                 </span>
-                <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-4 h-4" /></button>
+                <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-4 h-4" /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-3">
                 {changes.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-10 px-4">No hay cambios sugeridos. Activa «Modo sugerencias» y escribe, o selecciona texto para proponer eliminación/formato.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-10 px-4">No hay cambios sugeridos. Activa «Modo sugerencias» y escribe, o selecciona texto para proponer eliminación/formato.</p>
                 ) : authors.map((a) => {
                   const group = changes.filter((c) => (c.author || '') === a);
                   return (
                     <div key={a || '_'} className="space-y-2">
                       <div className="flex items-center gap-2 px-1">
                         <span className="text-[11px] font-bold text-gray-600 dark:text-gray-300 truncate">{authorLabel(a)}</span>
-                        <span className="text-[10px] text-gray-400">{group.length}</span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400">{group.length}</span>
                         <div className="ml-auto flex items-center gap-1">
                           <button onClick={() => acceptAuthor(a)} title="Aceptar todo de este autor" className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-600"><Check className="w-3 h-3" /> Todo</button>
                           <button onClick={() => rejectAuthor(a)} title="Rechazar todo de este autor" className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500"><X className="w-3 h-3" /> Todo</button>
@@ -86,7 +86,7 @@ export function DocTrackChanges({ editor, suggesting, setSuggesting, trackView, 
                             <span className={`text-[10px] font-bold uppercase tracking-wide ${changeTone(c)}`}>{changeLabel(c)}</span>
                             <p className={`text-sm mt-0.5 ${c.type === 'deletion' ? 'line-through text-red-500' : c.type === 'formatChange' ? 'text-blue-600 dark:text-blue-300 underline decoration-dotted underline-offset-4' : 'text-emerald-700 dark:text-emerald-400'}`}>“{quoted(c) || '—'}”</p>
                             {c.type === 'formatChange' ? <p className="text-[11px] text-gray-500 mt-1">{c.after || c.property || 'Formato propuesto'}</p> : null}
-                            {c.date ? <p className="text-[11px] text-gray-400 mt-1">{new Date(c.date).toLocaleDateString('es-ES')}</p> : null}
+                            {c.date ? <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{new Date(c.date).toLocaleDateString('es-ES')}</p> : null}
                           </button>
                           <div className="flex items-center gap-1 mt-2">
                             <button onClick={() => accept(c)} className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-600"><Check className="w-3.5 h-3.5" /> Aceptar</button>

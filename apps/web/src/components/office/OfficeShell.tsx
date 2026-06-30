@@ -217,7 +217,7 @@ function ShortcutsHelp({ type, readOnly, onClose }: { type: OfficeType; readOnly
               {type === 'sheet' ? 'AXOS Sheets muestra atajos reales del workbook, barra fx, impresion y rejilla.' : 'Comandos disponibles para el editor actual.'}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="grid max-h-[68vh] gap-3 overflow-auto pr-1 md:grid-cols-2">
           {groups.map((group) => (

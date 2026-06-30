@@ -404,7 +404,7 @@ export default function PullMonitor() {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h3 className="font-semibold">Importar resurtidos del piso (e-kanban)</h3>
-              <p className="text-[12px] text-gray-400">Trae los llamados de resurtido abiertos (generados por el surtido de kits) como pulls. Elige de qué almacén se surten.</p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400">Trae los llamados de resurtido abiertos (generados por el surtido de kits) como pulls. Elige de qué almacén se surten.</p>
             </div>
             <button aria-label="Cerrar" onClick={() => setShowImport(false)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
           </div>
@@ -423,7 +423,7 @@ export default function PullMonitor() {
 
       {/* Tablero agrupado por almacén */}
       {isLoading ? (
-        <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
       ) : all.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
@@ -439,9 +439,9 @@ export default function PullMonitor() {
         />
       ) : groups.length === 0 ? (
         <div className={`${glass} rounded-3xl p-12 text-center`}>
-          <Inbox className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <Inbox className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h3 className="font-semibold">Sin pulls con esos filtros</h3>
-          <p className="mt-1 text-sm text-gray-400">Ajusta el estado, el almacén o limpia la búsqueda.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Ajusta el estado, el almacén o limpia la búsqueda.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -457,13 +457,13 @@ export default function PullMonitor() {
                   onClick={() => setCollapsed((c) => ({ ...c, [g.id]: !c[g.id] }))}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                 >
-                  {isCol ? <ChevronRight className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                  {isCol ? <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />}
                   <span className="font-semibold">{g.name}</span>
                   <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[12px] font-medium text-blue-600 dark:text-blue-300">Por recolectar ({openCount})</span>
                   {breachCount > 0 && (
                     <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[12px] font-medium text-red-600 dark:text-red-300">{breachCount} SLA roto</span>
                   )}
-                  <span className="ml-auto text-[12px] text-gray-400">{g.rows.length} total</span>
+                  <span className="ml-auto text-[12px] text-gray-500 dark:text-gray-400">{g.rows.length} total</span>
                 </button>
                 {!isCol && (
                   <div className="divide-y divide-black/5 dark:divide-white/5">
@@ -498,32 +498,32 @@ function PullRow({
           <span className="truncate font-mono font-medium">{p.partNumber}</span>
           {p.urgent && <Flame className="h-3.5 w-3.5 text-amber-500" />}
         </div>
-        <div className="mt-0.5 truncate text-[12px] text-gray-400">
+        <div className="mt-0.5 truncate text-[12px] text-gray-500 dark:text-gray-400">
           {p.project ? <span className="font-medium text-gray-500 dark:text-gray-400">{p.project}</span> : null}
           {p.referenceId ? ` · ${p.referenceId}` : ''}
           {p.requestor ? ` · pide: ${p.requestor}` : ''}
         </div>
       </div>
       <div className="hidden min-w-[110px] sm:block">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">Destino</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Destino</div>
         <div className="truncate">{p.toLocation || p.toWarehouseId || '—'}</div>
       </div>
       <div className="min-w-[64px] text-right">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">Cant.</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Cant.</div>
         <div className="tabular-nums font-medium">{fmtQty(p.quantity)}</div>
       </div>
       <div className="min-w-[80px]">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">Aging</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Aging</div>
         <div className="font-semibold tabular-nums" style={{ color: closed ? GRAY : semColor }}>
           {formatAging(p._aging)}{p._breached && !closed ? ' ⚠' : ''}
         </div>
       </div>
       <div className="hidden min-w-[56px] text-center md:block">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">Touch</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Touch</div>
         <div className={`tabular-nums font-medium ${(p.touches ?? 0) >= 3 ? 'text-amber-500' : ''}`}>{p.touches ?? 0}</div>
       </div>
       <div className="hidden min-w-[120px] lg:block">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">Responsable</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Responsable</div>
         <div className="truncate text-gray-500 dark:text-gray-400">{p.assignedTo || <span className="text-gray-300">sin tomar</span>}</div>
       </div>
       <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium" style={{ background: `${statusMeta.color}1f`, color: statusMeta.color }}>
@@ -546,7 +546,7 @@ function PullRow({
           </>
         )}
         {closed && (
-          <span className="text-[12px] text-gray-400">{fmtTime(p.deliveredAt || p.canceledAt)}</span>
+          <span className="text-[12px] text-gray-500 dark:text-gray-400">{fmtTime(p.deliveredAt || p.canceledAt)}</span>
         )}
       </div>
     </div>

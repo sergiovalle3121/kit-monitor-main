@@ -248,9 +248,9 @@ export default function ProductionPlanPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Necesitas permiso de producción para ver el plan.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Necesitas permiso de producción para ver el plan.</p>
         </div>
       </div>
     );
@@ -266,7 +266,7 @@ export default function ProductionPlanPage() {
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.14)' }}><Megaphone className="w-5 h-5" style={{ color: VIOLET }} /></span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Muro de WOs · supervisión y secuenciación</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Tablero de secuenciación, autorización y readiness. La ejecución en piso (consumo y pasos) ocurre en el MES.</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Tablero de secuenciación, autorización y readiness. La ejecución en piso (consumo y pasos) ocurre en el MES.</p>
           </div>
           <Link href="/dashboard/operador" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors"><Factory className="w-4 h-4" /> Piso (MES)</Link>
           <Link href="/dashboard/planning" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors"><Layers className="w-4 h-4" /> Planeación</Link>
@@ -305,12 +305,12 @@ export default function ProductionPlanPage() {
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin WOs publicadas</h3>
-            <p className="text-sm text-gray-400 mt-1">Publica la primera orden de trabajo para que el piso la vea en vivo.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Publica la primera orden de trabajo para que el piso la vea en vivo.</p>
           </div>
         ) : view === 'line' ? (
           <div className="space-y-8">
@@ -328,7 +328,7 @@ export default function ProductionPlanPage() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_META[status].color }} />
                     <h2 className="text-sm font-semibold">{STATUS_META[status].label}</h2>
-                    <span className="text-[11px] text-gray-400">({items.length})</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">({items.length})</span>
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {items.map((wo) => <WOCard key={wo.id} wo={wo} board={board} {...cardProps} />)}
@@ -427,7 +427,7 @@ function LineSection({ line, wos, board, onReorder, onSetPriority, ...actions }:
           <Factory className="w-4 h-4" style={{ color: BLUE }} />
         </span>
         <h2 className="text-sm font-semibold">Línea {line}</h2>
-        <span className="text-[11px] text-gray-400">({wos.length} WO)</span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400">({wos.length} WO)</span>
         <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,0,0,0.05)' }}>{done}/{planned} u activas</span>
         {running > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${VIOLET}1f`, color: VIOLET }}>{running} en ejecución</span>}
         {late > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${RED}1f`, color: RED }}>{late} atrasada{late > 1 ? 's' : ''}</span>}
@@ -470,13 +470,13 @@ function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize 
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            {showSequence && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400" title="Secuencia en la línea">#{wo.sequence}</span>}
+            {showSequence && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400" title="Secuencia en la línea">#{wo.sequence}</span>}
             {wo.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{wo.folio}</span>}
             <span className="font-semibold truncate">{wo.model} · {wo.revision}</span>
             <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>{wo.line}{wo.bay ? ` / ${wo.bay}` : ''}</span>
             {wo.priority !== 'MEDIUM' && <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{wo.priority}</span>}
           </div>
-          <div className="mt-2 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+          <div className="mt-2 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
             <span className="inline-flex items-center gap-1" style={{ color: STATUS_META[wo.status].color }}>
               <span className="w-2 h-2 rounded-full" style={{ background: STATUS_META[wo.status].color }} />
               {STATUS_META[wo.status].label}
@@ -514,9 +514,9 @@ function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize 
         <span className="inline-flex items-center gap-2 text-[13px] font-semibold min-w-0" style={{ color: clear.color }}>
           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: clear.color }} />
           Clear-to-Build · {clear.label}
-          {ctb.reasons.length > 0 && <span className="text-gray-400 font-normal truncate hidden sm:inline">· {ctb.reasons[0]}</span>}
+          {ctb.reasons.length > 0 && <span className="text-gray-500 dark:text-gray-400 font-normal truncate hidden sm:inline">· {ctb.reasons[0]}</span>}
         </span>
-        <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openCtb ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform ${openCtb ? 'rotate-180' : ''}`} />
       </button>
       {openCtb && <ClearDetail ctb={ctb} />}
 
@@ -544,7 +544,7 @@ function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize 
               <ArrowDown className="w-3.5 h-3.5" />
             </button>
             <span className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.05)' }} title="Prioridad">
-              <Flag className="w-3 h-3 text-gray-400" />
+              <Flag className="w-3 h-3 text-gray-500 dark:text-gray-400" />
               <select
                 value={wo.priority}
                 onChange={(e) => seq.onSetPriority(wo, e.target.value as WO['priority'])}
@@ -619,7 +619,7 @@ function ClearDetail({ ctb }: { ctb: ClearToBuild }) {
 
       {ctb.material.lines.length > 0 && (
         <div className="pt-1">
-          <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Faltantes para terminar</div>
+          <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Faltantes para terminar</div>
           <div className="space-y-1">
             {ctb.material.lines.slice(0, 6).map((l) => (
               <div key={l.partNumber} className="flex items-center justify-between gap-2 text-[12px] px-2 py-1 rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
@@ -630,7 +630,7 @@ function ClearDetail({ ctb }: { ctb: ClearToBuild }) {
               </div>
             ))}
             {ctb.material.lines.length > 6 && (
-              <div className="text-[11px] text-gray-400">+{ctb.material.lines.length - 6} parte(s) más con faltante</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">+{ctb.material.lines.length - 6} parte(s) más con faltante</div>
             )}
           </div>
         </div>
@@ -694,7 +694,7 @@ function ViewTab({ active, onClick, icon: Icon, label }: { active: boolean; onCl
 function Kpi({ label, value, color, title }: { label: string; value: number | string; color: string; title?: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`} title={title}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
   );

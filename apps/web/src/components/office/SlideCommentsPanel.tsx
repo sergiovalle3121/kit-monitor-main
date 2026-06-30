@@ -69,7 +69,7 @@ export function SlideCommentsPanel({
           <h3 className="flex items-center gap-2 text-sm font-bold"><ClipboardList className="h-4 w-4 text-blue-500" /> Revision</h3>
           <p className="text-[11px] text-gray-500">Slide {slide + 1} - {summary.currentSlideOpenThreads} abierto(s) aqui - {summary.openThreads} en deck</p>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="h-4 w-4" /></button>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="h-4 w-4" /></button>
       </div>
 
       {!readOnly && (
@@ -107,7 +107,7 @@ export function SlideCommentsPanel({
           ))}
         </div>
         <label className="flex h-8 items-center gap-2 rounded-lg bg-black/[0.04] px-2 text-xs dark:bg-white/[0.06]">
-          <Search className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+          <Search className="h-3.5 w-3.5 flex-shrink-0 text-gray-500 dark:text-gray-400" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar texto, autor, objeto o slide..." className="min-w-0 flex-1 bg-transparent outline-none" />
         </label>
         <div className="flex flex-wrap gap-1 text-[10px] font-semibold">
@@ -118,13 +118,13 @@ export function SlideCommentsPanel({
           ))}
         </div>
         {(query || scope === 'deck' || filter !== 'all') && (
-          <p className="text-[11px] text-gray-400">{summary.visibleThreads} de {summary.totalThreads} hilo(s) visibles - {summary.replyCount} respuesta(s)</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400">{summary.visibleThreads} de {summary.totalThreads} hilo(s) visibles - {summary.replyCount} respuesta(s)</p>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {visibleThreads.length === 0 ? (
-          <div className="h-full min-h-40 rounded-2xl border border-dashed border-black/10 dark:border-white/10 flex items-center justify-center text-center p-6 text-sm text-gray-400">
+          <div className="h-full min-h-40 rounded-2xl border border-dashed border-black/10 dark:border-white/10 flex items-center justify-center text-center p-6 text-sm text-gray-500 dark:text-gray-400">
             Sin comentarios para este filtro.
           </div>
         ) : (
@@ -167,7 +167,7 @@ function ThreadCard({
             <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-white/10">{c.objectId ? `Objeto - ${c.objectLabel || 'seleccion'}` : 'Diapositiva'}</span>
             {c.resolved && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">Resuelto</span>}
           </div>
-          <p className="text-[11px] text-gray-400">{new Date(c.createdAt).toLocaleString('es-ES')}</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400">{new Date(c.createdAt).toLocaleString('es-ES')}</p>
           {thread.assignedTo && <p className="truncate text-[11px] font-semibold text-blue-500">Asignado a {thread.assignedTo}</p>}
         </div>
         {!readOnly && (
@@ -182,7 +182,7 @@ function ThreadCard({
         <div className="mt-2 space-y-1.5 border-l-2 border-black/10 pl-2.5 dark:border-white/10">
           {thread.replies.map((r) => (
             <div key={r.id} className="rounded-xl bg-white/70 px-2.5 py-2 dark:bg-black/20">
-              <p className="text-[10px] text-gray-400">{r.author || 'AXOS'} - {new Date(r.createdAt).toLocaleString('es-ES')}{r.assignedTo ? ` - @${r.assignedTo}` : ''}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">{r.author || 'AXOS'} - {new Date(r.createdAt).toLocaleString('es-ES')}{r.assignedTo ? ` - @${r.assignedTo}` : ''}</p>
               <p className="whitespace-pre-wrap text-xs text-gray-700 dark:text-gray-200">{r.text}</p>
             </div>
           ))}

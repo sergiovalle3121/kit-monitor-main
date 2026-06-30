@@ -39,7 +39,7 @@ export default function CustomersPage() {
         {forbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso" body="Inicia sesión para ver la vista de clientes." />
         ) : isLoading ? (
-          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          <div className="flex justify-center py-20 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : rows.length === 0 ? (
           <Empty icon={<Inbox className="w-6 h-6" />} title="Sin clientes" body="Aún no hay clientes en el maestro empresarial." />
         ) : (
@@ -53,7 +53,7 @@ export default function CustomersPage() {
                       <span className="w-11 h-11 rounded-xl grid place-items-center text-white font-bold flex-shrink-0" style={{ background: `linear-gradient(135deg, ${tierColor}, #0fb39a)` }}>{c.name.slice(0, 2).toUpperCase()}</span>
                       <div className="min-w-0">
                         <div className="font-semibold flex items-center gap-1.5 truncate">{c.name}{c.tier === 'STRATEGIC' && <Crown className="w-3.5 h-3.5" style={{ color: '#7c3aed' }} />}</div>
-                        <div className="text-[11px] text-gray-400">{c.industry || c.code}</div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400">{c.industry || c.code}</div>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-300 mt-1 flex-shrink-0" />
@@ -80,11 +80,11 @@ export default function CustomersPage() {
 }
 
 function Kpi({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
-  return <div className={`${glass} rounded-2xl p-3.5`}><div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div><div className="text-lg font-semibold mt-0.5 tabular-nums truncate" style={{ color }}>{value}</div>{sub && <div className="text-[11px] text-gray-400 truncate">{sub}</div>}</div>;
+  return <div className={`${glass} rounded-2xl p-3.5`}><div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div><div className="text-lg font-semibold mt-0.5 tabular-nums truncate" style={{ color }}>{value}</div>{sub && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{sub}</div>}</div>;
 }
 function Mini({ label, value, color }: { label: string; value: string; color?: string }) {
-  return <div><div className="text-sm font-semibold tabular-nums truncate" style={{ color }}>{value}</div><div className="text-[10px] text-gray-400">{label}</div></div>;
+  return <div><div className="text-sm font-semibold tabular-nums truncate" style={{ color }}>{value}</div><div className="text-[10px] text-gray-500 dark:text-gray-400">{label}</div></div>;
 }
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
-  return <div className="flex flex-col items-center text-center py-16 px-6"><div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div><h3 className="font-bold text-lg mb-1">{title}</h3><p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p></div>;
+  return <div className="flex flex-col items-center text-center py-16 px-6"><div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div><h3 className="font-bold text-lg mb-1">{title}</h3><p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p></div>;
 }

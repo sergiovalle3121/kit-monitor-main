@@ -119,7 +119,7 @@ export function Content({
           </span>
           <div className="flex-1 min-w-0">
             <h2 className="font-semibold leading-tight truncate">Contenido del embarque</h2>
-            <p className="text-[12px] text-gray-400 leading-tight truncate">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight truncate">
               {shipment.folio ? `${shipment.folio} · ` : ''}{shipment.title}
             </p>
           </div>
@@ -157,12 +157,12 @@ export function Content({
 
           {/* Lista */}
           {isLoading && !data ? (
-            <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
           ) : rows.length === 0 ? (
             <div className="text-center py-12">
-              <Boxes className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+              <Boxes className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
               <p className="text-sm font-medium">Sin contenido</p>
-              <p className="text-[13px] text-gray-400 mt-1 max-w-xs mx-auto">Agrega las líneas de producto terminado que lleva este embarque. Al embarcar se descuenta del inventario de PT.</p>
+              <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">Agrega las líneas de producto terminado que lleva este embarque. Al embarcar se descuenta del inventario de PT.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -172,13 +172,13 @@ export function Content({
                     {l.inventoryPosted ? <Check className="w-4 h-4" /> : <Boxes className="w-4 h-4" />}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium truncate">{l.partNumber} <span className="text-gray-400 font-normal">×{l.quantity} {l.uom}</span></div>
-                    <div className="text-[11px] text-gray-400 truncate">
+                    <div className="text-[13px] font-medium truncate">{l.partNumber} <span className="text-gray-500 dark:text-gray-400 font-normal">×{l.quantity} {l.uom}</span></div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
                       {[l.lotNumber && `Lote ${l.lotNumber}`, l.salesOrder && `OV ${l.salesOrder}`, l.unitPrice != null && `${l.unitPrice} ${l.currency ?? ''}`.trim(), l.inventoryPosted ? 'PT emitido' : 'pendiente de emitir'].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                   {!l.inventoryPosted && (
-                    <button onClick={() => remove(l.id)} title="Eliminar línea" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10">
+                    <button onClick={() => remove(l.id)} title="Eliminar línea" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}

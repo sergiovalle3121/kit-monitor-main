@@ -117,7 +117,7 @@ export default function QualityHoldsPage() {
   return (
     <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="max-w-5xl mx-auto px-6 pt-10">
-        <Link href="/dashboard/quality" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
+        <Link href="/dashboard/quality" className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
           <ChevronLeft className="w-4 h-4" /> Calidad · NCR
         </Link>
         <PageHeader
@@ -135,9 +135,9 @@ export default function QualityHoldsPage() {
 
         {forbidden ? (
           <div className={`${glass} rounded-3xl p-10 text-center max-w-sm mx-auto`}>
-            <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h2 className="text-lg font-semibold">Sin acceso</h2>
-            <p className="text-sm text-gray-400 mt-1">Inicia sesión con permisos de calidad.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión con permisos de calidad.</p>
           </div>
         ) : (
           <>
@@ -150,7 +150,7 @@ export default function QualityHoldsPage() {
             {/* Holds activos */}
             <div className="flex items-center gap-2 mb-3"><ShieldX className="w-4 h-4" style={{ color: "#ef4444" }} /><h3 className="font-semibold">Holds activos</h3></div>
             {hLoading ? (
-              <div className="flex justify-center py-10 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+              <div className="flex justify-center py-10 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
             ) : holds.length === 0 ? (
               <Empty icon={<Inbox className="w-6 h-6" />} title="Sin holds activos" body="No hay material retenido a nivel inventario. Crea un hold para bloquear un NP/lote/almacén." cta={<button onClick={() => setNewHold(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#ef4444" }}><Plus className="w-4 h-4" /> Nuevo hold</button>} />
             ) : (
@@ -195,8 +195,8 @@ export default function QualityHoldsPage() {
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${t.color}1f`, color: t.color }}>{t.label}</span>
                           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: `${s.color}1f`, color: s.color }}>{s.label}</span>
                         </div>
-                        <h4 className="font-semibold truncate"><span className="font-mono">{d.partNumber}</span> <span className="text-gray-400 font-normal text-[13px]">· {d.quantity} u · {d.warehouseId}/{d.location}</span></h4>
-                        <p className="text-[12px] text-gray-400 truncate">{d.reason}{d.proposedBy ? ` · ${d.proposedBy}` : ""}</p>
+                        <h4 className="font-semibold truncate"><span className="font-mono">{d.partNumber}</span> <span className="text-gray-500 dark:text-gray-400 font-normal text-[13px]">· {d.quantity} u · {d.warehouseId}/{d.location}</span></h4>
+                        <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">{d.reason}{d.proposedBy ? ` · ${d.proposedBy}` : ""}</p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {d.status === "proposed" && <button onClick={() => dispoAction(d, "approve")} disabled={busy === `d${d.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: "#3b82f61f", color: "#3b82f6" }}>{busy === `d${d.id}` ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowRight className="w-3 h-3" />} Aprobar</button>}
@@ -223,7 +223,7 @@ export default function QualityHoldsPage() {
                             <span className="font-mono font-semibold">{t.partNumber}</span>
                             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: `${s.color}1f`, color: s.color }}>{s.label}</span>
                           </div>
-                          <p className="text-[12px] text-gray-400 truncate">{t.quantity} u · {t.sourceWarehouseId}/{t.sourceLocation} → {t.destWarehouseId}/{t.destLocation}{t.requestedBy ? ` · ${t.requestedBy}` : ""}</p>
+                          <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">{t.quantity} u · {t.sourceWarehouseId}/{t.sourceLocation} → {t.destWarehouseId}/{t.destLocation}{t.requestedBy ? ` · ${t.requestedBy}` : ""}</p>
                         </div>
                         {t.status === "pending" && (
                           <button onClick={() => completeTransfer(t)} disabled={busy === `t${t.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50 shrink-0" style={{ background: "#3b82f6" }}>{busy === `t${t.id}` ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Completar</button>
@@ -280,7 +280,7 @@ function NewHoldModal({ heldBy, onClose, onSaved }: { heldBy: string; onClose: (
         <Field label="Razón *"><input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className="q-input" placeholder="Sospecha de contaminación" /></Field>
         <Field label="Notas" full><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="q-input min-h-[52px] resize-y" /></Field>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">El hold marca <span className="font-mono">holdStatus = hold</span> en las posiciones de inventario que coincidan con el nivel.</p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">El hold marca <span className="font-mono">holdStatus = hold</span> en las posiciones de inventario que coincidan con el nivel.</p>
     </Modal>
   );
 }
@@ -335,7 +335,7 @@ function NewDispositionModal({ proposedBy, hold, onClose, onSaved }: { proposedB
         <Field label="Razón *"><input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className="q-input" /></Field>
         <Field label="Notas" full><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="q-input min-h-[52px] resize-y" /></Field>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">Flujo: propuesta → aprobar → ejecutar. Al ejecutar, SCRAP/RTV decrementan stock y RELEASE/USE_AS_IS liberan; cierra NCR/hold ligados.</p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">Flujo: propuesta → aprobar → ejecutar. Al ejecutar, SCRAP/RTV decrementan stock y RELEASE/USE_AS_IS liberan; cierra NCR/hold ligados.</p>
     </Modal>
   );
 }
@@ -378,7 +378,7 @@ function NewTransferModal({ requestedBy, hold, onClose, onSaved }: { requestedBy
         <Field label="Almacén destino *"><input value={form.destWarehouseId} onChange={(e) => setForm({ ...form, destWarehouseId: e.target.value })} className="q-input" /></Field>
         <Field label="Ubicación destino"><input value={form.destLocation} onChange={(e) => setForm({ ...form, destLocation: e.target.value })} className="q-input" /></Field>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">Al completar, el inventario se mueve físicamente (ledger TRANSFER) y la posición destino queda en <span className="font-mono">quarantine</span>.</p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">Al completar, el inventario se mueve físicamente (ledger TRANSFER) y la posición destino queda en <span className="font-mono">quarantine</span>.</p>
     </Modal>
   );
 }
