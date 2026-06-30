@@ -372,3 +372,33 @@ Bloqueado en este entorno (igual que FASE 1). Script listo: **`scripts/convergen
 
 ### Nota técnica
 El cuello de botella de FASE 2 fue el **recompute de mergeabilidad de GitHub** (marca ramas `dirty` en caché y no recalcula pasivamente). Se resolvió con re-push fresco (CI) + merges en ráfaga y, para el clúster CAD, con un PR de integración único. Ninguna regla de oro se violó: solo frontend, cero backend/zona-roja mergeado.
+
+---
+
+## FASE 3 + 4 — Ejecución final (estado: 2026-06-30)
+
+`main` final: **`3b2df080`**. Open PRs: **51 → 9** en la sesión.
+
+### FASE 3 — consolidación YELLOW
+Re-escaneo contra el `main` avanzado reclasificó las ~105 YELLOW: la gran mayoría resultaron **STALE/DUPLICATE** (superadas por lo ya mergeado) o sin PR abierto. Triage por agentes sobre los PRs YELLOW vivos:
+
+**✅ Mergeadas (10 features VALUABLE):**
+- Individuales: **#863** slides chart-presets, **#865** slides smartart-presets (ganadores de clúster; cerré #855 chart-preset-gallery como dup).
+- Vía integración **#901** (8 features, una corrida de CI): #866 sheets table-quality · #873 sheets template-readiness · #871 sheets chart-readiness (preserva chart builder #764) · #846 slides animation-timeline · #842 slides table-presets · #872 slides layer-health · #870 CAD layer-isolation · #876 CAD safety-path-zones. Cada conflicto resuelto preservando A11y de main (#896) y las features de #897/#764.
+
+**Cerradas:** #855 (dup), #792/#780 (sin commits ahead). 
+
+**🔬 Leave-for-owner (riesgo, NO mergeadas):**
+- **#746** audit-optimize: 535 archivos, historias no relacionadas, borra backend. Recomendado cerrar y re-cortar.
+- **#831** reuse-search: regresaría la navegación #827 (borra `slideNavigation.ts`). Salvar solo `slideReuse.ts`.
+
+**⚠️ Gate de barrido visual NO ejecutado** (sin `node_modules`/app en el entorno). Gate usado: CI build·test·lint·smoke. Recomiendo re-correr `apps/web/e2e/visual-sweep*` + auditoría A11y tras mergear #901 (posible pérdida menor de contraste en algún panel al priorizar feature).
+
+### FASE 4 — RED en cuarentena (briefs publicados, NO mergeadas)
+8 ramas a revisión humana (3 con PR: #845, #895, #859 — briefs publicados; 5 sin PR documentadas). 2 platform-* cerradas como STALE (envelope ya en main). Detalle de cada brief arriba en la sección FASE 4.
+
+### Borrado de ramas (handoff)
+Bloqueado en el entorno. **`scripts/convergence-fase3-delete.sh`** lista **119 ramas** ya-en-main/stale/superseded (sin PR abierto), con SHAs de recuperación. Excluye: las 8 RED en cuarentena, #746/#831 (owner), los 3 PRs nuevos de otras sesiones (#899/#900/#902), y la rama del plan. Ejecutar con tus credenciales (o activar auto-delete).
+
+### Estado objetivo alcanzado
+Open PRs restantes (9): plan (#894) · RED cuarentena (#845/#859/#895) · owner-review (#746/#831) · **3 PRs nuevos de sesiones paralelas** (#899 i18n, #900 CAD factory-scale, #902 mes-consume fix) — fuera del scope de convergencia. Todo lo demás: mergeado o en cola de borrado.
