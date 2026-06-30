@@ -9,6 +9,7 @@ import {
 import type { ColumnDef } from '@tanstack/react-table';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
+import { ModelName } from '@/components/ui/ModelName';
 import {
   Toolbar, KpiRow, DataTable, FilterBar, ExportButton, EmptyState,
   DetailDrawer, DrawerSection, DrawerField,
@@ -91,7 +92,7 @@ const COLUMNS: ColumnDef<Row, unknown>[] = [
     cell: ({ row }) => (
       <div className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-white/10">WO {row.original.workOrder}</span>
-        <span className="truncate font-medium">{row.original.model}</span>
+        <ModelName code={row.original.model} className="truncate font-medium" />
         {row.original.hasIncident && <span title="Incidencia" className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500"><AlertTriangle className="h-2.5 w-2.5" />andon</span>}
         {row.original.lowStockCount > 0 && <span title="Bajo stock" className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600"><PackageX className="h-2.5 w-2.5" />{row.original.lowStockCount}</span>}
       </div>

@@ -12,6 +12,8 @@ import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { WorkTypeBadge } from '@/components/ui/WorkTypeBadge';
+import { ModelName } from '@/components/ui/ModelName';
 import {
   computeSchedule, paceLabel, type ScheduleInfo,
   buildActiveBomMap, buildInventoryMap, computeClearToBuild,
@@ -265,7 +267,10 @@ export default function ProductionPlanPage() {
           <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.14)' }}><Megaphone className="w-5 h-5" style={{ color: VIOLET }} /></span>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold leading-tight">Muro de WOs · supervisión y secuenciación</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold leading-tight">Muro de WOs · supervisión y secuenciación</h1>
+              <WorkTypeBadge type="plan" />
+            </div>
             <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Tablero de secuenciación, autorización y readiness. La ejecución en piso (consumo y pasos) ocurre en el MES.</p>
           </div>
           <Link href="/dashboard/operador" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors"><Factory className="w-4 h-4" /> Piso (MES)</Link>
@@ -470,9 +475,10 @@ function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize 
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
+            <WorkTypeBadge type="wo" size="xs" showInfo={false} />
             {showSequence && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400" title="Secuencia en la línea">#{wo.sequence}</span>}
             {wo.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{wo.folio}</span>}
-            <span className="font-semibold truncate">{wo.model} · {wo.revision}</span>
+            <span className="font-semibold truncate"><ModelName code={wo.model} /> · {wo.revision}</span>
             <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>{wo.line}{wo.bay ? ` / ${wo.bay}` : ''}</span>
             {wo.priority !== 'MEDIUM' && <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{wo.priority}</span>}
           </div>
