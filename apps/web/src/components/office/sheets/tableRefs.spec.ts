@@ -5,7 +5,12 @@
  */
 import * as FP from '@fortune-sheet/formula-parser';
 import { installFormulaEngine } from './formulaEngine';
-import { expandStructuredRefs, type TableDef } from './tableRefs';
+import {
+  analyzeTableDefReadiness,
+  analyzeTableRangeReadiness,
+  expandStructuredRefs,
+  type TableDef,
+} from './tableRefs';
 
 installFormulaEngine();
 let passed = 0; const fails: string[] = [];
@@ -44,6 +49,40 @@ eq(ev('=SUM(Ventas[Importe])'), 600, 'motor: SUM(Ventas[Importe]) = 600');
 eq(ev('=AVERAGE(Ventas[Unidades])'), 5, 'motor: AVERAGE(Ventas[Unidades]) = 5');
 eq(ev('=SUMIF(Ventas[Mes],"Feb",Ventas[Importe])'), 200, 'motor: SUMIF con dos columnas de tabla');
 eq(ev('=MAX(Ventas[Importe])'), 300, 'motor: MAX de una columna');
+
+// Table readiness preflight for the visible "format as table" workflow.
+const ready = analyzeTableRangeReadiness({ range: 'A1:D20', hasHeader: true, withFilter: true });
+eq(ready.status, 'ready', 'preflight: rango rectangular con encabezado listo');
+eq(ready.rows, 20, 'preflight: cuenta filas');
+eq(ready.columns, 4, 'preflight: cuenta columnas');
+eq(ready.dataRows, 19, 'preflight: cuenta filas de datos');
+eq(ready.structuredReferences, true, 'preflight: habilita referencias estructuradas con encabezado');
+
+const blocked = analyzeTableRangeReadiness({ range: 'A1:A1', hasHeader: true });
+eq(blocked.status, 'blocked', 'preflight: bloquea tabla sin datos bajo encabezado');
+eq(blocked.issues.some((issue) => issue.key === 'missing_data_rows'), true, 'preflight: reporta falta de datos');
+
+const noHeader = analyzeTableRangeReadiness({ range: 'A1:C10', hasHeader: false, withFilter: true });
+eq(noHeader.status, 'review', 'preflight: sin encabezado queda en revision');
+eq(noHeader.structuredReferences, false, 'preflight: sin encabezado no hay referencias estructuradas');
+eq(noHeader.issues.some((issue) => issue.key === 'filter_requires_header'), true, 'preflight: autofiltro requiere encabezado');
+
+const invalidName = analyzeTableRangeReadiness({ range: 'A1:B5', hasHeader: true, tableName: 'A1' });
+eq(invalidName.status, 'blocked', 'preflight: nombre parecido a celda bloquea');
+eq(invalidName.issues.some((issue) => issue.key === 'invalid_table_name'), true, 'preflight: reporta nombre invalido');
+
+const brokenHeaders = analyzeTableDefReadiness({
+  name: 'IndustrialTable',
+  sheetName: 'Hoja1',
+  r1: 0,
+  c1: 0,
+  r2: 3,
+  c2: 2,
+  headers: ['SKU', 'sku', ''],
+});
+eq(brokenHeaders.status, 'blocked', 'registro: encabezados ambiguos bloquean readiness');
+eq(brokenHeaders.issues.some((issue) => issue.key === 'duplicate_headers'), true, 'registro: detecta encabezados duplicados');
+eq(brokenHeaders.issues.some((issue) => issue.key === 'blank_headers'), true, 'registro: detecta encabezados vacios');
 
 const total = passed + fails.length;
 if (fails.length) { console.error(`\n❌ ${fails.length}/${total} fallos:\n` + fails.map((f) => '   • ' + f).join('\n')); process.exit(1); }
