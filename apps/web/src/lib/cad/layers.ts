@@ -1,4 +1,5 @@
 export type CadLayerId =
+  | "plant-boundary"
   | "layout"
   | "equipment"
   | "flow"
@@ -27,7 +28,16 @@ export interface CadLayerStateSummary {
   lockedObjectCount: number;
 }
 
+const SYSTEM_CAD_LAYER_IDS = new Set<CadLayerId>(["plant-boundary"]);
+
 export const DEFAULT_CAD_LAYERS: CadLayer[] = [
+  {
+    id: "plant-boundary",
+    label: "Plant Boundary",
+    color: "#38bdf8",
+    visible: true,
+    locked: true,
+  },
   {
     id: "layout",
     label: "Layout",
@@ -80,7 +90,9 @@ export function toggleCadLayerLocked(
   id: CadLayerId,
 ): CadLayer[] {
   return layers.map((layer) =>
-    layer.id === id ? { ...layer, locked: !layer.locked } : layer,
+    layer.id === id && !isSystemCadLayer(id)
+      ? { ...layer, locked: !layer.locked }
+      : layer,
   );
 }
 
@@ -126,12 +138,17 @@ export function summarizeCadLayers(
   );
 }
 
+export function isSystemCadLayer(id: CadLayerId): boolean {
+  return SYSTEM_CAD_LAYER_IDS.has(id);
+}
+
 export function assignObjectsToLayer(
   assignments: CadLayerAssignments,
   objectIds: string[],
   layerId: CadLayerId,
 ): CadLayerAssignments {
   const next = { ...assignments };
+  if (isSystemCadLayer(layerId)) return next;
   for (const id of objectIds) next[id] = layerId;
   return next;
 }

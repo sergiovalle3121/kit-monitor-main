@@ -342,3 +342,15 @@
 - Wired CAD layer visibility to actual station and asset objects in the viewport instead of only export/inspector metadata.
 - Added hidden/locked layer object counts plus an `All` recovery action to the existing layer panel and status bar.
 - Pending: persist layer assignments/visibility with the layout API and add layer search/filter after the persistence contract is reviewed.
+
+## 2026-06-30 - CAD factory scale workspace
+
+- Inspected automation memory, open CAD PRs, required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, and design docs before continuing `codex/cad-tree-active`.
+- Preserved staged Phase 0 work, rebased the branch onto latest `origin/main`, and avoided creating another CAD branch.
+- Avoided command, DXF, validation quick-fix, symbol, warehouse-generator, line-balance, safety-path, and layer-isolation ownership areas already covered by open CAD PRs.
+- Added `plant-scale.ts` with plant presets, unit conversion, adaptive grid recommendation, plant-size formatting, and bounds-warning helpers.
+- Wired the existing View/Layers popover in `Layout3DEditor.tsx` to expose Small cell, SMT line, Warehouse, Full factory, custom size/grid, Auto grid, Fit Plant, Fit All, and Fit Selection.
+- Split the plant boundary from the grid in the Three.js scene and added a visible 0,0 origin marker.
+- Added bottom status-bar plant size and out-of-bounds warnings.
+- Added `AXOS_CAD_FACTORY_SCALE_PLAN.md` and `plant-scale.spec.ts`.
+- Pending: saved views/bookmarks and zoom-to-validation-issue after active viewport/minimap work settles.

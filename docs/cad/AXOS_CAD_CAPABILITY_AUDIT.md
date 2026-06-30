@@ -1,6 +1,6 @@
 # AXOS CAD Capability Audit
 
-Last updated: 2026-06-29
+Last updated: 2026-06-30
 
 ## 2026-06-29 - Safety path zone update
 
@@ -26,6 +26,7 @@ This audit tracks the non-redundancy check for the CAD tree sprint. It is scoped
 
 | Capability | Exists? | Files | Maturity | Gap | Next non-redundant PR | Owner files | Collision risk with open PRs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| Factory-scale footprint | Yes | `apps/web/src/lib/cad/plant-scale.ts`, `Layout3DEditor.tsx`, `docs/cad/AXOS_CAD_FACTORY_SCALE_PLAN.md` | usable | Saved view bookmarks and validation issue zoom remain pending. | Add viewport bookmarks/zoom-to-issue after active viewport PRs settle. | `plant-scale.ts`, focused editor view controls | Medium: open CAD PRs also touch editor UI, but this slice stays in footprint/view controls. |
 | Unified CAD workbench | Yes | `apps/web/src/components/line-engineering/Layout3DEditor.tsx`, `docs/cad-industrial-workbench.md` | strong | Still a large single file; fullscreen shell extraction remains pending. | Extract workbench chrome only after PR 746 lands. | `Layout3DEditor.tsx`, future `cad-workbench/*` | High: PR 746 edits `Layout3DEditor.tsx`. |
 | Command dock and registry | Yes | `apps/web/src/lib/cad/commands/*`, `Layout3DEditor.tsx`, `docs/cad-copilot-command-contract.md` | usable | Commands mostly mutate existing objects; few compound industrial workflows. | Add compound commands that reuse `move`/`connect`/`report` operations. | `apps/web/src/lib/cad/commands/*` | Low: no open CAD command PR found. |
 | Flow health | Yes | `apps/web/src/lib/cad/flow-optimization.ts`, `Layout3DEditor.tsx` | strong | Flow Health now has deterministic reorder previews and a reversible apply action; richer walking-path/from-to analytics remain pending. | Add from-to table or operator walking-path overlay. | `flow-optimization.ts`, Flow Health modal in `Layout3DEditor.tsx` | Medium: open CAD PRs also touch `Layout3DEditor.tsx`; keep changes modal-scoped. |
@@ -71,6 +72,9 @@ This audit tracks the non-redundancy check for the CAD tree sprint. It is scoped
 ## Current run decision
 
 Open CAD PRs #864, #861, #858, #853, #850, #847, #844, and #838 touch `Layout3DEditor.tsx`, DXF preflight, validation, dimensions, flow, templates, warehouse generators, and command registry files. This run avoided those active ownership areas and extended the existing data-driven symbol path in `apps/web/src/lib/cad/symbols.ts`. `Layout3DEditor.tsx` already imports `CAD_SYMBOL_LIBRARY`, renders it in the symbol rail, filters/searches it, inserts selected symbols as editable assets, assigns their CAD layer, selects the object, and sends the resulting footprint through the existing DXF export path, so no new editor, block system, or export workflow was created.
+Open CAD PRs at run start included #876 (`codex/night-cad-safety-path-zones`) and #870 (`codex/night-cad-layer-isolation`). `codex/cad-tree-active` existed locally with staged Phase 0 CAD work, so this run preserved that work, rebased the branch onto latest `origin/main`, and continued the same branch instead of creating another CAD branch.
+
+The selected non-redundant Phase 0 improvement extends existing footprint/view surfaces instead of duplicating CAD systems. It reuses `Layout3DEditor`'s saved `data.footprint`, the existing View/Layers popover, the existing Three.js scene lifecycle, the bottom status bar, and the local pure-helper/spec pattern. It adds factory-scale presets, adaptive grid recommendations, Fit Plant/Fit All/Fit Selection, a separate plant-boundary layer, a 0,0 origin marker, and status warnings for objects outside the plant bounds.
 
 Open CAD PRs include #799 (`codex/night-cad-rack-row-command`) and #796 (`codex/night-cad-validation-center`), plus draft #746 with viewport/minimap/editor-shell work. This run avoided command-registry expansion, DXF conversion, layers, validation-center internals, viewport/minimap helpers, and shell extraction. The selected improvement extends the existing shortcut and toolbar path: `Layout3DEditor.tsx` already imports `matchCadShortcut`, renders toolbar actions, and routes palette tool entries through `runToolbarAction`, so this PR makes those existing actions keyboard-usable instead of adding another editor or action dispatcher.
 Open CAD PRs currently touch shortcuts, layers, validation clearances, and rack-row commands. This run avoided those primary concerns and reused the existing `exportCadLayoutDxf` adapter plus the existing DXF export modal. The selected improvement adds a DXF export readiness helper and wires it into `Layout3DEditor.tsx` so users see entity counts, included layers, hidden-layer exclusions, validation/DXF warnings, and true blockers before downloading.

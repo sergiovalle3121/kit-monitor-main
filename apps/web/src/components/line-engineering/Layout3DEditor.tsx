@@ -44,6 +44,7 @@ import {
   DEFAULT_CAD_LAYERS,
   isolateCadLayerVisibility,
   isObjectLayerLocked,
+  isSystemCadLayer,
   showAllCadLayers,
   summarizeCadLayers,
   toggleCadLayerLocked,
@@ -78,6 +79,16 @@ import {
   type CadValidationIssueRow,
   type CadValidationReport,
 } from '@/lib/cad/validation-report';
+import {
+  CAD_PLANT_PRESETS,
+  cadPlantPresetFootprint,
+  cadValueFromMm,
+  detectObjectsOutsidePlantBounds,
+  formatCadPlantSize,
+  recommendCadGridSize,
+  type CadPlantBoundsIssue,
+  type CadPlantPresetId,
+} from '@/lib/cad/plant-scale';
 import dynamic from 'next/dynamic';
 
 // Analysis panels — the same modal components the 2D host shipped, lazy-loaded so
@@ -213,6 +224,7 @@ interface CommandPreviewState { input: CadCommandInput; preview: CadCommandPrevi
 interface DxfExportOptions { scope: 'all' | 'selection'; includeHidden: boolean; includeMeasurements: boolean; includeLabels: boolean; units: 'mm' | 'm'; fileName: string }
 interface DxfExportSummary { objects: number; connectors: number; measurements: number; labels: number; layers: number; canExport: boolean; includedLayers: string[]; layerSummary: CadDxfExportLayerSummary[]; issues: CadDxfExportReadinessIssue[] }
 interface MeasurementRow { id: string; label: string; length: string }
+interface CadViewBounds { minX: number; minY: number; maxX: number; maxY: number }
 /** Live quantity take-off computed from the editor's current state. */
 interface LocalTakeoff {
   unit: string; footprintArea: number; totalStations: number; placedStations: number;
@@ -647,6 +659,12 @@ const fmtLen = (v: number, unit: string) => {
   const m = unit === 'mm' ? v / 1000 : unit === 'cm' ? v / 100 : v; // → m
   return `${m.toLocaleString('es-MX', { maximumFractionDigits: 2 })} m`;
 };
+const cameraFitDistance = (camera: THREE.PerspectiveCamera, worldWidth: number, worldDepth: number) => {
+  const fov = THREE.MathUtils.degToRad(camera.fov);
+  const fitHeightDistance = worldDepth / (2 * Math.tan(fov / 2));
+  const fitWidthDistance = worldWidth / (2 * Math.tan(fov / 2) * Math.max(0.1, camera.aspect));
+  return Math.max(6, fitHeightDistance, fitWidthDistance) * 1.18;
+};
 const defaultCadClearance = (unit: string) => {
   if (unit === 'm') return 0.8;
   if (unit === 'cm') return 80;
@@ -754,7 +772,7 @@ export default function Layout3DEditor({
   const [sun, setSun] = useState({ az: 35, el: 55 }); // sun azimuth/elevation (deg)
   const [showView, setShowView] = useState(false);
   const [fpDraft, setFpDraft] = useState<{ w: number; h: number; g: number }>({ w: 0, h: 0, g: 0 });
-  const [layers, setLayers] = useState({ stations: true, equipment: true, connectors: true, dims: true, notes: true, labels: true, grid: true, dxf: true });
+  const [layers, setLayers] = useState({ stations: true, equipment: true, connectors: true, dims: true, notes: true, labels: true, grid: true, plantBoundary: true, dxf: true });
   const [cadLayers, setCadLayers] = useState<CadLayer[]>(DEFAULT_CAD_LAYERS);
   const [layerAssignments, setLayerAssignments] = useState<CadLayerAssignments>({});
   const [activeCadLayer, setActiveCadLayer] = useState<CadLayerId>('equipment');
@@ -772,6 +790,7 @@ export default function Layout3DEditor({
   const [clearanceIssues, setClearanceIssues] = useState<CadClearanceIssue[]>([]);
   const [safetyIssues, setSafetyIssues] = useState<CadSafetyIssue[]>([]);
   const [cadValidationReport, setCadValidationReport] = useState<CadValidationReport | null>(null);
+  const [plantBoundsIssues, setPlantBoundsIssues] = useState<CadPlantBoundsIssue[]>([]);
   const [validationHighlightIds, setValidationHighlightIds] = useState<Set<string>>(new Set());
   const [flowHealth, setFlowHealth] = useState<CadFlowScore | null>(null);
   const [flowSequence, setFlowSequence] = useState<CadFlowNode[]>([]);
@@ -804,6 +823,7 @@ export default function Layout3DEditor({
   const connectorsRef = useRef<Conn[]>([]); // mutable line connectors (auto-connect, Fase 62)
   const cellsRef = useRef<Cell[]>([]); // mutable cells/zones (unify — editable + round-trip)
   const gridGroupRef = useRef<THREE.Group | null>(null);
+  const plantBoundaryGroupRef = useRef<THREE.Group | null>(null);
   const dxfGroupRef = useRef<THREE.Group | null>(null);
   const heatGroupRef = useRef<THREE.Group | null>(null); // occupancy heat-map tiles
   const heatLoadedRef = useRef(false); // lazy-load the density grid only once per scene
@@ -906,6 +926,7 @@ export default function Layout3DEditor({
     if (notesGroupRef.current) notesGroupRef.current.visible = L.notes;
     if (dxfGroupRef.current) dxfGroupRef.current.visible = L.dxf;
     if (gridGroupRef.current) gridGroupRef.current.visible = L.grid;
+    if (plantBoundaryGroupRef.current) plantBoundaryGroupRef.current.visible = L.plantBoundary && cadLayerVisible('plant-boundary');
     sceneRef.current?.traverse((o) => {
       if (!o.userData?.isLabel) return;
       const labelFor = o.userData?.labelFor as string | undefined;
@@ -935,7 +956,7 @@ export default function Layout3DEditor({
 
   // ---- visual theme (background / fog / floor / grid colours) ----
   const applyTheme = useCallback(() => {
-    const sc = sceneRef.current; const ctx = ctxRef.current; const gg = gridGroupRef.current;
+    const sc = sceneRef.current; const ctx = ctxRef.current; const gg = gridGroupRef.current; const pg = plantBoundaryGroupRef.current;
     if (!sc || !ctx) return;
     const th = THEMES[themeRef.current];
     sc.background = new THREE.Color(th.bg);
@@ -949,9 +970,30 @@ export default function Layout3DEditor({
       const grid = new THREE.GridHelper(Math.max(W * s, H * s), Math.min(60, Math.max(8, Math.round(Math.max(W, H) / fpGrid / 2))), th.gridA, th.gridB);
       (grid.material as THREE.Material).transparent = true; (grid.material as THREE.Material).opacity = 0.6;
       grid.position.y = 0.01; gridHelperRef.current = grid; gg.add(grid);
-      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(W * s, H * s)), new THREE.LineBasicMaterial({ color: 0x64748b }));
-      edge.rotation.x = -Math.PI / 2; edge.position.y = 0.02; gg.add(edge);
       gg.visible = layersRef.current.grid;
+    }
+    if (pg) {
+      while (pg.children.length) { const o = pg.children[pg.children.length - 1]; pg.remove(o); disposeObject(o); }
+      const { s, W, H } = ctx;
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(W * s, H * s)), new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 }));
+      edge.rotation.x = -Math.PI / 2; edge.position.y = 0.04; pg.add(edge);
+      const originX = (-W / 2) * s;
+      const originZ = (-H / 2) * s;
+      const axisLen = Math.max(1.2, Math.min(4, Math.max(W, H) * s * 0.08));
+      const axisY = 0.07;
+      const xAxis = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(originX, axisY, originZ), new THREE.Vector3(originX + axisLen, axisY, originZ)]),
+        new THREE.LineBasicMaterial({ color: 0x38bdf8 }),
+      );
+      const yAxis = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(originX, axisY, originZ), new THREE.Vector3(originX, axisY, originZ + axisLen)]),
+        new THREE.LineBasicMaterial({ color: 0x34d399 }),
+      );
+      pg.add(xAxis); pg.add(yAxis);
+      const origin = makeLabel('0,0', 0.8);
+      origin.position.set(originX + 0.9, 0.8, originZ + 0.9);
+      pg.add(origin);
+      pg.visible = layersRef.current.plantBoundary;
     }
   }, [data]);
   useEffect(() => { applyTheme(); }, [theme, applyTheme]);
@@ -1393,7 +1435,45 @@ export default function Layout3DEditor({
     }
   }, [showGaps, loadGaps]);
 
-  const rebuildAll = useCallback(() => { rebuildBlocks(); rebuildAssets(); rebuildDims(); rebuildNotes(); rebuildCellsRef.current(); }, [rebuildBlocks, rebuildAssets, rebuildDims, rebuildNotes]);
+  const refreshPlantBoundsIssues = useCallback(() => {
+    if (!data) {
+      globalThis.setTimeout(() => setPlantBoundsIssues([]), 0);
+      return;
+    }
+    const objects = [
+      ...[...placementsRef.current.entries()].map(([id, p]) => ({
+        id,
+        label: stationsByIdRef.current.get(id)?.station ?? id,
+        x: p.x,
+        y: p.y,
+        width: p.w,
+        height: p.h,
+      })),
+      ...[...assetsRef.current.values()].map((asset) => ({
+        id: asset.id,
+        label: asset.label || assetMeta(asset.kind).label,
+        x: asset.x,
+        y: asset.y,
+        width: asset.w,
+        height: asset.h,
+      })),
+    ];
+    const nextIssues = detectObjectsOutsidePlantBounds({
+      width: data.footprint.footprintW,
+      height: data.footprint.footprintH,
+      objects,
+    });
+    globalThis.setTimeout(() => setPlantBoundsIssues(nextIssues), 0);
+  }, [data]);
+  const rebuildAll = useCallback(() => {
+    rebuildBlocks();
+    rebuildAssets();
+    rebuildDims();
+    rebuildNotes();
+    rebuildCellsRef.current();
+    refreshPlantBoundsIssues();
+  }, [rebuildBlocks, rebuildAssets, rebuildDims, rebuildNotes, refreshPlantBoundsIssues]);
+  useEffect(() => { refreshPlantBoundsIssues(); }, [refreshPlantBoundsIssues]);
 
   // ---- live station-status overlay: colour blocks by MES / heat / etc. (unify) ----
   const loadOverlay = useCallback(async (kind: OverlayKind | null) => {
@@ -1514,7 +1594,8 @@ export default function Layout3DEditor({
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 4000);
-    camera.position.set(W * s * 0.45, Math.max(W, H) * s * 0.8, H * s * 1.0 + 10);
+    const initialDistance = cameraFitDistance(camera, W * s, H * s);
+    camera.position.set(initialDistance * 0.62, initialDistance * 0.78, initialDistance * 0.92);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -1547,6 +1628,7 @@ export default function Layout3DEditor({
     ground.rotation.x = -Math.PI / 2; ground.position.y = 0; ground.receiveShadow = true;
     groundRef.current = ground; deco.add(ground);
     const gridGroup = new THREE.Group(); deco.add(gridGroup); gridGroupRef.current = gridGroup;
+    const plantBoundaryGroup = new THREE.Group(); deco.add(plantBoundaryGroup); plantBoundaryGroupRef.current = plantBoundaryGroup;
     // cell floor tints — rebuildable so cells can be created/removed live (unify)
     const cellsGroup = new THREE.Group(); deco.add(cellsGroup); cellsGroupRef.current = cellsGroup;
     rebuildCellsRef.current();
@@ -1948,7 +2030,7 @@ export default function Layout3DEditor({
       sceneRef.current = null; rendererRef.current = null; cameraRef.current = null;
       blocksRef.current = null; assetsGroupRef.current = null; controlsRef.current = null;
       dimsGroupRef.current = null; previewLineRef.current = null; snapMarkerRef.current = null;
-      connsGroupRef.current = null; gridGroupRef.current = null; groundRef.current = null; gridHelperRef.current = null;
+      connsGroupRef.current = null; gridGroupRef.current = null; plantBoundaryGroupRef.current = null; groundRef.current = null; gridHelperRef.current = null;
       dirLightRef.current = null; notesGroupRef.current = null; dxfGroupRef.current = null;
       heatGroupRef.current = null; heatLoadedRef.current = false;
       gapsGroupRef.current = null; gapsLoadedRef.current = false;
@@ -2231,16 +2313,35 @@ export default function Layout3DEditor({
 
   // Resize the plant footprint / grid from the CAD; the scene rebuilds at the
   // new scale and the change persists on save (objects keep their world coords).
+  const setAdaptiveGridDraft = () => {
+    const unit = data?.footprint.unit || 'mm';
+    setFpDraft((draft) => ({
+      ...draft,
+      g: recommendCadGridSize(draft.w || data?.footprint.footprintW || 10000, draft.h || data?.footprint.footprintH || 8000, unit),
+    }));
+  };
   const applyFootprint = useCallback(() => {
     setData((d) => {
       if (!d) return d;
-      const w = Math.max(1000, Math.round(fpDraft.w) || d.footprint.footprintW);
-      const h = Math.max(1000, Math.round(fpDraft.h) || d.footprint.footprintH);
-      const g = Math.max(50, Math.round(fpDraft.g) || d.footprint.gridSize);
+      const unit = d.footprint.unit || 'mm';
+      const minSize = cadValueFromMm(1000, unit);
+      const minGrid = cadValueFromMm(50, unit);
+      const w = Math.max(minSize, Number(fpDraft.w) || d.footprint.footprintW);
+      const h = Math.max(minSize, Number(fpDraft.h) || d.footprint.footprintH);
+      const g = Math.max(minGrid, Number(fpDraft.g) || recommendCadGridSize(w, h, unit));
       return { ...d, footprint: { ...d.footprint, footprintW: w, footprintH: h, gridSize: g } };
     });
     setDirty(true); setShowView(false);
   }, [fpDraft]);
+  const applyFootprintPreset = useCallback((presetId: CadPlantPresetId) => {
+    if (!data) return;
+    const unit = data.footprint.unit || 'mm';
+    const next = cadPlantPresetFootprint(presetId, unit);
+    setFpDraft({ w: next.width, h: next.height, g: next.gridSize });
+    setData({ ...data, footprint: { ...data.footprint, footprintW: next.width, footprintH: next.height, gridSize: next.gridSize } });
+    setDirty(true);
+    toast.success('Preset de planta aplicado. Guarda para persistirlo.', 'Factory CAD');
+  }, [data, toast]);
 
   // Add a free-text note at the point the camera is looking at (round-trips 2D).
   const addNote = () => {
@@ -3030,6 +3131,7 @@ export default function Layout3DEditor({
   const assignSelectedToActiveLayer = () => {
     const cur = selList[0]; if (!cur) return;
     if (isItemLayerLocked(cur)) { toast.error('La capa actual del objeto está bloqueada. Desbloquéala antes de recategorizar.', 'Capas'); return; }
+    if (activeCadLayer === 'plant-boundary') { toast.error('Plant Boundary es una capa de sistema; no recibe objetos editables.', 'Capas'); return; }
     setLayerAssignments((state) => assignObjectsToLayer(state, [cur.id], activeCadLayer));
     toast.success(`Objeto asignado a ${cadLayers.find((layer) => layer.id === activeCadLayer)?.label ?? activeCadLayer}.`, 'Capas');
   };
@@ -3185,11 +3287,12 @@ export default function Layout3DEditor({
   const updateCadLayerLabel = (id: CadLayerId, label: string) => setCadLayers((cur) => cur.map((layer) => layer.id === id ? { ...layer, label } : layer));
   const updateCadLayerColor = (id: CadLayerId, color: string) => setCadLayers((cur) => cur.map((layer) => layer.id === id ? { ...layer, color } : layer));
   const resetCadLayerPresentation = () => {
-    setLayers((cur) => ({ ...cur, stations: true, equipment: true, connectors: true, dims: true }));
+    setLayers((cur) => ({ ...cur, stations: true, equipment: true, connectors: true, dims: true, plantBoundary: true }));
     setCadLayers(DEFAULT_CAD_LAYERS.map((layer) => ({ ...layer })));
     toast.success('Capas CAD restauradas a la presentación estándar.', 'Capas');
   };
   const assignSelectionToCadLayer = (id: CadLayerId) => {
+    if (id === 'plant-boundary') { toast.error('Plant Boundary es una capa de sistema; no recibe objetos editables.', 'Capas'); return; }
     const ids = selRef.current.map((it) => it.id);
     if (!ids.length) { toast.error('Selecciona objetos para asignarlos a una capa.', 'Capas'); return; }
     setLayerAssignments((cur) => assignObjectsToLayer(cur, ids, id));
@@ -3210,6 +3313,7 @@ export default function Layout3DEditor({
       equipment: id === 'equipment' || id === 'aisles' || id === 'safety',
       connectors: id === 'flow',
       dims: id === 'measurements',
+      plantBoundary: id === 'plant-boundary',
     }));
     setCadLayers((cur) => isolateCadLayerVisibility(cur, id));
     toast.success(`Capa ${cadLayers.find((layer) => layer.id === id)?.label ?? id} aislada.`, 'Capas');
@@ -3221,13 +3325,17 @@ export default function Layout3DEditor({
       equipment: true,
       connectors: true,
       dims: true,
+      plantBoundary: true,
     }));
     setCadLayers((cur) => showAllCadLayers(cur));
     toast.success('Todas las capas CAD visibles.', 'Capas');
   };
   const defaultLayerFor = (item: SelItem): CadLayerId => item.type === 'station' ? 'layout' : 'equipment';
   const selectionLayer = (item: SelItem): CadLayerId => layerAssignments[item.id] ?? defaultLayerFor(item);
-  const setSelectionLayer = (item: SelItem, layerId: CadLayerId) => setLayerAssignments((cur) => assignObjectsToLayer(cur, [item.id], layerId));
+  const setSelectionLayer = (item: SelItem, layerId: CadLayerId) => {
+    if (layerId === 'plant-boundary') { toast.error('Plant Boundary es una capa de sistema; no recibe objetos editables.', 'Capas'); return; }
+    setLayerAssignments((cur) => assignObjectsToLayer(cur, [item.id], layerId));
+  };
   const runToolbarAction = (id: CadToolbarActionId) => {
     if (id === 'select' || id === 'pan') setToolMode('select');
     else if (id === 'measure') setToolMode('measure');
@@ -3236,7 +3344,7 @@ export default function Layout3DEditor({
     else if (id === 'zone') { setTab('equipment'); addAsset('zone'); }
     else if (id === 'equipment') setTab('equipment');
     else if (id === 'text') addNote();
-    else if (id === 'fit_view') viewPreset('iso');
+    else if (id === 'fit_view') fitAllObjects();
     else if (id === 'undo') undo();
     else if (id === 'redo') redo();
   };
@@ -3272,38 +3380,91 @@ export default function Layout3DEditor({
     ];
     select(items); rebuildAll();
   };
-  const viewPreset = (preset: 'top' | 'iso' | 'front') => {
+  const boundsFromItems = (items: SelItem[]): CadViewBounds | null => {
+    const boxes = items.map(getPlaceRef).filter((p): p is Placement => !!p);
+    if (!boxes.length) return null;
+    return {
+      minX: Math.min(...boxes.map((p) => p.x)),
+      minY: Math.min(...boxes.map((p) => p.y)),
+      maxX: Math.max(...boxes.map((p) => p.x + p.w)),
+      maxY: Math.max(...boxes.map((p) => p.y + p.h)),
+    };
+  };
+  const allObjectBounds = (): CadViewBounds | null => {
+    const boxes = [
+      ...[...placementsRef.current.values()],
+      ...[...assetsRef.current.values()].map((asset) => ({ x: asset.x, y: asset.y, w: asset.w, h: asset.h, rotation: asset.rotation })),
+    ];
+    if (!boxes.length) return null;
+    return {
+      minX: Math.min(...boxes.map((p) => p.x)),
+      minY: Math.min(...boxes.map((p) => p.y)),
+      maxX: Math.max(...boxes.map((p) => p.x + p.w)),
+      maxY: Math.max(...boxes.map((p) => p.y + p.h)),
+    };
+  };
+  const fitViewToBounds = useCallback((bounds: CadViewBounds, preset: 'top' | 'iso' | 'front' = viewMode === '2d' ? 'top' : 'iso') => {
     const cam = cameraRef.current; const ctrl = controlsRef.current; const ctx = ctxRef.current;
     if (!cam || !ctrl || !ctx) return;
-    const d = Math.max(ctx.W, ctx.H) * ctx.s;
-    if (preset === 'top') cam.position.set(0, d * 1.5, 0.01);
-    else if (preset === 'front') cam.position.set(0, d * 0.5, d * 1.3);
-    else cam.position.set(d * 0.6, d * 0.85, d * 1.0);
-    ctrl.target.set(0, 0, 0); ctrl.update();
+    const width = Math.max(1, bounds.maxX - bounds.minX);
+    const height = Math.max(1, bounds.maxY - bounds.minY);
+    const centerX = (bounds.minX + width / 2 - ctx.W / 2) * ctx.s;
+    const centerZ = (bounds.minY + height / 2 - ctx.H / 2) * ctx.s;
+    const distance = cameraFitDistance(cam, width * ctx.s, height * ctx.s);
+    if (preset === 'top') cam.position.set(centerX, distance, centerZ + 0.01);
+    else if (preset === 'front') cam.position.set(centerX, distance * 0.45, centerZ + distance);
+    else cam.position.set(centerX + distance * 0.62, distance * 0.78, centerZ + distance * 0.92);
+    ctrl.target.set(centerX, 0, centerZ); ctrl.update();
+  }, [viewMode]);
+  const fitPlantBoundary = () => {
+    const ctx = ctxRef.current; if (!ctx) return;
+    fitViewToBounds({ minX: 0, minY: 0, maxX: ctx.W, maxY: ctx.H });
+  };
+  const fitAllObjects = () => {
+    const ctx = ctxRef.current; if (!ctx) return;
+    const objectBounds = allObjectBounds();
+    const plantBounds = { minX: 0, minY: 0, maxX: ctx.W, maxY: ctx.H };
+    const bounds = objectBounds
+      ? {
+          minX: Math.min(plantBounds.minX, objectBounds.minX),
+          minY: Math.min(plantBounds.minY, objectBounds.minY),
+          maxX: Math.max(plantBounds.maxX, objectBounds.maxX),
+          maxY: Math.max(plantBounds.maxY, objectBounds.maxY),
+        }
+      : plantBounds;
+    fitViewToBounds(bounds);
+  };
+  const viewPreset = (preset: 'top' | 'iso' | 'front') => {
+    const ctx = ctxRef.current;
+    if (!ctx) return;
+    fitViewToBounds({ minX: 0, minY: 0, maxX: ctx.W, maxY: ctx.H }, preset);
+  };
+  const fitSelection = () => {
+    const bounds = boundsFromItems(selRef.current);
+    if (!bounds) { toast.error('Selecciona objetos para enfocar.', 'Vista CAD'); return; }
+    fitViewToBounds(bounds);
   };
   // ---- 2D⇄3D view toggle: the CAD unifica plano (2D) y modelo (3D) (unify) ----
   // 2D = vista superior bloqueada (solo pan+zoom), como un plano CAD; 3D = órbita libre.
   const applyViewMode = useCallback((mode: '3d' | '2d') => {
     const cam = cameraRef.current; const ctrl = controlsRef.current; const ctx = ctxRef.current;
     if (!cam || !ctrl || !ctx) return;
-    const d = Math.max(ctx.W, ctx.H) * ctx.s;
     if (mode === '2d') {
       // exit walkthrough if active, lock to a straight-down plan view
       if (walkRef.current) { setWalk(false); walkRef.current = false; }
-      cam.position.set(0, d * 1.6, 0.01); // straight above, due-south → footprint axis-aligned (no 45° diamond)
       ctrl.minPolarAngle = 0; ctrl.maxPolarAngle = 0.05; // pinned looking down
       ctrl.enableRotate = false;
       ctrl.mouseButtons.LEFT = THREE.MOUSE.PAN; // arrastrar el fondo = paneo (estilo 2D)
       ctrl.touches.ONE = THREE.TOUCH.PAN;
+      fitViewToBounds({ minX: 0, minY: 0, maxX: ctx.W, maxY: ctx.H }, 'top');
     } else {
       ctrl.minPolarAngle = 0; ctrl.maxPolarAngle = Math.PI / 2.05;
       ctrl.enableRotate = true;
       ctrl.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
       ctrl.touches.ONE = THREE.TOUCH.ROTATE;
-      cam.position.set(d * 0.6, d * 0.85, d * 1.0);
+      fitViewToBounds({ minX: 0, minY: 0, maxX: ctx.W, maxY: ctx.H }, 'iso');
     }
-    ctrl.target.set(0, 0, 0); ctrl.update();
-  }, []);
+  }, [fitViewToBounds]);
   const toggleViewMode = useCallback(() => {
     setViewMode((m) => { const next = m === '3d' ? '2d' : '3d'; applyViewMode(next); return next; });
   }, [applyViewMode]);
@@ -3694,7 +3855,7 @@ export default function Layout3DEditor({
   const safetyBlockers = safetyIssues.filter((issue) => issue.code === 'zone_invasion').length;
   const safetyWarnings = safetyIssues.length - safetyBlockers;
   const releaseBlockers = (report?.errors ?? 0) + collisionHits.length + safetyBlockers;
-  const releaseWarnings = (report?.warnings ?? 0) + clearanceIssues.length + safetyWarnings + dxfWarnings.length + (validationFlow && validationFlow.score < 80 ? 1 : 0);
+  const releaseWarnings = (report?.warnings ?? 0) + clearanceIssues.length + safetyWarnings + dxfWarnings.length + plantBoundsIssues.length + (validationFlow && validationFlow.score < 80 ? 1 : 0);
 
   const releaseState = !report ? 'Sin validar' : releaseBlockers > 0 ? 'Bloqueado' : releaseWarnings > 0 ? 'Con avisos' : 'Listo';
   const releaseTone = releaseState === 'Listo' ? 'text-emerald-300' : releaseState === 'Bloqueado' ? 'text-rose-300' : releaseState === 'Con avisos' ? 'text-amber-300' : 'text-gray-500 dark:text-gray-400';
@@ -3704,6 +3865,7 @@ export default function Layout3DEditor({
     { label: 'Colisiones', value: collisionHits.length ? `${collisionHits.length} choque(s)` : 'Sin choques activos', tone: collisionHits.length ? 'text-rose-300' : 'text-emerald-300' },
     { label: 'Holguras', value: clearanceIssues.length ? `${clearanceIssues.length} bajo minimo` : 'Dentro de minimo', tone: clearanceIssues.length ? 'text-amber-300' : 'text-emerald-300' },
     { label: 'Safety zones', value: safetyIssues.length ? `${safetyIssues.length} issue(s)` : 'Sin invasiones activas', tone: safetyBlockers ? 'text-rose-300' : safetyIssues.length ? 'text-amber-300' : 'text-emerald-300' },
+    { label: 'Plant bounds', value: plantBoundsIssues.length ? `${plantBoundsIssues.length} fuera de planta` : 'Dentro del limite', tone: plantBoundsIssues.length ? 'text-amber-300' : 'text-emerald-300' },
     { label: 'Flow Health', value: validationFlow ? `${validationFlow.score}/100` : 'No analizado', tone: !validationFlow ? 'text-gray-500 dark:text-gray-400' : validationFlow.score >= 80 ? 'text-emerald-300' : validationFlow.score >= 55 ? 'text-amber-300' : 'text-rose-300' },
     { label: 'DXF import', value: dxfWarnings.length ? `${dxfWarnings.length} warning(s)` : 'Sin warnings activos', tone: dxfWarnings.length ? 'text-amber-300' : 'text-emerald-300' },
   ];
@@ -3712,6 +3874,9 @@ export default function Layout3DEditor({
   const flowReorderMoveRows = flowReorderPreview?.moves.filter((move) => move.from.x !== move.to.x || move.from.y !== move.to.y).slice(0, 5) ?? [];
   const dxfExportLayerRows = dxfExportSummary.layerSummary.filter((layer) => layer.included > 0 || layer.hidden > 0).slice(0, 5);
   const dxfExportIssueRows = dxfExportSummary.issues.slice(0, 5);
+  const plantSizeLabel = data ? formatCadPlantSize(data.footprint.footprintW, data.footprint.footprintH, data.footprint.unit) : '';
+  const plantMetricLabel = data ? `${fmtLen(data.footprint.footprintW, data.footprint.unit || 'mm')} x ${fmtLen(data.footprint.footprintH, data.footprint.unit || 'mm')}` : '';
+  const plantGridLabel = data ? fmtLen(data.footprint.gridSize, data.footprint.unit || 'mm') : '';
 
   // Portal to <body> so the full-screen overlay escapes the editor's glass
   // container (backdrop-filter would otherwise be the containing block for our
@@ -3782,9 +3947,9 @@ export default function Layout3DEditor({
         <div className="relative" ref={viewMenuRef}>
           <T3Btn active={showView} onClick={() => setShowView((v) => { const nv = !v; if (nv && data) setFpDraft({ w: data.footprint.footprintW, h: data.footprint.footprintH, g: data.footprint.gridSize }); return nv; })} title="Vista, capas y plano"><SlidersHorizontal className="w-4 h-4" /></T3Btn>
           {showView && (
-            <div className="absolute left-0 top-full mt-1.5 w-56 rounded-xl border border-white/10 bg-gray-900 shadow-2xl p-3 z-10 text-[12px]">
+            <div className="absolute left-0 top-full mt-1.5 w-72 rounded-xl border border-white/10 bg-gray-900 shadow-2xl p-3 z-10 text-[12px]">
               <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">Capas</div>
-              {([['stations', 'Estaciones'], ['equipment', 'Equipo'], ['connectors', 'Conexiones'], ['dims', 'Cotas'], ['notes', 'Notas'], ['labels', 'Etiquetas'], ['dxf', 'Plano DXF'], ['grid', 'Grilla']] as const).map(([k, lbl]) => (
+              {([['stations', 'Estaciones'], ['equipment', 'Equipo'], ['connectors', 'Conexiones'], ['dims', 'Cotas'], ['notes', 'Notas'], ['labels', 'Etiquetas'], ['dxf', 'Plano DXF'], ['grid', 'Grilla'], ['plantBoundary', 'Plant Boundary']] as const).map(([k, lbl]) => (
                 <label key={k} className="flex items-center gap-2 py-1 cursor-pointer text-gray-300 hover:text-white">
                   <input type="checkbox" checked={layers[k]} onChange={(e) => setLayers((st) => ({ ...st, [k]: e.target.checked }))} className="accent-cyan-500" />
                   {lbl}
@@ -3801,13 +3966,13 @@ export default function Layout3DEditor({
                   <div key={layer.id} className={`rounded-lg px-2 py-1 ${activeCadLayer === layer.id ? 'bg-cyan-400/[0.10] ring-1 ring-cyan-400/20' : 'bg-white/[0.04]'}`}>
                     <div className="flex items-center gap-1.5">
                       <button onClick={() => toggleCadLayerVisibility(layer.id)} className={`h-2.5 w-2.5 rounded-full ${layer.visible ? '' : 'opacity-30'}`} style={{ background: layer.color }} title={layer.visible ? 'Ocultar capa' : 'Mostrar capa'} />
-                      <button onClick={() => setActiveCadLayer(layer.id)} className={`min-w-0 flex-1 truncate text-left ${layer.visible ? 'text-gray-200' : 'text-gray-500'}`} title="Definir como capa activa">{layer.label}</button>
+                      <button onClick={() => isSystemCadLayer(layer.id) ? toast.error('Plant Boundary es una capa de sistema; no puede ser capa activa.', 'Capas') : setActiveCadLayer(layer.id)} className={`min-w-0 flex-1 truncate text-left ${layer.visible ? 'text-gray-200' : 'text-gray-500'}`} title={isSystemCadLayer(layer.id) ? 'Capa de sistema protegida' : 'Definir como capa activa'}>{layer.label}</button>
                       <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400">{cadLayerCounts[layer.id]}</span>
-                      <button onClick={() => setCadLayers((cur) => toggleCadLayerLocked(cur, layer.id))} className={`text-[10px] ${layer.locked ? 'text-amber-300' : 'text-gray-500'}`}>{layer.locked ? 'Lock' : 'Open'}</button>
+                      <button onClick={() => isSystemCadLayer(layer.id) ? toast.error('Plant Boundary permanece bloqueada como capa de sistema.', 'Capas') : setCadLayers((cur) => toggleCadLayerLocked(cur, layer.id))} className={`text-[10px] ${layer.locked ? 'text-amber-300' : 'text-gray-500'}`}>{layer.locked ? 'Lock' : 'Open'}</button>
                     </div>
                     <div className="mt-1 grid grid-cols-[1fr_auto] gap-1.5">
-                      <input value={layer.label} onChange={(e) => updateCadLayerLabel(layer.id, e.target.value)} className="min-w-0 rounded-md border border-white/10 bg-gray-950/70 px-1.5 py-0.5 text-[10.5px] text-gray-200 outline-none focus:ring-1 focus:ring-cyan-500/40" title="Renombrar capa local" />
-                      <input type="color" value={layer.color} onChange={(e) => updateCadLayerColor(layer.id, e.target.value)} className="h-6 w-7 rounded border border-white/10 bg-transparent p-0" title="Color local de capa" />
+                      <input value={layer.label} onChange={(e) => updateCadLayerLabel(layer.id, e.target.value)} disabled={isSystemCadLayer(layer.id)} className="min-w-0 rounded-md border border-white/10 bg-gray-950/70 px-1.5 py-0.5 text-[10.5px] text-gray-200 outline-none focus:ring-1 focus:ring-cyan-500/40 disabled:opacity-60" title={isSystemCadLayer(layer.id) ? 'Capa de sistema protegida' : 'Renombrar capa local'} />
+                      <input type="color" value={layer.color} onChange={(e) => updateCadLayerColor(layer.id, e.target.value)} disabled={isSystemCadLayer(layer.id)} className="h-6 w-7 rounded border border-white/10 bg-transparent p-0 disabled:opacity-60" title={isSystemCadLayer(layer.id) ? 'Capa de sistema protegida' : 'Color local de capa'} />
                     </div>
                     <div className="mt-1 flex items-center justify-end gap-2 text-[10px]">
                       <button onClick={() => selectCadLayerObjects(layer.id)} className="text-gray-500 dark:text-gray-400 hover:text-white">Sel</button>
@@ -3835,13 +4000,36 @@ export default function Layout3DEditor({
                   <button key={t} onClick={() => setTheme(t)} className={`px-2 py-1 rounded-md text-[12px] ${theme === t ? 'bg-cyan-600 text-white' : 'bg-white/[0.06] text-gray-300 hover:bg-white/[0.12]'}`}>{THEMES[t].label}</button>
                 ))}
               </div>
+              <div className="text-[10px] uppercase tracking-wide text-gray-500 mt-2.5 mb-1.5">Plant presets</div>
+              <div className="mb-2 grid grid-cols-2 gap-1.5">
+                {CAD_PLANT_PRESETS.map((preset) => (
+                  <button key={preset.id} onClick={() => applyFootprintPreset(preset.id)} className="rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 text-left hover:bg-white/[0.10]" title={preset.description}>
+                    <span className="block truncate text-[11px] font-semibold text-gray-200">{preset.label}</span>
+                    <span className="block text-[10px] text-gray-500">{preset.description}</span>
+                  </button>
+                ))}
+              </div>
               <div className="text-[10px] uppercase tracking-wide text-gray-500 mt-2.5 mb-1.5">Plano ({data?.footprint.unit ?? 'mm'})</div>
+              {data && (
+                <div className="mb-2 rounded-lg border border-cyan-400/15 bg-cyan-400/[0.06] px-2 py-1.5">
+                  <div className="text-[11px] font-semibold text-cyan-100">{plantSizeLabel}</div>
+                  <div className="mt-0.5 text-[10px] text-cyan-200/70">Grid {plantGridLabel} - origin 0,0 - boundary layer</div>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-1.5 mb-2">
                 <DimInput label="Ancho" value={fpDraft.w} onChange={(v) => setFpDraft((s) => ({ ...s, w: v }))} />
                 <DimInput label="Largo" value={fpDraft.h} onChange={(v) => setFpDraft((s) => ({ ...s, h: v }))} />
                 <DimInput label="Rejilla" value={fpDraft.g} onChange={(v) => setFpDraft((s) => ({ ...s, g: v }))} />
               </div>
-              <button onClick={applyFootprint} className="w-full px-2 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-[12px] font-medium">Aplicar tamaño</button>
+              <div className="mb-2 grid grid-cols-2 gap-1.5">
+                <button onClick={setAdaptiveGridDraft} className="inline-flex items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.05] px-2 py-1.5 text-[11px] text-gray-200 hover:bg-white/[0.10]"><Grid3x3 className="h-3.5 w-3.5" /> Auto grid</button>
+                <button onClick={applyFootprint} className="inline-flex items-center justify-center gap-1 rounded-md bg-cyan-600 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-cyan-500"><MapPin className="h-3.5 w-3.5" /> Aplicar</button>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button onClick={fitPlantBoundary} className="inline-flex items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.05] px-2 py-1.5 text-[10.5px] text-gray-200 hover:bg-white/[0.10]" title="Enfocar el borde de planta"><MapPin className="h-3.5 w-3.5" /> Plant</button>
+                <button onClick={fitAllObjects} className="inline-flex items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.05] px-2 py-1.5 text-[10.5px] text-gray-200 hover:bg-white/[0.10]" title="Enfocar planta y objetos"><Maximize2 className="h-3.5 w-3.5" /> All</button>
+                <button onClick={fitSelection} disabled={!selList.length} className="inline-flex items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.05] px-2 py-1.5 text-[10.5px] text-gray-200 hover:bg-white/[0.10] disabled:opacity-40" title="Enfocar seleccion"><MousePointer2 className="h-3.5 w-3.5" /> Sel</button>
+              </div>
               <div className="text-[10px] uppercase tracking-wide text-gray-500 mt-2.5 mb-1">Sol / sombras</div>
               <label className="block mb-1.5">
                 <span className="flex justify-between text-[10px] text-gray-500 dark:text-gray-400"><span>Azimut</span><span>{sun.az}°</span></span>
@@ -4153,10 +4341,12 @@ export default function Layout3DEditor({
               <span className="text-cyan-200">Tool: {tool}</span>
               <span>{selList.length} sel</span>
               <span>{data?.footprint.unit ?? 'mm'}</span>
+              {plantMetricLabel && <span title={plantSizeLabel}>Plant {plantMetricLabel}</span>}
               <span>Layer {cadLayers.find((layer) => layer.id === activeCadLayer)?.label ?? activeCadLayer}</span>
               {cadLayerSummary.hiddenObjectCount > 0 && <span className="text-amber-300">Hidden layer objs {cadLayerSummary.hiddenObjectCount}</span>}
               {cadLayerSummary.lockedObjectCount > 0 && <span className="text-amber-300">Locked layer objs {cadLayerSummary.lockedObjectCount}</span>}
               <span>Grilla {layers.grid ? 'on' : 'off'} / Snap {snap ? 'grid' : 'free'} / {osnap ? 'obj' : 'obj off'}</span>
+              {plantBoundsIssues.length > 0 && <button onClick={fitAllObjects} className="text-amber-300 hover:text-white" title={plantBoundsIssues.slice(0, 3).map((issue) => `${issue.label}: ${fmtLen(issue.overflow, data?.footprint.unit || 'mm')}`).join('\n')}>Bounds {plantBoundsIssues.length}</button>}
               <button onClick={openChecks} className={`${releaseTone} hover:text-white`}>Release {releaseState}</button>
               {report && <span className={report.score === 'error' ? 'text-rose-300' : report.score === 'warn' ? 'text-amber-300' : 'text-emerald-300'}>Validación {report.score}</span>}
               {cadValidationReport && <span className={cadValidationReport.severity === 'critical' ? 'text-rose-300' : cadValidationReport.severity === 'warning' ? 'text-amber-300' : 'text-emerald-300'}>CAD {cadValidationReport.severity}</span>}
@@ -4585,14 +4775,14 @@ export default function Layout3DEditor({
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-200">Paquete de capas</div>
-                  <span className="text-[10.5px] text-gray-500">{dxfExportSummary.includedLayers.join(' Â· ') || 'Sin layers'}</span>
+                  <span className="text-[10.5px] text-gray-500">{dxfExportSummary.includedLayers.join(' · ') || 'Sin layers'}</span>
                 </div>
                 {dxfExportLayerRows.length ? (
                   <div className="space-y-1">
                     {dxfExportLayerRows.map((layer) => (
                       <div key={layer.layer} className="flex items-center justify-between gap-2 rounded-lg bg-gray-950/50 px-2 py-1.5 text-[11px]">
                         <span className="truncate text-gray-300">{layer.layer}</span>
-                        <span className="shrink-0 text-gray-500">{layer.included}/{layer.total} incl.{layer.hidden ? ` Â· ${layer.hidden} ocultas` : ''}</span>
+                        <span className="shrink-0 text-gray-500">{layer.included}/{layer.total} incl.{layer.hidden ? ` · ${layer.hidden} ocultas` : ''}</span>
                       </div>
                     ))}
                   </div>

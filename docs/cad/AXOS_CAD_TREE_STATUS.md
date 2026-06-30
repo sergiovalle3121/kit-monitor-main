@@ -1,6 +1,6 @@
 # AXOS CAD Tree Status
 
-Last updated: 2026-06-29
+Last updated: 2026-06-30
 
 ## 2026-06-29 - Safety paths and ESD zones
 
@@ -28,6 +28,17 @@ This run upgrades the existing CAD layer workflow:
 - The bottom status bar surfaces hidden/locked layer object counts while preserving the active layer indicator.
 
 The workflow is visible in the existing layer popover and status bar. It reuses current layer assignments, lock enforcement, object ids, station labels, asset groups, and export filtering; it does not introduce a parallel layer manager, editor, or persistence path.
+## 2026-06-30 - Factory scale workspace
+
+This run makes plant scale a first-class CAD workflow instead of leaving the canvas feeling like a small table:
+
+- `plant-scale.ts` defines real plant presets for small cells, SMT lines, warehouses, and full factories.
+- `Layout3DEditor.tsx` reuses the existing View/Layers popover to expose those presets, custom width/height/grid controls, auto-grid, Fit Plant, Fit All, and Fit Selection.
+- The Three.js scene now renders the plant boundary as a separate protected system layer from the grid and includes an origin marker at 0,0.
+- The bottom status bar displays plant size in meters and warns when placed stations/equipment exceed the footprint.
+- `AXOS_CAD_FACTORY_SCALE_PLAN.md` documents the phase and the remaining limitations.
+
+This does not add another editor, layer model, grid system, validation engine, or persistence path. It extends the current footprint, scene, and status surfaces.
 
 ## This run
 

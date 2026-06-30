@@ -8,6 +8,7 @@ import {
   isLayerLocked,
   isObjectLayerLocked,
   isLayerVisible,
+  isSystemCadLayer,
   layerForObject,
   showAllCadLayers,
   summarizeCadLayers,
@@ -16,6 +17,32 @@ import {
 } from "./layers";
 
 let layers = DEFAULT_CAD_LAYERS;
+assert.equal(
+  isLayerVisible(layers, "plant-boundary"),
+  true,
+  "plant boundary layer is visible by default",
+);
+assert.equal(
+  isLayerLocked(layers, "plant-boundary"),
+  true,
+  "plant boundary layer is protected by default",
+);
+assert.equal(
+  isSystemCadLayer("plant-boundary"),
+  true,
+  "plant boundary is a protected system layer",
+);
+assert.equal(
+  isSystemCadLayer("equipment"),
+  false,
+  "equipment remains an editable business layer",
+);
+layers = toggleCadLayerLocked(layers, "plant-boundary");
+assert.equal(
+  isLayerLocked(layers, "plant-boundary"),
+  true,
+  "system layers cannot be unlocked by the generic toggle",
+);
 assert.equal(
   isLayerVisible(layers, "layout"),
   true,
@@ -26,6 +53,11 @@ assert.equal(isLayerVisible(layers, "layout"), false, "visibility toggles");
 layers = toggleCadLayerLocked(layers, "equipment");
 assert.equal(isLayerLocked(layers, "equipment"), true, "lock toggles");
 const assignments = assignObjectsToLayer({}, ["a", "b"], "safety");
+assert.deepEqual(
+  assignObjectsToLayer(assignments, ["boundary-test"], "plant-boundary"),
+  assignments,
+  "plant boundary rejects editable object assignments",
+);
 assert.equal(
   layerForObject(assignments, "a", "layout"),
   "safety",
