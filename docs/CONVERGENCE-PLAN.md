@@ -345,3 +345,30 @@ Aprobado por el owner: **solo FASE 1** (cerrar muerto, cero merges).
 **Acción para el owner:** ejecutar `scripts/convergence-fase1-delete.sh` (incluye las 64 ramas y su tabla de recuperación SHA). Alternativa: activar en Settings → General → "Automatically delete head branches" para que GitHub limpie las de PRs mergeados.
 
 Tras el borrado, FASE 1 queda completa: ~65 ramas eliminadas sin mergear una sola línea de riesgo.
+
+---
+
+## FASE 2 — Ejecución (estado: 2026-06-30)
+
+Aprobado por el owner: mergear GREEN en tandas, parar ante cualquier rojo. **Cero rojos.** `main` final tras FASE 2: **`828ea26d`**.
+
+### Verificación previa (workflow adversarial, 25 ramas GREEN rebasables)
+19 SAFE · 2 STALE · 4 DUPLICATE · **0 RISKY** (ninguna toca backend → confirma la clasificación). Las otras ~15 GREEN chocaban con el barrido A11y recién mergeado (#891/#893/#896) → pasan a FASE 3.
+
+### ✅ Mergeadas (20 features → `main`)
+- **Individuales (13):** #867 mes-start-confirm · #856 sheets-print-layout · #862 sheets-transform-reshape · #853 cad-kitting-template · #880 slides-image-effects · #860 integration-audit(doc) · #869 cad-manufacturing-symbols · #840 sheets-recalc-inspector · #841 slides-presenter-mode · #854 sheets-data-quality · #850 cad-flow-health · #852 sheets-approval-health · #837 slides-quality-audit
+- **Vía integración #897 (7 CAD del clúster `Layout3DEditor`/`index.ts`):** #838 line-balance · #844 warehouse-generator · #887 command-line-hints · #847 plot-package-metadata · #861 validation-quickfixes · #858 edge-clearance · #864 dxf-critical-label. Se consolidaron en un PR porque cada merge individual re-ensuciaba a los demás del clúster por el caché de mergeabilidad de GitHub; CI verde sobre el estado combinado.
+
+### 🗑️ Cerradas en FASE 2
+- **STALE (ya en main, diff vacío):** `cad-dxf-label-export`, `sheets-capability-health`.
+- **DUPLICATE (perdedora):** `cad-rack-row-generator` (gana su gemela `warehouse-generator`).
+- Los 7 PRs CAD se cerraron como *merged-via-#897*.
+
+### ⏸️ HOLD para FASE 3
+- #863 `slides-chart-presets-0629` y #865 `slides-smartart-industrial-presets`: duplicados de clústeres con gemelas en conflicto; consolidar en FASE 3.
+
+### Borrado de ramas
+Bloqueado en este entorno (igual que FASE 1). Script listo: **`scripts/convergence-fase2-delete.sh`** (24 ramas ya-en-main + la rama de integración + stale/dup, con SHAs de recuperación). Ejecútalo con tus credenciales, o activa "Automatically delete head branches".
+
+### Nota técnica
+El cuello de botella de FASE 2 fue el **recompute de mergeabilidad de GitHub** (marca ramas `dirty` en caché y no recalcula pasivamente). Se resolvió con re-push fresco (CI) + merges en ráfaga y, para el clúster CAD, con un PR de integración único. Ninguna regla de oro se violó: solo frontend, cero backend/zona-roja mergeado.
