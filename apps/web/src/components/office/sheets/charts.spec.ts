@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Spec del constructor de datos de gráficas. npx tsx src/components/office/sheets/charts.spec.ts */
-import { buildChartData, chartJsType, seriesLabels, usesSecondaryAxis, type ChartConfig } from '@/lib/office/charts';
+import { analyzeChartReadiness, buildChartData, chartJsType, seriesLabels, usesSecondaryAxis, type ChartConfig } from '@/lib/office/charts';
 
 let passed = 0; const fails: string[] = [];
 const eq = (a: any, b: any, m: string) => { if (JSON.stringify(a) === JSON.stringify(b)) passed++; else fails.push(`${m} — esp ${JSON.stringify(b)}, obt ${JSON.stringify(a)}`); };
@@ -79,6 +79,38 @@ eq(seriesLabels(sheet, 'A1:C3'), ['Ventas', 'Margen'], 'seriesLabels = cabeceras
   const d = buildChartData(sheet, { ...base, type: 'gauge' } as ChartConfig);
   eq(chartJsType('gauge'), 'doughnut', 'gauge se renderiza como doughnut');
   eq(d.datasets[0].data, [100, 0], 'gauge limita el primer valor a 100');
+}
+
+// Readiness limpio para dashboards industriales.
+{
+  const report = analyzeChartReadiness(sheet, { ...base, type: 'bar', title: 'Ventas' } as ChartConfig);
+  eq(report.status, 'ready', 'readiness ready');
+  ok(report.canRender, 'ready puede renderizar');
+  eq(report.seriesCount, 2, 'readiness cuenta series');
+  eq(report.numericPointCount, 4, 'readiness cuenta puntos numericos');
+}
+
+// Readiness bloquea rangos invalidos antes de persistir metadata inutil.
+{
+  const report = analyzeChartReadiness(sheet, { ...base, type: 'bar', range: 'Nope', title: 'Ventas' } as ChartConfig);
+  eq(report.status, 'blocked', 'readiness bloquea rango invalido');
+  ok(report.issues.some((issue) => issue.code === 'invalid-range'), 'readiness reporta rango invalido');
+}
+
+// Readiness advierte valores no numericos que el renderer convierte a 0.
+{
+  const bad: any = { celldata: [cell(0, 0, 'M'), cell(0, 1, 'V'), cell(1, 0, 'Ene'), cell(1, 1, 'abc'), cell(2, 0, 'Feb'), cell(2, 1, 7)] };
+  const report = analyzeChartReadiness(bad, { ...base, type: 'bar', title: 'Ventas' } as ChartConfig);
+  eq(report.status, 'warnings', 'readiness advierte coercion');
+  eq(report.coercedPointCount, 1, 'cuenta valores coercionados');
+  ok(report.issues.some((issue) => issue.code === 'non-numeric-values'), 'reporta valores no numericos');
+}
+
+// Pie/dona/polar solo usan la primera serie: hacerlo visible evita dashboards confusos.
+{
+  const report = analyzeChartReadiness(sheet, { ...base, type: 'pie', title: 'Mix' } as ChartConfig);
+  eq(report.status, 'ready', 'info-only sigue listo');
+  ok(report.issues.some((issue) => issue.code === 'single-series-chart'), 'reporta serie unica');
 }
 
 console.log(`\nCHARTS SPEC: ${passed} OK, ${fails.length} fallos`);

@@ -1,5 +1,14 @@
 # Codex Night Log
 
+## 2026-06-29 - CAD safety path zones
+
+- Inspected the required CAD docs, design docs, route chrome, `Layout3DEditor.tsx`, the CAD helper surface under `apps/web/src/lib/cad/**`, command helpers, automation memory, and open CAD PRs.
+- Avoided active symbol, DXF preflight, validation quick-fix, dimension, template/generator, flow, plot, warehouse, and command-registry ownership areas.
+- Extended the existing `safety-zones.ts` helper so aisles, forklift paths, and emergency exits are keep-clear validation zones, while ESD zones warn on unclassified overlapping objects.
+- Wired the existing `Layout3DEditor` Safety rail with ESD zone, forklift path, and emergency exit actions that create editable Safety-layer assets.
+- Reused object tags, layer assignments, validation highlights, the design-check modal, and object inspector classification; no parallel safety engine, editor, renderer, or persistence path was added.
+- Added focused specs for forklift path blockers, ESD classification warnings, and emergency keep-clear inspector classification.
+
 ## 2026-06-27 — CAD command-bar scaffold
 
 - Read the repository/AXOS agent rules and frontend architecture docs.
@@ -325,3 +334,11 @@
 - Added Utilities blocks for power panel, compressed-air drop, network drop, maintenance area, tool crib, and calibration station.
 - Added `asset-catalog.spec.ts` coverage for unique kinds, category grouping, positive footprints/heights, and reuse of existing mesh archetypes.
 - Pending: add native block-instance/default-layer metadata after active symbol/template PRs settle.
+## 2026-06-29 - CAD layer visibility hardening
+
+- Inspected open CAD PRs #864, #861, #858, #853, #850, #847, #844, and #838; avoided DXF preflight, validation quick fixes, dimensions, templates, flow health, plot metadata, warehouse generators, and command registry helpers.
+- Reused the existing CAD layer model in `apps/web/src/lib/cad/layers.ts` and the existing layer popover in `Layout3DEditor.tsx`.
+- Added tested helpers for isolate-layer visibility, show-all recovery, and layer state summaries.
+- Wired CAD layer visibility to actual station and asset objects in the viewport instead of only export/inspector metadata.
+- Added hidden/locked layer object counts plus an `All` recovery action to the existing layer panel and status bar.
+- Pending: persist layer assignments/visibility with the layout API and add layer search/filter after the persistence contract is reviewed.

@@ -27,6 +27,30 @@ export interface ChartConfig {
   source?: ChartSource; // rango libre, tabla guardada o resultado de pivot
 }
 
+export type ChartReadinessSeverity = 'error' | 'warning' | 'info';
+export type ChartReadinessStatus = 'ready' | 'warnings' | 'blocked';
+
+export interface ChartReadinessIssue {
+  code: string;
+  severity: ChartReadinessSeverity;
+  message: string;
+}
+
+export interface ChartReadinessReport {
+  status: ChartReadinessStatus;
+  score: number;
+  canRender: boolean;
+  rowCount: number;
+  columnCount: number;
+  seriesCount: number;
+  numericPointCount: number;
+  coercedPointCount: number;
+  blankLabelCount: number;
+  truncatedRows: number;
+  summary: string;
+  issues: ChartReadinessIssue[];
+}
+
 export const CHART_TYPES: { value: ChartType; label: string }[] = [
   { value: 'column', label: 'Columnas' },
   { value: 'bar', label: 'Barras' },
@@ -82,12 +106,116 @@ function cellMap(sheet: any): Map<string, any> {
   return m;
 }
 const num = (v: any) => { const n = typeof v === 'number' ? v : (v == null || v === '' ? NaN : Number(v)); return Number.isFinite(n) ? n : 0; };
+const finiteNum = (v: any): number | null => {
+  if (v == null || v === '') return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+const isBlank = (v: any) => v == null || v === '';
 
 const hexA = (hex: string, a: number) => {
   const h = hex.replace('#', '');
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${a})`;
 };
+
+function chartValueColumns(cfg: ChartConfig, rng: NonNullable<ReturnType<typeof parseRange>>): number[] {
+  if (cfg.type === 'scatter') return [rng.c1, rng.c1 + 1].filter((c) => c <= rng.c2);
+  if (cfg.type === 'bubble') return [rng.c1, rng.c1 + 1, rng.c1 + 2].filter((c) => c <= rng.c2);
+  if (cfg.type === 'gauge' || cfg.type === 'pareto' || cfg.type === 'pie' || cfg.type === 'doughnut' || cfg.type === 'polarArea') return [rng.c1 + 1].filter((c) => c <= rng.c2);
+  const cols: number[] = [];
+  for (let c = rng.c1 + 1; c <= rng.c2; c++) cols.push(c);
+  return cols;
+}
+
+export function analyzeChartReadiness(sheet: any, cfg: ChartConfig): ChartReadinessReport {
+  const issues: ChartReadinessIssue[] = [];
+  const add = (severity: ChartReadinessSeverity, code: string, message: string) => issues.push({ severity, code, message });
+  const rng = parseRange(cfg.range);
+  if (!sheet) {
+    add('error', 'missing-sheet', 'No se encontro la hoja origen de la grafica.');
+    return chartReadinessReport('blocked', 0, false, 0, 0, 0, 0, 0, 0, 0, issues);
+  }
+  if (!rng) {
+    add('error', 'invalid-range', 'El rango no es valido. Usa notacion A1 como A1:C12.');
+    return chartReadinessReport('blocked', 0, false, 0, 0, 0, 0, 0, 0, 0, issues);
+  }
+
+  const map = cellMap(sheet);
+  const get = (r: number, c: number) => map.get(`${r},${c}`);
+  const rowCount = rng.r2 - rng.r1 + 1;
+  const columnCount = rng.c2 - rng.c1 + 1;
+  const maxRow = Math.min(rng.r2, rng.r1 + 1000);
+  const dataRows = Math.max(0, maxRow - rng.r1);
+  const truncatedRows = Math.max(0, rng.r2 - maxRow);
+  const minColumns = cfg.type === 'bubble' ? 3 : 2;
+
+  if (!cfg.title?.trim()) add('info', 'missing-title', 'Agrega un titulo para que el dashboard sea entendible al exportar.');
+  if (rowCount < 2) add('error', 'missing-data-rows', 'El rango necesita una fila de encabezados y al menos una fila de datos.');
+  if (columnCount < minColumns) add('error', 'missing-data-columns', cfg.type === 'bubble' ? 'La grafica de burbuja requiere columnas X, Y y Tamano.' : 'El rango necesita etiquetas y al menos una columna numerica.');
+  if (truncatedRows) add('info', 'range-truncated', `La preview usa las primeras 1000 filas de datos; ${truncatedRows} filas quedan fuera.`);
+
+  const valueColumns = chartValueColumns(cfg, rng);
+  const seriesCount = cfg.type === 'bubble' || cfg.type === 'scatter' || cfg.type === 'gauge' || cfg.type === 'pareto' || cfg.type === 'pie' || cfg.type === 'doughnut' || cfg.type === 'polarArea'
+    ? Math.min(1, valueColumns.length)
+    : valueColumns.length;
+  if ((cfg.type === 'pie' || cfg.type === 'doughnut' || cfg.type === 'polarArea') && columnCount > 2) {
+    add('info', 'single-series-chart', 'Este tipo usa solo la primera serie numerica del rango.');
+  }
+
+  let numericPointCount = 0;
+  let coercedPointCount = 0;
+  let zeroPointCount = 0;
+  let blankLabelCount = 0;
+  for (let r = rng.r1 + 1; r <= maxRow; r++) {
+    if (isBlank(get(r, rng.c1))) blankLabelCount++;
+    for (const c of valueColumns) {
+      const raw = get(r, c);
+      const n = finiteNum(raw);
+      if (n == null) {
+        if (!isBlank(raw)) coercedPointCount++;
+        continue;
+      }
+      numericPointCount++;
+      if (n === 0) zeroPointCount++;
+      if (cfg.type === 'gauge' && (n < 0 || n > 100)) add('warning', 'gauge-clamped', 'Los gauges se limitan al rango 0-100.');
+    }
+  }
+
+  if (!seriesCount) add('error', 'missing-series', 'No se detectaron series numericas para graficar.');
+  if (dataRows > 0 && numericPointCount === 0) add('error', 'no-numeric-data', 'El rango no contiene valores numericos utiles para la grafica.');
+  if (coercedPointCount) add('warning', 'non-numeric-values', `${coercedPointCount} valores no numericos se graficaran como 0.`);
+  if (blankLabelCount) add('warning', 'blank-labels', `${blankLabelCount} filas no tienen etiqueta en la primera columna.`);
+  if (numericPointCount > 0 && zeroPointCount === numericPointCount) add('warning', 'all-zero-values', 'Todos los valores numericos son 0; valida que el origen este actualizado.');
+
+  const errors = issues.filter((issue) => issue.severity === 'error').length;
+  const warnings = issues.filter((issue) => issue.severity === 'warning').length;
+  const infos = issues.filter((issue) => issue.severity === 'info').length;
+  const status: ChartReadinessStatus = errors ? 'blocked' : warnings ? 'warnings' : 'ready';
+  const score = Math.max(0, 100 - errors * 35 - warnings * 12 - infos * 4);
+  return chartReadinessReport(status, score, errors === 0, rowCount, columnCount, seriesCount, numericPointCount, coercedPointCount, blankLabelCount, truncatedRows, issues);
+}
+
+function chartReadinessReport(
+  status: ChartReadinessStatus,
+  score: number,
+  canRender: boolean,
+  rowCount: number,
+  columnCount: number,
+  seriesCount: number,
+  numericPointCount: number,
+  coercedPointCount: number,
+  blankLabelCount: number,
+  truncatedRows: number,
+  issues: ChartReadinessIssue[],
+): ChartReadinessReport {
+  const summary = status === 'blocked'
+    ? 'Bloqueada: corrige el origen antes de crear la grafica.'
+    : status === 'warnings'
+      ? 'Con advertencias: se puede crear, pero revisa el origen.'
+      : 'Lista para dashboard industrial.';
+  return { status, score, canRender, rowCount, columnCount, seriesCount, numericPointCount, coercedPointCount, blankLabelCount, truncatedRows, summary, issues };
+}
 
 /** Returns a Chart.js `data` object, or null when the range is invalid/empty. */
 export function buildChartData(sheet: any, cfg: ChartConfig): any | null {
