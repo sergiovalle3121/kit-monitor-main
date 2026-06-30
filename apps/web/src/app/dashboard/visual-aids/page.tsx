@@ -94,9 +94,9 @@ export default function VisualAidsPage() {
     return (
       <div className="grid min-h-[60vh] place-items-center text-foreground">
         <div className={`${glass} max-w-sm rounded-3xl p-10 text-center`}>
-          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="mt-1 text-sm text-gray-400">Inicia sesión para ver las ayudas visuales.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Inicia sesión para ver las ayudas visuales.</p>
         </div>
       </div>
     );
@@ -131,7 +131,7 @@ export default function VisualAidsPage() {
         }
       >
         <div className="relative">
-          <FileText className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <FileText className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar título, modelo o estación…" aria-label="Buscar ayudas" className="h-9 w-56 rounded-xl border border-black/10 bg-black/[0.03] pl-8 pr-3 text-sm outline-none transition-colors focus:border-indigo-500 dark:border-white/10 dark:bg-white/[0.04]" />
         </div>
         <FilterBar defs={FILTER_DEFS} value={filters} onChange={setFilters} />
@@ -145,7 +145,7 @@ export default function VisualAidsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={FileText}
@@ -177,11 +177,11 @@ export default function VisualAidsPage() {
                   <span className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold" style={{ background: kind === 'image' ? '#0f9bb31f' : `${INDIGO}1f`, color: kind === 'image' ? '#0f9bb3' : INDIGO }}>
                     {kind === 'image' ? <ImageIcon className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />} {kind === 'image' ? 'Imagen' : 'PDF'}
                   </span>
-                  {a.revision && <span className="font-mono text-[11px] text-gray-400">rev {a.revision}</span>}
-                  {inactive && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-white/10">inactiva</span>}
+                  {a.revision && <span className="font-mono text-[11px] text-gray-500 dark:text-gray-400">rev {a.revision}</span>}
+                  {inactive && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400 dark:bg-white/10">inactiva</span>}
                 </div>
                 <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{a.title}</h3>
-                <div className="mt-2 flex items-center gap-2 text-[12px] text-gray-400">
+                <div className="mt-2 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400">
                   <span className="rounded px-1.5 py-0.5 font-medium" style={{ background: `${INDIGO}14`, color: INDIGO }}>{a.model}</span>
                   <span className="truncate">{[a.process, a.area].filter(Boolean).join(' · ') || 'Sin estación'}</span>
                 </div>
@@ -258,9 +258,9 @@ function PreviewDrawer({ aid, onClose, onOpenTab, opening }: { aid: VisualAid | 
           <DrawerSection title="Vista previa">
             <div className="overflow-hidden rounded-xl border border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.03]">
               {loading ? (
-                <div className="flex h-[420px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+                <div className="flex h-[420px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
               ) : error ? (
-                <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center text-sm text-gray-400">
+                <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center text-sm text-gray-500 dark:text-gray-400">
                   <X className="h-6 w-6" /> No se pudo cargar la vista previa.
                 </div>
               ) : url ? (
@@ -287,7 +287,7 @@ function PreviewDrawer({ aid, onClose, onOpenTab, opening }: { aid: VisualAid | 
             <Link href="/dashboard/routing" className={`${glass} flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]`}>
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-black/5 text-gray-500 dark:bg-white/10"><Layers className="h-4 w-4" /></span>
               <div className="min-w-0">
-                <div className="text-[11px] uppercase tracking-wide text-gray-400">Ruteo de manufactura</div>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Ruteo de manufactura</div>
                 <div className="truncate text-sm font-medium">Ver estaciones del modelo {aid.model}</div>
               </div>
             </Link>
@@ -339,11 +339,11 @@ function UploadModal({ models, onClose, onUploaded }: { models: string[]; onClos
         </div>
 
         <label className="mb-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-black/10 bg-black/[0.02] px-4 py-8 text-center transition-colors hover:border-indigo-400 dark:border-white/15 dark:bg-white/[0.03]">
-          <UploadCloud className="h-7 w-7 text-gray-400" />
+          <UploadCloud className="h-7 w-7 text-gray-500 dark:text-gray-400" />
           {file ? (
-            <span className="text-sm font-medium">{file.name} <span className="text-gray-400">({(file.size / 1024 / 1024).toFixed(1)} MB)</span></span>
+            <span className="text-sm font-medium">{file.name} <span className="text-gray-500 dark:text-gray-400">({(file.size / 1024 / 1024).toFixed(1)} MB)</span></span>
           ) : (
-            <><span className="text-sm font-medium">Arrastra o elige un archivo</span><span className="text-[12px] text-gray-400">PDF o imagen (JPG, PNG, WEBP) · máx. 12 MB</span></>
+            <><span className="text-sm font-medium">Arrastra o elige un archivo</span><span className="text-[12px] text-gray-500 dark:text-gray-400">PDF o imagen (JPG, PNG, WEBP) · máx. 12 MB</span></>
           )}
           <input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>

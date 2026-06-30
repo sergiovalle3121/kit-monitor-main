@@ -136,7 +136,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 <button
                   onClick={() => settle(false)}
                   aria-label="Cerrar"
-                  className="flex-shrink-0 text-gray-400 hover:text-foreground p-0.5 -mr-1 -mt-1"
+                  className="flex-shrink-0 text-gray-500 dark:text-gray-400 hover:text-foreground p-0.5 -mr-1 -mt-1"
                 >
                   <X className="w-4 h-4" />
                 </button>

@@ -114,8 +114,8 @@ export function SheetPivot({
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
           <Table2 className="w-5 h-5 text-emerald-500" />
           <h2 className="text-lg font-bold">Tabla dinámica</h2>
-          <span className="text-xs text-gray-400 hidden sm:inline">Arrastra campos a las áreas</span>
-          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">Arrastra campos a las áreas</span>
+          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
@@ -149,7 +149,7 @@ export function SheetPivot({
                   <GripVertical className="w-3 h-3 opacity-50" /> {f}
                 </button>
               ))}
-              {!available.length && <span className="text-xs text-gray-400">Todos los campos están en uso.</span>}
+              {!available.length && <span className="text-xs text-gray-500 dark:text-gray-400">Todos los campos están en uso.</span>}
             </div>
           </div>
 
@@ -167,10 +167,10 @@ export function SheetPivot({
                   className={`rounded-2xl border p-3 transition-colors ${over ? 'border-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/10' : 'border-gray-200 dark:border-white/10'}`}>
                   <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
                     <Icon className="w-4 h-4 text-emerald-500" /> {zm.label}
-                    <span className="text-gray-400 font-normal">· {zm.hint}</span>
+                    <span className="text-gray-500 dark:text-gray-400 font-normal">· {zm.hint}</span>
                   </div>
                   <div className="space-y-1.5 min-h-[2rem]">
-                    {items.length === 0 && <p className="text-[11px] text-gray-400">Suelta campos aquí.</p>}
+                    {items.length === 0 && <p className="text-[11px] text-gray-500 dark:text-gray-400">Suelta campos aquí.</p>}
                     {items.map((f, i) => (
                       <div key={f} className="flex items-center gap-1.5 bg-gray-50 dark:bg-white/[0.06] rounded-lg px-2 py-1 text-xs">
                         <span className="flex-1 truncate font-medium">{f}</span>
@@ -196,12 +196,12 @@ export function SheetPivot({
                           </button>
                         )}
                         {(zm.id === 'rows' || zm.id === 'cols' || zm.id === 'values') && i > 0 && (
-                          <button onClick={() => move(zm.id, f, -1)} className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronUp className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => move(zm.id, f, -1)} className="p-0.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronUp className="w-3.5 h-3.5" /></button>
                         )}
                         {(zm.id === 'rows' || zm.id === 'cols' || zm.id === 'values') && i < items.length - 1 && (
-                          <button onClick={() => move(zm.id, f, 1)} className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronDown className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => move(zm.id, f, 1)} className="p-0.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronDown className="w-3.5 h-3.5" /></button>
                         )}
-                        <button onClick={() => removeFrom(zm.id, f)} className="p-0.5 text-gray-400 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => removeFrom(zm.id, f)} className="p-0.5 text-gray-500 dark:text-gray-400 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
                       </div>
                     ))}
                     {/* Editor de filtro por valores */}
@@ -284,7 +284,7 @@ export function SheetPivot({
         </div>
 
         <div className="flex-shrink-0 flex items-center gap-2 px-5 h-16 border-t border-black/5 dark:border-white/10">
-          <p className="text-[11px] text-gray-400 flex-1">{draft.summary}</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 flex-1">{draft.summary}</p>
           <button onClick={onClose} className="h-10 px-4 rounded-xl text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
           <button disabled={!canApply} onClick={() => onApply(build(), { mode: target, cell })}
             className="h-10 px-5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-semibold hover:opacity-90 disabled:opacity-40">
@@ -317,7 +317,7 @@ function FilterValues({ all, selected, onChange }: { all: string[]; selected: st
           <input type="checkbox" checked={sel.has(v)} onChange={() => toggle(v)} /> <span className="truncate">{v || '(vacío)'}</span>
         </label>
       ))}
-      {!all.length && <span className="text-[11px] text-gray-400">Sin valores.</span>}
+      {!all.length && <span className="text-[11px] text-gray-500 dark:text-gray-400">Sin valores.</span>}
     </div>
   );
 }

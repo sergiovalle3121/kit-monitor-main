@@ -91,10 +91,10 @@ export default function RoutingEditorPage() {
   }
 
   if (forbidden) {
-    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
+    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
   }
   if (isLoading || !routing) {
-    return <div className="min-h-screen flex justify-center pt-32"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen flex justify-center pt-32"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
 
   const meta = STATUS_META[routing.status];
@@ -114,7 +114,7 @@ export default function RoutingEditorPage() {
               <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: meta.color, background: `${meta.color}1a` }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />{meta.label}
               </span>
-              <span className="text-[11px] text-gray-400">rev {routing.revision}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">rev {routing.revision}</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight truncate">{routing.name || routing.material?.description || 'Ruteo'}</h1>
           </div>
@@ -163,7 +163,7 @@ export default function RoutingEditorPage() {
         )}
 
         {routing.operations.length === 0 ? (
-          <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-400`}>
+          <div className={`${glass} rounded-2xl p-8 text-center text-sm text-gray-500 dark:text-gray-400`}>
             <Workflow className="w-7 h-7 mx-auto mb-2 text-gray-300" />
             Sin operaciones. Define la secuencia de manufactura del ensamble.
           </div>
@@ -182,7 +182,7 @@ export default function RoutingEditorPage() {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );
@@ -273,36 +273,36 @@ function OperationCard({ routingId, op, materials, onChange }: { routingId: stri
     <div className={`${glass} rounded-2xl overflow-hidden`}>
       <div className="flex items-center gap-3 p-4">
         <button onClick={() => setOpen((s) => !s)} className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10">
-          {open ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+          {open ? <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
         </button>
         <span className="font-mono text-sm text-primary font-semibold w-10">{op.sequence}</span>
         <div className="min-w-0 flex-1">
           <div className="font-semibold truncate">{op.name}</div>
-          <div className="text-xs text-gray-400 flex items-center gap-3 flex-wrap">
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-3 flex-wrap">
             {op.workCenter && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{op.workCenter}</span>}
             <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />setup {op.setupTimeMin}m · run {op.runTimePerUnitMin}m/u</span>
             {op.materials.length > 0 && <span className="inline-flex items-center gap-1"><Package2 className="w-3 h-3" />{op.materials.length} mat.</span>}
           </div>
         </div>
-        <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/10"><Pencil className="w-4 h-4" /></button>
-        <button onClick={removeOp} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
+        <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-primary hover:bg-primary/10"><Pencil className="w-4 h-4" /></button>
+        <button onClick={removeOp} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
       </div>
 
       {open && (
         <div className="px-4 pb-4 border-t border-gray-100 dark:border-white/10 pt-3">
           {op.description && <p className="text-sm text-gray-500 mb-3">{op.description}</p>}
-          {op.visualAidRef && <p className="text-xs text-gray-400 mb-3">Visual aid: {op.visualAidRef}</p>}
+          {op.visualAidRef && <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Visual aid: {op.visualAidRef}</p>}
 
-          <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Materiales consumidos (backflush)</div>
+          <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Materiales consumidos (backflush)</div>
           {op.materials.length > 0 && (
             <div className="space-y-1.5 mb-3">
               {op.materials.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 text-sm">
-                  <Package2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <Package2 className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 shrink-0" />
                   <span className="font-mono text-xs text-gray-500">{m.material?.partNumber ?? m.materialId}</span>
                   <span className="truncate flex-1">{m.material?.description ?? ''}</span>
                   <span className="tabular-nums text-gray-500">{m.qtyPerUnit} {m.uom}/u</span>
-                  <button onClick={() => removeMaterial(m.id)} className="p-1 rounded text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><X className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => removeMaterial(m.id)} className="p-1 rounded text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-500/10"><X className="w-3.5 h-3.5" /></button>
                 </div>
               ))}
             </div>

@@ -109,7 +109,7 @@ function NotifGroup({
 }) {
   return (
     <div>
-      <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+      <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         {label}
       </p>
       <div className="space-y-1">
@@ -176,7 +176,7 @@ function ThemeChoice() {
   ];
   return (
     <div className="px-2 pb-2">
-      <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+      <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         Apariencia
       </p>
       <div
@@ -413,7 +413,7 @@ export function DashboardTopBar() {
                   )}
                 </div>
                 {notifItems.length === 0 ? (
-                  <p className="text-xs text-gray-400 px-2 py-8 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 px-2 py-8 text-center">
                     Estás al día. Sin notificaciones.
                   </p>
                 ) : (
@@ -502,7 +502,7 @@ export function DashboardTopBar() {
                         </button>
                         <button
                           onClick={() => setEditingName(false)}
-                          className="p-1 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"
+                          className="p-1 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"
                           aria-label="Cancelar"
                         >
                           <X className="w-4 h-4" />
@@ -518,7 +518,7 @@ export function DashboardTopBar() {
                             setNameDraft(session?.name ?? "");
                             setEditingName(true);
                           }}
-                          className="p-1 rounded-md text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10 flex-shrink-0"
+                          className="p-1 rounded-md text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10 flex-shrink-0"
                           aria-label="Editar nombre"
                         >
                           <Pencil className="w-3.5 h-3.5" />

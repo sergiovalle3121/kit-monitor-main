@@ -136,7 +136,7 @@ export function EntityHistoryView({
 
         {/* Atajos de tipos comunes */}
         <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] text-gray-400">Atajos:</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">Atajos:</span>
           {SUGGESTED_TYPES.slice(0, 6).map((t) => (
             <button
               key={t}
@@ -157,19 +157,19 @@ export function EntityHistoryView({
       {/* Resultado */}
       {!path ? (
         <Notice
-          icon={<History className="h-8 w-8 text-gray-400" />}
+          icon={<History className="h-8 w-8 text-gray-500 dark:text-gray-400" />}
           title="Rastrea una entidad"
           body="Escribe el tipo y el identificador (una WO, un NCR, un serial…) para ver su línea de vida completa en la bitácora."
         />
       ) : forbidden ? (
         <Notice
-          icon={<Lock className="h-8 w-8 text-gray-400" />}
+          icon={<Lock className="h-8 w-8 text-gray-500 dark:text-gray-400" />}
           title="Sin acceso"
           body="Inicia sesión para consultar el historial de la bitácora."
         />
       ) : error ? (
         <Notice
-          icon={<ServerCog className="h-8 w-8 text-gray-400" />}
+          icon={<ServerCog className="h-8 w-8 text-gray-500 dark:text-gray-400" />}
           title="No se pudo cargar el historial"
           body="Hubo un problema al leer la bitácora. Reintenta en un momento."
           action={
@@ -184,11 +184,11 @@ export function EntityHistoryView({
         />
       ) : isLoading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" />
         </div>
       ) : events.length === 0 ? (
         <Notice
-          icon={<Inbox className="h-8 w-8 text-gray-400" />}
+          icon={<Inbox className="h-8 w-8 text-gray-500 dark:text-gray-400" />}
           title="Sin eventos"
           body={
             <>
@@ -215,7 +215,7 @@ export function EntityHistoryView({
                 <div className="font-semibold font-mono truncate">
                   {query?.type}:{query?.id}
                 </div>
-                <div className="text-[12px] text-gray-400 flex items-center gap-3 flex-wrap mt-0.5">
+                <div className="text-[12px] text-gray-500 dark:text-gray-400 flex items-center gap-3 flex-wrap mt-0.5">
                   <span>
                     {summary?.count} evento{summary?.count === 1 ? '' : 's'}
                   </span>
@@ -255,7 +255,7 @@ function Notice({
     <div className={`${glass} rounded-3xl p-12 text-center max-w-xl mx-auto`}>
       <div className="mx-auto mb-3 flex justify-center">{icon}</div>
       <h3 className="font-semibold">{title}</h3>
-      <p className="text-sm text-gray-400 mt-1 leading-relaxed">{body}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{body}</p>
       {action && <div className="mt-5 flex justify-center">{action}</div>}
     </div>
   );

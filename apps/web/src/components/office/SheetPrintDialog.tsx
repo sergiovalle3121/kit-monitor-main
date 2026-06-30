@@ -42,7 +42,7 @@ export function SheetPrintDialog({
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
           <Printer className="w-5 h-5 text-emerald-500" />
           <h2 className="text-lg font-bold">Imprimir</h2>
-          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col sm:flex-row">

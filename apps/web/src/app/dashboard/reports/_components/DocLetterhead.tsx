@@ -38,7 +38,7 @@ export function DocLetterhead({
         <div className="flex items-center gap-3">
           <IconTile domain={domain} size={48} />
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
               AXOS OS · Documento de planta
             </div>
             <h1 className="text-2xl font-bold leading-tight tracking-tight">{title}</h1>

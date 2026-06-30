@@ -145,9 +145,9 @@ function SeverityPill({ severity }: { severity: Severity }) {
 
 /** Indicador visible de CAPA por vencer / vencida en la tabla (alerta in-situ). */
 function CapaBadge({ inc }: { inc: Incident }) {
-  if (!isOpenStatus(inc.status) || !inc.capaDueDate) return <span className="text-gray-400">—</span>;
+  if (!isOpenStatus(inc.status) || !inc.capaDueDate) return <span className="text-gray-500 dark:text-gray-400">—</span>;
   const dl = capaDaysLeft(inc.capaDueDate);
-  if (dl === null) return <span className="text-gray-400">—</span>;
+  if (dl === null) return <span className="text-gray-500 dark:text-gray-400">—</span>;
   if (dl < 0) {
     return (
       <span className="inline-flex items-center gap-1 font-medium tabular-nums" style={{ color: RED }}>
@@ -200,7 +200,7 @@ const COLUMNS: ColumnDef<Incident, unknown>[] = [
     cell: ({ row }) => (
       <span className="text-gray-600 dark:text-gray-300">
         {row.original.area || '—'}
-        {row.original.location ? <span className="text-gray-400"> · {row.original.location}</span> : null}
+        {row.original.location ? <span className="text-gray-500 dark:text-gray-400"> · {row.original.location}</span> : null}
       </span>
     ),
     meta: { filterable: true, filterPlaceholder: 'Área…' },
@@ -324,9 +324,9 @@ export default function EhsPage() {
     return (
       <div className="grid min-h-[60vh] place-items-center text-foreground">
         <div className={`${glass} max-w-sm rounded-3xl p-10 text-center`}>
-          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="mt-1 text-sm text-gray-400">Inicia sesión para ver EHS.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Inicia sesión para ver EHS.</p>
         </div>
       </div>
     );
@@ -377,7 +377,7 @@ export default function EhsPage() {
         }
       >
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -485,7 +485,7 @@ export default function EhsPage() {
               <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Pasillo B" className={ehsInput} />
             </label>
           </div>
-          <p className="flex items-start gap-2 text-[12px] text-gray-400">
+          <p className="flex items-start gap-2 text-[12px] text-gray-500 dark:text-gray-400">
             <Sprout className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: GREEN }} />
             La investigación (causa raíz y CAPA) se hace al abrir el incidente. Reportar toma segundos.
           </p>

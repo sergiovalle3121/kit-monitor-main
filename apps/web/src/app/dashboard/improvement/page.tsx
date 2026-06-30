@@ -183,9 +183,9 @@ export default function ImprovementPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver mejora continua.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver mejora continua.</p>
         </div>
       </div>
     );
@@ -203,7 +203,7 @@ export default function ImprovementPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Mejora continua · OpEx</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Kaizen · Lean · Six Sigma — captura de ahorros</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Kaizen · Lean · Six Sigma — captura de ahorros</p>
           </div>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: INDIGO }}>
             <Plus className="w-4 h-4" /> Nueva iniciativa
@@ -284,7 +284,7 @@ export default function ImprovementPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 mb-5">
-          <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-400 mr-1"><Filter className="w-3.5 h-3.5" /> Filtros</span>
+          <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-gray-400 mr-1"><Filter className="w-3.5 h-3.5" /> Filtros</span>
           <select value={fStatus} onChange={(e) => setFStatus(e.target.value as 'ALL' | Status)} className="rounded-lg px-2.5 py-1.5 text-[12px] bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 outline-none">
             <option value="ALL">Todos los estados</option>
             {ORDER.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
@@ -298,27 +298,27 @@ export default function ImprovementPage() {
             {(Object.keys(PRIORITY_META) as Priority[]).map((p) => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
           </select>
           {anyFilter && (
-            <button onClick={() => { setFStatus('ALL'); setFMethod('ALL'); setFPriority('ALL'); }} className="text-[12px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline underline-offset-2">
+            <button onClick={() => { setFStatus('ALL'); setFMethod('ALL'); setFPriority('ALL'); }} className="text-[12px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline underline-offset-2">
               Limpiar
             </button>
           )}
-          <span className="ml-auto text-[12px] text-gray-400">{filtered.length} de {list.length}</span>
+          <span className="ml-auto text-[12px] text-gray-500 dark:text-gray-400">{filtered.length} de {list.length}</span>
         </div>
 
         {/* List */}
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin iniciativas todavía</h3>
-            <p className="text-sm text-gray-400 mt-1">Captura la primera idea de mejora para empezar a medir ahorros.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Captura la primera idea de mejora para empezar a medir ahorros.</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Filter className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Filter className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Nada coincide con los filtros</h3>
-            <p className="text-sm text-gray-400 mt-1">Ajusta o limpia los filtros para ver más iniciativas.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Ajusta o limpia los filtros para ver más iniciativas.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -341,9 +341,9 @@ export default function ImprovementPage() {
                         <Badge color={sm.color}>{sm.label}</Badge>
                         <Badge color={INDIGO}>{METHOD_LABEL[ini.methodology]}</Badge>
                         <Badge color={pm.color}>{pm.label}</Badge>
-                        {ini.area && <span className="text-[12px] text-gray-400">· {ini.area}</span>}
+                        {ini.area && <span className="text-[12px] text-gray-500 dark:text-gray-400">· {ini.area}</span>}
                       </div>
-                      <div className="mt-1.5 flex items-center gap-3 text-[12px] text-gray-400 flex-wrap">
+                      <div className="mt-1.5 flex items-center gap-3 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                         <span>est. {money(ini.estimatedSavings, ini.currency)}</span>
                         {ini.actualSavings > 0 && <span style={{ color: GREEN }}>real {money(ini.actualSavings, ini.currency)}</span>}
                       </div>
@@ -363,11 +363,11 @@ export default function ImprovementPage() {
 function Kpi({ label, value, color, hint, icon: Icon }: { label: string; value: number | string; color: string; hint?: string; icon?: typeof Target }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-400">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
         {Icon && <Icon className="w-3.5 h-3.5" />} {label}
       </div>
       <div className="text-xl font-semibold mt-1 tabular-nums truncate" style={{ color }} title={String(value)}>{value}</div>
-      {hint && <div className="text-[11px] text-gray-400 mt-0.5 truncate">{hint}</div>}
+      {hint && <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{hint}</div>}
     </div>
   );
 }

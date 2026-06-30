@@ -110,7 +110,7 @@ function DockCard({
             <span className="font-semibold">{dock.code}</span>
             <Pill label={meta.label} color={meta.color} dot />
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-gray-400">
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-gray-500 dark:text-gray-400">
             {dock.name && <span className="truncate">{dock.name}</span>}
             <Pill label={DOCK_TYPE_META[dock.type].label} color={DOCK_TYPE_META[dock.type].color} />
           </div>
@@ -132,14 +132,14 @@ function DockCard({
                 <span className="truncate text-sm font-medium">{occupant.customerName || occupant.title}</span>
                 <Pill label={shipmentStatusMeta(occupant.status).label} color={shipmentStatusMeta(occupant.status).color} />
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-400">
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400">
                 {occupant.vehiclePlate && <span className="inline-flex items-center gap-1"><Truck className="h-3 w-3" />{occupant.vehiclePlate}</span>}
                 {occupant.driverName && <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{occupant.driverName}</span>}
                 {occupant.carrier && <span>{occupant.carrier}</span>}
               </div>
             </div>
           ) : (
-            <p className="text-[12px] italic text-gray-400">Ocupado (sin embarque ligado).</p>
+            <p className="text-[12px] italic text-gray-500 dark:text-gray-400">Ocupado (sin embarque ligado).</p>
           )}
           <div className="mt-2 flex flex-wrap gap-1.5">
             <AgingChip label="En andén" iso={dock.occupiedAt} />
@@ -147,9 +147,9 @@ function DockCard({
           </div>
         </div>
       ) : board === "free" ? (
-        <p className="text-[12px] text-gray-400">Disponible para asignar un embarque.</p>
+        <p className="text-[12px] text-gray-500 dark:text-gray-400">Disponible para asignar un embarque.</p>
       ) : (
-        <p className="text-[12px] text-gray-400">
+        <p className="text-[12px] text-gray-500 dark:text-gray-400">
           {board === "maintenance" ? "Fuera de servicio por mantenimiento." : "Andén inactivo."}
         </p>
       )}
@@ -161,7 +161,7 @@ function DockCard({
           <span className="font-medium">{apptLate ? "Cita tarde" : "Próx. cita"}</span>
           <span>{fmtDateTime(nextAppt.scheduledAt)}</span>
           {(nextAppt.carrierName || nextAppt.vehiclePlate) && (
-            <span className="text-gray-400">· {nextAppt.carrierName || nextAppt.vehiclePlate}</span>
+            <span className="text-gray-500 dark:text-gray-400">· {nextAppt.carrierName || nextAppt.vehiclePlate}</span>
           )}
         </div>
       )}
@@ -170,7 +170,7 @@ function DockCard({
       <div className="mt-auto flex flex-wrap gap-2 pt-1">
         {board === "free" &&
           (dock.type === "receiving" ? (
-            <span className="text-[12px] italic text-gray-400">Andén de recibo — no embarca.</span>
+            <span className="text-[12px] italic text-gray-500 dark:text-gray-400">Andén de recibo — no embarca.</span>
           ) : (
             <button
               type="button"

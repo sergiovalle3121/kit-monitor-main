@@ -37,7 +37,7 @@ export function DocProperties({ editor }: { editor: Editor }) {
     <RibbonMenuButton icon={FileCog} label="Propiedades" menuWidth={340}>
       <div className="p-2 space-y-3">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">Control documental</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Control documental</p>
           <div className="grid grid-cols-2 gap-2">
             {FIELD_OPTIONS.map((f) => (
               <label key={f.key} className="space-y-1">
@@ -48,7 +48,7 @@ export function DocProperties({ editor }: { editor: Editor }) {
           </div>
         </div>
         <div className="border-t border-black/5 dark:border-white/10 pt-2">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1">Insertar campo vivo</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Insertar campo vivo</p>
           <div className="grid grid-cols-2 gap-1">
             {FIELD_OPTIONS.map((f) => (
               <button key={f.key} onClick={() => insertField(f.key, f.label)} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-[12px] hover:bg-black/5 dark:hover:bg-white/10">

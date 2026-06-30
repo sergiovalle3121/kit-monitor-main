@@ -384,3 +384,36 @@ nombre estable en todos los breakpoints, sin cambio visual.
 `axe:button-name = 0` y `axe:link-name = 0`. Con el pase 5, la app queda **sin
 violaciones de nombre accesible**. `tsc` + `eslint` limpios, `next build` OK.
 Único pendiente de a11y: `axe:color-contrast` (token-level, follow-up aparte).
+
+---
+
+## 14. Pase 7 — Contraste: texto muted más legible en claro (modo "equilibrado")
+
+Medición primero (axe, modo claro, con colores reales): el ~90% de los fallos de
+contraste es **un solo patrón** — texto gris muted (`text-gray-400`/`-500`) usado
+**~2900 veces**. Llevarlo a AA estricto = oscurecer todo el texto secundario, lo
+que cambia el look "airy" afinado. Con el owner se eligió la opción **equilibrada**:
+subir el texto más faint **un paso, solo en modo claro**, dejando el **modo oscuro
+idéntico**.
+
+**Cambio:** `text-gray-400` (standalone, el tono más faint, ratio 2.53 — ilegible)
+→ `text-gray-500 dark:text-gray-400`. Transform con perl y *lookbehind* para tocar
+**solo** el utility standalone (no `dark:`/`hover:`/`bg-`/`border-`). El paired
+`text-gray-400 dark:text-gray-500` se normaliza aparte. **249 archivos, 1 línea ↔ 1
+línea** (solo cambia el className).
+
+- **Modo claro:** el texto más faint pasa de #99a1af (2.53) a #6a7282 — legible,
+  pasa en tarjetas blancas (~4.8) y queda marginal (4.43) solo sobre el fondo
+  off-white de página.
+- **Modo oscuro:** **byte-idéntico** (el `dark:text-gray-400` conserva el tono).
+  Verificado con capturas before/after (claro y oscuro).
+
+**Resultado (12 rutas muestra):** nodos de contraste en fallo **112 → 76 (−32%)**;
+desaparecen los peores (2.53). Gates: `tsc` 0 · `eslint` 0 (warnings pre-existentes) ·
+`next build` OK.
+
+**Pendiente (documentado, no en este PR):** (a) los 4.43 sobre fondo de página
+(a 0.07 de pasar — requeriría el paso estricto a `gray-600` o aclarar el fondo);
+(b) un gris hardcodeado `#86868b` en un componente; (c) ~7 botones/píldoras con
+texto blanco/acento sobre tinte claro (naranja/azul/ámbar). Son de otra naturaleza
+(token estricto / por componente) y se dejan como follow-up.

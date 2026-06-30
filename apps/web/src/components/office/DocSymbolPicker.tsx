@@ -24,7 +24,7 @@ export function DocSymbolPicker({ editor }: { editor: Editor }) {
       <div className="space-y-2 max-h-80 overflow-y-auto">
         {GROUPS.map((g) => (
           <div key={g.label}>
-            <div className="text-[10px] font-semibold text-gray-400 px-1 pb-1 uppercase tracking-wide">{g.label}</div>
+            <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 px-1 pb-1 uppercase tracking-wide">{g.label}</div>
             <div className="grid grid-cols-8 gap-0.5">
               {g.chars.map((ch) => (
                 <button

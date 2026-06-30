@@ -11,7 +11,7 @@ const KIND_BADGE: Record<AnimKind, string> = {
   emphasis: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   exit: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
   motion: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
-  none: 'bg-black/10 dark:bg-white/10 text-gray-400',
+  none: 'bg-black/10 dark:bg-white/10 text-gray-500 dark:text-gray-400',
 };
 
 const repeatLabel = (repeat?: number) => !repeat ? '∞' : `${repeat}×`;
@@ -38,17 +38,17 @@ export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPr
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-        {!items.length && <p className="text-xs text-gray-400 px-2 py-4 text-center">No hay objetos en esta diapositiva.</p>}
+        {!items.length && <p className="text-xs text-gray-500 dark:text-gray-400 px-2 py-4 text-center">No hay objetos en esta diapositiva.</p>}
         {sorted.map((it) => {
           const animated = it.anim && it.anim !== 'none';
           return (
             <div key={it.idx} onClick={() => onSelect(it.idx)}
               className={`rounded-xl border p-2 cursor-pointer transition-colors ${it.idx === activeIdx ? 'border-blue-500 bg-blue-500/5' : 'border-black/10 dark:border-white/10 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'}`}>
               <div className="flex items-center gap-2 mb-1.5">
-                <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${animated ? 'bg-blue-500 text-white' : 'bg-black/10 dark:bg-white/10 text-gray-400'}`}>{animated ? it.order : '–'}</span>
+                <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${animated ? 'bg-blue-500 text-white' : 'bg-black/10 dark:bg-white/10 text-gray-500 dark:text-gray-400'}`}>{animated ? it.order : '–'}</span>
                 <span className="text-xs font-medium truncate flex-1">{it.label}</span>
-                {animated && <span className="text-[9px] font-bold text-gray-400" title="Repetición">{repeatLabel(it.repeat)}</span>}
-                {animated ? <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${KIND_BADGE[it.kind]}`}>{ANIM_KIND_LABEL[it.kind]}</span> : <span className="text-[10px] text-gray-400">{it.type}</span>}
+                {animated && <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400" title="Repetición">{repeatLabel(it.repeat)}</span>}
+                {animated ? <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${KIND_BADGE[it.kind]}`}>{ANIM_KIND_LABEL[it.kind]}</span> : <span className="text-[10px] text-gray-500 dark:text-gray-400">{it.type}</span>}
               </div>
               <select value={it.anim} onClick={(e) => e.stopPropagation()} onChange={(e) => onChange(it.idx, 'anim', e.target.value)}
                 className="w-full h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-2 outline-none border border-transparent focus:border-blue-500/40 mb-1.5">
@@ -73,8 +73,8 @@ export function SlideAnimationPanel({ items, activeIdx, onChange, onSelect, onPr
                       className="w-full h-6 text-xs rounded-md bg-black/[0.04] dark:bg-white/[0.06] px-1 outline-none" />
                   </label>
                   <span className="flex flex-col -my-0.5">
-                    <button onClick={() => onChange(it.idx, 'animOrder', it.order + 1)} title="Reproducir más tarde" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 leading-none"><ChevronUp className="w-3 h-3" /></button>
-                    <button onClick={() => onChange(it.idx, 'animOrder', Math.max(0, it.order - 1))} title="Reproducir antes" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 leading-none"><ChevronDown className="w-3 h-3" /></button>
+                    <button onClick={() => onChange(it.idx, 'animOrder', it.order + 1)} title="Reproducir más tarde" className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 leading-none"><ChevronUp className="w-3 h-3" /></button>
+                    <button onClick={() => onChange(it.idx, 'animOrder', Math.max(0, it.order - 1))} title="Reproducir antes" className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 leading-none"><ChevronDown className="w-3 h-3" /></button>
                   </span>
                   <select value={String(it.dur)} onChange={(e) => onChange(it.idx, 'animDur', Number(e.target.value))} title="Duración"
                     className="h-6 text-[11px] rounded-md bg-black/[0.04] dark:bg-white/[0.06] px-1 outline-none">

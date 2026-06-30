@@ -101,7 +101,7 @@ export function DocFindReplace({ editor, onClose }: { editor: Editor; onClose: (
         <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') goTo(activeIdx + (e.shiftKey ? -1 : 1)); if (e.key === 'Escape') onClose(); }}
           placeholder="Buscar" className={`${field} ${invalid ? 'ring-2 ring-red-500/60' : ''}`} />
-        <span className="text-[11px] text-gray-400 tabular-nums w-12 text-center">{invalid ? '!' : matches.length ? `${activeIdx + 1}/${matches.length}` : '0/0'}</span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums w-12 text-center">{invalid ? '!' : matches.length ? `${activeIdx + 1}/${matches.length}` : '0/0'}</span>
         <button onClick={() => goTo(activeIdx - 1)} title="Anterior" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500"><ChevronUp className="w-4 h-4" /></button>
         <button onClick={() => goTo(activeIdx + 1)} title="Siguiente" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500"><ChevronDown className="w-4 h-4" /></button>
         <button onClick={onClose} title="Cerrar" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500"><X className="w-4 h-4" /></button>

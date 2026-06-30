@@ -56,7 +56,7 @@ export function SheetFormatDialog({
         className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
           <h2 className="text-lg font-bold">Formato de celdas</h2>
-          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="flex gap-1 px-5 pt-3 flex-shrink-0">
@@ -78,7 +78,7 @@ export function SheetFormatDialog({
                   <button key={p.id} onClick={() => { setPresetId(p.id); setCustom(''); }}
                     className={`text-left px-3 py-2 rounded-xl border text-sm transition-colors ${!custom && presetId === p.id ? 'border-emerald-400 bg-emerald-50/60 dark:bg-emerald-500/10' : 'border-gray-200 dark:border-white/10 hover:border-emerald-300'}`}>
                     <div className="font-medium">{p.label}</div>
-                    <div className="text-[11px] text-gray-400 font-mono truncate">{p.sample}</div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono truncate">{p.sample}</div>
                   </button>
                 ))}
               </div>
@@ -92,9 +92,9 @@ export function SheetFormatDialog({
               </div>
               <div className="flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-white/[0.04] p-3">
                 <input value={sample} onChange={(e) => setSample(e.target.value)} className="w-28 h-8 text-sm rounded-lg bg-white dark:bg-white/10 px-2 outline-none font-mono" />
-                <span className="text-gray-400">→</span>
+                <span className="text-gray-500 dark:text-gray-400">→</span>
                 <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{preview}</span>
-                <code className="ml-auto text-[10px] text-gray-400 truncate">{code}</code>
+                <code className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 truncate">{code}</code>
               </div>
               <button onClick={() => onApplyNumber({ range, sheetIndex, code, currency })}
                 className="w-full h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90">Aplicar formato de número</button>
@@ -119,7 +119,7 @@ export function SheetFormatDialog({
                   <StyleBtn icon={WrapText} label="Ajustar texto" onClick={() => onApplyStyle({ range, sheetIndex, style: { wrap: true } })} />
                 </div>
               </div>
-              <p className="text-[11px] text-gray-400">Los estilos se aplican al rango indicado al instante.</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Los estilos se aplican al rango indicado al instante.</p>
             </>
           )}
         </div>
