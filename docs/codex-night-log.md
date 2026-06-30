@@ -342,3 +342,12 @@
 - Wired CAD layer visibility to actual station and asset objects in the viewport instead of only export/inspector metadata.
 - Added hidden/locked layer object counts plus an `All` recovery action to the existing layer panel and status bar.
 - Pending: persist layer assignments/visibility with the layout API and add layer search/filter after the persistence contract is reviewed.
+## 2026-06-30 - Dock and staging generator
+
+- Inspected open CAD PRs #900, #903, and #904; they are clean and cover factory scale, saved views, and canvas focus, so this run avoided those areas.
+- Marked #904 ready for Claude Integrator after CI was green and no prior ready comment existed.
+- Reused the existing warehouse generator output contract, editable asset model, annotations, CAD layer assignments, object tags, local snapshots, selection, snapping, connector rendering, and DXF export path.
+- Added `generateWarehouseDockStaging` for receiving, shipping, and cross-dock layouts with dock doors, staging lanes, pallet positions, forklift apron, labels, scaling warnings, and generated flow connectors.
+- Wired `Layout3DEditor.tsx` so the existing Equipment rail can create dock/staging layouts and so generated asset-to-asset connectors render visibly.
+- Added focused `warehouse-generators.spec.ts` coverage for horizontal/vertical docks, tags/layers, connector counts, bounds safety, and scaling.
+- Pending: add a parametric supermarket lane/cart generator or line-side delivery generator using the same generator contract.
