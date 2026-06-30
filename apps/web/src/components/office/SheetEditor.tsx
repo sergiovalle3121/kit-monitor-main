@@ -418,7 +418,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     if (approvalRef.current.status === 'in_review' || approvalRef.current.status === 'approved') return;
     const notes = window.prompt('Notas para revisión (opcional). Esta acción sólo guarda metadata local hasta que exista el endpoint backend:', approvalRef.current.notes ?? '');
     if (notes === null) return;
-    const next = requestWorkbookReview(approvalRef.current, 'AXOS user', notes);
+    const next = requestWorkbookReview(approvalRef.current, 'AXOS user', notes, workbookPayload());
     approvalRef.current = next;
     setApproval(next);
     emit();
@@ -1569,6 +1569,7 @@ function SheetWorkbenchInspector({
             {approval.status !== 'approved' && approval.status !== 'in_review' && <button disabled={readOnly} onClick={onSendForReview} className="mt-2 rounded-lg bg-gray-900 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-40 dark:bg-white dark:text-gray-900">Send for review</button>}
             <div className="mt-1 text-[10px] opacity-75">Foundation UI: no firma aprobación real sin endpoint backend.</div>
           </div>
+          <Metric label="Firma vs contenido" value={health.approvalSnapshotStatus === 'changed' ? 'Changed' : health.approvalSnapshotStatus === 'matched' ? 'Matched' : 'No snapshot'} />
           <Metric label="Hojas" value={health.sheets} /><Metric label="Celdas usadas" value={health.usedCells} /><Metric label="Fórmulas" value={health.formulas} /><Metric label="Fórmulas sin proteger" value={health.unprotectedFormulas} /><Metric label="Charts" value={health.charts} /><Metric label="Pivots" value={health.pivots} /><Metric label="Validaciones" value={health.validations} /><Metric label="Comentarios abiertos/resueltos" value={`${health.openComments}/${health.resolvedComments}`} /><Metric label="Comentarios asignados" value={health.assignedComments} /><Metric label="Hojas protegidas" value={health.protectedSheets} /><Metric label="Rangos protegidos" value={health.protectedRanges} /><Metric label="Consultas stale/fallidas" value={`${health.staleAxosConnectors}/${health.failedQueries}`} /><Metric label="Aprobaciones pend/rech/aprob" value={`${health.pendingApprovals}/${health.rejectedApprovals}/${health.approvedApprovals}`} /><Metric label="Export warnings" value={health.exportWarnings} /><Metric label="Sharing" value={`${health.sharingStatus} · ${health.sharedPrincipals}`} /><Metric label="Nombres definidos" value={health.namedRanges} /><Metric label="Warnings import/XLSX" value={health.importWarnings + health.unsupportedXlsxFeatures} />
 
           <div className="mt-3 space-y-2">{health.findings.slice(0, 5).map((f: any) => <div key={f.code} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{f.severity}</b> · {f.message}</div>)}{!health.findings.length && <div className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]">Sin hallazgos relevantes para compartir/exportar.</div>}</div>

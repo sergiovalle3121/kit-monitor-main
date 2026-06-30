@@ -55,13 +55,16 @@ This audit records what exists on `origin/main` before the current Sheets PR and
 | Slicers/timelines | Yes/open PR | `slicer.ts`, `SheetSlicer.tsx`, #765 | partial | Active open PR owns this area. | Do not touch until #765 resolves. | `slicer.ts`, `SheetEditor.tsx` | High. |
 | Comments | Yes/open PR | `sheetComments.ts`, `SheetEditor.tsx`, API comment models, #762 | partial | Open PR owns range comments. | Converge Docs/Slides/Sheets comments later; no third model. | comments files, API Office comments | High. |
 | Protection/governance | Yes | `SheetEditor.tsx`, `xlsxStyled.ts`, `workbookHealth.ts` | usable | Local metadata enforcement exists; enterprise audit is partial. | Add protection summary/export blockers after #753. | `SheetEditor.tsx`, `workbookHealth.ts`, `xlsxStyled.ts` | High. |
-| Approval/signoff | Open PR | #753 files | seed/partial | Pending PR owns workbook approval foundation. | Wait for #753 merge, then integrate approval into export readiness. | approval/health/editor files | High. |
+| Approval/signoff | Yes | `workbookApproval.ts`, `workbookHealth.ts`, `SheetEditor.tsx` | usable foundation | Local signoff now detects review/approval content drift; backend signature persistence remains pending. | Map sheet approval to Office electronic signatures and tenant-scoped audit events. | approval/health/editor files, Office signatures | Medium. |
 | Print/export layout | Yes | `sheetOps.ts`, `SheetPrintDialog.tsx`, `SheetActions.tsx` | usable | Browser print foundation exists; PDF/native layout is contract-level. | Add print readiness checklist in export menu/panel. | print helpers, `SheetActions.tsx` | Low. |
 | Industrial templates | Yes | `templates.ts`, template specs | usable | Core templates exist; backlog templates remain. | Add MRP Shortages or Packing Readiness template with charts/validations. | `templates.ts`, template specs | Low. |
 | Performance/autosave | Yes | `workbookPerformance.ts`, `SheetEditor.tsx` | strong | Status telemetry exists; large-panel lazy loading can improve later. | Memoize heavy inspector scans after editor PRs merge. | performance helpers, `SheetEditor.tsx` | High if editor. |
 
 ## Current PR Visible Fix
 
+The current PR extends the existing approval/signoff foundation with deterministic content snapshots and Workbook Health drift findings. Users now see `Firma vs contenido` in the mounted Workbook Health inspector, and the existing `Send for review` action records the current workbook snapshot instead of only changing the local approval status.
+
+This is non-redundant because it reuses `workbookApproval.ts`, `workbookHealth.ts`, and the already-mounted `SheetEditor.tsx` signoff card instead of creating a second approval workflow or a backend shortcut.
 The current PR wires the existing `formulaDependencies.ts` dependency/recalculation foundation into the mounted `SheetEditor` workbench. Users now get a Formula ribbon `Plan recalc` action and a Workbook Health recalc panel with formula counts, safe order, formula-to-formula edges, blocked cycle cells, missing references, external references, and first safe recalculation cells.
 
 This is non-redundant because it reuses the existing dependency graph, Workbook Health, Formula ribbon, and inspector surfaces instead of adding a second recalc engine or a parallel spreadsheet editor.

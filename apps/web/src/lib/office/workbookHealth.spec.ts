@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { analyzeWorkbookHealth, formatWorkbookHealthReport } from './workbookHealth';
+import { requestWorkbookReview, workbookApprovalContentSignature } from './workbookApproval';
 
 let passed = 0; const fails: string[] = [];
 const ok = (cond: boolean, msg: string) => { if (cond) passed++; else fails.push(msg); };
@@ -31,6 +32,19 @@ ok(formatWorkbookHealthReport(report).includes('Salud del workbook'), 'formatea 
 
 eq(analyzeWorkbookHealth({ sheets: [], approval: { status: 'approved', approvedBy: 'QA' } }).score, 100, 'aprobado sin hallazgos score 100');
 ok(analyzeWorkbookHealth({ sheets: [], approval: { status: 'rejected', notes: 'Falta soporte' } }).findings.some((f) => f.code === 'approval-rejected'), 'detecta rechazo de aprobación');
+
+const approvedWorkbook = { sheets: [{ name: 'Ops', celldata: [{ r: 0, c: 0, v: { v: 10 } }] }] };
+const approvedContentSignature = workbookApprovalContentSignature(approvedWorkbook);
+ok(analyzeWorkbookHealth({
+  sheets: [{ name: 'Ops', celldata: [{ r: 0, c: 0, v: { v: 11 } }] }],
+  approval: { status: 'approved', approvedBy: 'QA', approvedContentSignature },
+}).findings.some((f) => f.code === 'approval-content-changed' && f.severity === 'critical'), 'detecta workbook aprobado cambiado');
+
+const reviewApproval = requestWorkbookReview(null, 'Planner', undefined, approvedWorkbook);
+ok(analyzeWorkbookHealth({
+  sheets: [{ name: 'Ops', celldata: [{ r: 0, c: 0, v: { v: 12 } }] }],
+  approval: reviewApproval,
+}).findings.some((f) => f.code === 'review-content-changed' && f.severity === 'warning'), 'detecta workbook en revision cambiado');
 
 const total = passed + fails.length;
 if (fails.length) { console.error(`❌ ${passed}/${total}`); for (const f of fails) console.error('  - ' + f); process.exit(1); }
