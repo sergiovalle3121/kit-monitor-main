@@ -33,3 +33,26 @@ Supported pure steps:
 ## Next slice
 
 Persist transform recipes in workbook metadata so connector tables can be refreshed and then re-run saved transforms without manually rebuilding the recipe.
+
+## Data quality inspector
+
+AXOS Sheets now exposes a first industrial Data Quality panel from the existing sheet action bar in the Office shell. It reuses existing validation and formula-error audits, then adds focused ERP/MES heuristics without creating a second editor or a fake connector workflow.
+
+- Engine: `apps/web/src/lib/office/dataQuality.ts`
+- Existing validation foundation reused: `apps/web/src/lib/office/dataValidationAudit.ts`
+- Existing formula-error foundation reused: `apps/web/src/lib/office/formulaErrorAudit.ts`
+- UI mount: `apps/web/src/components/office/SheetActions.tsx`
+- Report output: generated workbook sheet named `AXOS Data Quality`
+
+Checks included:
+
+- data validation violations, including required fields
+- visible formula errors such as `#REF!` and `#NAME?`
+- inferred blank industrial key fields
+- duplicate industrial keys such as SKU, lot, WO, NCR, PO, supplier, model, and revision
+- negative inventory or quantity values
+- invalid dates in date/ETA/need/date-like columns
+- stale, due, invalid, or failed AXOS connector metadata
+- unsupported XLSX import warnings already stored in workbook metadata
+
+The panel is intentionally honest: it only reports issues visible in workbook JSON and connector metadata. It does not call ERP/MES APIs, does not mutate source data, and does not claim connector success. Users can create the `AXOS Data Quality` sheet to review severity, affected cell or range, message, and suggested remediation inside the workbook before sharing or exporting.

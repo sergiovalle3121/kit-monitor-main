@@ -26,6 +26,33 @@ export interface FormulaRecalculationPlan {
   ready: boolean;
 }
 
+export interface FormulaRecalculationCellRef {
+  id: string;
+  sheetIndex: number;
+  sheetName: string;
+  address: string;
+  label: string;
+  formula: string;
+}
+
+export interface FormulaRecalculationDiagnostics {
+  totalFormulas: number;
+  precedentReferences: number;
+  formulaToFormulaEdges: number;
+  recalculableFormulas: number;
+  blockedFormulas: number;
+  cycleCount: number;
+  missingReferenceCount: number;
+  externalReferenceCount: number;
+  ready: boolean;
+  orderedCells: FormulaRecalculationCellRef[];
+  blockedCells: FormulaRecalculationCellRef[];
+  cycles: string[][];
+  missingReferences: string[];
+  externalReferences: string[];
+  warnings: string[];
+}
+
 interface RefToken { sheetName?: string; address: string; rangeEnd?: string }
 
 function formulaOfCell(cd: any): string | null {
@@ -67,9 +94,14 @@ function expandRange(start: string, end?: string): string[] {
 }
 
 function refsInFormula(formula: string): { refs: RefToken[]; external: string[] } {
-  const clean = stripStrings(formula);
+  let clean = stripStrings(formula);
   const refs: RefToken[] = [];
   const external = new Set<string>();
+  const externalWorkbookRe = /\[[^\]]+\](?:'[^']+'|[A-Za-z_][\w .-]*)!\$?[A-Z]{1,3}\$?\d+(?::\$?[A-Z]{1,3}\$?\d+)?/g;
+  clean = clean.replace(externalWorkbookRe, (match) => {
+    external.add(match);
+    return ' ';
+  });
   const rangeRe = /((?:'[^']+'|[A-Za-z_][\w .-]*)!)?(\$?[A-Z]{1,3}\$?\d+)\s*:\s*(\$?[A-Z]{1,3}\$?\d+)/g;
   let m: RegExpExecArray | null;
   while ((m = rangeRe.exec(clean))) {
@@ -184,6 +216,69 @@ export function buildFormulaRecalculationPlan(graph: FormulaDependencyGraph): Fo
     missingReferences: [...graph.missingReferences],
     ready: blocked.size === 0 && graph.missingReferences.length === 0,
   };
+}
+
+function formulaCellRef(node: FormulaDependencyNode): FormulaRecalculationCellRef {
+  return {
+    id: node.id,
+    sheetIndex: node.sheetIndex,
+    sheetName: node.sheetName,
+    address: node.address,
+    label: `${node.sheetName}!${node.address}`,
+    formula: node.formula,
+  };
+}
+
+export function buildFormulaRecalculationDiagnostics(content: any): FormulaRecalculationDiagnostics {
+  const graph = buildFormulaDependencyGraph(content);
+  const plan = buildFormulaRecalculationPlan(graph);
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  const orderedCells = plan.order
+    .map((id) => byId.get(id))
+    .filter((node): node is FormulaDependencyNode => !!node)
+    .map(formulaCellRef);
+  const blockedCells = plan.blockedByCycles
+    .map((id) => byId.get(id))
+    .filter((node): node is FormulaDependencyNode => !!node)
+    .map(formulaCellRef);
+  const warnings: string[] = [];
+  if (!graph.nodes.length) warnings.push('No hay formulas para planear recalculo.');
+  if (graph.cycles.length) warnings.push(`${graph.cycles.length} ciclo(s) bloquean formulas dependientes.`);
+  if (graph.missingReferences.length) warnings.push(`${graph.missingReferences.length} referencia(s) apuntan a hojas faltantes.`);
+  if (graph.externalReferences.length) warnings.push(`${graph.externalReferences.length} referencia(s) externas requieren revision antes de publicar.`);
+  if (!warnings.length) warnings.push('Plan de recalculo listo: las dependencias de formulas tienen orden seguro.');
+  return {
+    totalFormulas: graph.nodes.length,
+    precedentReferences: graph.nodes.reduce((sum, node) => sum + node.precedents.length, 0),
+    formulaToFormulaEdges: graph.edges.length,
+    recalculableFormulas: orderedCells.length,
+    blockedFormulas: blockedCells.length,
+    cycleCount: graph.cycles.length,
+    missingReferenceCount: graph.missingReferences.length,
+    externalReferenceCount: graph.externalReferences.length,
+    ready: plan.ready,
+    orderedCells,
+    blockedCells,
+    cycles: graph.cycles,
+    missingReferences: graph.missingReferences,
+    externalReferences: graph.externalReferences,
+    warnings,
+  };
+}
+
+export function formatFormulaRecalculationDiagnostics(diagnostics: FormulaRecalculationDiagnostics): string {
+  const status = diagnostics.ready ? 'listo' : 'requiere revision';
+  const lines = [
+    `Plan de recalculo: ${status}`,
+    `${diagnostics.totalFormulas} formula(s), ${diagnostics.formulaToFormulaEdges} enlace(s) formula-a-formula, ${diagnostics.precedentReferences} precedente(s).`,
+    `${diagnostics.recalculableFormulas} formula(s) con orden seguro; ${diagnostics.blockedFormulas} bloqueada(s) por ciclos.`,
+  ];
+  if (diagnostics.missingReferenceCount) lines.push(`Referencias faltantes: ${diagnostics.missingReferences.join(', ')}`);
+  if (diagnostics.externalReferenceCount) lines.push(`Referencias externas: ${diagnostics.externalReferences.join(', ')}`);
+  if (diagnostics.blockedCells.length) lines.push(`Bloqueadas: ${diagnostics.blockedCells.slice(0, 8).map((cell) => cell.label).join(', ')}`);
+  if (diagnostics.orderedCells.length) lines.push(`Primeras a recalcular: ${diagnostics.orderedCells.slice(0, 10).map((cell) => cell.label).join(', ')}`);
+  lines.push(...diagnostics.warnings.map((warning) => `- ${warning}`));
+  return lines.join('\n');
 }
 
 export function formatFormulaDependencySummary(graph: FormulaDependencyGraph): string {
