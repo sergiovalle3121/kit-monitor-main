@@ -18,6 +18,27 @@ The `mrp-shortages-control-room` sheet template is a connected industrial workbo
 - Data validation entries from `buildDataVerification`.
 - Print layout metadata consumed by the existing print/export workflow.
 
+## Gallery Readiness Badges
+
+The Office template gallery now evaluates every Sheets template with
+`apps/web/src/lib/office/templateReadiness.ts` before the user opens it. The
+badge is computed from the same workbook payload the template will create:
+
+- formulas
+- charts
+- pivot definitions
+- AXOS connector instances
+- table metadata
+- validation rules
+- protected ranges
+- named ranges
+- dashboard sheets
+- print layout
+
+This makes the visible gallery honest: a user can distinguish a starter grid
+from an analysis template, a connected workbook, or a governed control-room
+template before creating the document.
+
 ## Non-Redundant Next Step
 
 Wire the already existing `SheetConnectorParams` dialog into the AXOS Data panel after the open `SheetEditor.tsx` PRs land. That should route preview/refresh through `apps/web/src/lib/office/axosConnectorApi.ts` and the backend `GET /office-documents/sheets/connectors/:type` contract instead of adding another connector path.
