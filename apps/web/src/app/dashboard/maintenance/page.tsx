@@ -80,7 +80,7 @@ export default function MaintenancePage() {
       <div className={`${glass} sticky top-0 z-40 px-6 pt-4`}>
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+            <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
               <ChevronLeft className="w-5 h-5" />
             </Link>
             <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: `${COLORS.violet}1f` }}>
@@ -90,7 +90,7 @@ export default function MaintenancePage() {
               <h1 className="text-lg font-semibold leading-tight">Mantenimiento · TPM</h1>
               <p className="text-[12px] text-gray-400 leading-tight">Activos, órdenes y preventivo (CMMS)</p>
             </div>
-            <button onClick={() => onNewOrder()} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: COLORS.violet }}>
+            <button onClick={() => onNewOrder()} aria-label="Nueva orden" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: COLORS.violet }}>
               <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nueva orden</span>
             </button>
           </div>
