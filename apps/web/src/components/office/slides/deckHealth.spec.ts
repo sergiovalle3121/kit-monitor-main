@@ -68,6 +68,9 @@ eq(health.hiddenObjects, 1, 'counts hidden objects');
 eq(health.lockedObjects, 1, 'counts locked objects');
 eq(health.offCanvasObjects, 1, 'counts off-canvas objects');
 eq(health.imagesMissingAltText, 1, 'counts image alt text gaps');
+eq(health.presentationQuality.lowContrastTextObjects, 0, 'embeds presentation quality report');
+eq(health.presentationQuality.smallTextObjects, 0, 'tracks small text in presentation quality report');
+eq(health.presentationQualityIssues, health.presentationQuality.issueCount, 'mirrors presentation quality issue count');
 eq(health.currentEmpty, true, 'current slide empty state uses selected slide');
 eq(health.currentHasTitle, false, 'current title state uses selected slide');
 eq(health.currentHasNotes, false, 'current notes state uses selected slide');
@@ -76,6 +79,22 @@ ok(health.readinessScore < 75, 'penalizes release readiness issues');
 ok(health.readinessIssues.some((issue) => issue.includes('speaker notes')), 'surfaces missing notes issue');
 ok(health.readinessIssues.some((issue) => issue.includes('outside the slide bounds')), 'surfaces off-canvas issue');
 ok(health.readinessIssues.some((issue) => issue.includes('Smart Object')), 'surfaces smart object contract issue');
+
+const qualityRisk = analyzeSlideDeckHealth({
+  slides: [{
+    background: '#ffffff',
+    objects: [
+      { type: 'textbox', ph: 'title', text: 'Quality risk', left: 40, top: 40, width: 600, height: 44, fontSize: 34, fill: '#111827' },
+      { type: 'textbox', text: 'Low contrast body', left: 40, top: 140, width: 420, height: 34, fontSize: 18, fill: '#777777' },
+      { type: 'textbox', text: 'Tiny caption', left: 40, top: 450, width: 240, height: 20, fontSize: 10, fill: '#111827' },
+    ],
+  }],
+  notes: ['Discuss readability issue.'],
+});
+eq(qualityRisk.lowContrastTextObjects, 1, 'health surfaces low contrast text count');
+eq(qualityRisk.smallTextObjects, 1, 'health surfaces small text count');
+ok(qualityRisk.readinessIssues.some((issue) => issue.includes('low contrast')), 'readiness includes low contrast warning');
+ok(qualityRisk.readinessScore < 100, 'presentation quality issues reduce readiness score');
 
 const blockedByPptx = analyzeSlideDeckHealth({
   slides: [{ objects: [{ type: 'textbox', ph: 'title', text: 'Imported deck', left: 40, top: 40, width: 500, height: 48 }] }],

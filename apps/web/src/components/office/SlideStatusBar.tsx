@@ -25,8 +25,10 @@ export function SlideStatusBar({
   onOpenAnimations: () => void;
   onPresentFromHere: () => void;
 }) {
-  const tone = health.exportReadiness === 'blocked' ? 'rose' : health.pptxIssues > 0 || health.commentsOpen > 0 || health.missingNotes > 0 ? 'amber' : 'green';
+  const quality = health.presentationQuality;
+  const tone = health.exportReadiness === 'blocked' || quality.dangerCount > 0 ? 'rose' : health.pptxIssues > 0 || health.commentsOpen > 0 || health.missingNotes > 0 || quality.warningCount > 0 ? 'amber' : 'green';
   const exportTone = health.exportReadiness === 'blocked' ? 'rose' : health.exportReadiness === 'review' ? 'amber' : 'green';
+  const qualityTone = quality.score >= 85 ? 'green' : quality.score >= 65 ? 'amber' : 'rose';
   const exportIcon = health.exportReadiness === 'blocked'
     ? <ShieldAlert className="w-3.5 h-3.5" />
     : health.exportReadiness === 'review'
@@ -38,7 +40,7 @@ export function SlideStatusBar({
       ? 'Export blocked'
       : `Export review ${health.exportWarnings}`;
   return (
-    <footer className="h-10 flex-shrink-0 rounded-2xl border border-black/10 dark:border-white/10 bg-white/85 dark:bg-[#111]/85 backdrop-blur px-3 flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+    <footer className="h-10 flex-shrink-0 rounded-2xl border border-black/10 dark:border-white/10 bg-white/85 dark:bg-[#111]/85 backdrop-blur px-3 flex items-center gap-3 overflow-x-auto whitespace-nowrap text-xs text-gray-600 dark:text-gray-300">
       <div className="flex items-center gap-2 font-semibold">
         <Activity className={`w-4 h-4 ${tone === 'rose' ? 'text-rose-500' : tone === 'amber' ? 'text-amber-500' : 'text-emerald-500'}`} />
         <span>Slide {current + 1}/{health.slideCount}</span>
@@ -46,6 +48,13 @@ export function SlideStatusBar({
       <span className="h-4 w-px bg-black/10 dark:bg-white/10" />
       <span className={`font-semibold ${health.readinessScore >= 85 ? 'text-emerald-600 dark:text-emerald-400' : health.readinessScore >= 65 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>Ready {health.readinessScore}%</span>
       <span>{health.objectCount} objetos</span>
+      <span className={`hidden md:inline-flex items-center gap-1 rounded-lg px-2 py-1 ${
+        qualityTone === 'rose'
+          ? 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'
+          : qualityTone === 'amber'
+            ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+      }`} title={`${quality.issueCount} presentation quality issue(s)`}><Activity className="w-3.5 h-3.5" /> Quality {quality.score}%</span>
       <span className="hidden md:inline">Tema <b>{health.theme}</b></span>
       <span className="hidden md:inline">Ratio <b>{health.ratio}</b></span>
       <span className="hidden lg:inline">Secciones <b>{health.sectionCount}</b></span>

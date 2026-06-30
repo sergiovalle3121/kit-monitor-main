@@ -4,6 +4,16 @@ Date: 2026-06-29
 
 ## Current Run Status
 
+This run extends the existing Slides workbench with a presentation quality and
+accessibility audit that feeds the already-mounted deck health inspector and
+bottom status bar.
+
+New/changed implementation files:
+
+- `apps/web/src/components/office/slides/deckHealth.ts`
+- `apps/web/src/components/office/slides/deckHealth.spec.ts`
+- `apps/web/src/components/office/slides/presentationQuality.ts`
+- `apps/web/src/components/office/slides/presentationQuality.spec.ts`
 This run extends the existing Slides presenter path with a PowerPoint-grade
 readiness preflight derived from the already-mounted deck health analyzer.
 The workbench now shows presenter blockers/warnings before launch, and the
@@ -30,6 +40,21 @@ Existing capability found:
 
 What changed:
 
+- Health calculation moved from inline React code into a pure helper.
+- The same helper now counts missing notes, sections, animations, transition
+  variety, auto-advance slides, hidden/locked objects, off-canvas objects,
+  image alt text gaps, and AXOS Smart Objects that are contract-pending.
+- The existing inspector now surfaces those counts and current-slide notes
+  warnings.
+- The existing status bar now exposes export readiness, notes, off-canvas, Smart
+  Object pending state, and animation count.
+- `presentationQuality.ts` now audits explicit slide titles, speaker notes,
+  text density, too-small text, low contrast, missing image alt text, and
+  off-canvas objects.
+- The inspector now shows a presentation quality score, current-slide issue
+  details, and quality metrics; the status bar shows a compact quality badge.
+- `SlidesEditor.tsx` now preserves `altText` / `alt` in Fabric serialization so
+  accessibility metadata survives save/export workflows.
 - Added a pure `presenterReadiness` helper that turns existing deck health into
   presenter-specific blockers, warnings, checklist items, note coverage, and
   rehearsal duration estimates.
@@ -79,7 +104,7 @@ What was intentionally not duplicated:
 | Phase 23 media | Partial | image effects/crop helpers | Add alt text/edit compression warnings |
 | Phase 24 layers | Usable | `SlideLayersPanel.tsx` | Add filter/search/object health badges |
 | Phase 25 deck health | Usable | `slides/deckHealth.ts` and UI wiring | Add jump-to-issue/fix actions |
-| Phase 26 accessibility | Seed | Alt text gaps now counted | Add contrast/font-size/readability checks |
+| Phase 26 accessibility | Usable | `slides/presentationQuality.ts`, inspector/status wiring | Add jump-to-issue and safe quick fixes |
 | Phase 27 keyboard | Partial | key handlers in `SlidesEditor.tsx` | Add shortcut help and more commands |
 | Phase 28 performance | Pending | No dedicated optimization in this PR | Memoize health/thumbnails for large decks |
 | Phase 29 CIDE contract | Pending | CIDE docs not yet created for Slides | Draft safe tool schemas after generator stabilizes |

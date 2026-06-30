@@ -911,7 +911,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
   function capture() {
     const c = fabricRef.current; if (!c) return;
-    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'animRepeat', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'smartObject', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph', 'assetId', 'assetCategory', 'masterRole', 'label', 'commentId']);
+    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'animRepeat', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'smartObject', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph', 'assetId', 'assetCategory', 'masterRole', 'label', 'altText', 'alt', 'commentId']);
     // El patrón se compone como backgroundImage en modo normal: no debe quedar
     // guardado dentro del JSON de la diapositiva.
     delete data.backgroundImage; delete data.overlayImage;

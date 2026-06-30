@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { sectionCount as countSections } from './sections';
+import { analyzeSlidePresentationQuality, type SlidePresentationQualityReport } from './presentationQuality';
 
 export interface SlideDeckHealthInput {
   slides: any[];
@@ -46,6 +47,12 @@ export interface SlideDeckHealth {
   lockedObjects: number;
   offCanvasObjects: number;
   imagesMissingAltText: number;
+  presentationQuality: SlidePresentationQualityReport;
+  presentationQualityScore: number;
+  presentationQualityIssues: number;
+  lowContrastTextObjects: number;
+  smallTextObjects: number;
+  denseTextSlides: number;
   readinessScore: number;
   readinessIssues: string[];
   exportReadiness: 'ready' | 'review' | 'blocked';
@@ -137,6 +144,13 @@ export function analyzeSlideDeckHealth(input: SlideDeckHealthInput): SlideDeckHe
   const pptxIssues = input.pptxIssues ?? [];
   const pptxDanger = !!input.hasPptxDanger || pptxIssues.some((issue) => String(issue.severity ?? '').toLowerCase() === 'danger');
   const transitions = uniqueTransitions(slides, input.transitions, slides[0]?.transition);
+  const presentationQuality = analyzeSlidePresentationQuality({
+    slides,
+    notes,
+    current,
+    width,
+    height,
+  });
 
   const emptySlides = slideObjects.filter((objects) => objects.length === 0).length;
   const missingTitles = slides.filter((slide) => !getSlideTitle(slide)).length;
@@ -168,6 +182,9 @@ export function analyzeSlideDeckHealth(input: SlideDeckHealthInput): SlideDeckHe
     pptxDanger ? 'PPTX contains blocked content such as macros or unsafe embedded objects.' : '',
     offCanvasObjects > 0 ? `${offCanvasObjects} object(s) are outside the slide bounds.` : '',
     imagesMissingAltText > 0 ? `${imagesMissingAltText} image(s) are missing alt text or labels.` : '',
+    presentationQuality.lowContrastTextObjects > 0 ? `${presentationQuality.lowContrastTextObjects} text object(s) have low contrast for presentation or visual-aid use.` : '',
+    presentationQuality.smallTextObjects > 0 ? `${presentationQuality.smallTextObjects} text object(s) may be too small for presentation readability.` : '',
+    presentationQuality.denseTextSlides > 0 ? `${presentationQuality.denseTextSlides} slide(s) have dense text and should be simplified before review.` : '',
     smartObjectsContractPending > 0 ? `${smartObjectsContractPending} AXOS Smart Object(s) need a refresh/contract confirmation.` : '',
     transitionVariants > 2 ? `${transitionVariants} transition styles are used; standardize before executive review.` : '',
     hiddenObjects > 0 ? `${hiddenObjects} hidden object(s) should be confirmed before export.` : '',
@@ -183,12 +200,16 @@ export function analyzeSlideDeckHealth(input: SlideDeckHealthInput): SlideDeckHe
       - (pptxDanger ? 10 : 0)
       - (offCanvasObjects * 5)
       - (imagesMissingAltText * 3)
+      - (presentationQuality.lowContrastTextObjects * 4)
+      - (presentationQuality.smallTextObjects * 2)
+      - (presentationQuality.denseTextSlides * 3)
       - (smartObjectsContractPending * 4)
       - (transitionVariants > 2 ? 3 : 0)
       - Math.min(8, hiddenObjects),
   );
   const exportBlockers = emptySlides + offCanvasObjects + (pptxDanger ? 1 : 0);
-  const exportWarnings = missingTitles + missingNotes + open + pptxIssues.length + hiddenObjects + imagesMissingAltText + smartObjectsContractPending;
+  const exportWarnings = missingTitles + missingNotes + open + pptxIssues.length + hiddenObjects + imagesMissingAltText + smartObjectsContractPending
+    + presentationQuality.lowContrastTextObjects + presentationQuality.smallTextObjects + presentationQuality.denseTextSlides;
   const exportReadiness: SlideDeckHealth['exportReadiness'] = exportBlockers > 0 || readinessScore < 65
     ? 'blocked'
     : exportWarnings > 0 || readinessScore < 85
@@ -227,6 +248,12 @@ export function analyzeSlideDeckHealth(input: SlideDeckHealthInput): SlideDeckHe
     lockedObjects,
     offCanvasObjects,
     imagesMissingAltText,
+    presentationQuality,
+    presentationQualityScore: presentationQuality.score,
+    presentationQualityIssues: presentationQuality.issueCount,
+    lowContrastTextObjects: presentationQuality.lowContrastTextObjects,
+    smallTextObjects: presentationQuality.smallTextObjects,
+    denseTextSlides: presentationQuality.denseTextSlides,
     readinessScore,
     readinessIssues,
     exportReadiness,
