@@ -102,7 +102,7 @@ export function ErpHeader({
           {title}
         </span>
         {subtitle && (
-          <span className="hidden md:inline text-xs text-gray-400">· {subtitle}</span>
+          <span className="hidden md:inline text-xs text-gray-500 dark:text-gray-400">· {subtitle}</span>
         )}
       </div>
       <form onSubmit={go} className="flex items-center gap-2 flex-shrink-0">
@@ -115,7 +115,7 @@ export function ErpHeader({
             className="bg-transparent outline-none text-sm font-mono w-24 placeholder:text-gray-400"
           />
         </div>
-        <span className="hidden lg:flex items-center gap-1 text-[11px] text-gray-400">
+        <span className="hidden lg:flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
           <Command className="w-3 h-3" />K
         </span>
       </form>
@@ -140,7 +140,7 @@ export function StatCard({
       <div className="text-2xl font-bold tabular-nums" style={color ? { color } : undefined}>
         {value}
       </div>
-      {sub && <div className="text-[11px] text-gray-400 mt-0.5">{sub}</div>}
+      {sub && <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -232,7 +232,7 @@ export function DataTable({
 
   if (!rows.length) {
     return (
-      <div className="flex flex-col items-center text-center py-14 text-gray-400">
+      <div className="flex flex-col items-center text-center py-14 text-gray-500 dark:text-gray-400">
         <Inbox className="w-7 h-7 mb-2" />
         <p className="text-sm">{emptyText ?? 'No hay registros'}</p>
       </div>

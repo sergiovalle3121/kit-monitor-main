@@ -41,9 +41,9 @@ export default function ControlTowerPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver la Torre de Control.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver la Torre de Control.</p>
         </div>
       </div>
     );
@@ -64,7 +64,7 @@ export default function ControlTowerPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Torre de Control</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Vista ejecutiva cross-área en tiempo real</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Vista ejecutiva cross-área en tiempo real</p>
           </div>
           <button onClick={() => mutate()} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10" title="Actualizar">
             <RefreshCw className="w-4 h-4 text-gray-500" />
@@ -78,14 +78,14 @@ export default function ControlTowerPage() {
           <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: HEALTH_COLOR[overall], boxShadow: `0 0 0 6px ${HEALTH_COLOR[overall]}22` }} />
           <div className="flex-1">
             <div className="text-lg font-semibold">Estado global: {HEALTH_LABEL[overall]}</div>
-            <div className="text-[12px] text-gray-400">
+            <div className="text-[12px] text-gray-500 dark:text-gray-400">
               {data ? `Actualizado ${new Date(data.generatedAt).toLocaleTimeString()}` : 'Cargando…'} · {areas.length} áreas
             </div>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {areas.map((a) => (
@@ -99,7 +99,7 @@ export default function ControlTowerPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {a.metrics.map((m, i) => (
                     <div key={i}>
-                      <div className="text-[10px] uppercase tracking-wide text-gray-400 truncate">{m.label}</div>
+                      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate">{m.label}</div>
                       <div className="text-sm font-semibold">{m.value}</div>
                     </div>
                   ))}

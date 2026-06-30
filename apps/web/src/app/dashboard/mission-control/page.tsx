@@ -111,11 +111,11 @@ function KpiTile({
         <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {label}
         </p>
-        <Icon className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+        <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
       </div>
       <div className="mt-3 flex items-baseline gap-2">
         {forbidden ? (
-          <span className="flex items-center gap-1 text-sm text-gray-400">
+          <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
             <Lock className="h-3.5 w-3.5" /> Sin acceso
           </span>
         ) : loading ? (
@@ -153,7 +153,7 @@ function PanelHeader({ title, subtitle }: { title: string; subtitle?: string }) 
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-gray-400">
+    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-gray-500 dark:text-gray-400">
       <Inbox className="h-6 w-6" strokeWidth={1.5} />
       <p className="text-xs">{message}</p>
     </div>
@@ -162,7 +162,7 @@ function EmptyState({ message }: { message: string }) {
 
 function ForbiddenState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-gray-400">
+    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-gray-500 dark:text-gray-400">
       <Lock className="h-6 w-6" strokeWidth={1.5} />
       <p className="text-xs">No tienes permiso para ver esta información.</p>
     </div>

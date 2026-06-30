@@ -117,7 +117,7 @@ export function VersionHistory({
             >
               <div className="flex items-center justify-between px-4 h-12 border-b border-black/5 dark:border-white/10 flex-shrink-0">
                 <span className="font-semibold text-sm">Historial de versiones</span>
-                <button onClick={() => { setCompare(null); setOpen(false); }} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-4 h-4" /></button>
+                <button onClick={() => { setCompare(null); setOpen(false); }} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-4 h-4" /></button>
               </div>
 
               {canEdit && (
@@ -136,7 +136,7 @@ export function VersionHistory({
                       <p className="text-xs font-bold truncate">Comparando contra {compare.version.label || rel(compare.version.createdAt)}</p>
                       <p className="text-[11px] text-gray-500">+{compare.added} líneas · -{compare.removed} líneas</p>
                     </div>
-                    <button onClick={() => setCompare(null)} className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setCompare(null)} className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-3.5 h-3.5" /></button>
                   </div>
                   <div className="mt-2 max-h-56 overflow-y-auto space-y-1 text-[11px] font-mono">
                     {compare.rows.filter((r) => r.kind !== 'same').slice(0, 120).map((r, i) => (
@@ -150,9 +150,9 @@ export function VersionHistory({
 
               <div className="flex-1 overflow-y-auto p-2">
                 {versions === null ? (
-                  <div className="flex justify-center py-10 text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+                  <div className="flex justify-center py-10 text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
                 ) : versions.length === 0 ? (
-                  <div className="text-center text-sm text-gray-400 py-10 px-4">
+                  <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-10 px-4">
                     Aún no hay versiones. Se guardan automáticamente mientras editas.
                   </div>
                 ) : (
@@ -160,18 +160,18 @@ export function VersionHistory({
                     {versions.map((v) => (
                       <li key={v.id} className="group rounded-xl p-2.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                         <div className="flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          <Clock className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium truncate">{v.label || rel(v.createdAt)}</p>
-                            <p className="text-[11px] text-gray-400 truncate">{v.label ? rel(v.createdAt) : ''}{v.createdBy ? ` · ${v.createdBy}` : ''}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{v.label ? rel(v.createdAt) : ''}{v.createdBy ? ` · ${v.createdBy}` : ''}</p>
                           </div>
                           <button onClick={() => compareVersion(v)} disabled={busy} title="Comparar con versión actual"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-40">
+                            className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-40">
                             <GitCompareArrows className="w-4 h-4" />
                           </button>
                           {canEdit && (
                             <button onClick={() => restore(v.id)} disabled={busy} title="Restaurar esta versión"
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-40">
+                              className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-40">
                               <RotateCcw className="w-4 h-4" />
                             </button>
                           )}

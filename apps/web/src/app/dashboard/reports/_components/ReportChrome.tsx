@@ -39,7 +39,7 @@ export function ReportChrome({
         <div className="axos-no-print">
           <Link
             href="/dashboard/reports"
-            className="mb-4 inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
           >
             <ChevronLeft className="h-4 w-4" /> Reportes
           </Link>
@@ -65,7 +65,7 @@ export function ReportChrome({
             print-to-PDF salga limpio sin importar el tema del sistema. */}
         <article className="axos-doc axos-paper rounded-2xl border border-gray-200 bg-white p-7 text-gray-900 shadow-xl sm:p-9">
           <div className="space-y-6">{children}</div>
-          <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3 text-[10px] text-gray-400">
+          <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3 text-[10px] text-gray-500 dark:text-gray-400">
             <span>Generado: {fmtDate(generatedAt)}</span>
             <span>
               AXOS OS · Documento generado en cliente · Impresión PDF vía navegador (Imprimir →

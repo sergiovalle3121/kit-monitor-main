@@ -243,6 +243,14 @@
 - Registered `analyze_line_balance` in the existing CAD command registry/parser so the current command dock and palette can preview takt load, bottleneck, overloads, missing metadata, balance efficiency, and score through existing report rows.
 - Added pure smoke coverage in `line-balance.spec.ts` and command-registry coverage for parser routing and over-takt warnings.
 - Pending: visual Yamazumi/load overlay in the analysis panel after active `Layout3DEditor.tsx` conflicts settle.
+## 2026-06-29 - Supermarket kitting template
+
+- Inspected automation memory, open CAD PRs #847/#844/#839/#838, required CAD docs, `Layout3DEditor.tsx`, route chrome, design docs, and the full `apps/web/src/lib/cad/**` tree.
+- Avoided `Layout3DEditor.tsx`, command registry, plot package files, and warehouse generator files because active CAD PRs own those areas.
+- Reused the existing `CAD_LAYOUT_TEMPLATES` launcher and `instantiateCadLayoutTemplate` path instead of creating another generator or editor surface.
+- Added a visible "Supermarket + kitting" editable template with receiving drop, incoming QC, kanban lanes, kitting carts, FIFO WIP, line-side delivery, aisles, ESD boundary, quarantine, annotations, tags, and material/flow connectors.
+- Added pure template spec coverage for kitting/kanban tags, safety/aisle layers, and connector kinds.
+- Pending: parametric supermarket lane/cart generator after active warehouse generator PRs settle.
 ## 2026-06-29 - CAD EHS and utilities asset blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, `apps/web/src/lib/cad/commands/**`, route chrome, design docs, the shared `asset-catalog.ts`, and open CAD PRs #870/#869/#864/#861/#858/#853/#850/#847/#844/#838/#746.

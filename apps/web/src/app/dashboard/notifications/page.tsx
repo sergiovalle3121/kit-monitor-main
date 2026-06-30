@@ -60,9 +60,9 @@ export default function NotificationsPage() {
     return (
       <div className="min-h-[70vh] grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Tu rol no tiene permiso para ver ninguna de las fuentes de eventos (andon, calidad, aprobaciones, NCR).</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Tu rol no tiene permiso para ver ninguna de las fuentes de eventos (andon, calidad, aprobaciones, NCR).</p>
         </div>
       </div>
     );
@@ -71,7 +71,7 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen text-foreground">
       <main className="max-w-3xl mx-auto px-6 pt-10 pb-24">
-        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
+        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
           <ChevronLeft className="w-4 h-4" /> Dashboard
         </Link>
 
@@ -127,18 +127,18 @@ export default function NotificationsPage() {
 
         {/* Nota honesta: fuentes sin permiso */}
         {unavailable.length > 0 && (
-          <p className="text-[11px] text-gray-400 mb-4 -mt-2">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-4 -mt-2">
             Sin acceso (por permisos) a: {unavailable.join(', ')}.
           </p>
         )}
 
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : filtered.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">{unreadOnly || kind !== 'all' ? 'Nada en este filtro' : 'Estás al día'}</h3>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {unreadOnly || kind !== 'all' ? 'Cambia el filtro para ver otros eventos.' : 'No hay andones, holds, aprobaciones ni NCRs abiertos.'}
             </p>
           </div>
@@ -150,7 +150,7 @@ export default function NotificationsPage() {
         )}
 
         {/* Nota de alcance honesta sobre tiempo real + estado de leído. */}
-        <div className="mt-8 text-[11px] leading-relaxed text-gray-400 border-t border-black/5 dark:border-white/10 pt-4">
+        <div className="mt-8 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 border-t border-black/5 dark:border-white/10 pt-4">
           <p>
             <b className="text-gray-500 dark:text-gray-300">Tiempo real:</b> los andones e incidentes en vivo
             actualizan el feed al instante por el socket de planta; el resto se refresca cada 20 s.
@@ -179,16 +179,16 @@ function PushToggle({ push }: { push: ReturnType<typeof useWebPush> }) {
   const { status, busy, enable, disable } = push;
   if (status === 'loading')
     return (
-      <span className="inline-flex items-center gap-1.5 text-gray-400">
+      <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
         <Loader2 className="w-3.5 h-3.5 animate-spin" /> Comprobando…
       </span>
     );
   if (status === 'unsupported')
-    return <span className="text-gray-400">Tu navegador no soporta push.</span>;
+    return <span className="text-gray-500 dark:text-gray-400">Tu navegador no soporta push.</span>;
   if (status === 'unconfigured')
-    return <span className="text-gray-400">Requiere configurar VAPID en el servidor.</span>;
+    return <span className="text-gray-500 dark:text-gray-400">Requiere configurar VAPID en el servidor.</span>;
   if (status === 'denied')
-    return <span className="text-gray-400">Notificaciones bloqueadas en el navegador.</span>;
+    return <span className="text-gray-500 dark:text-gray-400">Notificaciones bloqueadas en el navegador.</span>;
 
   const on = status === 'subscribed';
   return (
@@ -235,7 +235,7 @@ function Group({
 }) {
   return (
     <section>
-      <p className="px-1 mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
+      <p className="px-1 mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</p>
       <div className={`${glass} rounded-2xl divide-y divide-black/5 dark:divide-white/10 overflow-hidden`}>
         {items.map((n) => <Row key={n.id} n={n} onOpen={onOpen} onToggle={onToggle} onUnread={onUnread} />)}
       </div>
@@ -269,16 +269,16 @@ function Row({
           {flagged && (
             <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: `${sev.color}1f`, color: sev.color }}>{sev.label}</span>
           )}
-          {n.href && <ArrowRight className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
+          {n.href && <ArrowRight className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
         </div>
         {n.body && <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{n.body}</p>}
-        <p className="text-[11px] text-gray-400 mt-1">{n.source} · {timeAgo(n.at)}</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{n.source} · {timeAgo(n.at)}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0 pt-1">
         {!n.read && <span className="h-2 w-2 rounded-full bg-primary" title="No leída" />}
         <button
           onClick={(e) => { e.stopPropagation(); if (n.read) onUnread(n.id); else onToggle(n.id); }}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
           title={n.read ? 'Marcar como no leída' : 'Marcar como leída'}
         >
           <Check className="w-4 h-4" style={n.read ? { color: '#10b981' } : undefined} />

@@ -203,9 +203,9 @@ export default function OutboundPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver embarques.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver embarques.</p>
         </div>
       </div>
     );
@@ -223,7 +223,7 @@ export default function OutboundPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Logística · Embarque</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Empaque, embarque y entrega (ASN)</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Empaque, embarque y entrega (ASN)</p>
           </div>
           <button onClick={openSoPicker} aria-label="Desde OV" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}>
             <ListChecks className="w-4 h-4" /> <span className="hidden sm:inline">Desde OV</span>
@@ -286,12 +286,12 @@ export default function OutboundPage() {
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin embarques</h3>
-            <p className="text-sm text-gray-400 mt-1">Crea el primer embarque para seguir el OTD a cliente.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Crea el primer embarque para seguir el OTD a cliente.</p>
           </div>
         ) : (
           <div className="space-y-8">
@@ -303,7 +303,7 @@ export default function OutboundPage() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_META[status].color }} />
                     <h2 className="text-sm font-semibold">{STATUS_META[status].label}</h2>
-                    <span className="text-[11px] text-gray-400">({items.length})</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">({items.length})</span>
                   </div>
                   <div className="space-y-3">
                     {items.map((s) => {
@@ -327,7 +327,7 @@ export default function OutboundPage() {
                                 <span className="font-semibold truncate">{s.title}</span>
                                 {overdue && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${RED}1f`, color: RED }}>vencida</span>}
                               </div>
-                              <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-400 flex-wrap">
+                              <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                                 {s.customerName && <><span>{s.customerName}</span><span>•</span></>}
                                 {s.destination && <><span>{s.destination}</span><span>•</span></>}
                                 <span>{s.incoterm}</span>
@@ -417,14 +417,14 @@ export default function OutboundPage() {
               <button onClick={() => setSoPicker(null)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
             </div>
             {soPicker.length === 0 ? (
-              <p className="text-sm text-gray-400 py-8 text-center">No hay órdenes de venta embarcables (confirmadas o en producción).</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">No hay órdenes de venta embarcables (confirmadas o en producción).</p>
             ) : (
               <div className="space-y-2">
                 {soPicker.map((so) => (
                   <div key={so.id} className={`${glass} rounded-xl p-3 flex items-center gap-3`}>
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-medium truncate">{so.soNumber}</div>
-                      <div className="text-[11px] text-gray-400 truncate">{so.customerName ?? '—'} · {so.status}</div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{so.customerName ?? '—'} · {so.status}</div>
                     </div>
                     <button onClick={() => createFromSo(so.id)} disabled={busy === `so-${so.id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
                       {busy === `so-${so.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Crear
@@ -460,7 +460,7 @@ export default function OutboundPage() {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
   );

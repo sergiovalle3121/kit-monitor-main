@@ -149,7 +149,7 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
               className="fixed inset-y-0 right-0 w-80 z-[55] bg-white dark:bg-[#161616] border-l border-black/10 dark:border-white/10 shadow-2xl flex flex-col">
               <div className="flex items-center justify-between px-4 h-12 border-b border-black/5 dark:border-white/10 flex-shrink-0">
                 <span className="font-semibold text-sm">Comentarios</span>
-                <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-4 h-4" /></button>
+                <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-4 h-4" /></button>
               </div>
               <div className="p-2 border-b border-black/5 dark:border-white/10 space-y-2">
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar en comentarios…" className="w-full h-8 text-[13px] rounded-lg bg-gray-100 dark:bg-white/10 px-2 outline-none focus:ring-2 ring-blue-500/40" />
@@ -163,13 +163,13 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {comments.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-10 px-4">Sin comentarios. Selecciona texto y pulsa «comentar».</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-10 px-4">Sin comentarios. Selecciona texto y pulsa «comentar».</p>
                 ) : comments.map((c) => (
                   <div key={c.id} className={`rounded-xl border p-3 ${c.resolved ? 'border-black/5 dark:border-white/5 opacity-60' : 'border-black/10 dark:border-white/10'}`}>
                     <button onClick={() => goTo(c)} className="block w-full text-left">
-                      <p className="text-[11px] text-gray-400 truncate italic">“{c.quoted}”</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate italic">“{c.quoted}”</p>
                       <p className={`text-sm mt-1 ${c.resolved ? 'line-through' : ''}`}>{c.text}</p>
-                      <p className="text-[11px] text-gray-400 mt-1">{c.author || 'Anónimo'}{c.createdAt ? ` · ${fmt(c.createdAt)}` : ''}</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{c.author || 'Anónimo'}{c.createdAt ? ` · ${fmt(c.createdAt)}` : ''}</p>
                       {c.assignedTo ? <p className="text-[11px] text-blue-500 mt-1">Asignado a {c.assignedTo}</p> : null}
                     </button>
 
@@ -178,7 +178,7 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
                         {c.replies.map((r: Reply, i: number) => (
                           <div key={i}>
                             <p className="text-[13px]">{r.text}</p>
-                            <p className="text-[11px] text-gray-400">{r.author || 'Anónimo'} · {fmt(r.createdAt)}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">{r.author || 'Anónimo'} · {fmt(r.createdAt)}</p>
                           </div>
                         ))}
                       </div>

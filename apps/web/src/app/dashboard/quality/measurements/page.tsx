@@ -141,21 +141,21 @@ export default function MeasurementsPage() {
               <select value={selected} onChange={(e) => setSelected(e.target.value)} className={`${glass} rounded-xl px-3 py-2 text-sm outline-none min-w-[260px]`}>
                 {chars.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}{c.unit ? ` (${c.unit})` : ""}</option>)}
               </select>
-              <label className="inline-flex items-center gap-1.5 text-sm"><span className="text-[11px] text-gray-400">Desde</span><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${glass} rounded-xl px-2.5 py-1.5 text-sm outline-none`} /></label>
-              <label className="inline-flex items-center gap-1.5 text-sm"><span className="text-[11px] text-gray-400">Hasta</span><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${glass} rounded-xl px-2.5 py-1.5 text-sm outline-none`} /></label>
+              <label className="inline-flex items-center gap-1.5 text-sm"><span className="text-[11px] text-gray-500 dark:text-gray-400">Desde</span><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${glass} rounded-xl px-2.5 py-1.5 text-sm outline-none`} /></label>
+              <label className="inline-flex items-center gap-1.5 text-sm"><span className="text-[11px] text-gray-500 dark:text-gray-400">Hasta</span><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${glass} rounded-xl px-2.5 py-1.5 text-sm outline-none`} /></label>
               <div className="ml-auto"><ExportButton<QualityMeasurement> rows={series} columns={exportColumns} filename={`mediciones-${char?.code ?? "ctq"}`} formats={["csv"]} /></div>
             </div>
 
             {char && (
               <div className={`${glass} rounded-2xl p-4 mb-5 flex items-center gap-4 flex-wrap`}>
-                <Gauge className="w-5 h-5 text-gray-400" />
+                <Gauge className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 <div className="text-sm">
                   <span className="font-semibold">{char.name}</span>
-                  <span className="text-gray-400"> · {char.type === "VARIABLE" ? "Variable" : "Atributo"}</span>
+                  <span className="text-gray-500 dark:text-gray-400"> · {char.type === "VARIABLE" ? "Variable" : "Atributo"}</span>
                 </div>
                 {char.type === "VARIABLE" && (
                   <div className="text-[12px] text-gray-500 flex items-center gap-3 font-mono">
-                    <span>LSL {num(char.lsl, 3)}</span><span>Nominal {num(char.nominal, 3)}</span><span>USL {num(char.usl, 3)}</span>{char.unit ? <span className="text-gray-400">{char.unit}</span> : null}
+                    <span>LSL {num(char.lsl, 3)}</span><span>Nominal {num(char.nominal, 3)}</span><span>USL {num(char.usl, 3)}</span>{char.unit ? <span className="text-gray-500 dark:text-gray-400">{char.unit}</span> : null}
                   </div>
                 )}
               </div>
@@ -172,7 +172,7 @@ export default function MeasurementsPage() {
             </div>
 
             {isLoading ? (
-              <div className="flex justify-center py-16 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+              <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
             ) : series.length === 0 ? (
               <Empty
                 icon={<Inbox className="w-6 h-6" />}
@@ -201,7 +201,7 @@ export default function MeasurementsPage() {
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                    <p className="text-[11px] text-gray-400 mt-2">Barras rojas: bins fuera de los límites de especificación. (Sin cartas de control ni Cpk: eso llega en el PR de SPC.)</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">Barras rojas: bins fuera de los límites de especificación. (Sin cartas de control ni Cpk: eso llega en el PR de SPC.)</p>
                   </div>
                 )}
 
@@ -209,7 +209,7 @@ export default function MeasurementsPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-black/5 dark:border-white/10">
+                        <tr className="text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">
                           <th className="px-3 py-2">Fecha</th>
                           <th className="px-3 py-2 text-right">{char?.type === "ATTRIBUTE" ? "Pasa" : "Valor"}</th>
                           <th className="px-3 py-2">Subgrupo</th>
@@ -328,7 +328,7 @@ function CaptureModal({
         <Field label="Instrumento / gage"><input value={form.gage} onChange={(e) => setForm({ ...form, gage: e.target.value })} className="q-input" placeholder="CMM-01" /></Field>
         <Field label="Notas" full><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="q-input min-h-[44px] resize-y" /></Field>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">Se registran {preview.count} lectura(s) en el mismo subgrupo. Las mediciones quedan listas para que el PR de SPC grafique las cartas de control.</p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">Se registran {preview.count} lectura(s) en el mismo subgrupo. Las mediciones quedan listas para que el PR de SPC grafique las cartas de control.</p>
     </Modal>
   );
 }

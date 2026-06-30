@@ -227,9 +227,9 @@ export default function NumberingAdminPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Necesitas iniciar sesión para ver la numeración de folios.
           </p>
         </div>
@@ -250,7 +250,7 @@ export default function NumberingAdminPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Numeración de folios</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">
               Secuencias centrales por tipo de documento (WO, PO, NCR…)
             </p>
           </div>
@@ -330,7 +330,7 @@ export default function NumberingAdminPage() {
             </div>
 
             <div className="mt-4 flex items-center gap-3 text-sm">
-              <span className="text-gray-400">Vista previa:</span>
+              <span className="text-gray-500 dark:text-gray-400">Vista previa:</span>
               <code className="px-2 py-1 rounded-lg bg-black/5 dark:bg-white/10 font-mono">{formatNext(form)}</code>
             </div>
 
@@ -349,13 +349,13 @@ export default function NumberingAdminPage() {
         {/* List */}
         {isLoading ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
           </div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Aún no hay secuencias</h3>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Las secuencias se crean automáticamente al emitir el primer folio de cada tipo, o créalas aquí.
             </p>
           </div>
@@ -373,7 +373,7 @@ export default function NumberingAdminPage() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-400 flex-wrap">
+                  <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                     <code className="font-mono text-gray-600 dark:text-gray-300">{formatNext(seq)}</code>
                     <span>•</span>
                     <span>siguiente #{seq.nextValue}</span>
@@ -389,7 +389,7 @@ export default function NumberingAdminPage() {
                   title={seq.active ? 'Desactivar' : 'Activar'}
                   className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50"
                 >
-                  {seq.active ? <CheckCircle2 className="w-4 h-4" style={{ color: GREEN }} /> : <CircleSlash className="w-4 h-4 text-gray-400" />}
+                  {seq.active ? <CheckCircle2 className="w-4 h-4" style={{ color: GREEN }} /> : <CircleSlash className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
                 </button>
                 <button onClick={() => openEdit(seq)} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10" title="Editar">
                   <Pencil className="w-4 h-4 text-gray-500" />
@@ -425,9 +425,9 @@ export default function NumberingAdminPage() {
 function Kpi({ label, value, sub, color }: { label: string; value: number | string; sub?: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
-      {sub && <div className="text-[12px] text-gray-400 mt-0.5 truncate">{sub}</div>}
+      {sub && <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{sub}</div>}
     </div>
   );
 }

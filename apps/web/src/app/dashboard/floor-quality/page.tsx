@@ -107,7 +107,7 @@ export default function FloorQualityPage() {
   if (forbidden) {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
-        <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-400 mt-1">Necesitas permiso de calidad.</p></div>
+        <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Necesitas permiso de calidad.</p></div>
       </div>
     );
   }
@@ -134,13 +134,13 @@ export default function FloorQualityPage() {
         {/* Where-used */}
         <div className={`${glass} rounded-2xl p-4 mb-6`}>
           <div className="flex items-center gap-2">
-            <Search className="w-4 h-4 text-gray-400" />
+            <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <input value={wu} onChange={(e) => setWu(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') lookupWhereUsed(); }} placeholder="Contención: ¿dónde se usó este NP? (genealogía)" className="ci-input flex-1" />
             <button onClick={lookupWhereUsed} className="px-3 py-2 rounded-lg text-[13px] font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}>Buscar</button>
           </div>
           {wuRows && (
             <div className="mt-3 text-[12px]">
-              {wuRows.length === 0 ? <span className="text-gray-400">Sin consumos registrados de {wu}.</span> : (
+              {wuRows.length === 0 ? <span className="text-gray-500 dark:text-gray-400">Sin consumos registrados de {wu}.</span> : (
                 <div className="space-y-1">
                   {wuRows.map((r) => <div key={r.id} className="flex items-center gap-3 text-gray-500"><span className="font-mono">{r.unitSerial || '—'}</span><span>{r.woFolio}</span><span>{r.model} · {r.station}</span><span>{new Date(r.createdAt).toLocaleString()}</span></div>)}
                 </div>
@@ -150,9 +150,9 @@ export default function FloorQualityPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : holds.length === 0 ? (
-          <div className={`${glass} rounded-3xl p-12 text-center`}><Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h3 className="font-semibold">Sin holds</h3><p className="text-sm text-gray-400 mt-1">Captura un rechazo desde IQC, en-proceso u OQC para iniciar el flujo MRB.</p></div>
+          <div className={`${glass} rounded-3xl p-12 text-center`}><Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h3 className="font-semibold">Sin holds</h3><p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Captura un rechazo desde IQC, en-proceso u OQC para iniciar el flujo MRB.</p></div>
         ) : (
           <>
             {/* Filtro por estado */}
@@ -166,7 +166,7 @@ export default function FloorQualityPage() {
             </div>
 
             {shownCount === 0 ? (
-              <div className={`${glass} rounded-3xl p-12 text-center`}><Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h3 className="font-semibold">Sin holds en este estado</h3><p className="text-sm text-gray-400 mt-1">Cambia el filtro para ver otros estados del flujo.</p></div>
+              <div className={`${glass} rounded-3xl p-12 text-center`}><Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h3 className="font-semibold">Sin holds en este estado</h3><p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Cambia el filtro para ver otros estados del flujo.</p></div>
             ) : (
               <div className="space-y-8">
                 {visibleOrder.map((status) => {
@@ -174,18 +174,18 @@ export default function FloorQualityPage() {
                   if (items.length === 0) return null;
                   return (
                     <section key={status}>
-                      <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full" style={{ background: SMETA[status].color }} /><h2 className="text-sm font-semibold">{SMETA[status].label}</h2><span className="text-[11px] text-gray-400">({items.length})</span></div>
+                      <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full" style={{ background: SMETA[status].color }} /><h2 className="text-sm font-semibold">{SMETA[status].label}</h2><span className="text-[11px] text-gray-500 dark:text-gray-400">({items.length})</span></div>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         {items.map((h) => (
                           <div key={h.id} className={`${glass} rounded-2xl p-4`}>
                             <div className="flex items-center gap-2 flex-wrap">
                               {h.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{h.folio}</span>}
                               <span className="font-mono font-semibold">{h.part}</span>
-                              <span className="text-[11px] text-gray-400">{h.qty} u</span>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">{h.qty} u</span>
                               {(h.severity === 'HIGH' || h.severity === 'CRITICAL') && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> {h.severity}</span>}
                               {h.disposition && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${VIOLET}1f`, color: VIOLET }}>{DISP_LABELS[h.disposition] ?? h.disposition}</span>}
                             </div>
-                            <div className="text-[12px] text-gray-400 mt-1">{h.origin}{h.station ? ` · ${h.station}` : ''}{h.woFolio ? ` · ${h.woFolio}` : ''}{h.defectType ? ` · ${h.defectType}` : ''}{h.lot ? ` · lote ${h.lot}` : ''}{h.serial ? ` · SN ${h.serial}` : ''}</div>
+                            <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">{h.origin}{h.station ? ` · ${h.station}` : ''}{h.woFolio ? ` · ${h.woFolio}` : ''}{h.defectType ? ` · ${h.defectType}` : ''}{h.lot ? ` · lote ${h.lot}` : ''}{h.serial ? ` · SN ${h.serial}` : ''}</div>
                             <div className="mt-3 flex items-center gap-1.5 flex-wrap">
                               {h.status === 'HELD' && <Btn label="A MRB" color={AMBER} onClick={() => act(h, 'mrb')} busy={busy === h.id} />}
                               {h.status === 'MRB_REVIEW' && <Btn label="Disponer" color={VIOLET} onClick={() => setDispoHold(h)} busy={busy === h.id} />}
@@ -246,7 +246,7 @@ export default function FloorQualityPage() {
 }
 
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
-  return <div className={`${glass} rounded-2xl p-4`}><div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div><div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div></div>;
+  return <div className={`${glass} rounded-2xl p-4`}><div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div><div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div></div>;
 }
 function Btn({ label, color, onClick, busy }: { label: string; color: string; onClick: () => void; busy: boolean }) {
   return <button onClick={onClick} disabled={busy} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: `${color}1f`, color }}><ArrowRight className="w-3 h-3" /> {label}</button>;
@@ -320,7 +320,7 @@ function DispositionModal({ hold, busy, onClose, onSubmit }: { hold: Hold; busy:
         {needsScar && <F label="SCAR / nota de débito"><input value={scarRef} onChange={(e) => setScarRef(e.target.value)} className="ci-input" placeholder="SCAR-…" /></F>}
         <label className="block col-span-2"><span className="block text-[12px] font-medium text-gray-500 mb-1">Notas (opcional)</span><textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="ci-input" style={{ minHeight: 56, resize: 'vertical' }} /></label>
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
         {needsWaiver ? 'USE_AS_IS exige una desviación/waiver firmada.' : needsScar ? 'RTV abre una acción correctiva al proveedor (SCAR) + nota de débito.' : (disp === 'REWORK' || disp === 'REPAIR') ? 'Tras disponer, abre la orden de retrabajo y re-inspecciona.' : 'La firma queda en la bitácora (Event Ledger).'}
       </p>
     </ModalShell>
@@ -362,7 +362,7 @@ function ReinspectModal({ hold, busy, onClose, onSubmit }: { hold: Hold; busy: b
         <F label="Horas de retrabajo (opcional)"><input type="number" min={0} step="0.25" value={reworkHours} onChange={(e) => setReworkHours(e.target.value)} className="ci-input" /></F>
         {!pass && <F label="Cantidad a scrap (opcional)"><input type="number" min={0} value={scrapQty} onChange={(e) => setScrapQty(e.target.value)} className="ci-input" /></F>}
       </div>
-      <p className="text-[11px] text-gray-400 mt-3">{pass ? 'Pasa: cierra el hold y libera la WO si no quedan más holds abiertos.' : 'Falla: regresa a retrabajo. Registra el scrap si se descarta material.'}</p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">{pass ? 'Pasa: cierra el hold y libera la WO si no quedan más holds abiertos.' : 'Falla: regresa a retrabajo. Registra el scrap si se descarta material.'}</p>
     </ModalShell>
   );
 }

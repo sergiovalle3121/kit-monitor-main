@@ -250,13 +250,13 @@ export function SheetFunctionWizard({ onInsert, onClose }: { onInsert: (formula:
         className="w-full max-w-3xl h-[580px] max-h-[90vh] rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
           <h2 className="text-lg font-bold">Insertar función</h2>
-          <span className="text-[11px] text-gray-400">{total} funciones</span>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">{total} funciones</span>
           <div className="ml-auto relative">
-            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
             <input autoFocus value={q} onChange={(e) => { setQ(e.target.value); setSel(null); }} placeholder="Buscar función…"
               className="h-9 w-56 text-sm rounded-xl bg-gray-100 dark:bg-white/10 pl-8 pr-3 outline-none focus:ring-2 ring-emerald-500/40" />
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="flex-1 min-h-0 flex">
           {!q.trim() && (
@@ -264,7 +264,7 @@ export function SheetFunctionWizard({ onInsert, onClose }: { onInsert: (formula:
               {CATEGORIES.map((c, i) => (
                 <button key={c.label} onClick={() => { setCat(i); setSel(null); }}
                   className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors ${i === cat ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold' : 'hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300'}`}>
-                  {c.label} <span className="text-gray-400 text-[11px]">{c.fns.length}</span>
+                  {c.label} <span className="text-gray-500 dark:text-gray-400 text-[11px]">{c.fns.length}</span>
                 </button>
               ))}
             </div>
@@ -275,12 +275,12 @@ export function SheetFunctionWizard({ onInsert, onClose }: { onInsert: (formula:
                 className={`w-full text-left rounded-xl border p-2.5 transition-colors ${sel === f.name ? 'border-emerald-400 bg-emerald-50/40 dark:bg-emerald-500/10' : 'border-black/5 dark:border-white/10 hover:border-emerald-300'}`}>
                 <div className="flex items-center gap-2">
                   <code className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{f.name}</code>
-                  <code className="text-[11px] text-gray-400 truncate">{f.syntax}</code>
+                  <code className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{f.syntax}</code>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{f.desc}</p>
               </button>
             ))}
-            {!list.length && <p className="text-sm text-gray-400 text-center py-10">Sin resultados.</p>}
+            {!list.length && <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-10">Sin resultados.</p>}
           </div>
           {selFn && (
             <div className="w-64 flex-shrink-0 border-l border-black/5 dark:border-white/10 overflow-y-auto p-3 space-y-2 bg-gray-50/60 dark:bg-white/[0.03]">
@@ -292,7 +292,7 @@ export function SheetFunctionWizard({ onInsert, onClose }: { onInsert: (formula:
                   <p className="text-[11px] font-semibold text-gray-500">Argumentos</p>
                   {selFn.args.map((a) => (
                     <div key={a.name} className="text-[11px]">
-                      <span className="font-mono font-semibold">{a.name}</span>{a.optional && <span className="text-gray-400"> (opcional)</span>}
+                      <span className="font-mono font-semibold">{a.name}</span>{a.optional && <span className="text-gray-500 dark:text-gray-400"> (opcional)</span>}
                       <span className="text-gray-500"> — {a.desc}</span>
                     </div>
                   ))}

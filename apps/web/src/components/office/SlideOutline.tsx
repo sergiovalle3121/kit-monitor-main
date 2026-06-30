@@ -32,7 +32,7 @@ export function SlideOutline({ slides, current, onTitle, onGoto, onClose }: {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[140] bg-white dark:bg-[#0b0b0b] flex flex-col">
       <div className="flex items-center justify-between px-5 h-14 border-b border-black/5 dark:border-white/10 flex-shrink-0">
-        <h2 className="font-bold flex items-center gap-2"><FileText className="w-5 h-5" /> Esquema <span className="text-sm font-normal text-gray-400">- edita los titulos</span></h2>
+        <h2 className="font-bold flex items-center gap-2"><FileText className="w-5 h-5" /> Esquema <span className="text-sm font-normal text-gray-500 dark:text-gray-400">- edita los titulos</span></h2>
         <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500"><X className="w-5 h-5" /></button>
       </div>
 
@@ -47,7 +47,7 @@ export function SlideOutline({ slides, current, onTitle, onGoto, onClose }: {
           </div>
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
             <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-black/10 bg-black/[0.03] px-3 text-sm dark:border-white/10 dark:bg-white/[0.05]">
-              <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
+              <Search className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por titulo, contenido o numero..." className="min-w-0 flex-1 bg-transparent outline-none" />
             </label>
             {sectionOptions.length > 0 && (
@@ -65,7 +65,7 @@ export function SlideOutline({ slides, current, onTitle, onGoto, onClose }: {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-2">
           {visible.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-black/10 p-10 text-center text-sm text-gray-400 dark:border-white/10">
+            <div className="rounded-2xl border border-dashed border-black/10 p-10 text-center text-sm text-gray-500 dark:text-gray-400 dark:border-white/10">
               No hay diapositivas para este filtro.
             </div>
           )}
@@ -76,7 +76,7 @@ export function SlideOutline({ slides, current, onTitle, onGoto, onClose }: {
                 <div className="mb-1 flex flex-wrap items-center gap-1.5">
                   {item.section && <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">{item.section}</span>}
                   {!item.hasTitle && <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300"><AlertTriangle className="h-3 w-3" /> Sin titulo</span>}
-                  <span className="text-[10px] font-medium text-gray-400">{item.objectCount} objeto(s)</span>
+                  <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{item.objectCount} objeto(s)</span>
                 </div>
                 <input
                   value={val(item.index)}
