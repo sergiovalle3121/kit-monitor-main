@@ -17,6 +17,11 @@ import { assertTransition, MaterialRequestStatus } from './request-state';
 import { SignalGateway } from '../../common/gateway/signal.gateway';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { InventoryService } from '../inventory/inventory.service';
+import {
+  LINE_STOCK_LOCATION,
+  lineStockWarehouse,
+} from '../inventory/line-stock';
 
 const DEFAULT_TENANT = 'default';
 
@@ -38,6 +43,7 @@ export class MaterialRequestsService {
     private readonly kitRepo: TenantScopedRepository<Kit>,
     private readonly signals: SignalGateway,
     private readonly eventLedger: EventLedgerService,
+    private readonly inventory: InventoryService,
   ) {}
 
   async findAll(filters?: {
@@ -168,11 +174,22 @@ export class MaterialRequestsService {
     );
   }
 
-  fulfill(
+  async fulfill(
     id: number,
     dto: DecideMaterialRequestDto,
     actor: string,
   ): Promise<MaterialRequest> {
+    // Cerrar el lazo de inventario: al surtir, el material ENTRA al tanque de la
+    // línea (`LINE-<línea>`), de donde el operador lo consumirá en /operador.
+    // El depósito ocurre ANTES de marcar 'fulfilled' y se PROPAGA si falla — no
+    // marcamos como surtido lo que no pudimos abastecer (igual que resupplies).
+    const request = await this.findOne(id);
+    const kit = await this.kitRepo.findOne({
+      where: { id: request.kitId },
+      relations: ['plan'],
+    });
+    await this.depositToLine(request, kit ?? null, actor);
+
     return this.decide(
       id,
       'fulfilled',
@@ -181,6 +198,52 @@ export class MaterialRequestsService {
       dto,
       actor,
     );
+  }
+
+  /**
+   * Deposita el material surtido en el almacén de línea `LINE-<línea>` vía
+   * `recordTransaction` (tipo ISSUE: WH→Producción), reusando la convención que
+   * ya usa resupplies para destinos de línea. `recordTransaction` crea la
+   * posición destino si no existe, de modo que el tanque queda abastecido y el
+   * consumo posterior (mes-execution) tiene stock real de dónde descontar.
+   *
+   * Reglas: la línea autoritativa es la del PLAN (la que hereda la ejecución y
+   * de la que el operador consume), no el texto libre `request.line`. Si no hay
+   * línea, NO se mueve a un almacén inexistente: se registra de forma visible.
+   * Un fallo de inventario se PROPAGA (no se traga en silencio).
+   */
+  private async depositToLine(
+    request: MaterialRequest,
+    kit: Kit | null,
+    actor: string,
+  ): Promise<void> {
+    const partNumber = request.partNumber;
+    const qty = request.requestedQty ?? 0;
+    if (!partNumber || qty <= 0) return; // nada físico que mover
+
+    const line = kit?.plan?.line ?? request.line ?? null;
+    const warehouseId = lineStockWarehouse(line);
+    if (!warehouseId) {
+      this.logger.warn(
+        `Solicitud ${request.id} surtida sin línea en plan/solicitud: se omite ` +
+          `el depósito de inventario a un almacén de línea inexistente ` +
+          `(parte ${partNumber}, ${qty}).`,
+      );
+      return;
+    }
+
+    await this.inventory.recordTransaction({
+      type: 'ISSUE',
+      partNumber,
+      quantity: qty,
+      toWarehouseId: warehouseId,
+      toLocation: LINE_STOCK_LOCATION,
+      actorName: actor,
+      referenceType: 'MATERIAL_REQUEST_FULFILL',
+      referenceId: String(request.id),
+      reason:
+        `Surtido a línea ${line} · ${request.workOrder ?? kit?.plan?.workOrder ?? ''}`.trim(),
+    });
   }
 
   private async decide(
