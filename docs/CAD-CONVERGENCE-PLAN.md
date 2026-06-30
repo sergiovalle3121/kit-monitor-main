@@ -1,12 +1,39 @@
-# AXOS OS — Plan de Convergencia de CAD (FASE 0)
+# AXOS OS — Plan de Convergencia de CAD
 
 > Convergencia de las ~30 ramas CAD (`claude/*` + `codex/night-cad-*`) hacia `main`.
-> Mismo método que FASE 2/3, acotado a CAD. **Plan primero — este documento se detiene
-> para aprobación del owner antes de cerrar o mergear nada.**
+> Mismo método que FASE 2/3, acotado a CAD.
 >
 > Generado en la sesión `claude/cad-convergence-plan-7ag4nv`. Fecha: 2026-06-30.
 > `main` en el momento del análisis: `27c4a78d7d9d1f4e439cba984c46190aaa79516e`
 > (`Merge pull request #902 ... fix/mes-consume-inventory`).
+
+---
+
+## ✅ Resultado de ejecución (aprobado por el owner)
+
+**FASE 0** (plan) → aprobada. **FASE 1** (integración) → **6 KEEP integradas**, gate verde
+(`next build` + lint + typecheck + specs). **FASE 2/3** → cerrar duplicados + cuarentena.
+
+Durante la integración se confirmó que **2 de las 9 "KEEP" tentativas eran en realidad
+duplicados de `axos-cad-factory-scale` (#900)** y chocaban con ella en el mismo código
+(footprint/fit-view/focus): `cad-tree-active` y `night-cad-canvas-focus-mode`. Con aprobación
+del owner se reclasificaron a **CLOSE-DUPLICATE**. `night-cad-shortcuts-workbench` se cerró como
+**superseded** (divergencia +91/−64 vs el sistema de atajos ya evolucionado en `main`).
+
+**Integradas en esta rama (`claude/cad-convergence-plan-7ag4nv`), en orden:**
+
+| # | Feature | Commits | Estado |
+|---|---------|---------|--------|
+| 1 | factory-scale (#900) — world presets, minimap, scale bar, focus, zoom-to-fit | `74c686d4`·`e257f5c1`·`bfc4705c`·`c720bbe4` | ✅ build verde |
+| 2 | viewport saved views | `f3bcffc8` | ✅ |
+| 3 | material route command | `db38d9fb` | ✅ |
+| 4 | dock staging generator | `2b587964` | ✅ |
+| 5 | supermarket kitting generator | `c2b2cfd9` | ✅ |
+| 6 | layer quick actions (unlock all / hide empty, port adaptado) | `2b624c62` | ✅ |
+
+> `polar array` y `cad-array` ya estaban en `main`; el workbench CAD (#726) de factory-scale
+> también → solo se reaplicaron los 4 commits con valor neto. Generadores rack/warehouse,
+> validación, símbolos, flow, plot, edge, dxf, capas base, etc. ya estaban en `main` (STALE).
 
 ---
 
@@ -44,11 +71,15 @@ Por eso el resultado no es "mergear 30", sino: **9 KEEP** con valor real no inte
 
 | Clasificación | Nº | Significado |
 |---|---|---|
-| **KEEP** | 9 | Única o ganadora; valor no integrado. A integrar (FASE 1). |
-| **CLOSE-DUPLICATE** | 2 | Funcionalidad ya cubierta por una ganadora / por `main`. Cerrar (FASE 2). |
+| **KEEP** (integradas) | 6 | Única o ganadora; valor no integrado → **integradas en FASE 1**. |
+| **CLOSE-DUPLICATE** | 5 | Funcionalidad ya cubierta por una ganadora / por `main`. Cerrar (FASE 2). |
 | **STALE** | 19 | Contenido ya presente en `main` (subset o idéntico). Cerrar sin mergear. |
 | **QUARANTINE-RED** | 1 | Toca zona prohibida (entities/auth/guards/synchronize/tenancy). No mergear (FASE 3). |
 | **TOTAL** | **31** | |
+
+> Nota: el plan inicial (FASE 0) propuso 9 KEEP / 2 CLOSE. La integración demostró que
+> `cad-tree-active`, `canvas-focus-mode` (duplican #900) y `shortcuts-workbench` (divergencia)
+> debían cerrarse → **6 KEEP / 5 CLOSE** (decisión del owner).
 
 ---
 
@@ -60,14 +91,14 @@ Por eso el resultado no es "mergear 30", sino: **9 KEEP** con valor real no inte
 | # | Rama | SHA (full) | fc | base | Conflicto vs main | Zona sensible | Archivo(s) de lógica vs `main` | Clase |
 |---|------|-----------|----|------|-------------------|---------------|--------------------------------|-------|
 | 1 | `claude/axos-cad-factory-scale-yd546i` | `38b3e376e505853c696d60fa64650d0339e40d0d` | 12 | reapply | re-aplicar | no¹ | `world-scale.ts`, `minimap.ts`, `PlantMinimap.tsx`, `ScaleBar.tsx` **(NEW)** | **KEEP** |
-| 2 | `codex/night-cad-canvas-focus-mode` | `21cf9d005a487462fd60c734042f4f9f586610ca` | 1 | merge | limpio | no | `workbench-chrome.ts` **(NEW)** | **KEEP** |
+| 2 | `codex/night-cad-canvas-focus-mode` | `21cf9d005a487462fd60c734042f4f9f586610ca` | 1 | merge | limpio | no | `workbench-chrome.ts` — focus compite con #900 | **CLOSE-DUP** |
 | 3 | `codex/night-cad-viewport-bookmarks-0630` | `23440dae8410cd92d14f757c524e0e6728007a7d` | 1 | merge | limpio | no | `viewport-bookmarks.ts` **(NEW)** | **KEEP** |
 | 4 | `codex/night-cad-layer-quick-actions` | `618e7547ba2a8e97a5b5aa4522c8e21478dcfb17` | 1 | reapply | re-aplicar | no | `layers.ts` (+56 / −40) | **KEEP** |
-| 5 | `codex/cad-tree-active` | `4ee3db827fcda8e217aea1f144762aeba16224b1` | 2 | merge | limpio | no | `plant-scale.ts` **(NEW)** + `layers.ts` | **KEEP** |
+| 5 | `codex/cad-tree-active` | `4ee3db827fcda8e217aea1f144762aeba16224b1` | 2 | merge | limpio | no | `plant-scale.ts` — escala compite con #900 | **CLOSE-DUP** |
 | 6 | `codex/night-cad-material-route-command` | `d7a2349eed223697399cf1cc08e2c16805eb71ee` | 1 | merge | limpio | no | `material-flow-route.ts` **(NEW)** + `registry.ts` (+164) | **KEEP** |
 | 7 | `codex/night-cad-dock-staging-generator` | `a6ccc413fab6c9544cc90b603c2ae11a06dc9d63` | 1 | merge | limpio | no | `warehouse-generators.ts` (+364 / −0) | **KEEP** |
 | 8 | `codex/night-cad-supermarket-generator-0630` | `b610e7d276feea0db96c38311e36cbcf9764e5ab` | 1 | merge | limpio | no | `warehouse-generators.ts` (+498 / −0) | **KEEP** |
-| 9 | `codex/night-cad-shortcuts-workbench` | `9c1ee24e0314a01942ef185d3f3606858e3da40c` | 2 | reapply | re-aplicar | no | `keyboard-shortcuts.ts` (+91 / −64) ⚠️ | **KEEP** (cautela) |
+| 9 | `codex/night-cad-shortcuts-workbench` | `9c1ee24e0314a01942ef185d3f3606858e3da40c` | 2 | reapply | re-aplicar | no | `keyboard-shortcuts.ts` (+91 / −64) — superseded por main | **CLOSE-DUP** |
 | 10 | `codex/night-cad-dxf-export-readiness` | `e1bfb39b60e1600099d183199f2b916476a8aaca` | 1 | reapply | re-aplicar | no | `dxf-export-readiness.ts` (versión competidora) | **CLOSE-DUP** |
 | 11 | `codex/night-cad-rack-row-generator` | `2004640a0f67659dc95200b477770c58aadb9568` | 1 | merge | limpio | no | `warehouse-generator.ts` (NEW, dup. funcional) | **CLOSE-DUP** |
 | 12 | `claude/cad-contracts-67-69` | `fbbd7f143ff58f97661b22da09fb1d87c2432215` | 2 | reapply | — | no | `line-dxf.ts`, `geom-edit.ts` **== main** | STALE |
@@ -102,12 +133,11 @@ frontend** (sin entities/migrations/auth) → segura para integrar.
 Agrupados por tema/función. Cada clúster con duplicados elige **UNA ganadora**; el resto se
 marca STALE/CLOSE-DUPLICATE.
 
-### A. Escala de fábrica / focus / viewport (complementarias — todas KEEP)
-Tocan **archivos distintos**, así que no se duplican (solo comparten `Layout3DEditor.tsx`):
-- **`axos-cad-factory-scale`** (#900) → minimap, scale bar, world-scale, focus/zoom, polar array. **GANADORA / la pieza de mayor valor.**
-- **`cad-tree-active`** → plant unit toggle + `plant-scale.ts`. KEEP.
-- **`night-cad-canvas-focus-mode`** → `workbench-chrome.ts`. KEEP.
-- **`night-cad-viewport-bookmarks-0630`** → vistas guardadas. KEEP.
+### A. Escala de fábrica / focus / viewport
+- **`axos-cad-factory-scale`** (#900) → minimap, scale bar, world-scale, focus/zoom, polar array. **GANADORA / integrada.**
+- **`night-cad-viewport-bookmarks-0630`** → vistas guardadas. **KEEP / integrada** (archivo propio, complementario).
+- `cad-tree-active` → "factory scale workspace" con `plant-scale.ts`: **misma feature que #900** por otra vía; choca en el mismo código de footprint/fit-view → **CLOSE-DUPLICATE** (la integración lo confirmó; ver §"Resultado").
+- `night-cad-canvas-focus-mode` → `workbench-chrome` focus: **mutuamente excluyente** con el focus mode de #900 → **CLOSE-DUPLICATE**.
 
 ### B. Generadores rack / almacén / supermarket
 `main` ya tiene `warehouse-generators.ts` con generación de rack (FASE 2 #897).
@@ -117,10 +147,9 @@ Tocan **archivos distintos**, así que no se duplican (solo comparten `Layout3DE
 - `warehouse-generator`, `kitting-supermarket-template`, `rack-row-command` → ya en `main` → **STALE**.
 
 ### C. Capas (layers)
-- **`layer-quick-actions`** (+56/−40) → quick actions. **GANADORA / KEEP.**
+- **`layer-quick-actions`** → **GANADORA / integrada** como *port adaptado* a los tipos de `main`: se añadieron `unlockAllCadLayers` + `hideEmptyCadLayers` (botones Unlock / Ocultar 0); `showAllCadLayers` ya estaba en `main` (no duplicado).
 - `layer-isolation` → ya en `main` (#901) → STALE.
 - `layer-lock-edit-guards` → *subset* de `main` → STALE.
-- (Nota: `cad-tree-active` también toca `layers.ts`; serializar con `layer-quick-actions`.)
 
 ### D. DXF labels / export
 - `dxf-critical-label-preflight` → **es la versión que entró en `main`** (#897) → STALE.
@@ -128,8 +157,8 @@ Tocan **archivos distintos**, así que no se duplican (solo comparten `Layout3DE
 - `dxf-label-export` → ya en `main` → STALE.
 
 ### E. Comandos / atajos
-- **`material-route-command`** → `material-flow-route.ts` (NEW) + ruta de material. **GANADORA / KEEP.**
-- **`shortcuts-workbench`** → `keyboard-shortcuts.ts` divergente (+91/−64). **KEEP con cautela** (ver ⚠️).
+- **`material-route-command`** → `material-flow-route.ts` (NEW) + ruta de material. **GANADORA / integrada.**
+- `shortcuts-workbench` → `keyboard-shortcuts.ts` divergente (+91/−64): `main` ya evolucionó más allá → **CLOSE-DUPLICATE** (superseded, no valor neto claro).
 - `command-line-hints`, `line-balance-command`, `rack-row-command` → ya en `main` → STALE.
 
 ### F. Validación
@@ -147,22 +176,25 @@ Tocan **archivos distintos**, así que no se duplican (solo comparten `Layout3DE
 
 ## 4. Orden de integración propuesto (FASE 1, tras aprobación)
 
-Todas las KEEP comparten `Layout3DEditor.tsx` / `lib/cad/index.ts` → **serializar, rebase entre
-cada una**. Gate por merge (**build ✅ lint ✅ test ✅**) y **stop-on-red** en cada paso.
+Todas las KEEP comparten `Layout3DEditor.tsx` / `lib/cad/index.ts` → se serializaron, gate por
+feature (**`next build` ✅ lint ✅ typecheck ✅ specs ✅**) y **stop-on-red**. Resultado real
+(2 de las 9 propuestas se reclasificaron CLOSE durante la integración):
 
-| Orden | Rama | Por qué aquí | Riesgo |
-|------|------|--------------|--------|
-| 1 | `axos-cad-factory-scale` (#900) | Mayor valor; `reapply` (root divergente) — establece minimap/scale/world-scale. Resolver `Layout3DEditor.tsx` preservando lo de `main` **y** la escala de fábrica. | Alto (re-aplicación) |
-| 2 | `night-cad-canvas-focus-mode` | Archivo nuevo limpio, sobre `main` actual. | Bajo |
-| 3 | `night-cad-viewport-bookmarks-0630` | Archivo nuevo limpio. | Bajo |
-| 4 | `night-cad-layer-quick-actions` | Portar el +56 de `layers.ts` sobre el `layers.ts` de `main` (no sobrescribir). | Medio |
-| 5 | `cad-tree-active` | Tras #4: resolver `layers.ts` conservando ambos; añade `plant-scale.ts`. | Medio |
-| 6 | `night-cad-material-route-command` | `registry.ts` (+164) + archivo nuevo. Conservar exports de `index.ts`. | Medio |
-| 7 | `night-cad-dock-staging-generator` | +364 sobre `warehouse-generators.ts`. | Medio |
-| 8 | `night-cad-supermarket-generator-0630` | Tras #7: resolver `warehouse-generators.ts` conservando ambos generadores. | Medio |
-| 9 | `night-cad-shortcuts-workbench` ⚠️ | **Último y bajo verificación.** `keyboard-shortcuts.ts` diverge fuerte (+91/−64): `main` evolucionó más allá de esta rama. Portar **solo** los atajos net-new, **sin** pisar lo de `main`. Si no aporta valor claro → reclasificar a CLOSE/STALE. | Alto |
+| Orden | Rama | Resultado | Riesgo realizado |
+|------|------|-----------|--------|
+| 1 | `axos-cad-factory-scale` (#900) | ✅ integrada (`reapply` de 4 commits; `Layout3DEditor.tsx` resuelto preservando `main` + escala). | Alto — resuelto |
+| 2 | `night-cad-viewport-bookmarks-0630` | ✅ integrada (archivo nuevo + export). | Bajo |
+| 3 | `night-cad-material-route-command` | ✅ integrada (`material-flow-route.ts` + `registry.ts` +164, exports conservados). | Bajo |
+| 4 | `night-cad-dock-staging-generator` | ✅ integrada (+364 en `warehouse-generators.ts`). | Bajo |
+| 5 | `night-cad-supermarket-generator-0630` | ✅ integrada — `warehouse-generators.ts` y las dos `apply*Generator` reconstruidas como funciones completas (git las había colapsado). | Medio — resuelto |
+| 6 | `night-cad-layer-quick-actions` | ✅ integrada como **port adaptado** (unlock all / hide empty sobre los tipos de `main`). | Medio — resuelto |
+| — | `cad-tree-active` | ❌ **CLOSE-DUPLICATE** — duplica la escala de #900 (choca en footprint/fit-view). | — |
+| — | `night-cad-canvas-focus-mode` | ❌ **CLOSE-DUPLICATE** — focus mutuamente excluyente con #900. | — |
+| — | `night-cad-shortcuts-workbench` | ❌ **CLOSE-DUPLICATE** — divergente (+91/−64), superseded por `main`. | — |
 
-> Si dos ganadoras chocan en `cad/index.ts`, resolver **conservando ambos exports**.
+> Choques en `cad/index.ts` resueltos **conservando ambos exports**. Choques de funciones que git
+> colapsó (`warehouse-generators.ts`, `applyDockStagingGenerator`/`applySupermarketGenerator`)
+> reconstruidos a mano en dos funciones completas, no por unión ciega.
 
 ---
 
@@ -175,6 +207,9 @@ hace el owner** (auto-delete / script).
 |------|-----|---------------|
 | `codex/night-cad-dxf-export-readiness` | `e1bfb39b60e1600099d183199f2b916476a8aaca` | `dxf-export-readiness.ts` ya en `main` (vía `dxf-critical-label-preflight`, #897) |
 | `codex/night-cad-rack-row-generator` | `2004640a0f67659dc95200b477770c58aadb9568` | `warehouse-generators.ts` en `main` (#897) + `dock-staging` / `supermarket` (KEEP) |
+| `codex/cad-tree-active` | `4ee3db827fcda8e217aea1f144762aeba16224b1` | `axos-cad-factory-scale` (#900) — misma escala de fábrica (`plant-scale.ts` vs `world-scale.ts`), choca en footprint/fit-view |
+| `codex/night-cad-canvas-focus-mode` | `21cf9d005a487462fd60c734042f4f9f586610ca` | `axos-cad-factory-scale` (#900) — focus mode ya provisto; `workbench-chrome` choca con el panel-hiding de #900 |
+| `codex/night-cad-shortcuts-workbench` | `9c1ee24e0314a01942ef185d3f3606858e3da40c` | sistema de atajos ya evolucionado en `main`; `keyboard-shortcuts.ts` diverge +91/−64 (regresión, no valor neto) |
 
 > Las **19 STALE** (filas 12–30) también se cierran sin mergear, con comentario
 > `already in main` y el SHA de su tabla. No requieren acción de integración.
@@ -206,25 +241,23 @@ en una rama separada y solo-frontend/contratos, revisada a mano por el owner.
 
 ## 7. Reglas de oro aplicadas
 
-- ✅ **Plan primero**: este documento. **Se detiene aquí para aprobación.**
+- ✅ **Plan primero**: FASE 0 aprobada por el owner antes de tocar nada.
 - 🚫 **No mergear** ramas con migrations / `*.entity.ts` / `orm.options.ts`/synchronize / auth /
-  guards / tenancy → `cad-tool-summary` a cuarentena.
-- 🚦 **Gate por merge**: build ✅ lint ✅ test ✅. **Stop-on-red**: si una integración rompe CI,
-  detenerse y reportar, no forzar.
-- 🔒 **No tocar `main`** fuera de los merges aprobados.
+  guards / tenancy → `cad-tool-summary` a cuarentena (nunca se mergeó).
+- 🚦 **Gate por merge**: `next build` ✅ lint ✅ typecheck ✅ specs ✅ en cada feature. **Stop-on-red**.
+- 🔒 **No se tocó `main`** directamente: todo va por PR #911 (squash a `main` tras CI verde).
 - 🧾 **SHA registrado** de cada rama (tablas §2/§5/§6) antes de cualquier cierre irreversible.
 
 ---
 
 ## 8. Entregable / definición de "hecho"
 
-- [x] **FASE 0** — Inventario + clusters + clasificación + este documento. **← AQUÍ. Esperando aprobación.**
-- [ ] **FASE 1** — Integrar las 9 KEEP en el orden de §4 (empezando por #900), con gate + stop-on-red.
-- [ ] **FASE 2** — Cerrar 2 CLOSE-DUPLICATE + 19 STALE con comentario y SHA.
+- [x] **FASE 0** — Inventario + clusters + clasificación + este documento. Aprobado.
+- [x] **FASE 1** — Integradas **6 KEEP** (factory-scale #900 + viewport-bookmarks + material-route
+  + dock-staging + supermarket + layer-quick-actions) en `claude/cad-convergence-plan-7ag4nv`,
+  gate verde. Ver tabla de §"Resultado de ejecución".
+- [ ] **FASE 2** — Cerrar **5 CLOSE-DUPLICATE** + 19 STALE con comentario `superseded by` y SHA.
 - [ ] **FASE 3** — `cad-tool-summary` queda `needs-human-review` (no mergear).
 
-**Estado final esperado:** `main` con la escala de fábrica (#900) + las features CAD únicas
-integradas, CI verde, sin duplicados; solo queda abierta la RED en cuarentena.
-
-> **DETENER — pendiente de aprobación del owner para ejecutar FASE 1.**
-> La regla de oro manda sobre cualquier "intégralo todo".
+**Estado final esperado:** `main` (vía PR #911) con la escala de fábrica (#900) + las features CAD
+únicas integradas, CI verde, sin duplicados; solo queda abierta la RED en cuarentena.
