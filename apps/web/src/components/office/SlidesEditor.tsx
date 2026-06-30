@@ -1970,7 +1970,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
                   <RibbonButton icon={RotateCw} label="Girar 90° izquierda" onClick={() => rotateBy(-90)} />
                   <input type="number" value={selAngle} title="Ángulo (grados)" onChange={(e) => setAngle(Number(e.target.value))}
                     className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-foreground" />
-                  <span className="text-[11px] text-gray-400">°</span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">°</span>
                   {selGeom && (
                     <RibbonMenuButton icon={Move} label="Posición y tamaño" menuWidth={236}>
                       <PositionSizeForm key={activeIdx} initial={selGeom} canSize={selType !== 'line'} onChange={setGeom} />
@@ -2077,7 +2077,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
                   <RibbonSelect title="Repetición de la animación" value={String(selAnimRepeat)} onChange={(v) => setObjAnimRepeat(Number(v))} width={76}
                     options={[{ label: '1×', value: '1' }, { label: '2×', value: '2' }, { label: '3×', value: '3' }, { label: '∞', value: '0' }]} />
                 </>
-              ) : <span className="text-[11px] text-gray-400 px-2">Selecciona un objeto</span>}
+              ) : <span className="text-[11px] text-gray-500 dark:text-gray-400 px-2">Selecciona un objeto</span>}
               <RibbonButton icon={ListTree} label="Panel de animación" active={showAnimPanel} onClick={() => { setShowAnimPanel((v) => !v); setShowLayers(false); }} />
             </RibbonGroup>
           </RibbonTab>
@@ -2161,18 +2161,18 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
               {sections[i] != null && (
                 <div className="flex items-center gap-1 pt-1 group/sec">
                   <button onClick={() => !readOnly && renameSection(i)} title="Renombrar sección" className="flex-1 min-w-0 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate hover:text-gray-800 dark:hover:text-gray-200">▸ {sections[i]}</button>
-                  {!readOnly && <button onClick={() => removeSection(i)} title="Quitar sección" className="p-0.5 rounded text-gray-400 hover:text-red-500 opacity-0 group-hover/sec:opacity-100"><X className="w-3 h-3" /></button>}
+                  {!readOnly && <button onClick={() => removeSection(i)} title="Quitar sección" className="p-0.5 rounded text-gray-500 dark:text-gray-400 hover:text-red-500 opacity-0 group-hover/sec:opacity-100"><X className="w-3 h-3" /></button>}
                 </div>
               )}
               <div className="relative group">
                 <button onClick={() => goto(i)} className={`w-full text-left rounded-lg border-2 transition-all ${i === cur ? 'border-amber-500' : 'border-gray-200 dark:border-white/10 hover:border-gray-300'}`}>
                   <div className="aspect-video bg-white rounded-md overflow-hidden p-2 flex flex-col">
-                    <span className="text-[9px] text-gray-400 font-mono">{i + 1}</span>
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400 font-mono">{i + 1}</span>
                     <p className="font-bold text-[10px] text-black line-clamp-2 mt-1">{labelOf(s) || 'Diapositiva'}</p>
                   </div>
                 </button>
                 {!readOnly && slides.length > 1 && (
-                  <button onClick={() => delSlide(i)} className="absolute top-1 right-1 p-1 rounded-full bg-white/90 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><X className="w-3 h-3" /></button>
+                  <button onClick={() => delSlide(i)} className="absolute top-1 right-1 p-1 rounded-full bg-white/90 text-gray-500 dark:text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><X className="w-3 h-3" /></button>
                 )}
               </div>
             </React.Fragment>
@@ -2180,8 +2180,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           {!readOnly && (
           <>
           <div className="flex gap-2">
-            <button onClick={addSlide} title="Nueva" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-foreground transition-colors"><Plus className="w-5 h-5" /></button>
-            <button onClick={dupSlide} title="Duplicar" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-foreground transition-colors"><Copy className="w-5 h-5" /></button>
+            <button onClick={addSlide} title="Nueva" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-foreground transition-colors"><Plus className="w-5 h-5" /></button>
+            <button onClick={dupSlide} title="Duplicar" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-foreground transition-colors"><Copy className="w-5 h-5" /></button>
           </div>
           <button onClick={addSection} title="Agregar sección en la diapositiva actual" className="w-full text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 border border-dashed border-gray-300 dark:border-white/20 rounded-lg py-1 flex items-center justify-center gap-1"><FolderPlus className="w-3.5 h-3.5" /> Sección</button>
           </>
@@ -2212,7 +2212,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
             </div>
           </div>
           <div className="flex-shrink-0 flex items-start gap-2">
-            <span title="Notas del orador" className="mt-2 text-gray-400"><StickyNote className="w-4 h-4" /></span>
+            <span title="Notas del orador" className="mt-2 text-gray-500 dark:text-gray-400"><StickyNote className="w-4 h-4" /></span>
             <textarea
               value={noteDraft}
               onChange={(e) => onNote(e.target.value)}
@@ -2771,7 +2771,7 @@ function Present({
                 </div>
               ) : (
                 <div className="relative rounded-lg overflow-hidden bg-white border border-white/10" style={{ aspectRatio: aspect }}>
-                  {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} master={master} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Fin</div>}
+                  {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} master={master} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">Fin</div>}
                 </div>
               )}
             </div>

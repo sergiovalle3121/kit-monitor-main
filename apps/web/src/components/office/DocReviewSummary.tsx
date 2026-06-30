@@ -45,13 +45,13 @@ export function DocReviewSummary({ content }: { content: any }) {
             >
               <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-black/5 px-4 dark:border-white/10">
                 <span className="flex items-center gap-2 text-sm font-semibold"><GitPullRequestArrow className="h-4 w-4 text-amber-500" />Resumen de revisión</span>
-                <button onClick={() => setOpen(false)} className="rounded-full p-1.5 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+                <button onClick={() => setOpen(false)} className="rounded-full p-1.5 text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
               </div>
 
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
                 <div className="grid grid-cols-4 gap-2">
                   <div className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Pendientes</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Pendientes</p>
                     <p className="mt-1 text-2xl font-semibold text-foreground">{summary.total}</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
@@ -77,13 +77,13 @@ export function DocReviewSummary({ content }: { content: any }) {
                 ) : (
                   <>
                     <div className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Impacto por autor</p>
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Impacto por autor</p>
                       <div className="space-y-2">
                         {summary.authors.map((author) => (
                           <div key={author.author} className="rounded-xl bg-gray-50 p-2 dark:bg-white/5">
                             <div className="flex items-center justify-between gap-2">
                               <p className="truncate text-xs font-semibold text-gray-700 dark:text-gray-200">{author.author}</p>
-                              <span className="text-[11px] text-gray-400">+{author.charactersAdded} / -{author.charactersRemoved} chars</span>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">+{author.charactersAdded} / -{author.charactersRemoved} chars</span>
                             </div>
                             <div className="mt-1 flex items-center gap-2 text-[11px]">
                               <span className="inline-flex items-center gap-1 text-emerald-600"><PenLine className="h-3 w-3" />{author.insertions} inserciones</span>
@@ -96,12 +96,12 @@ export function DocReviewSummary({ content }: { content: any }) {
                     </div>
 
                     <div className="space-y-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Cambios recientes</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Cambios recientes</p>
                       {summary.items.slice(0, 25).map((item) => (
                         <div key={item.id} className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
                           <div className="flex items-center justify-between gap-2">
                             <span className={`text-[10px] font-bold uppercase tracking-wide ${item.type === 'insertion' ? 'text-emerald-600' : item.type === 'deletion' ? 'text-red-500' : 'text-blue-500'}`}>{item.type === 'insertion' ? 'Inserción' : item.type === 'deletion' ? 'Eliminación' : 'Formato'}</span>
-                            <span className="text-[10px] text-gray-400">{formatDate(item.date)}</span>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatDate(item.date)}</span>
                           </div>
                           <p className="mt-1 text-xs font-medium text-gray-700 dark:text-gray-200">{item.author}</p>
                           <p className={`mt-1 text-sm ${item.type === 'deletion' ? 'text-red-500 line-through' : item.type === 'formatChange' ? 'text-blue-600 underline decoration-dotted underline-offset-4 dark:text-blue-300' : 'text-emerald-700 dark:text-emerald-300'}`}>“{truncate(item.text)}”</p>

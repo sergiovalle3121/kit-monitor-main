@@ -103,7 +103,7 @@ export default function ExpenseDetailPage() {
 
   if (forbidden) return <Guard />;
   if (isLoading || !e) {
-    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
 
   const sm = STATUS_META[e.status];
@@ -144,13 +144,13 @@ export default function ExpenseDetailPage() {
       {/* Sticky glass header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard/expenses" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
+          <Link href="/dashboard/expenses" aria-label="Volver" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-10 h-10 rounded-xl grid place-items-center flex-shrink-0" style={{ background: `${TEAL}1f` }}>
             <Receipt className="w-5 h-5" style={{ color: TEAL }} />
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight truncate">{e.description}</h1>
-            <p className="text-[12px] text-gray-400 leading-tight font-mono">{e.folio || 'Sin folio'}{e.employeeName ? ` · ${e.employeeName}` : ''}</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight font-mono">{e.folio || 'Sin folio'}{e.employeeName ? ` · ${e.employeeName}` : ''}</p>
           </div>
           <span className="hidden sm:inline text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: `${TEAL}14`, color: TEAL }}>{cat}</span>
           <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: `${sm.color}1a`, color: sm.color }}>{sm.label}</span>
@@ -161,7 +161,7 @@ export default function ExpenseDetailPage() {
         {/* Metric / info strip — amount is the prominent figure */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           <div className={`${glass} rounded-2xl p-3.5 col-span-2`}>
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400"><Coins className="w-3 h-3" />Monto</div>
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"><Coins className="w-3 h-3" />Monto</div>
             <div className="text-2xl font-bold mt-0.5 tabular-nums truncate" style={{ color: TEAL }} title={money(e.amount, e.currency)}>{money(e.amount, e.currency)}</div>
           </div>
           <Metric icon={User} label="Empleado" value={e.employeeName || '—'} color={GRAY} />
@@ -213,9 +213,9 @@ export default function ExpenseDetailPage() {
               <Stepper status={e.status} />
 
               <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/10">
-                <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Acciones</div>
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Acciones</div>
                 {NEXT[e.status].length === 0 ? (
-                  <p className="text-[13px] text-gray-400">Estado terminal — sin transiciones disponibles.</p>
+                  <p className="text-[13px] text-gray-500 dark:text-gray-400">Estado terminal — sin transiciones disponibles.</p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {NEXT[e.status].map((to) => {
@@ -280,7 +280,7 @@ function Stepper({ status }: { status: Status }) {
               </div>
               <div className={`pb-3 ${current ? '' : 'opacity-80'}`}>
                 <div className="text-[13px] font-semibold leading-6" style={current ? { color: m.color } : undefined}>{m.label}</div>
-                {current && <div className="text-[11px] text-gray-400 -mt-0.5">Estado actual</div>}
+                {current && <div className="text-[11px] text-gray-500 dark:text-gray-400 -mt-0.5">Estado actual</div>}
               </div>
             </div>
           );
@@ -315,7 +315,7 @@ function Timeline({ e }: { e: Expense }) {
             </div>
             <div className={`pb-3 min-w-0 ${s.done ? '' : 'opacity-60'}`}>
               <div className="text-[13px] font-medium leading-5">{s.label}</div>
-              <div className="text-[12px] text-gray-400 flex items-center gap-1.5"><Clock className="w-3 h-3" />{s.done ? fmtDate(s.date) : 'Pendiente'}</div>
+              <div className="text-[12px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><Clock className="w-3 h-3" />{s.done ? fmtDate(s.date) : 'Pendiente'}</div>
             </div>
           </div>
         );
@@ -354,7 +354,7 @@ function RejectModal({ busy, initial, onClose, onSubmit }: { busy: boolean; init
 function Metric({ icon: Icon, label, value, color }: { icon: typeof Receipt; label: string; value: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3.5`}>
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400"><Icon className="w-3 h-3" />{label}</div>
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"><Icon className="w-3 h-3" />{label}</div>
       <div className="text-sm font-semibold mt-1 tabular-nums truncate" style={{ color }} title={value}>{value}</div>
     </div>
   );
@@ -362,9 +362,9 @@ function Metric({ icon: Icon, label, value, color }: { icon: typeof Receipt; lab
 function Row({ icon: Icon, label, value, mono }: { icon: typeof Receipt; label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+      <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
       <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
         <div className={`text-sm font-medium truncate ${mono ? 'font-mono' : ''}`}>{value}</div>
       </div>
     </div>
@@ -373,7 +373,7 @@ function Row({ icon: Icon, label, value, mono }: { icon: typeof Receipt; label: 
 function Guard() {
   return (
     <div className="min-h-screen grid place-items-center text-foreground">
-      <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el gasto.</p></div>
+      <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver el gasto.</p></div>
     </div>
   );
 }

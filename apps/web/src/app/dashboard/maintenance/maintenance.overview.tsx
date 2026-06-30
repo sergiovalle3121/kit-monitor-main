@@ -101,7 +101,7 @@ export function OverviewTab({
                         <Pill label={CRITICALITY_META[a.criticality].label} color={CRITICALITY_META[a.criticality].color} />
                       </div>
                       {(a.code || a.location) && (
-                        <div className="text-[12px] text-gray-400 truncate">
+                        <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
                           {[a.code, a.location].filter(Boolean).join(" · ")}
                         </div>
                       )}
@@ -154,7 +154,7 @@ export function OverviewTab({
                 Ve a Preventivo para generar la orden de trabajo o reprogramar.
               </p>
             </div>
-            <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <ArrowRight className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
           </div>
         </button>
       )}
@@ -203,14 +203,14 @@ export function OverviewTab({
         {/* Órdenes abiertas por activo (derivado del listado en vivo) */}
         <section className={`${glass} rounded-2xl p-5 lg:col-span-2`}>
           <div className="flex items-center gap-2 mb-4">
-            <Boxes className="w-4 h-4 text-gray-400" />
+            <Boxes className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <h3 className="text-sm font-semibold">Órdenes abiertas por activo</h3>
-            <button onClick={onGoOrders} className="ml-auto text-[12px] text-gray-400 hover:text-foreground inline-flex items-center gap-1">
+            <button onClick={onGoOrders} className="ml-auto text-[12px] text-gray-500 dark:text-gray-400 hover:text-foreground inline-flex items-center gap-1">
               Ver órdenes <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
           {load.length === 0 ? (
-            <p className="text-sm text-gray-400 py-6 text-center">Sin trabajo abierto. Buen momento para programar preventivos.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">Sin trabajo abierto. Buen momento para programar preventivos.</p>
           ) : (
             <div className="space-y-3">
               {load.slice(0, 8).map((row) => (
@@ -220,7 +220,7 @@ export function OverviewTab({
                       {row.down && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORS.red }} title="En avería" />}
                       <span className="text-sm truncate">{row.assetName}</span>
                     </div>
-                    <div className="text-[11px] text-gray-400">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
                       {row.open} abiertas{row.inProgress > 0 ? ` · ${row.inProgress} en progreso` : ""}
                     </div>
                   </div>
@@ -237,18 +237,18 @@ export function OverviewTab({
         {/* Mezcla por tipo + nota MTBF */}
         <section className={`${glass} rounded-2xl p-5`}>
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-4 h-4 text-gray-400" />
+            <TrendingUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <h3 className="text-sm font-semibold">Carga por tipo</h3>
           </div>
           {totalMix === 0 ? (
-            <p className="text-sm text-gray-400 py-6 text-center">Aún no hay órdenes.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">Aún no hay órdenes.</p>
           ) : (
             <div className="space-y-3">
               {TYPE_ORDER.map((t) => (
                 <div key={t}>
                   <div className="flex items-center justify-between text-[12px] mb-1">
                     <span style={{ color: TYPE_META[t].color }}>{TYPE_META[t].label}</span>
-                    <span className="text-gray-400 tabular-nums">{mix[t]}</span>
+                    <span className="text-gray-500 dark:text-gray-400 tabular-nums">{mix[t]}</span>
                   </div>
                   <MiniBar value={mix[t]} max={totalMix} color={TYPE_META[t].color} />
                 </div>
@@ -263,7 +263,7 @@ export function OverviewTab({
                 {topFailures.map((r) => (
                   <div key={r.key} className="flex items-center justify-between text-[12px]">
                     <span className="truncate text-gray-600 dark:text-gray-300">{r.assetName}</span>
-                    <span className="text-gray-400 tabular-nums flex-shrink-0 ml-2">
+                    <span className="text-gray-500 dark:text-gray-400 tabular-nums flex-shrink-0 ml-2">
                       {r.failures} {r.failures === 1 ? "falla" : "fallas"}
                       {r.mtbfHours != null ? ` · MTBF ${fmtHours(r.mtbfHours)}` : ""}
                     </span>
@@ -271,7 +271,7 @@ export function OverviewTab({
                 ))}
               </div>
             )}
-            <div className="flex items-start gap-2 text-[11px] text-gray-400">
+            <div className="flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400">
               <Gauge className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
               <span>
                 MTTR sale de los paros al cerrar órdenes; MTBF se deriva del tiempo
@@ -306,10 +306,10 @@ function QuickStat({
 }) {
   return (
     <div className={`${glass} rounded-xl px-4 py-3 flex items-center gap-3`}>
-      <span className="text-gray-400">{icon}</span>
+      <span className="text-gray-500 dark:text-gray-400">{icon}</span>
       <div className="min-w-0">
         <div className="text-lg font-semibold leading-none" style={color ? { color } : undefined}>{value}</div>
-        <div className="text-[11px] text-gray-400 mt-0.5 truncate">{label}</div>
+        <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{label}</div>
       </div>
     </div>
   );

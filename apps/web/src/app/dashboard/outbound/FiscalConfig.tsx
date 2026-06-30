@@ -83,9 +83,9 @@ export function FiscalConfig({ onClose }: { onClose: () => void }) {
           <h3 className="font-semibold">Perfil fiscal (Carta Porte / CFDI)</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-[12px] text-gray-400 mb-4">Datos del emisor y del autotransporte que llenan el XML. El timbrado lo hace tu PAC con el CSD.</p>
+        <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">Datos del emisor y del autotransporte que llenan el XML. El timbrado lo hace tu PAC con el CSD.</p>
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3">

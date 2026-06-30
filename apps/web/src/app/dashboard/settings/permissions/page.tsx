@@ -118,7 +118,7 @@ export default function PermissionsMatrixPage() {
                 className="w-full pl-11 pr-4 py-3 bg-[#F5F5F7] dark:bg-white/10 rounded-2xl border-none focus:ring-2 focus:ring-blue-500/20 text-sm transition-all dark:text-white"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={roleFocus}
                 onChange={(e) => setRoleFocus(e.target.value)}

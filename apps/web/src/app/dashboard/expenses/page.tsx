@@ -137,9 +137,9 @@ export default function ExpensesPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver gastos.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver gastos.</p>
         </div>
       </div>
     );
@@ -151,7 +151,7 @@ export default function ExpensesPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: `${TEAL}1f` }}>
@@ -159,7 +159,7 @@ export default function ExpensesPage() {
           </span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Gastos · Viáticos</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Reportes de gasto, aprobación y reembolso</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Reportes de gasto, aprobación y reembolso</p>
           </div>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: TEAL }}>
             <Plus className="w-4 h-4" /> Nuevo gasto
@@ -192,7 +192,7 @@ export default function ExpensesPage() {
               <X className="w-3.5 h-3.5" /> Limpiar
             </button>
           )}
-          <span className="ml-auto text-[12px] text-gray-400">{filtered.length} de {list.length}</span>
+          <span className="ml-auto text-[12px] text-gray-500 dark:text-gray-400">{filtered.length} de {list.length}</span>
         </div>
 
         {showForm && (
@@ -231,12 +231,12 @@ export default function ExpensesPage() {
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : filtered.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">{list.length === 0 ? 'Sin gastos' : 'Sin coincidencias'}</h3>
-            <p className="text-sm text-gray-400 mt-1">{list.length === 0 ? 'Crea un reporte de gasto para enviarlo a aprobación.' : 'Ajusta los filtros para ver más reportes.'}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{list.length === 0 ? 'Crea un reporte de gasto para enviarlo a aprobación.' : 'Ajusta los filtros para ver más reportes.'}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -255,7 +255,7 @@ export default function ExpensesPage() {
                         <span className="font-semibold truncate">{e.description}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: `${m.color}1f`, color: m.color }}>{m.label}</span>
                       </div>
-                      <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-400 flex-wrap">
+                      <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                         <span>{e.employeeName}</span>
                         <span>•</span>
                         <span>{CAT_LABEL[e.category]}</span>
@@ -264,7 +264,7 @@ export default function ExpensesPage() {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <div className="font-semibold tabular-nums" style={{ color: TEAL }}>{money(e.amount, e.currency)}</div>
-                      <div className="text-[11px] text-gray-400">{e.currency}</div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">{e.currency}</div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
                   </div>
@@ -281,9 +281,9 @@ export default function ExpensesPage() {
 function Kpi({ icon: Icon, label, value, sub, color }: { icon: typeof Receipt; label: string; value: string; sub?: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-400"><Icon className="w-3.5 h-3.5" />{label}</div>
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400"><Icon className="w-3.5 h-3.5" />{label}</div>
       <div className="text-xl font-semibold mt-1 tabular-nums truncate" style={{ color }} title={value}>{value}</div>
-      {sub && <div className="text-[12px] text-gray-400 mt-0.5 truncate">{sub}</div>}
+      {sub && <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{sub}</div>}
     </div>
   );
 }

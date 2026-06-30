@@ -90,7 +90,7 @@ export function DocEvidencePackagePanel({ docId, title }: { docId: string; title
             >
               <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-black/5 px-4 dark:border-white/10">
                 <span className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-violet-500" />Paquete de evidencia</span>
-                <button onClick={() => setOpen(false)} className="rounded-full p-1.5 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+                <button onClick={() => setOpen(false)} className="rounded-full p-1.5 text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
               </div>
 
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
@@ -100,12 +100,12 @@ export function DocEvidencePackagePanel({ docId, title }: { docId: string; title
                 {pkg && (
                   <>
                     <div className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Controlled evidence package</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Controlled evidence package</p>
                       <h3 className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">{pkg.document?.title ?? title}</h3>
                       <p className="mt-1 text-xs text-gray-500">Generado {fmt(pkg.generatedAt)} por {pkg.generatedBy || '—'}</p>
                       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                        <div className="rounded-xl bg-gray-50 p-2 dark:bg-white/5"><span className="block text-gray-400">Estado</span><b>{pkg.document?.lifecycleState}</b></div>
-                        <div className="rounded-xl bg-gray-50 p-2 dark:bg-white/5"><span className="block text-gray-400">Hash</span><b className="break-all font-mono text-[10px]">{pkg.document?.contentHash}</b></div>
+                        <div className="rounded-xl bg-gray-50 p-2 dark:bg-white/5"><span className="block text-gray-500 dark:text-gray-400">Estado</span><b>{pkg.document?.lifecycleState}</b></div>
+                        <div className="rounded-xl bg-gray-50 p-2 dark:bg-white/5"><span className="block text-gray-500 dark:text-gray-400">Hash</span><b className="break-all font-mono text-[10px]">{pkg.document?.contentHash}</b></div>
                       </div>
                     </div>
 
@@ -119,14 +119,14 @@ export function DocEvidencePackagePanel({ docId, title }: { docId: string; title
                         ['Eventos timeline', counts.timelineEvents ?? 0],
                       ].map(([label, value]) => (
                         <div key={label} className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">{label}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">{label}</p>
                           <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">{value}</p>
                         </div>
                       ))}
                     </div>
 
                     <div className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
-                      <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-gray-400"><CheckCircle2 className="h-4 w-4 text-emerald-500" />Contenido del paquete</p>
+                      <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400"><CheckCircle2 className="h-4 w-4 text-emerald-500" />Contenido del paquete</p>
                       <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
                         <li>Metadata controlada, lifecycle, hash y ubicación DMS.</li>
                         <li>Release readiness, comentarios, reviews, training, firmas y distribuciones.</li>

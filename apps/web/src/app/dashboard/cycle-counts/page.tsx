@@ -168,9 +168,9 @@ export default function CycleCountsPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver conteos.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver conteos.</p>
         </div>
       </div>
     );
@@ -192,7 +192,7 @@ export default function CycleCountsPage() {
           <button onClick={() => recordCount(c)} disabled={busy === c.id} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: TEAL }}>
             Contar
           </button>
-          <button onClick={() => transition(c, 'CANCELLED')} disabled={busy === c.id} title="Cancelar conteo" className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 disabled:opacity-50">
+          <button onClick={() => transition(c, 'CANCELLED')} disabled={busy === c.id} title="Cancelar conteo" className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-500 disabled:opacity-50">
             <X className="w-3.5 h-3.5" />
           </button>
         </>
@@ -245,7 +245,7 @@ export default function CycleCountsPage() {
           </div>
           {list.length > 0 && (
             <div className={`${glass} flex items-center gap-2 px-4 py-2 rounded-2xl flex-1 min-w-[200px]`}>
-              <Search className="w-4 h-4 text-gray-400" />
+              <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               <input value={cq} onChange={(e) => setCq(e.target.value)} placeholder="Buscar parte, folio o ubicación…" className="bg-transparent outline-none text-sm w-full" />
             </div>
           )}
@@ -281,23 +281,23 @@ export default function CycleCountsPage() {
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin conteos</h3>
-            <p className="text-sm text-gray-400 mt-1">Crea un conteo para medir la exactitud de inventario.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Crea un conteo para medir la exactitud de inventario.</p>
           </div>
         ) : view === 'discrepancies' ? (
           shownDiscrepancies.length === 0 ? (
             <div className={`${glass} rounded-3xl p-12 text-center`}>
               <CheckCircle2 className="w-8 h-8 mx-auto mb-3" style={{ color: GREEN }} />
               <h3 className="font-semibold">{cq ? 'Sin coincidencias' : 'Sin discrepancias'}</h3>
-              <p className="text-sm text-gray-400 mt-1">{cq ? 'Ningún conteo con diferencia coincide con la búsqueda.' : 'Todos los conteos registrados cuadran con el sistema.'}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{cq ? 'Ningún conteo con diferencia coincide con la búsqueda.' : 'Todos los conteos registrados cuadran con el sistema.'}</p>
             </div>
           ) : (
             <>
-              <p className="text-[12px] text-gray-400 mb-3">
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-3">
                 {shownDiscrepancies.length} parte{shownDiscrepancies.length === 1 ? '' : 's'} con diferencia · varianza neta{' '}
                 <span className="font-semibold" style={{ color: netVariance === 0 ? GRAY : netVariance > 0 ? GREEN : RED }}>
                   {netVariance > 0 ? '+' : ''}{netVariance}
@@ -314,10 +314,10 @@ export default function CycleCountsPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             {c.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{c.folio}</span>}
                             <span className="font-semibold font-mono truncate">{c.partNumber}</span>
-                            {c.location && <span className="text-[11px] text-gray-400">{c.location}</span>}
+                            {c.location && <span className="text-[11px] text-gray-500 dark:text-gray-400">{c.location}</span>}
                             <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${STATUS_META[c.status].color}1f`, color: STATUS_META[c.status].color }}>{STATUS_META[c.status].label}</span>
                           </div>
-                          <div className="mt-1 text-[12px] text-gray-400">
+                          <div className="mt-1 text-[12px] text-gray-500 dark:text-gray-400">
                             sistema {c.systemQty} {c.uom} · contado {c.countedQty} {c.uom}
                           </div>
                         </div>
@@ -325,7 +325,7 @@ export default function CycleCountsPage() {
                           <div className="text-lg font-bold tabular-nums" style={{ color: over ? GREEN : RED }}>
                             {over ? '+' : ''}{v} {c.uom}
                           </div>
-                          <div className="text-[10px] text-gray-400">{over ? 'sobrante' : 'faltante'}</div>
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400">{over ? 'sobrante' : 'faltante'}</div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0 w-full justify-end">{rowActions(c)}</div>
                       </div>
@@ -345,7 +345,7 @@ export default function CycleCountsPage() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_META[status].color }} />
                     <h2 className="text-sm font-semibold">{STATUS_META[status].label}</h2>
-                    <span className="text-[11px] text-gray-400">({items.length})</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">({items.length})</span>
                   </div>
                   <div className="space-y-3">
                     {items.map((c) => (
@@ -355,7 +355,7 @@ export default function CycleCountsPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               {c.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{c.folio}</span>}
                               <span className="font-semibold font-mono truncate">{c.partNumber}</span>
-                              {c.location && <span className="text-[11px] text-gray-400">{c.location}</span>}
+                              {c.location && <span className="text-[11px] text-gray-500 dark:text-gray-400">{c.location}</span>}
                               {c.variance !== null && c.variance !== 0 && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${RED}1f`, color: RED }}>
                                   var {c.variance > 0 ? '+' : ''}{c.variance}
@@ -363,7 +363,7 @@ export default function CycleCountsPage() {
                               )}
                               {c.variance === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${GREEN}1f`, color: GREEN }}>exacto</span>}
                             </div>
-                            <div className="mt-1 text-[12px] text-gray-400">
+                            <div className="mt-1 text-[12px] text-gray-500 dark:text-gray-400">
                               sistema {c.systemQty} {c.uom}{c.countedQty !== null && <> · contado {c.countedQty} {c.uom}</>}
                             </div>
                           </div>
@@ -416,7 +416,7 @@ function ViewBtn({ active, onClick, icon, children }: { active: boolean; onClick
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
   );

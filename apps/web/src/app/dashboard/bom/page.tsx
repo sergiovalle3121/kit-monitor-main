@@ -124,9 +124,9 @@ export default function BomListPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver los BOMs.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver los BOMs.</p>
         </div>
       </div>
     );
@@ -206,7 +206,7 @@ export default function BomListPage() {
         {/* Search */}
         {list.length > 0 && (
           <div className={`${glass} flex items-center gap-2 px-3 py-2 rounded-2xl mb-5`}>
-            <Search className="w-4 h-4 text-gray-400" />
+            <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por parte, descripción o revisión…" className="bg-transparent outline-none text-sm w-full" />
             {query && <button onClick={() => setQuery('')} className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-3.5 h-3.5" /></button>}
           </div>
@@ -214,15 +214,15 @@ export default function BomListPage() {
 
         {/* List */}
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Aún no hay BOMs</h3>
-            <p className="text-sm text-gray-400 mt-1 mb-4">Crea el BOM de un ensamble y agrega componentes del maestro.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Crea el BOM de un ensamble y agrega componentes del maestro.</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-400`}>Sin resultados.</div>
+          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-500 dark:text-gray-400`}>Sin resultados.</div>
         ) : (
           <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filtered.map((n) => {
@@ -245,7 +245,7 @@ export default function BomListPage() {
                       </span>
                     </div>
                     <div className="font-semibold truncate">{n.material?.description ?? 'Material'}</div>
-                    <div className="text-xs text-gray-400 truncate">rev {n.revision} · {n.lineCount} líneas · base {n.baseQuantity} {n.baseUom}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">rev {n.revision} · {n.lineCount} líneas · base {n.baseQuantity} {n.baseUom}</div>
                   </div>
                   <HoverArrow />
                 </motion.button>
@@ -275,17 +275,17 @@ function WhereUsedTool({ materials }: { materials: Material[] }) {
       </select>
       {materialId && (
         isLoading ? (
-          <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-gray-400 mt-3">No aparece en ningún BOM todavía.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">No aparece en ningún BOM todavía.</p>
         ) : (
           <div className="mt-3 space-y-1.5">
             {rows.map((r, i) => (
               <div key={`${r.bomNodeId}-${i}`} className="flex items-center gap-2 text-sm" style={{ paddingLeft: `${(r.level - 1) * 16}px` }}>
-                <span className="text-[10px] font-mono text-gray-400">N{r.level}</span>
+                <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400">N{r.level}</span>
                 <span className="font-mono text-xs text-gray-500">{r.parentPartNumber}</span>
                 <span className="truncate text-gray-600 dark:text-gray-300">{r.parentDescription}</span>
-                <span className="text-xs text-gray-400 ml-auto shrink-0">{r.quantity} {r.uom} · pos {r.findNumber}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto shrink-0">{r.quantity} {r.uom} · pos {r.findNumber}</span>
               </div>
             ))}
           </div>

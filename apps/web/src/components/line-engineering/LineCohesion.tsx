@@ -37,9 +37,9 @@ const fillColor = (s: number) => (s >= 60 ? '#10b981' : s >= 30 ? '#f59e0b' : RO
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-xl bg-black/[0.03] dark:bg-white/[0.04] px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-lg font-semibold tabular-nums leading-tight">{value}</div>
-      {hint && <div className="text-[10px] text-gray-400 mt-0.5">{hint}</div>}
+      {hint && <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{hint}</div>}
     </div>
   );
 }
@@ -95,14 +95,14 @@ export default function LineCohesion({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : data.placedCount === 0 ? (
-          <p className="text-[12px] text-gray-400 py-8 text-center">Coloca estaciones en el plano para evaluar la agrupación de líneas.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 py-8 text-center">Coloca estaciones en el plano para evaluar la agrupación de líneas.</p>
         ) : (
           <>
             <div className="flex items-center gap-4 mb-4">
               <div className="text-4xl font-bold tabular-nums" style={{ color: toneColor(data) }}>
-                {Math.round(data.cohesionPct)}<span className="text-base text-gray-400">%</span>
+                {Math.round(data.cohesionPct)}<span className="text-base text-gray-500 dark:text-gray-400">%</span>
               </div>
               <div className="text-[12px]">
                 <div className="inline-flex items-center gap-1.5 font-medium" style={{ color: toneColor(data) }}>
@@ -128,7 +128,7 @@ export default function LineCohesion({
               {data.groups.map((g) => (
                 <div key={g.line}>
                   <div className="flex items-center justify-between text-[12px] mb-0.5">
-                    <span className="text-gray-600 dark:text-gray-300">{g.line} <span className="text-gray-400">· {g.stationCount} est.</span></span>
+                    <span className="text-gray-600 dark:text-gray-300">{g.line} <span className="text-gray-500 dark:text-gray-400">· {g.stationCount} est.</span></span>
                     <span className="tabular-nums font-medium" style={{ color: fillColor(g.fillPct) }}>{Math.round(g.fillPct)}%</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-black/[0.06] dark:bg-white/10 overflow-hidden">
@@ -158,7 +158,7 @@ export default function LineCohesion({
                   {data.intruders.map((it) => (
                     <div key={it.id} className="text-[12px] flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                       <span className="tabular-nums">{it.station}</span>
-                      <span className="text-gray-400">({it.line})</span> dentro de <span className="tabular-nums">{it.insideLine}</span>
+                      <span className="text-gray-500 dark:text-gray-400">({it.line})</span> dentro de <span className="tabular-nums">{it.insideLine}</span>
                     </div>
                   ))}
                 </div>

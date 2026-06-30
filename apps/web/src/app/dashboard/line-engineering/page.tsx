@@ -178,9 +178,9 @@ export default function LineEngineeringPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Necesitas permiso de ingeniería para disponer líneas.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Necesitas permiso de ingeniería para disponer líneas.</p>
         </div>
       </div>
     );
@@ -190,11 +190,11 @@ export default function LineEngineeringPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(244,63,94,0.14)' }}><Gauge className="w-5 h-5" style={{ color: ROSE }} /></span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight">Disposición de líneas · Ing. Industrial</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Define qué se ensambla dónde y con qué — el operador ejecuta exactamente esto.</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">Define qué se ensambla dónde y con qué — el operador ejecuta exactamente esto.</p>
           </div>
           <button onClick={() => { setQf({ ...qf, model }); setShowQual(true); }} className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}><Layers className="w-4 h-4" /> Calificar modelo↔línea</button>
           <button onClick={() => { setSf({ ...sf, model: model || sf.model }); setShowStation(true); }} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ROSE }}><Plus className="w-4 h-4" /> Estación</button>
@@ -213,7 +213,7 @@ export default function LineEngineeringPage() {
         {/* Model selector */}
         {models.length > 0 && (
           <div className="flex items-center gap-2 mb-5 flex-wrap">
-            <span className="text-[12px] text-gray-400">Modelo:</span>
+            <span className="text-[12px] text-gray-500 dark:text-gray-400">Modelo:</span>
             {models.map((m) => {
               const key = `${m.model}|${m.revision}`;
               const on = key === activeModel;
@@ -257,15 +257,15 @@ export default function LineEngineeringPage() {
             <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
               <div className="flex items-center gap-2"><Activity className="w-4 h-4" style={{ color: ROSE }} /><h3 className="font-semibold">Balanceo de línea · {balance.model} {balance.revision}</h3></div>
               <div className="flex items-center gap-2 text-[12px]">
-                <span className="text-gray-400">Takt (s):</span>
+                <span className="text-gray-500 dark:text-gray-400">Takt (s):</span>
                 <input
                   type="number" min={0} value={taktOverride}
                   onChange={(e) => setTaktOverride(e.target.value)}
                   placeholder={qualTakt > 0 ? String(qualTakt) : '—'}
                   className="w-20 rounded-lg px-2 py-1 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 outline-none tabular-nums"
                 />
-                {taktOverride.trim() !== '' && <button onClick={() => setTaktOverride('')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">Reset</button>}
-                <span className="text-gray-400">{qualTakt > 0 ? `calificación: ${qualTakt}s` : 'sin takt en calificación'}</span>
+                {taktOverride.trim() !== '' && <button onClick={() => setTaktOverride('')} className="text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">Reset</button>}
+                <span className="text-gray-500 dark:text-gray-400">{qualTakt > 0 ? `calificación: ${qualTakt}s` : 'sin takt en calificación'}</span>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -298,19 +298,19 @@ export default function LineEngineeringPage() {
 
         {/* Routing table */}
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : route.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Sin estaciones en este layout</h3>
-            <p className="text-sm text-gray-400 mt-1">Agrega estaciones con su NP esperado y factor de uso para que el operador sepa qué montar.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Agrega estaciones con su NP esperado y factor de uso para que el operador sepa qué montar.</p>
           </div>
         ) : (
           <div className={`${glass} rounded-2xl overflow-hidden`}>
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-black/5 dark:border-white/10"><ListOrdered className="w-4 h-4 text-gray-400" /><h3 className="font-semibold text-sm">Ruteo / layout — {model} {revision}</h3></div>
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-black/5 dark:border-white/10"><ListOrdered className="w-4 h-4 text-gray-500 dark:text-gray-400" /><h3 className="font-semibold text-sm">Ruteo / layout — {model} {revision}</h3></div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 text-left">
+                <thead><tr className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 text-left">
                   <th className="px-4 py-2">Seq</th><th className="px-4 py-2">Estación</th><th className="px-4 py-2">Línea</th>
                   <th className="px-4 py-2">NP esperado</th><th className="px-4 py-2">Factor uso</th><th className="px-4 py-2">Tiempo std</th>
                   <th className="px-4 py-2">Ayuda</th><th className="px-4 py-2">CTQ</th><th className="px-4 py-2"></th>
@@ -326,7 +326,7 @@ export default function LineEngineeringPage() {
                       <td className="px-4 py-2">{s.stdTimeSec}s</td>
                       <td className="px-4 py-2">{s.visualAidUrl ? <a href={s.visualAidUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: GREEN }}><ImageIcon className="w-4 h-4" /> Ver</a> : <span className="text-amber-500 text-xs">falta</span>}</td>
                       <td className="px-4 py-2">{s.ctq ? <Star className="w-4 h-4" style={{ color: AMBER }} fill={AMBER} /> : ''}</td>
-                      <td className="px-4 py-2 text-right"><button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors" title="Editar estación"><Pencil className="w-4 h-4" /></button></td>
+                      <td className="px-4 py-2 text-right"><button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors" title="Editar estación"><Pencil className="w-4 h-4" /></button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -338,11 +338,11 @@ export default function LineEngineeringPage() {
         {/* Qualifications */}
         {quals.length > 0 && (
           <div className="mt-8">
-            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-400" /> Matriz modelo↔línea</h3>
+            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Matriz modelo↔línea</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {quals.map((q) => (
                 <div key={q.id} className={`${glass} rounded-xl p-4 flex items-center justify-between`}>
-                  <div><div className="font-medium">{q.model} · {q.revision} → {q.line}</div><div className="text-[12px] text-gray-400">Changeover {q.changeoverMinutes} min · takt {q.taktTargetSec}s</div></div>
+                  <div><div className="font-medium">{q.model} · {q.revision} → {q.line}</div><div className="text-[12px] text-gray-500 dark:text-gray-400">Changeover {q.changeoverMinutes} min · takt {q.taktTargetSec}s</div></div>
                   <span className="text-[11px] px-2 py-0.5 rounded" style={{ background: q.active ? `${GREEN}1f` : 'rgba(0,0,0,0.06)', color: q.active ? GREEN : undefined }}>{q.active ? 'Activo' : 'Inactivo'}</span>
                 </div>
               ))}
@@ -418,7 +418,7 @@ export default function LineEngineeringPage() {
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
   );
@@ -426,9 +426,9 @@ function Kpi({ label, value, color }: { label: string; value: number | string; c
 function Mini({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04]">
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-xl font-semibold mt-0.5" style={{ color }}>{value}</div>
-      {sub && <div className="text-[11px] text-gray-400 truncate">{sub}</div>}
+      {sub && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{sub}</div>}
     </div>
   );
 }
@@ -450,7 +450,7 @@ function Yamazumi({ route, taktSec }: { route: Station[]; taktSec: number }) {
 
   if (data.length === 0) {
     return (
-      <div className="mt-4 flex items-center gap-2 text-[12px] text-gray-400">
+      <div className="mt-4 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400">
         <BarChart3 className="w-4 h-4" />
         Captura el tiempo estándar de cada estación para ver el yamazumi (ciclo por estación vs takt).
       </div>
@@ -463,7 +463,7 @@ function Yamazumi({ route, taktSec }: { route: Station[]; taktSec: number }) {
   return (
     <div className="mt-5">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-[12px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1.5">
+        <h4 className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <BarChart3 className="w-3.5 h-3.5" /> Yamazumi · ciclo por estación vs takt
         </h4>
         {taktSec > 0 && (
@@ -497,7 +497,7 @@ function Yamazumi({ route, taktSec }: { route: Station[]; taktSec: number }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="text-[11px] text-gray-400 mt-1">
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
         Barras sobre la línea de takt son cuellos de botella: rebalancea moviendo trabajo a estaciones con holgura.
       </p>
     </div>
@@ -539,9 +539,9 @@ function CapacityCalc({ model, revision, lines }: { model: string; revision: str
         <Calculator className="w-4 h-4" style={{ color: BLUE }} />
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-sm">Capacidad de línea · {model} {revision}</h3>
-          <p className="text-[12px] text-gray-400">¿Cabe la demanda en el turno? Carga requerida vs disponible.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">¿Cabe la demanda en el turno? Carga requerida vs disponible.</p>
         </div>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
@@ -575,7 +575,7 @@ function CapacityCalc({ model, revision, lines }: { model: string; revision: str
               <Mini label="Disponible (min)" value={`${res.availableMinutes}`} />
               <Mini label="Utilización" value={`${res.utilizationPct}%`} color={utilColor} />
               <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04] flex flex-col justify-center">
-                <div className="text-[10px] uppercase tracking-wide text-gray-400">Veredicto</div>
+                <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Veredicto</div>
                 <div className="text-sm font-semibold mt-0.5 flex items-center gap-1.5" style={{ color: res.feasible ? GREEN : ROSE }}>
                   {res.feasible ? <><CheckCircle2 className="w-4 h-4" /> Cabe</> : <><AlertTriangle className="w-4 h-4" /> No cabe</>}
                 </div>

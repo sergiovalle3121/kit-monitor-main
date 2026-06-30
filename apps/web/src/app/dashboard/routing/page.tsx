@@ -84,7 +84,7 @@ export default function RoutingListPage() {
   }
 
   if (forbidden) {
-    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
+    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
   }
 
   return (
@@ -146,22 +146,22 @@ export default function RoutingListPage() {
 
         {list.length > 0 && (
           <div className={`${glass} flex items-center gap-2 px-3 py-2 rounded-2xl mb-5`}>
-            <Search className="w-4 h-4 text-gray-400" />
+            <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por parte, descripción o nombre…" className="bg-transparent outline-none text-sm w-full" />
             {query && <button onClick={() => setQuery('')} className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-3.5 h-3.5" /></button>}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
-            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+            <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
             <h3 className="font-semibold">Aún no hay ruteos</h3>
-            <p className="text-sm text-gray-400 mt-1 mb-4">Crea el ruteo de un ensamble y define sus operaciones.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">Crea el ruteo de un ensamble y define sus operaciones.</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-400`}>Sin resultados.</div>
+          <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-500 dark:text-gray-400`}>Sin resultados.</div>
         ) : (
           <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filtered.map((r) => {
@@ -177,7 +177,7 @@ export default function RoutingListPage() {
                       </span>
                     </div>
                     <div className="font-semibold truncate">{r.name || r.material?.description || 'Ruteo'}</div>
-                    <div className="text-xs text-gray-400 truncate">rev {r.revision} · {r.operationCount} operaciones</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">rev {r.revision} · {r.operationCount} operaciones</div>
                   </div>
                   <HoverArrow />
                 </motion.button>

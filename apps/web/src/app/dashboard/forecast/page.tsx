@@ -37,7 +37,7 @@ interface SimStats { historicalMean: number; historicalStdDev: number; historica
 interface SimulationOutput { projections: Projection[]; stats: SimStats; executedAt: string; durationMs: number }
 
 const ControlLabel = ({ children }: { children: React.ReactNode }) => (
-  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">{children}</label>
+  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2 block">{children}</label>
 );
 
 function fmt(n: number | undefined): string {
@@ -130,7 +130,7 @@ export default function ForecastLabPage() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
         <div className="flex items-center gap-6">
           <motion.div {...buttonMotion}>
-            <Link href="/dashboard" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl shadow-sm hover:border-teal-200 transition-all duration-300 inline-flex">
+            <Link href="/dashboard" aria-label="Volver al inicio" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl shadow-sm hover:border-teal-200 transition-all duration-300 inline-flex">
               <ChevronLeft className="w-5 h-5" />
             </Link>
           </motion.div>
@@ -159,10 +159,10 @@ export default function ForecastLabPage() {
       </header>
 
       {plansLoading ? (
-        <div className="flex justify-center py-32 text-gray-400"><Loader2 className="w-7 h-7 animate-spin" /></div>
+        <div className="flex justify-center py-32 text-gray-500 dark:text-gray-400"><Loader2 className="w-7 h-7 animate-spin" /></div>
       ) : !canSimulate ? (
         <div className="bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-[2rem] p-16 text-center max-w-2xl mx-auto shadow-sm">
-          <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 grid place-items-center mx-auto mb-4"><Inbox className="w-7 h-7" /></div>
+          <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 grid place-items-center mx-auto mb-4"><Inbox className="w-7 h-7" /></div>
           <h3 className="text-xl font-bold mb-1">Sin historial suficiente para simular</h3>
           <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
             La simulación usa las <strong>cantidades reales de los planes</strong> agregadas por fecha y
@@ -178,23 +178,23 @@ export default function ForecastLabPage() {
               <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
                 <div className="flex gap-8">
                   <div>
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">P50 próximo periodo</h3>
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">P50 próximo periodo</h3>
                     <p className="text-2xl font-bold">{result ? fmt(nextP50) : "—"}</p>
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Variabilidad (CV)</h3>
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Variabilidad (CV)</h3>
                     <p className="text-2xl font-bold">{result ? `${Math.round(cv * 100)}%` : "—"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5">
-                  <Activity className="w-4 h-4 text-gray-400" />
+                  <Activity className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                   <span className="text-xs font-bold">{result?.stats.sampleSize ?? series.length} muestras · {iterations.toLocaleString()} iter.</span>
                 </div>
               </div>
 
               <div className="h-[420px] w-full">
                 {isSimulating ? (
-                  <div className="h-full grid place-items-center text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                  <div className="h-full grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chart} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -232,7 +232,7 @@ export default function ForecastLabPage() {
           <div className="space-y-8">
             <div className="bg-white dark:bg-[#111] p-8 rounded-[2.5rem] border border-gray-100 dark:border-white/5 shadow-sm">
               <div className="flex items-center gap-3 mb-8">
-                <Settings2 className="w-5 h-5 text-gray-400" />
+                <Settings2 className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 <h3 className="text-lg font-bold tracking-tight">Parámetros</h3>
               </div>
               <div className="space-y-8">
@@ -289,10 +289,10 @@ function StatCard({ icon, tint, label, value, sub }: { icon: React.ReactNode; ti
     <div className="bg-white dark:bg-[#111] p-6 rounded-3xl border border-gray-100 dark:border-white/5 shadow-sm">
       <div className="flex items-center gap-3 mb-4">
         <div className={`p-2 rounded-lg ${tint}`}>{icon}</div>
-        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">{label}</h4>
+        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{label}</h4>
       </div>
       <p className="text-2xl font-bold">{value}</p>
-      {sub && <p className="text-[10px] text-gray-400 font-bold mt-1">{sub}</p>}
+      {sub && <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold mt-1">{sub}</p>}
     </div>
   );
 }

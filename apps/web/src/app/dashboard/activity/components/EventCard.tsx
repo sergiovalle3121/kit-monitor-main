@@ -95,7 +95,7 @@ export function EventCard({
             )}
           </div>
 
-          <div className="mt-1 flex items-center gap-3 flex-wrap text-[12px] text-gray-400">
+          <div className="mt-1 flex items-center gap-3 flex-wrap text-[12px] text-gray-500 dark:text-gray-400">
             <span className="inline-flex items-center gap-1">
               <User className="h-3 w-3" /> {actor}
             </span>
@@ -112,7 +112,7 @@ export function EventCard({
                   key={c.label + c.value}
                   className="text-[10px] px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-gray-500"
                 >
-                  <span className="text-gray-400">{c.label}</span>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{c.label}</span>{' '}
                   <span className="font-medium text-gray-600 dark:text-gray-300">{c.value}</span>
                 </span>
               ))}
@@ -121,7 +121,7 @@ export function EventCard({
         </div>
 
         <ChevronRight
-          className={`h-4 w-4 shrink-0 text-gray-400 mt-1 transition-transform ${open ? 'rotate-90' : ''}`}
+          className={`h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400 mt-1 transition-transform ${open ? 'rotate-90' : ''}`}
         />
       </button>
 
@@ -158,7 +158,7 @@ export function EventCard({
                       <span className="font-mono text-red-500/80 line-through decoration-red-500/40 break-all">
                         {shortValue(d.before, 60)}
                       </span>
-                      <ArrowRight className="h-3 w-3 shrink-0 text-gray-400" />
+                      <ArrowRight className="h-3 w-3 shrink-0 text-gray-500 dark:text-gray-400" />
                       <span className="font-mono text-emerald-600 dark:text-emerald-400 break-all">
                         {shortValue(d.after, 60)}
                       </span>
@@ -172,7 +172,7 @@ export function EventCard({
           {/* Metadatos técnicos */}
           {(event.metadata?.httpMethod || event.metadata?.path || event.metadata?.durationMs !== undefined) && (
             <DetailBlock title="Origen">
-              <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-400 font-mono">
+              <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-500 dark:text-gray-400 font-mono">
                 {event.metadata?.httpMethod && <span>{event.metadata.httpMethod}</span>}
                 {event.metadata?.path && <span className="truncate">{event.metadata.path}</span>}
                 {event.metadata?.durationMs !== undefined && <span>{event.metadata?.durationMs} ms</span>}
@@ -182,7 +182,7 @@ export function EventCard({
 
           {/* Pie de auditoría: id inmutable + copiar JSON crudo */}
           <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-[10px] font-mono text-gray-400 inline-flex items-center gap-1">
+            <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
               <Hash className="h-2.5 w-2.5" /> {event.id}
             </span>
             <button
@@ -202,7 +202,7 @@ export function EventCard({
 function DetailBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mt-3">
-      <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">{title}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">{title}</div>
       {children}
     </div>
   );

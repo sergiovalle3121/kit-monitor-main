@@ -170,6 +170,17 @@ export function buildImportCapabilityMatrix(options: {
 
   const targets: ImportCapabilityTarget[] = [
     {
+      target: 'MODEL',
+      label: targetLabel.MODEL,
+      sapObjects: ['MATMAS', 'Product hierarchy extract'],
+      writesTo: ['pm_product_models'],
+      route: '/dashboard/models',
+      commitBehavior: 'Creates or updates canonical product models by modelNumber through ProductModelsService.',
+      prerequisite: 'None beyond required mapped fields.',
+      downstream: ['Material Master', 'BOM', 'Routing', 'Planning'],
+      requiredFields: requiredFields('MODEL'),
+    },
+    {
       target: 'MATERIAL',
       label: targetLabel.MATERIAL,
       sapObjects: ['MATMAS', 'OData Material'],
@@ -184,7 +195,7 @@ export function buildImportCapabilityMatrix(options: {
       target: 'BOM',
       label: targetLabel.BOM,
       sapObjects: ['BOMMAT', 'STPO/STKO extract'],
-      writesTo: ['bom_headers', 'bom_components'],
+      writesTo: ['bom_node', 'bom_line'],
       route: '/dashboard/bom',
       commitBehavior: 'Finds or creates the BOM node, then adds component lines idempotently by findNumber and material.',
       prerequisite: 'Parent and component materials must exist, unless createMissingMaterials is explicitly enabled.',
@@ -195,7 +206,7 @@ export function buildImportCapabilityMatrix(options: {
       target: 'ROUTING',
       label: targetLabel.ROUTING,
       sapObjects: ['Routing/CA01 extract', 'Operations extract'],
-      writesTo: ['rt_routings', 'rt_operations'],
+      writesTo: ['rt_routing', 'rt_operation'],
       route: '/dashboard/routing',
       commitBehavior: 'Finds or creates the routing by assembly and revision, then adds missing operation sequences.',
       prerequisite: 'Assembly material must exist, unless createMissingMaterials is explicitly enabled.',
@@ -236,9 +247,9 @@ export function buildImportCapabilityMatrix(options: {
       {
         key: 'product-model',
         label: 'Product Model',
-        status: 'MANUAL_LINK',
+        status: 'READY',
         route: '/dashboard/models',
-        detail: 'No direct import target yet; models link to material/BOM after the master data lands.',
+        detail: 'MODEL target writes canonical pm_product_models records for downstream BOM, routing, and planning links.',
       },
       {
         key: 'material-master',
@@ -268,11 +279,6 @@ export function buildImportCapabilityMatrix(options: {
         label: 'SAP connector configuration',
         detail: 'The adapter contract exists, but live SAP credentials/endpoints are intentionally not stored in the repo.',
       }]),
-      {
-        code: 'PRODUCT_MODEL_IMPORT_TARGET',
-        label: 'Product model import target',
-        detail: 'Product models are present in AXOS, but import-data currently lands material, BOM, and routing only.',
-      },
     ],
   };
 }
