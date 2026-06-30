@@ -342,3 +342,12 @@
 - Wired CAD layer visibility to actual station and asset objects in the viewport instead of only export/inspector metadata.
 - Added hidden/locked layer object counts plus an `All` recovery action to the existing layer panel and status bar.
 - Pending: persist layer assignments/visibility with the layout API and add layer search/filter after the persistence contract is reviewed.
+
+## 2026-06-30 - CAD material route command
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open CAD PRs #900/#903/#904/#905/#906.
+- CAD queue had exactly five open CAD PRs; all were CLEAN, green, and already had ready-for-Claude comments, so this run avoided spam comments and chose one low-conflict command-surface slice.
+- Reused the existing local command dock, command registry/parser, command-assist suggestions, report operation renderer, connector context, and `scoreFlowLayout`.
+- Added `material-flow-route.ts` to derive from-to material route distance, route legs, longest handoff, connector count, crossings, backtracking, score, fallback sequence warnings, and missing connector endpoints.
+- Registered `trace_material_route` so users can type `traza ruta material` through the existing Copiloto CAD dock or find it through Cmd-K without a new editor panel.
+- Pending: after active generator PRs land, add policy thresholds and zoom-to-route-issue actions for excessive material travel.
