@@ -44,7 +44,7 @@ export function LandingMockup() {
         <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
         <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
         <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-        <div className="mx-auto flex items-center gap-2 rounded-md bg-black/[0.04] px-3 py-1 text-[11px] text-gray-400 dark:bg-white/[0.06]">
+        <div className="mx-auto flex items-center gap-2 rounded-md bg-black/[0.04] px-3 py-1 text-[11px] text-gray-500 dark:text-gray-400 dark:bg-white/[0.06]">
           <ShieldCheck className="h-3 w-3 text-emerald-500" /> axos.os / torre-de-control
         </div>
       </div>
@@ -59,7 +59,7 @@ export function LandingMockup() {
             <div
               key={i}
               className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                i === 4 ? "bg-foreground text-background" : "text-gray-400 dark:text-gray-500"
+                i === 4 ? "bg-foreground text-background" : "text-gray-500 dark:text-gray-500"
               }`}
             >
               <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} />
@@ -77,13 +77,13 @@ export function LandingMockup() {
               </span>
               <div>
                 <div className="text-[13px] font-bold leading-none">Torre de Control</div>
-                <div className="mt-0.5 text-[10px] text-gray-400">Vista ejecutiva · en vivo</div>
+                <div className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">Vista ejecutiva · en vivo</div>
               </div>
             </div>
             <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> En control
             </span>
-            <div className="hidden items-center gap-1.5 rounded-md bg-black/[0.04] px-2 py-1 text-[10px] text-gray-400 dark:bg-white/[0.06] md:flex">
+            <div className="hidden items-center gap-1.5 rounded-md bg-black/[0.04] px-2 py-1 text-[10px] text-gray-500 dark:text-gray-400 dark:bg-white/[0.06] md:flex">
               <Search className="h-3 w-3" /> ⌘K
             </div>
           </div>
@@ -95,12 +95,12 @@ export function LandingMockup() {
                 key={k.label}
                 className="rounded-xl border border-black/[0.06] bg-gray-50/60 p-2.5 dark:border-white/10 dark:bg-white/[0.03]"
               >
-                <div className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">
+                <div className="text-[9px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {k.label}
                 </div>
                 <div className="mt-1 flex items-baseline gap-0.5">
                   <span className={`text-lg font-bold tabular-nums ${k.tone}`}>{k.value}</span>
-                  <span className="text-[10px] font-medium text-gray-400">{k.unit}</span>
+                  <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{k.unit}</span>
                 </div>
                 <div className="mt-0.5 text-[9px] font-medium text-emerald-500">▲ {k.up}%</div>
               </div>
@@ -142,7 +142,7 @@ export function LandingMockup() {
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
                       <div className={`h-full rounded-full ${l.dot}`} style={{ width: `${l.pct}%` }} />
                     </div>
-                    <span className="w-8 flex-shrink-0 text-right text-[9px] tabular-nums text-gray-400">
+                    <span className="w-8 flex-shrink-0 text-right text-[9px] tabular-nums text-gray-500 dark:text-gray-400">
                       {l.pct}%
                     </span>
                   </div>

@@ -41,9 +41,9 @@ const toneColor = (c: Continuity) =>
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-xl bg-black/[0.03] dark:bg-white/[0.04] px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-lg font-semibold tabular-nums leading-tight">{value}</div>
-      {hint && <div className="text-[10px] text-gray-400 mt-0.5">{hint}</div>}
+      {hint && <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{hint}</div>}
     </div>
   );
 }
@@ -109,14 +109,14 @@ export default function LineContinuity({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : data.stationCount === 0 ? (
-          <p className="text-[12px] text-gray-400 py-8 text-center">Agrega estaciones a la línea para evaluar el flujo.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 py-8 text-center">Agrega estaciones a la línea para evaluar el flujo.</p>
         ) : (
           <>
             <div className="flex items-center gap-4 mb-4">
               <div className="text-4xl font-bold tabular-nums" style={{ color: toneColor(data) }}>
-                {Math.round(data.continuityPct)}<span className="text-base text-gray-400">%</span>
+                {Math.round(data.continuityPct)}<span className="text-base text-gray-500 dark:text-gray-400">%</span>
               </div>
               <div className="text-[12px]">
                 <div className="inline-flex items-center gap-1.5 font-medium" style={{ color: toneColor(data) }}>

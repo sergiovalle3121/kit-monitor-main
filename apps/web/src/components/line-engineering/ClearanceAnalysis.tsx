@@ -90,7 +90,7 @@ export default function ClearanceAnalysis({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !res ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 text-sm mb-4">
@@ -100,7 +100,7 @@ export default function ClearanceAnalysis({
             </div>
 
             {res.boxCount === 0 ? (
-              <p className="text-[12px] text-gray-400 py-6 text-center">Coloca estaciones o equipo en el plano para revisar holguras.</p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 py-6 text-center">Coloca estaciones o equipo en el plano para revisar holguras.</p>
             ) : (
               <div className="space-y-3 max-h-[44vh] overflow-y-auto -mx-1 px-1">
                 {res.overlaps.length > 0 && (
@@ -163,7 +163,7 @@ function Stat({ title, main, sub, tone }: { title: string; main: string; sub: st
   const color = tone === 'ok' ? '#10b981' : tone === 'warn' ? '#f59e0b' : tone === 'bad' ? '#ef4444' : '#3b82f6';
   return (
     <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{title}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</div>
       <div className="text-lg font-semibold mt-0.5" style={{ color }}>{main}</div>
       <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{sub}</div>
     </div>

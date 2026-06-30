@@ -101,9 +101,9 @@ export default function FlexLine({
         {error ? (
           <p className="text-[12px] text-amber-500 py-10 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-14 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-14 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : data.modelCount === 0 ? (
-          <p className="text-[12px] text-gray-400 py-8 text-center">No hay modelos con estaciones activas en esta línea.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 py-8 text-center">No hay modelos con estaciones activas en esta línea.</p>
         ) : (
           <>
             {/* per-model summary */}
@@ -111,7 +111,7 @@ export default function FlexLine({
               {data.models.map((m) => (
                 <div key={m.label} className="rounded-lg px-2.5 py-1.5 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10 text-[12px]">
                   <span className="font-medium">{m.label}</span>
-                  <span className="text-gray-400"> · {m.stationCount} est · {m.uniqueStations} propias · cuello {Math.round(m.bottleneckSec)}s</span>
+                  <span className="text-gray-500 dark:text-gray-400"> · {m.stationCount} est · {m.uniqueStations} propias · cuello {Math.round(m.bottleneckSec)}s</span>
                 </div>
               ))}
             </div>
@@ -120,7 +120,7 @@ export default function FlexLine({
             <div className="max-h-[44vh] overflow-auto -mx-1 px-1">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="text-[11px] text-gray-400">
+                  <tr className="text-[11px] text-gray-500 dark:text-gray-400">
                     <th className="py-1.5 px-2 text-left font-medium sticky left-0 bg-transparent">Estación</th>
                     {data.models.map((m) => (
                       <th key={m.label} className="py-1.5 px-2 font-medium text-center whitespace-nowrap">{m.label}</th>
@@ -152,7 +152,7 @@ export default function FlexLine({
           </>
         )}
 
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
           Las estaciones del backbone (verde) las usan todos los modelos de la línea; las propias de un modelo son su superficie de cambio. Más comunidad = cambios de modelo más rápidos y baratos.
         </p>
       </div>

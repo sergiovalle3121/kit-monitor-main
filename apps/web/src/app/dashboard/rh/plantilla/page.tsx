@@ -201,7 +201,7 @@ export default function PlantillaPage() {
           ))}
         </select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar nombre / número…" className="rh-input !w-auto flex-1 min-w-[180px]" />
-        <span className="text-[12px] text-gray-400">{filtered.length} de {list.length}</span>
+        <span className="text-[12px] text-gray-500 dark:text-gray-400">{filtered.length} de {list.length}</span>
       </div>
 
       {showForm && (
@@ -250,9 +250,9 @@ export default function PlantillaPage() {
         <Spinner />
       ) : filtered.length === 0 ? (
         <div className={`${glass} rounded-3xl p-12 text-center`}>
-          <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h3 className="font-semibold">Sin colaboradores</h3>
-          <p className="text-sm text-gray-400 mt-1">Da de alta personal para construir el headcount y la analítica.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Da de alta personal para construir el headcount y la analítica.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -269,7 +269,7 @@ export default function PlantillaPage() {
                     <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${sm.color}1f`, color: sm.color }}>{sm.label}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10">{e.laborType === 'DIRECT' ? 'Directa' : 'Indirecta'}</span>
                   </div>
-                  <div className="mt-0.5 text-[12px] text-gray-400 truncate">
+                  <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400 truncate">
                     {e.employeeNumber && <span>{e.employeeNumber} · </span>}
                     {e.position ?? 'Sin puesto'}
                     {e.area && <span> · {e.area}</span>}
@@ -279,11 +279,11 @@ export default function PlantillaPage() {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <div className="text-[12px] tabular-nums">{tenureLabel(e.hireDate)}</div>
-                  <div className="text-[10px] text-gray-400">antigüedad</div>
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400">antigüedad</div>
                 </div>
                 {e.status !== 'TERMINATED' && (
                   <button onClick={() => terminate(e)} disabled={busy} title="Dar de baja" className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50">
-                    <UserMinus className="w-4 h-4 text-gray-400" />
+                    <UserMinus className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                   </button>
                 )}
               </div>

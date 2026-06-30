@@ -56,7 +56,7 @@ export function DocFootnotes({ editor }: { editor: Editor }) {
           className="relative w-full max-w-md rounded-3xl bg-white dark:bg-[#1b1b1d] border border-black/10 dark:border-white/10 shadow-2xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold flex items-center gap-2">{kind === 'endnote' ? <BookMarked className="w-5 h-5 text-blue-500" /> : <Superscript className="w-5 h-5 text-blue-500" />} {open === 'edit' ? `Editar nota ${label}` : `Nueva nota ${label}`}</h3>
-            <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+            <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
           </div>
           <textarea value={text} onChange={(e) => setText(e.target.value)} autoFocus rows={4} placeholder="Texto de la nota…"
             className="w-full text-sm rounded-xl bg-gray-100 dark:bg-white/10 p-3 outline-none focus:ring-2 ring-blue-500/40 resize-y" />

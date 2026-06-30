@@ -43,7 +43,7 @@ export default function AccountDetailPage() {
 
   if (forbidden) return <Guard />;
   if (isLoading || !data) {
-    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
 
   const { account: a, contacts, opportunities, quotes, activities, metrics } = data;
@@ -70,7 +70,7 @@ export default function AccountDetailPage() {
               <h1 className="text-lg font-semibold leading-tight truncate">{a.name}</h1>
               {a.tier === 'STRATEGIC' && <Crown className="w-4 h-4" style={{ color: VIOLET }} />}
             </div>
-            <p className="text-[12px] text-gray-400 leading-tight font-mono">{a.code} · {TYPE_META[a.type].label}</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight font-mono">{a.code} · {TYPE_META[a.type].label}</p>
           </div>
           <span className="hidden sm:inline text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: `${TIER_META[a.tier].color}1a`, color: TIER_META[a.tier].color }}>{TIER_META[a.tier].label}</span>
           <button onClick={() => setModal('edit')} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10" title="Editar"><Pencil className="w-4 h-4" /></button>
@@ -93,7 +93,7 @@ export default function AccountDetailPage() {
           {tabs.map((t) => {
             const active = tab === t.key;
             return (
-              <button key={t.key} onClick={() => setTab(t.key)} className={`relative px-4 py-2.5 text-sm font-medium flex items-center gap-2 whitespace-nowrap transition-colors ${active ? '' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`} style={active ? { color: VIOLET } : undefined}>
+              <button key={t.key} onClick={() => setTab(t.key)} className={`relative px-4 py-2.5 text-sm font-medium flex items-center gap-2 whitespace-nowrap transition-colors ${active ? '' : 'text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`} style={active ? { color: VIOLET } : undefined}>
                 <t.icon className="w-4 h-4" />{t.label}
                 {t.count != null && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10">{t.count}</span>}
                 {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ background: VIOLET }} />}
@@ -137,9 +137,9 @@ function Overview({ a, activities }: { a: Account; activities: Account360['activ
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
             {rows.map((r) => (
               <div key={r.label} className="flex items-start gap-3">
-                <r.icon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <r.icon className="w-4 h-4 text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
                 <div className="min-w-0">
-                  <div className="text-[11px] uppercase tracking-wide text-gray-400">{r.label}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{r.label}</div>
                   <div className="text-sm font-medium truncate">{r.value}</div>
                 </div>
               </div>
@@ -165,38 +165,38 @@ function Overview({ a, activities }: { a: Account; activities: Account360['activ
           <h3 className="text-sm font-semibold mb-4">Salud de la relación</h3>
           <div className="flex items-end gap-3 mb-2">
             <div className="text-4xl font-bold tabular-nums" style={{ color: healthColor(a.healthScore) }}>{a.healthScore}</div>
-            <div className="text-[12px] text-gray-400 mb-1.5">/ 100</div>
+            <div className="text-[12px] text-gray-500 dark:text-gray-400 mb-1.5">/ 100</div>
           </div>
           <div className="h-2 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden mb-4">
             <div className="h-full rounded-full" style={{ width: `${a.healthScore}%`, background: healthColor(a.healthScore) }} />
           </div>
           <div className="flex items-center justify-between text-[13px]">
-            <span className="text-gray-400">Riesgo</span>
+            <span className="text-gray-500 dark:text-gray-400">Riesgo</span>
             <span className="inline-flex items-center gap-1 font-medium" style={{ color: a.riskLevel === 'HIGH' ? '#ef4444' : a.riskLevel === 'MEDIUM' ? '#f59e0b' : '#10b981' }}>
               <ShieldAlert className="w-3.5 h-3.5" />{a.riskLevel === 'HIGH' ? 'Alto' : a.riskLevel === 'MEDIUM' ? 'Medio' : 'Bajo'}
             </span>
           </div>
           {a.npsScore != null && (
             <div className="flex items-center justify-between text-[13px] mt-2">
-              <span className="text-gray-400">NPS</span><span className="font-medium">{a.npsScore}</span>
+              <span className="text-gray-500 dark:text-gray-400">NPS</span><span className="font-medium">{a.npsScore}</span>
             </div>
           )}
           <div className="flex items-center justify-between text-[13px] mt-2">
-            <span className="text-gray-400">Account manager</span><span className="font-medium truncate ml-2">{a.ownerEmail || '—'}</span>
+            <span className="text-gray-500 dark:text-gray-400">Account manager</span><span className="font-medium truncate ml-2">{a.ownerEmail || '—'}</span>
           </div>
         </div>
 
         {/* Mini timeline */}
         <div className={`${glass} rounded-2xl p-5`}>
           <h3 className="text-sm font-semibold mb-3">Última actividad</h3>
-          {activities.length === 0 ? <p className="text-[13px] text-gray-400">Sin actividad.</p> : (
+          {activities.length === 0 ? <p className="text-[13px] text-gray-500 dark:text-gray-400">Sin actividad.</p> : (
             <div className="space-y-3">
               {activities.slice(0, 4).map((ac) => (
                 <div key={ac.id} className="flex items-start gap-2.5">
                   <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: VIOLET }} />
                   <div className="min-w-0">
                     <div className="text-[13px] font-medium truncate">{ac.subject}</div>
-                    <div className="text-[11px] text-gray-400">{ACT_LABEL[ac.type]} · {ac.created_at ? new Date(ac.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : ''}</div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">{ACT_LABEL[ac.type]} · {ac.created_at ? new Date(ac.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : ''}</div>
                   </div>
                 </div>
               ))}
@@ -221,7 +221,7 @@ function ContactsTab({ contacts, onAdd, onChanged }: { contacts: Contact[]; onAd
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-sm font-semibold">Buying center <span className="text-gray-400">({contacts.length})</span></h2>
+        <h2 className="text-sm font-semibold">Buying center <span className="text-gray-500 dark:text-gray-400">({contacts.length})</span></h2>
         <button onClick={onAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: VIOLET }}><Plus className="w-3.5 h-3.5" /> Contacto</button>
       </div>
       {contacts.length === 0 ? <EmptyCard text="Sin contactos. Agrega el primer contacto del cliente." /> : (
@@ -233,12 +233,12 @@ function ContactsTab({ contacts, onAdd, onChanged }: { contacts: Contact[]; onAd
                   <span className="w-10 h-10 rounded-full grid place-items-center font-semibold text-white flex-shrink-0" style={{ background: VIOLET }}>{c.firstName[0]}{(c.lastName || ' ')[0]}</span>
                   <div className="min-w-0">
                     <div className="font-semibold flex items-center gap-1.5 truncate">{c.firstName} {c.lastName} {c.isPrimary && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />}</div>
-                    <div className="text-[12px] text-gray-400 truncate">{c.title || '—'}</div>
+                    <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">{c.title || '—'}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  {!c.isPrimary && <button onClick={() => setPrimary(c)} title="Marcar principal" className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Star className="w-3.5 h-3.5 text-gray-400" /></button>}
-                  <button onClick={() => remove(c)} title="Eliminar" className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                  {!c.isPrimary && <button onClick={() => setPrimary(c)} title="Marcar principal" className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Star className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" /></button>}
+                  <button onClick={() => remove(c)} title="Eliminar" className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-gray-400 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-2 flex-wrap text-[11px]">
@@ -278,10 +278,10 @@ function OppsTab({ opportunities, currency, onChanged }: { opportunities: Accoun
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 {o.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{o.folio}</span>}
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${OPP_META[o.status].color}1a`, color: OPP_META[o.status].color }}>{OPP_META[o.status].label}</span>
-                {o.productLine && <span className="text-[10px] text-gray-400">{o.productLine}</span>}
+                {o.productLine && <span className="text-[10px] text-gray-500 dark:text-gray-400">{o.productLine}</span>}
               </div>
               <div className="font-semibold">{o.title}</div>
-              <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+              <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
                 <span className="font-medium text-gray-600 dark:text-gray-300">{money(o.estimatedValue, currency)}</span>
                 <span>·</span><span>{o.probability}%</span>
                 {o.source && <><span>·</span><span>{o.source}</span></>}
@@ -306,7 +306,7 @@ function QuotesTab({ quotes, onNew, onOpen }: { quotes: Account360['quotes']; on
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-sm font-semibold">Cotizaciones <span className="text-gray-400">({quotes.length})</span></h2>
+        <h2 className="text-sm font-semibold">Cotizaciones <span className="text-gray-500 dark:text-gray-400">({quotes.length})</span></h2>
         <button onClick={onNew} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: VIOLET }}><Plus className="w-3.5 h-3.5" /> Cotización</button>
       </div>
       {quotes.length === 0 ? <EmptyCard text="Sin cotizaciones. Crea una cotización con líneas, EAU y margen." /> : (
@@ -318,14 +318,14 @@ function QuotesTab({ quotes, onNew, onOpen }: { quotes: Account360['quotes']; on
                   <div className="flex items-center gap-2 mb-0.5">
                     {q.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{q.folio}</span>}
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${QUOTE_META[q.status].color}1a`, color: QUOTE_META[q.status].color }}>{QUOTE_META[q.status].label}</span>
-                    {q.rev > 1 && <span className="text-[10px] text-gray-400">rev {q.rev}</span>}
+                    {q.rev > 1 && <span className="text-[10px] text-gray-500 dark:text-gray-400">rev {q.rev}</span>}
                   </div>
                   <div className="font-semibold truncate">{q.title}</div>
-                  <div className="text-[12px] text-gray-400">{[q.paymentTerms, q.incoterm, q.leadTimeDays ? `${q.leadTimeDays} d` : null].filter(Boolean).join(' · ')}</div>
+                  <div className="text-[12px] text-gray-500 dark:text-gray-400">{[q.paymentTerms, q.incoterm, q.leadTimeDays ? `${q.leadTimeDays} d` : null].filter(Boolean).join(' · ')}</div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <div className="text-lg font-semibold">{money(q.total, q.currency)}</div>
-                  <div className="text-[11px] text-gray-400">{q.marginPct != null ? `margen ${q.marginPct}%` : ''}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">{q.marginPct != null ? `margen ${q.marginPct}%` : ''}</div>
                 </div>
               </div>
             </button>
@@ -346,7 +346,7 @@ function ActivitiesTab({ activities, onAdd, onChanged }: { activities: Account36
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-sm font-semibold">Timeline <span className="text-gray-400">({activities.length})</span></h2>
+        <h2 className="text-sm font-semibold">Timeline <span className="text-gray-500 dark:text-gray-400">({activities.length})</span></h2>
         <button onClick={onAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: VIOLET }}><Plus className="w-3.5 h-3.5" /> Registrar</button>
       </div>
       {activities.length === 0 ? <EmptyCard text="Sin actividad. Registra una llamada, reunión o tarea." /> : (
@@ -364,7 +364,7 @@ function ActivitiesTab({ activities, onAdd, onChanged }: { activities: Account36
                       <div className="min-w-0">
                         <div className="text-sm font-medium flex items-center gap-2">{ac.subject}{ac.status === 'OPEN' && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600">tarea</span>}</div>
                         {ac.body && <p className="text-[12px] text-gray-500 mt-0.5">{ac.body}</p>}
-                        <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-400 flex-wrap">
+                        <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 flex-wrap">
                           <span>{ACT_LABEL[ac.type]}</span>
                           {ac.created_at && <><span>·</span><span>{new Date(ac.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</span></>}
                           {ac.dueAt && <span className={`inline-flex items-center gap-1 ${overdue ? 'text-red-500 font-semibold' : ''}`}>{overdue && <AlertTriangle className="w-3 h-3" />}<CalendarDays className="w-3 h-3" />vence {new Date(ac.dueAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>}
@@ -517,14 +517,14 @@ function EditAccountModal({ account, onClose, onDone }: { account: Account; onCl
 function Metric({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3.5`}>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-lg font-semibold mt-0.5 tabular-nums truncate" style={{ color }}>{value}</div>
-      {sub && <div className="text-[11px] text-gray-400 truncate">{sub}</div>}
+      {sub && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{sub}</div>}
     </div>
   );
 }
 function EmptyCard({ text }: { text: string }) {
-  return <div className={`${glass} rounded-2xl p-10 text-center text-sm text-gray-400`}>{text}</div>;
+  return <div className={`${glass} rounded-2xl p-10 text-center text-sm text-gray-500 dark:text-gray-400`}>{text}</div>;
 }
 function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
   return <label className={`block ${full ? 'md:col-span-full' : ''}`}><span className="block text-[12px] font-medium text-gray-500 mb-1">{label}</span>{children}</label>;
@@ -550,7 +550,7 @@ function ModalActions({ busy, onClose, onSubmit, label }: { busy: boolean; onClo
 function Guard() {
   return (
     <div className="min-h-screen grid place-items-center text-foreground">
-      <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div>
+      <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div>
     </div>
   );
 }

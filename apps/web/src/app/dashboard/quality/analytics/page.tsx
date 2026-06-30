@@ -242,7 +242,7 @@ export default function QualityAnalyticsPage() {
 
       {forbidden && (
         <div className={`${glass} mb-4 flex items-center gap-2 rounded-2xl p-4 text-sm text-gray-500`}>
-          <Lock className="h-4 w-4 text-gray-400" /> Inicia sesión con una cuenta de calidad para ver el tablero analítico.
+          <Lock className="h-4 w-4 text-gray-500 dark:text-gray-400" /> Inicia sesión con una cuenta de calidad para ver el tablero analítico.
         </div>
       )}
 
@@ -353,7 +353,7 @@ export default function QualityAnalyticsPage() {
         {drill && (
           <DrawerSection title="No-conformidades">
             {drillRows.length === 0 ? (
-              <p className="text-sm text-gray-400">Sin NCRs para este corte.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Sin NCRs para este corte.</p>
             ) : (
               <div className="space-y-2">
                 {drillRows.map((n) => (
@@ -385,7 +385,7 @@ function Section({ icon: Icon, accent, title, hint, action, children }: {
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 font-semibold"><Icon className="h-4 w-4" style={{ color: accent }} /> {title}</h3>
-          {hint && <p className="mt-1 max-w-2xl text-[12px] text-gray-400">{hint}</p>}
+          {hint && <p className="mt-1 max-w-2xl text-[12px] text-gray-500 dark:text-gray-400">{hint}</p>}
         </div>
         {action}
       </div>
@@ -420,7 +420,7 @@ function ParetoChart({ rows, onPick }: { rows: DefectParetoRow[]; onPick: (label
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-3 text-[12px] text-gray-400">Regla 80/20: los defectos a la izquierda de donde la línea cruza el 80% son los pocos vitales. Haz clic en una barra para ver y clasificar sus NCRs.</p>
+      <p className="mt-3 text-[12px] text-gray-500 dark:text-gray-400">Regla 80/20: los defectos a la izquierda de donde la línea cruza el 80% son los pocos vitales. Haz clic en una barra para ver y clasificar sus NCRs.</p>
     </>
   );
 }
@@ -478,7 +478,7 @@ function FpyList({ rows, empty }: { rows: FpyGroup[]; empty: string }) {
               <div className="h-full rounded-full" style={{ width: `${r.fpy ?? 0}%`, background: c }} />
             </div>
             <span className="w-12 shrink-0 text-right text-[13px] font-semibold tabular-nums" style={{ color: c }}>{r.fpy != null ? `${r.fpy}%` : '—'}</span>
-            <span className="w-12 shrink-0 text-right text-[11px] text-gray-400 tabular-nums">{r.serials} s</span>
+            <span className="w-12 shrink-0 text-right text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">{r.serials} s</span>
           </div>
         );
       })}
@@ -495,7 +495,7 @@ function SupplierList({ rows }: { rows: SupplierPpm[] }) {
       {top.map((r) => (
         <div key={String(r.supplierId)} className="flex items-center gap-3">
           <span className="w-28 shrink-0 truncate text-[13px] font-medium" title={r.supplierName}>{r.supplierName}</span>
-          <span className="flex-1 text-[11px] text-gray-400">{r.defects}/{r.inspected.toLocaleString()} pzas</span>
+          <span className="flex-1 text-[11px] text-gray-500 dark:text-gray-400">{r.defects}/{r.inspected.toLocaleString()} pzas</span>
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums" style={{ background: `${ppmColor(r.ppm)}1f`, color: ppmColor(r.ppm) }}>{ppmFmt(r.ppm)} ppm</span>
         </div>
       ))}
@@ -518,7 +518,7 @@ function CapaPanel({ stats }: { stats?: QualityAnalytics['capa'] }) {
       </div>
       {stats.overdueList.length > 0 ? (
         <div className="space-y-1.5">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Vencidas</div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Vencidas</div>
           {stats.overdueList.slice(0, 5).map((c) => (
             <div key={c.capaNumber} className="flex items-center gap-2 rounded-lg px-2 py-1.5" style={{ background: `${RED}0f` }}>
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" style={{ color: RED }} />
@@ -529,7 +529,7 @@ function CapaPanel({ stats }: { stats?: QualityAnalytics['capa'] }) {
           ))}
         </div>
       ) : (
-        <p className="flex items-center gap-1.5 text-[12px] text-gray-400"><CheckCircle2 className="h-3.5 w-3.5" style={{ color: GREEN }} /> Ninguna CAPA vencida.</p>
+        <p className="flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-gray-400"><CheckCircle2 className="h-3.5 w-3.5" style={{ color: GREEN }} /> Ninguna CAPA vencida.</p>
       )}
     </div>
   );
@@ -548,7 +548,7 @@ function DispoPanel({ rows }: { rows: QualityAnalytics['dispositions']['byType']
             <div className="h-full rounded-full" style={{ width: `${(r.units / max) * 100}%`, background: BLUE }} />
           </div>
           <span className="w-16 shrink-0 text-right text-[13px] font-semibold tabular-nums" style={{ color: BLUE }}>{r.units.toLocaleString()} u</span>
-          <span className="w-10 shrink-0 text-right text-[11px] text-gray-400 tabular-nums">{r.count}×</span>
+          <span className="w-10 shrink-0 text-right text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">{r.count}×</span>
         </div>
       ))}
     </div>
@@ -559,7 +559,7 @@ function Stat({ label, value, color }: { label: string; value: number | string; 
   return (
     <div className="rounded-xl bg-black/[0.03] p-2 dark:bg-white/[0.04]">
       <div className="text-lg font-semibold tabular-nums" style={{ color }}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
     </div>
   );
 }
@@ -577,7 +577,7 @@ function NcrDrillCard({ ncr, codeById, codes, canWrite, busy, onClassify }: {
         <span className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-white/10">{ncr.ncrNumber}</span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{ncr.description || ncr.category}</div>
-          <div className="truncate text-[12px] text-gray-400">{ncr.partNumber}{ncr.model ? ` · ${ncr.model}` : ''} · {ncr.quantityAffected} pzas</div>
+          <div className="truncate text-[12px] text-gray-500 dark:text-gray-400">{ncr.partNumber}{ncr.model ? ` · ${ncr.model}` : ''} · {ncr.quantityAffected} pzas</div>
         </div>
         {sev && <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: `${sev.color}1f`, color: sev.color }}>{sev.label}</span>}
         {st && <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: `${st.color}1f`, color: st.color }}>{st.label}</span>}
@@ -587,8 +587,8 @@ function NcrDrillCard({ ncr, codeById, codes, canWrite, busy, onClassify }: {
       </div>
       {canWrite && (
         <div className="mt-2 flex items-center gap-2 border-t border-black/5 pt-2 dark:border-white/10">
-          <Tag className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-          <span className="shrink-0 text-[11px] text-gray-400">Código:</span>
+          <Tag className="h-3.5 w-3.5 shrink-0 text-gray-500 dark:text-gray-400" />
+          <span className="shrink-0 text-[11px] text-gray-500 dark:text-gray-400">Código:</span>
           <select
             value={ncr.defectCodeId ?? ''}
             disabled={busy}
@@ -603,7 +603,7 @@ function NcrDrillCard({ ncr, codeById, codes, canWrite, busy, onClassify }: {
         </div>
       )}
       {!canWrite && current && (
-        <div className="mt-1.5 text-[11px] text-gray-400"><Tag className="mr-1 inline h-3 w-3" />{current.code} · {current.description}</div>
+        <div className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400"><Tag className="mr-1 inline h-3 w-3" />{current.code} · {current.description}</div>
       )}
     </div>
   );
@@ -613,8 +613,8 @@ function NcrDrillCard({ ncr, codeById, codes, canWrite, busy, onClassify }: {
 function Followup({ title, body }: { title: string; body: string }) {
   return (
     <div className={`${glass} rounded-2xl border border-dashed border-black/10 p-4 dark:border-white/10`}>
-      <h4 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-500"><InfoIcon className="h-4 w-4" /> {title} <span className="rounded-full bg-gray-400/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">follow-up</span></h4>
-      <p className="text-[12px] text-gray-400">{body}</p>
+      <h4 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-500"><InfoIcon className="h-4 w-4" /> {title} <span className="rounded-full bg-gray-400/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">follow-up</span></h4>
+      <p className="text-[12px] text-gray-500 dark:text-gray-400">{body}</p>
     </div>
   );
 }
@@ -623,7 +623,7 @@ function Empty({ icon, body, cta }: { icon: React.ReactNode; body: string; cta?:
   return (
     <div className="flex flex-col items-center px-6 py-10 text-center text-gray-300">
       <div className="mb-3">{icon}</div>
-      <p className="max-w-sm text-sm text-gray-400">{body}</p>
+      <p className="max-w-sm text-sm text-gray-500 dark:text-gray-400">{body}</p>
       {cta && <div className="mt-4">{cta}</div>}
     </div>
   );

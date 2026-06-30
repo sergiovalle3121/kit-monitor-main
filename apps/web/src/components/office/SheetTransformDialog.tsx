@@ -204,7 +204,7 @@ export function SheetTransformDialog({
             <h2 className="text-lg font-bold">Data Transform</h2>
             <div className="text-xs text-gray-500">Preview {preview.inputRows} input row(s) to {preview.outputRows} output row(s)</div>
           </div>
-          <button onClick={onClose} className="rounded-full p-2 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="rounded-full p-2 text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-5 w-5" /></button>
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto lg:grid-cols-[340px_1fr]">

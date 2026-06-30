@@ -529,7 +529,7 @@ export default function OperadorPage() {
         )}
 
         {!forbidden && executionId && !board && (
-          <div className="flex items-center justify-center py-24 text-gray-400">
+          <div className="flex items-center justify-center py-24 text-gray-500 dark:text-gray-400">
             <Loader2 className="w-7 h-7 animate-spin" />
           </div>
         )}
@@ -710,7 +710,7 @@ function Picker({
         Órdenes en la línea
       </h2>
       {loading && (
-        <div className="flex items-center justify-center py-16 text-gray-400">
+        <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
           <Loader2 className="w-6 h-6 animate-spin" />
         </div>
       )}
@@ -730,7 +730,7 @@ function Picker({
             className={`${glass} rounded-3xl p-6 text-left flex flex-col gap-3 min-h-44`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-gray-400">
+              <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">
                 WO {e.workOrder}
               </span>
               {e.blocked ? (
@@ -832,7 +832,7 @@ function BoardView({
               />
               {currentStepDetail?.name ?? "Estación"}
             </h3>
-            <span className="text-[11px] text-gray-400">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
               {currentStep ? stationStatusMeta(currentStep.status).label : ""}
             </span>
           </div>
@@ -1112,7 +1112,7 @@ function ConfirmForm({
             className="mt-1 w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 font-mono outline-none"
           />
         </div>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
           Disponible de la estación previa: {step.maxConfirmable} u. Al
           confirmar se descuenta el material del paso (backflush).
         </p>
@@ -1962,7 +1962,7 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center text-center py-20 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">
         {icon}
       </div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>

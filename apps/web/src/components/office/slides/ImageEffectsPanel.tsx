@@ -9,7 +9,7 @@ function Slider({ label, value, min, max, step, onChange }: {
   return (
     <label className="block px-1 py-1">
       <span className="flex items-center justify-between text-[11px] text-gray-600 dark:text-gray-300 mb-0.5">
-        <span>{label}</span><span className="tabular-nums text-gray-400">{Math.round(value * 100)}</span>
+        <span>{label}</span><span className="tabular-nums text-gray-500 dark:text-gray-400">{Math.round(value * 100)}</span>
       </span>
       <input type="range" min={min} max={max} step={step} value={value}
         onMouseDown={(e) => e.stopPropagation()}

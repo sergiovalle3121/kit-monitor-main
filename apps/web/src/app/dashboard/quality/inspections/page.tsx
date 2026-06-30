@@ -52,7 +52,7 @@ export default function InspectionsPage() {
   return (
     <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="max-w-5xl mx-auto px-6 pt-10">
-        <Link href="/dashboard/quality" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
+        <Link href="/dashboard/quality" className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
           <ChevronLeft className="w-4 h-4" /> Calidad · NCR
         </Link>
         <PageHeader
@@ -101,7 +101,7 @@ function IqcPanel() {
 
       <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
         <label className="inline-flex items-center gap-1.5 text-sm">
-          <span className="text-[11px] font-medium text-gray-400">Resultado</span>
+          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Resultado</span>
           <select value={result} onChange={(e) => setResult(e.target.value as IqcResult | "")} className="bg-transparent outline-none text-sm rounded-lg px-1.5 py-1 hover:bg-black/5 dark:hover:bg-white/10">
             <option value="">Todos</option>
             {(Object.keys(IQC_META) as IqcResult[]).map((r) => <option key={r} value={r}>{IQC_META[r].label}</option>)}
@@ -112,10 +112,10 @@ function IqcPanel() {
         </button>
       </div>
 
-      <p className="text-[12px] text-gray-400 mb-4">PASS libera el stock <span className="font-mono">pending_iqc</span> del lote; FAIL dispara un hold de calidad automático (contención).</p>
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">PASS libera el stock <span className="font-mono">pending_iqc</span> del lote; FAIL dispara un hold de calidad automático (contención).</p>
 
       {isLoading ? (
-        <div className="flex justify-center py-16 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+        <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
       ) : filtered.length === 0 ? (
         <Empty icon={<Inbox className="w-6 h-6" />} title={rows.length === 0 ? "Sin inspecciones IQC" : "Sin resultados"} body={rows.length === 0 ? "Registra la primera inspección de recibo para liberar o contener material entrante." : "Ninguna inspección coincide con el filtro."} cta={rows.length === 0 ? <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: "#2ec27e" }}><Plus className="w-4 h-4" /> Registrar IQC</button> : undefined} />
       ) : (
@@ -127,15 +127,15 @@ function IqcPanel() {
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: m.color }} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <span className="text-[11px] font-mono text-gray-400">{r.inspectionNumber}</span>
+                    <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">{r.inspectionNumber}</span>
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${m.color}1f`, color: m.color }}>{m.label}</span>
                   </div>
-                  <h3 className="font-semibold truncate"><span className="font-mono">{r.partNumber}</span>{r.lotNumber ? <span className="text-gray-400 font-normal"> · lote {r.lotNumber}</span> : null}</h3>
-                  <p className="text-[12px] text-gray-400 truncate">
+                  <h3 className="font-semibold truncate"><span className="font-mono">{r.partNumber}</span>{r.lotNumber ? <span className="text-gray-500 dark:text-gray-400 font-normal"> · lote {r.lotNumber}</span> : null}</h3>
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
                     {r.sampleSize != null ? `muestra ${r.sampleSize}` : ""}{r.defectsFound != null ? ` · ${r.defectsFound} defectos` : ""}{r.warehouseId ? ` · ${r.warehouseId}` : ""}{r.inspector ? ` · ${r.inspector}` : ""}
                   </p>
                 </div>
-                <span className="text-[11px] text-gray-400 shrink-0 hidden sm:block">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}</span>
               </div>
             );
           })}
@@ -213,16 +213,16 @@ function OqcPanel() {
       </div>
 
       {blLoading ? (
-        <div className="flex justify-center py-10 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+        <div className="flex justify-center py-10 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
       ) : backlog.length === 0 ? (
-        <div className={`${glass} rounded-2xl p-6 text-center text-sm text-gray-400 mb-8`}>Sin material en <span className="font-mono">pending_oqc</span>. El producto terminado pendiente de OQC aparecerá aquí.</div>
+        <div className={`${glass} rounded-2xl p-6 text-center text-sm text-gray-500 dark:text-gray-400 mb-8`}>Sin material en <span className="font-mono">pending_oqc</span>. El producto terminado pendiente de OQC aparecerá aquí.</div>
       ) : (
         <div className="space-y-2 mb-8">
           {backlog.map((p) => (
             <div key={p.id} className={`${glass} rounded-2xl p-4 flex items-center gap-3`}>
               <div className="min-w-0 flex-1">
-                <h4 className="font-semibold truncate"><span className="font-mono">{p.partNumber}</span> <span className="text-gray-400 font-normal text-[13px]">· {p.onHand} u</span></h4>
-                <p className="text-[12px] text-gray-400 truncate">{p.warehouseId} · {p.location}{p.lotNumber ? ` · lote ${p.lotNumber}` : ""}{p.serialNumber ? ` · SN ${p.serialNumber}` : ""}</p>
+                <h4 className="font-semibold truncate"><span className="font-mono">{p.partNumber}</span> <span className="text-gray-500 dark:text-gray-400 font-normal text-[13px]">· {p.onHand} u</span></h4>
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">{p.warehouseId} · {p.location}{p.lotNumber ? ` · lote ${p.lotNumber}` : ""}{p.serialNumber ? ` · SN ${p.serialNumber}` : ""}</p>
               </div>
               <button onClick={() => setPrefill({ partNumber: p.partNumber, quantityInspected: p.onHand })} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium shrink-0" style={{ background: "#2ec27e1f", color: "#2ec27e" }}>
                 <ArrowRight className="w-3 h-3" /> Inspeccionar
@@ -244,13 +244,13 @@ function OqcPanel() {
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: m.color }} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <span className="text-[11px] font-mono text-gray-400">{h.workOrder}</span>
+                    <span className="text-[11px] font-mono text-gray-500 dark:text-gray-400">{h.workOrder}</span>
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${m.color}1f`, color: m.color }}>{m.label}</span>
                   </div>
                   <h4 className="font-semibold truncate"><span className="font-mono">{h.partNumber}</span></h4>
-                  <p className="text-[12px] text-gray-400 truncate">{h.quantityInspected} insp · {h.quantityPassed} ok · {h.quantityFailed} ng{h.defectType ? ` · ${h.defectType}` : ""}{h.inspector ? ` · ${h.inspector}` : ""}</p>
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">{h.quantityInspected} insp · {h.quantityPassed} ok · {h.quantityFailed} ng{h.defectType ? ` · ${h.defectType}` : ""}{h.inspector ? ` · ${h.inspector}` : ""}</p>
                 </div>
-                <span className="text-[11px] text-gray-400 shrink-0 hidden sm:block">{h.createdAt ? new Date(h.createdAt).toLocaleDateString() : ""}</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{h.createdAt ? new Date(h.createdAt).toLocaleDateString() : ""}</span>
               </div>
             );
           })}
@@ -376,7 +376,7 @@ function OqcModal({ inspector, prefill, onClose, onSaved }: { inspector: string;
             </button>
           </div>
           {ctq.length === 0 ? (
-            <p className="text-[11px] text-gray-400">Opcional: captura el valor medido de las CTQ del modelo. Se guardan como mediciones (fuente: inspección final) ligadas a la WO — sin afectar el guardado de la inspección.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Opcional: captura el valor medido de las CTQ del modelo. Se guardan como mediciones (fuente: inspección final) ligadas a la WO — sin afectar el guardado de la inspección.</p>
           ) : (
             <div className="space-y-2">
               {ctq.map((row, i) => (
@@ -393,7 +393,7 @@ function OqcModal({ inspector, prefill, onClose, onSaved }: { inspector: string;
         </div>
       )}
 
-      <p className="text-[11px] text-gray-400 mt-3">El resultado aplica al stock <span className="font-mono">pending_oqc</span> en WH-FG: PASS→disponible, FAIL→hold, CONDITIONAL→cuarentena.</p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">El resultado aplica al stock <span className="font-mono">pending_oqc</span> en WH-FG: PASS→disponible, FAIL→hold, CONDITIONAL→cuarentena.</p>
     </Modal>
   );
 }
@@ -410,9 +410,9 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 function ForbiddenCard() {
   return (
     <div className={`${glass} rounded-3xl p-10 text-center max-w-sm mx-auto`}>
-      <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+      <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
       <h2 className="text-lg font-semibold">Sin acceso</h2>
-      <p className="text-sm text-gray-400 mt-1">Inicia sesión con permisos de calidad para ver y registrar inspecciones.</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión con permisos de calidad para ver y registrar inspecciones.</p>
     </div>
   );
 }

@@ -35,7 +35,7 @@ export function SheetScenarios({ scenarios, onAdd, onRemove, onApply, onSummary,
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10 sticky top-0 bg-white dark:bg-[#161616]">
           <Layers className="w-5 h-5 text-emerald-600" />
           <h2 className="text-lg font-bold">Administrador de escenarios</h2>
-          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-4">
           {scenarios.length > 0 ? (

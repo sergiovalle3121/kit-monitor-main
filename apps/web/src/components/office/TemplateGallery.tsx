@@ -56,13 +56,13 @@ export function TemplateGallery({
         >
           {!isBlank && <span className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: accent }} />}
           {busy === t.id
-            ? <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            ? <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
             : isBlank
-              ? <FilePlus2 className="w-7 h-7 text-gray-400" />
+              ? <FilePlus2 className="w-7 h-7 text-gray-500 dark:text-gray-400" />
               : <Icon className="w-7 h-7" style={{ color: accent }} />}
         </div>
         <p className="font-semibold text-sm truncate">{t.title}</p>
-        <p className="text-[11px] text-gray-400 line-clamp-2">{t.description}</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">{t.description}</p>
       </button>
     );
   };
@@ -80,13 +80,13 @@ export function TemplateGallery({
       >
         <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
           <h2 className="text-lg font-bold">Elige una plantilla</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="px-6 pb-6 overflow-y-auto">
           {groups.map((g) => (
             <div key={g.cat} className="mb-5 last:mb-0">
               {showHeaders && (
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2.5">{g.cat}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2.5">{g.cat}</p>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {g.items.map(card)}

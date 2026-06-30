@@ -84,7 +84,7 @@ export default function CancellationRequestsPage() {
         {forbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
         ) : isLoading ? (
-          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          <div className="flex justify-center py-20 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : (
           <>
             {/* Pendientes — accionables */}
@@ -103,7 +103,7 @@ export default function CancellationRequestsPage() {
                           {r.publication?.workOrder && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">WO {r.publication.workOrder}</span>}
                           <span className="font-semibold truncate">{r.publication?.model ?? `Solicitud ${r.id}`}</span>
                         </div>
-                        <p className="text-[12px] text-gray-400 mt-1">
+                        <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">
                           {r.publication?.quantity != null ? `${r.publication.quantity} u · ` : ""}
                           {r.requestedBy ? `por ${r.requestedBy}` : "solicitante desconocido"}
                           {r.expiresAt ? ` · expira ${fmtWhen(r.expiresAt)}` : ""}
@@ -138,7 +138,7 @@ export default function CancellationRequestsPage() {
                               {r.publication?.workOrder && <span className="text-[10px] font-mono text-gray-500">WO {r.publication.workOrder}</span>}
                               <span className="font-semibold truncate text-sm">{r.publication?.model ?? `Solicitud ${r.id}`}</span>
                             </div>
-                            <p className="text-[11px] text-gray-400">{r.requestedBy ?? "—"}{r.respondedAt ? ` · ${fmtWhen(r.respondedAt)}` : ""}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">{r.requestedBy ?? "—"}{r.respondedAt ? ` · ${fmtWhen(r.respondedAt)}` : ""}</p>
                           </div>
                           <span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0" style={{ background: `${meta.color}1f`, color: meta.color }}>{meta.label}</span>
                         </div>
@@ -158,7 +158,7 @@ export default function CancellationRequestsPage() {
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>

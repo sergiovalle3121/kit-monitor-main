@@ -178,9 +178,9 @@ export default function MaterialStagingPage() {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="text-sm text-gray-400 mt-1">Necesitas permiso de materiales para surtir a línea.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Necesitas permiso de materiales para surtir a línea.</p>
         </div>
       </div>
     );
@@ -217,7 +217,7 @@ export default function MaterialStagingPage() {
               <Boxes className="w-4 h-4" /> Carril 2 · WO
             </button>
           </div>
-          <span className="text-[12px] text-gray-400">
+          <span className="text-[12px] text-gray-500 dark:text-gray-400">
             {source === 'plan'
               ? 'Surtiendo los planes publicados por el planeador (pick-list por plan).'
               : 'Surtiendo las órdenes de trabajo del plan de producción (por estación).'}
@@ -237,8 +237,8 @@ export default function MaterialStagingPage() {
 
             {/* Plan selector */}
             <div className="flex items-center gap-2 mb-5 flex-wrap">
-              <span className="text-[12px] text-gray-400">Plan:</span>
-              {plans.length === 0 && <span className="text-[12px] text-gray-400">No hay planes publicados — publica uno desde Planeación.</span>}
+              <span className="text-[12px] text-gray-500 dark:text-gray-400">Plan:</span>
+              {plans.length === 0 && <span className="text-[12px] text-gray-500 dark:text-gray-400">No hay planes publicados — publica uno desde Planeación.</span>}
               {plans.map((p) => {
                 const on = p.planId === activePlan;
                 return (
@@ -253,7 +253,7 @@ export default function MaterialStagingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-400" /> Pick-list del plan {activePlanWO ? `· ${activePlanWO.model}` : ''}</h3>
+                  <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Pick-list del plan {activePlanWO ? `· ${activePlanWO.model}` : ''}</h3>
                   {activePlan && pickLines.length > 0 && (
                     <button onClick={stagePlanAll} disabled={busy === 'stage-all'} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-60" style={{ background: GREEN }}>
                       {busy === 'stage-all' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListChecks className="w-4 h-4" />} Surtir todo
@@ -261,16 +261,16 @@ export default function MaterialStagingPage() {
                   )}
                 </div>
                 {pickLoading ? (
-                  <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                  <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
                 ) : !activePlan ? (
                   <div className={`${glass} rounded-2xl p-10 text-center`}>
-                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-400">Selecciona un plan publicado para ver su pick-list.</p>
+                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Selecciona un plan publicado para ver su pick-list.</p>
                   </div>
                 ) : pickLines.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-10 text-center`}>
-                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-400">Este plan no tiene pick-list (¿BOM sin explotar al publicar?).</p>
+                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Este plan no tiene pick-list (¿BOM sin explotar al publicar?).</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -280,10 +280,10 @@ export default function MaterialStagingPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono font-medium">{l.partNumber}</span>
-                              {l.description && <span className="text-[11px] text-gray-400 truncate">{l.description}</span>}
+                              {l.description && <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{l.description}</span>}
                               <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${PMETA[l.stagingStatus].color}1f`, color: PMETA[l.stagingStatus].color }}>{PMETA[l.stagingStatus].label}</span>
                             </div>
-                            <div className="text-[12px] text-gray-400 mt-1">Requerido {l.requiredQty} {l.unit} · surtido {l.stagedQty}</div>
+                            <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">Requerido {l.requiredQty} {l.unit} · surtido {l.stagedQty}</div>
                           </div>
                           <input
                             type="number" defaultValue={l.requiredQty}
@@ -309,9 +309,9 @@ export default function MaterialStagingPage() {
                   busy={busy}
                   onAction={moveRequest}
                 />
-                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-gray-400" /> Planes publicados</h3>
+                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Planes publicados</h3>
                 {plans.length === 0 ? (
-                  <div className={`${glass} rounded-2xl p-8 text-center`}><Inbox className="w-6 h-6 mx-auto mb-2 text-gray-400" /><p className="text-[12px] text-gray-400">Sin planes publicados.</p></div>
+                  <div className={`${glass} rounded-2xl p-8 text-center`}><Inbox className="w-6 h-6 mx-auto mb-2 text-gray-500 dark:text-gray-400" /><p className="text-[12px] text-gray-500 dark:text-gray-400">Sin planes publicados.</p></div>
                 ) : (
                   <div className="space-y-2">
                     {plans.map((p) => (
@@ -323,7 +323,7 @@ export default function MaterialStagingPage() {
                             ? <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${GREEN}1f`, color: GREEN }}><CheckCircle2 className="w-3 h-3" /> Listo</span>
                             : <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{pct(p.fillRatePct)}</span>}
                         </div>
-                        <div className="text-[12px] text-gray-400 mt-1">{p.stagedLines}/{p.totalLines} líneas · {p.quantity} u · línea {p.line}</div>
+                        <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">{p.stagedLines}/{p.totalLines} líneas · {p.quantity} u · línea {p.line}</div>
                       </button>
                     ))}
                   </div>
@@ -344,8 +344,8 @@ export default function MaterialStagingPage() {
 
             {/* WO selector */}
             <div className="flex items-center gap-2 mb-5 flex-wrap">
-              <span className="text-[12px] text-gray-400">WO:</span>
-              {wos.length === 0 && <span className="text-[12px] text-gray-400">No hay WOs activas — publica una en el muro del plan.</span>}
+              <span className="text-[12px] text-gray-500 dark:text-gray-400">WO:</span>
+              {wos.length === 0 && <span className="text-[12px] text-gray-500 dark:text-gray-400">No hay WOs activas — publica una en el muro del plan.</span>}
               {wos.map((w) => {
                 const on = w.id === activeWo;
                 return (
@@ -360,7 +360,7 @@ export default function MaterialStagingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-400" /> Material por estación</h3>
+                  <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Material por estación</h3>
                   {activeWo && lines.length === 0 && (
                     <button onClick={generate} disabled={busy === 'gen'} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
                       {busy === 'gen' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Generar surtido
@@ -368,11 +368,11 @@ export default function MaterialStagingPage() {
                   )}
                 </div>
                 {isLoading ? (
-                  <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                  <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>
                 ) : lines.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-10 text-center`}>
-                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-400">Sin líneas de surtido. Genera el kit desde el ruteo de IE.</p>
+                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Sin líneas de surtido. Genera el kit desde el ruteo de IE.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -383,10 +383,10 @@ export default function MaterialStagingPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{l.station}</span>
                               <span className="font-mono font-medium">{l.part}</span>
-                              {l.feederPosition && <span className="text-[11px] text-gray-400">feeder {l.feederPosition}</span>}
+                              {l.feederPosition && <span className="text-[11px] text-gray-500 dark:text-gray-400">feeder {l.feederPosition}</span>}
                               <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${SMETA[l.status].color}1f`, color: SMETA[l.status].color }}>{SMETA[l.status].label}</span>
                             </div>
-                            <div className="text-[12px] text-gray-400 mt-1">Requerido {l.requiredQty} · en línea {l.stagedQty} · kanban {l.minQty}</div>
+                            <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">Requerido {l.requiredQty} · en línea {l.stagedQty} · kanban {l.minQty}</div>
                           </div>
                           <input
                             type="number" defaultValue={l.requiredQty}
@@ -404,9 +404,9 @@ export default function MaterialStagingPage() {
 
               {/* Replenish board */}
               <div>
-                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Truck className="w-4 h-4 text-gray-400" /> Llamados de reposición</h3>
+                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Truck className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Llamados de reposición</h3>
                 {calls.filter((c) => c.status === 'OPEN' || c.status === 'IN_TRANSIT').length === 0 ? (
-                  <div className={`${glass} rounded-2xl p-8 text-center`}><CheckCircle2 className="w-6 h-6 mx-auto mb-2" style={{ color: GREEN }} /><p className="text-[12px] text-gray-400">Sin llamados pendientes.</p></div>
+                  <div className={`${glass} rounded-2xl p-8 text-center`}><CheckCircle2 className="w-6 h-6 mx-auto mb-2" style={{ color: GREEN }} /><p className="text-[12px] text-gray-500 dark:text-gray-400">Sin llamados pendientes.</p></div>
                 ) : (
                   <div className="space-y-2">
                     {calls.filter((c) => c.status === 'OPEN' || c.status === 'IN_TRANSIT').map((c) => (
@@ -415,9 +415,9 @@ export default function MaterialStagingPage() {
                           <span className="font-mono text-sm font-medium">{c.part}</span>
                           <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{c.station}</span>
                           {(c.priority === 'URGENT' || c.priority === 'HIGH') && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> {c.priority}</span>}
-                          {c.reason && <span className="text-[10px] text-gray-400">{c.reason}</span>}
+                          {c.reason && <span className="text-[10px] text-gray-500 dark:text-gray-400">{c.reason}</span>}
                         </div>
-                        <div className="text-[12px] text-gray-400 mt-1">{c.qty} u {c.woFolio ? `· ${c.woFolio}` : ''}</div>
+                        <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">{c.qty} u {c.woFolio ? `· ${c.woFolio}` : ''}</div>
                         <div className="mt-2 flex gap-1.5">
                           {c.status === 'OPEN' && <button onClick={() => moveCall(c, 'IN_TRANSIT')} disabled={busy === c.id} className="px-2 py-1 rounded text-[11px] font-medium disabled:opacity-50" style={{ background: `${BLUE}1f`, color: BLUE }}>En tránsito</button>}
                           <button onClick={() => moveCall(c, 'DELIVERED')} disabled={busy === c.id} className="px-2 py-1 rounded text-[11px] font-medium text-white disabled:opacity-50" style={{ background: GREEN }}>Entregado</button>
@@ -456,7 +456,7 @@ function MaterialRequestQueue({
     <section className="mb-6">
       <div className="flex items-center justify-between gap-3 mb-3">
         <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Truck className="w-4 h-4 text-gray-400" /> Solicitudes de material
+          <Truck className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Solicitudes de material
         </h3>
         {requests.length > 0 && (
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: AMBER, backgroundColor: `${AMBER}1f` }}>
@@ -467,7 +467,7 @@ function MaterialRequestQueue({
       {requests.length === 0 ? (
         <div className={`${glass} rounded-2xl p-8 text-center`}>
           <CheckCircle2 className="w-6 h-6 mx-auto mb-2" style={{ color: GREEN }} />
-          <p className="text-[12px] text-gray-400">Sin solicitudes pendientes.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">Sin solicitudes pendientes.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -487,10 +487,10 @@ function MaterialRequestQueue({
                     </div>
                     <div className="text-sm font-semibold mt-1 truncate">{request.model ?? `Kit #${request.kitId}`}</div>
                     {contextLabel && <div className="mt-1 text-[12px] font-semibold text-gray-600 dark:text-gray-300 truncate">{contextLabel}</div>}
-                    <div className="text-[12px] text-gray-400">
+                    <div className="text-[12px] text-gray-500 dark:text-gray-400">
                       {request.quantity ? `${request.quantity} u plan · ` : ''}Solicito {request.requestedBy}
                     </div>
-                    {request.note && <div className="text-[11px] text-gray-400 mt-1 truncate">{request.note}</div>}
+                    {request.note && <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 truncate">{request.note}</div>}
                   </div>
                 </div>
                 <div className="mt-2 flex gap-1.5 flex-wrap">
@@ -522,7 +522,7 @@ function MaterialRequestQueue({
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
   );

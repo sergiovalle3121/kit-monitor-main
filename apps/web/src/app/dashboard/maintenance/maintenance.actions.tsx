@@ -232,7 +232,7 @@ export function TransitionControls({
 
   if (targets.length === 0) {
     return (
-      <span className="text-[12px] text-gray-400 inline-flex items-center gap-1">
+      <span className="text-[12px] text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
         <CheckCircle2 className="w-3.5 h-3.5" /> Sin acciones (estado final)
       </span>
     );
@@ -275,7 +275,7 @@ export function TransitionControls({
           </p>
           <Field label="Minutos de paro (downtime)">
             <div className="relative">
-              <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
               <input
                 autoFocus
                 type="number"

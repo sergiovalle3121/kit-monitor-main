@@ -19,7 +19,7 @@ export function WorkOrderSummaryCard({
     <div className={`${glass} rounded-3xl p-5 mb-5`}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-[11px] font-mono text-gray-400 mb-0.5">
+          <div className="text-[11px] font-mono text-gray-500 dark:text-gray-400 mb-0.5">
             WO {execution.workOrder} · rev {execution.revision}
           </div>
           <div className="text-3xl font-bold tracking-tight">

@@ -186,7 +186,7 @@ export default function LocationsPanel() {
         }
       >
         <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -206,7 +206,7 @@ export default function LocationsPanel() {
 
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" />
         </div>
       ) : all.length === 0 ? (
         <EmptyState
@@ -221,9 +221,9 @@ export default function LocationsPanel() {
         />
       ) : filtered.length === 0 ? (
         <div className={`${glass} rounded-3xl p-12 text-center`}>
-          <MapPin className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <MapPin className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h3 className="font-semibold">Sin locaciones con esos filtros</h3>
-          <p className="mt-1 text-sm text-gray-400">Ajusta senal, almacen, programa o busqueda.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Ajusta senal, almacen, programa o busqueda.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -261,7 +261,7 @@ function LocationCard({ row }: { row: WarehouseLocation }) {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-[11px] uppercase tracking-wide text-gray-400">Disponible</div>
+          <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Disponible</div>
           <div className="font-mono text-lg font-semibold tabular-nums">{fmtQty(row.available)}</div>
         </div>
       </div>
@@ -289,7 +289,7 @@ function LocationCard({ row }: { row: WarehouseLocation }) {
               );
             })
           ) : (
-            <span className="text-[12px] text-gray-400">Sin posiciones de inventario; solo flujo abierto.</span>
+            <span className="text-[12px] text-gray-500 dark:text-gray-400">Sin posiciones de inventario; solo flujo abierto.</span>
           )}
         </div>
 
@@ -299,7 +299,7 @@ function LocationCard({ row }: { row: WarehouseLocation }) {
         </div>
 
         <div>
-          <div className="mb-2 flex items-center justify-between text-[12px] uppercase tracking-wide text-gray-400">
+          <div className="mb-2 flex items-center justify-between text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
             <span>Partes principales</span>
             <span>{row.partCount} parte{row.partCount === 1 ? '' : 's'} / {row.lotCount} lote{row.lotCount === 1 ? '' : 's'}</span>
           </div>
@@ -309,10 +309,10 @@ function LocationCard({ row }: { row: WarehouseLocation }) {
                 const meta = HOLD_STATUS_META[part.holdStatus] ?? { label: part.holdStatus, color: GRAY };
                 return (
                   <div key={`${part.partNumber}:${part.programId ?? ''}:${part.lotNumber ?? ''}:${part.holdStatus}`} className="flex items-center gap-2 rounded-xl bg-black/[0.025] px-3 py-2 dark:bg-white/[0.04]">
-                    <Boxes className="h-4 w-4 shrink-0 text-gray-400" />
+                    <Boxes className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-mono text-[13px] font-medium">{part.partNumber}</div>
-                      <div className="truncate text-[11px] text-gray-400">
+                      <div className="truncate text-[11px] text-gray-500 dark:text-gray-400">
                         {part.programId || 'sin programa'}{part.lotNumber ? ` / lote ${part.lotNumber}` : ''}
                       </div>
                     </div>
@@ -338,7 +338,7 @@ function LocationCard({ row }: { row: WarehouseLocation }) {
 function Metric({ label, value, tone = GRAY }: { label: string; value: string; tone?: string }) {
   return (
     <div className="bg-white/75 px-4 py-3 dark:bg-neutral-950/60">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums" style={{ color: tone }}>
         {value}
       </div>
@@ -364,7 +364,7 @@ function FlowPill({
       <Icon className="h-4 w-4 shrink-0" style={{ color }} />
       <div className="min-w-0 flex-1">
         <div className="text-[12px] font-medium">{label}</div>
-        <div className="text-[11px] text-gray-400">{count} pull{count === 1 ? '' : 's'}</div>
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">{count} pull{count === 1 ? '' : 's'}</div>
       </div>
       <span className="font-mono text-sm font-semibold tabular-nums">{fmtQty(qty)}</span>
     </div>

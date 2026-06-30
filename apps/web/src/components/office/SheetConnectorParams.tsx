@@ -47,7 +47,7 @@ export function SheetConnectorParams({ type, onApply, onClose }: {
             <h2 className="text-lg font-bold truncate">Conector AXOS · {def.label}</h2>
             <p className="text-[11px] text-gray-500 truncate">{def.domain} · {def.refreshPolicy === 'scheduled-ready' ? 'refresh programable' : 'refresh manual'}</p>
           </div>
-          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-4">
           <div className="rounded-2xl border border-emerald-500/15 bg-emerald-50/70 dark:bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300">

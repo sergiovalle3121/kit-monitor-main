@@ -37,7 +37,7 @@ export default function SupplierDetailPage() {
   const { data, isLoading, forbidden, mutate } = useApi<Supplier360>(`/suppliers/${id}/360`);
 
   if (forbidden) return <Guard />;
-  if (isLoading || !data) return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+  if (isLoading || !data) return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
 
   const { supplier: s, scorecard, trend, metrics, contacts, certifications, avl, scars } = data;
   const qz = QUAL_META[s.qualificationStatus || 'PENDING'] ?? QUAL_META.PENDING;
@@ -72,7 +72,7 @@ export default function SupplierDetailPage() {
           <span className="w-10 h-10 rounded-xl grid place-items-center text-white font-bold flex-shrink-0" style={{ background: `linear-gradient(135deg, ${BLUE}, #6366f1)` }}>{s.name.slice(0, 2).toUpperCase()}</span>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold leading-tight truncate">{s.name}</h1>
-            <p className="text-[12px] text-gray-400 leading-tight font-mono">{s.code}{s.commodity ? ` · ${s.commodity}` : ''}</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight font-mono">{s.code}{s.commodity ? ` · ${s.commodity}` : ''}</p>
           </div>
           {scorecard.grade !== 'NA' && (
             <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: `${g.color}1a`, color: g.color }} title="Grade compuesto (OTD + PPM + SCAR + certs)">
@@ -98,7 +98,7 @@ export default function SupplierDetailPage() {
           {tabs.map((t) => {
             const active = tab === t.key;
             return (
-              <button key={t.key} onClick={() => setTab(t.key)} className={`relative px-4 py-2.5 text-sm font-medium flex items-center gap-2 whitespace-nowrap transition-colors ${active ? '' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`} style={active ? { color: BLUE } : undefined}>
+              <button key={t.key} onClick={() => setTab(t.key)} className={`relative px-4 py-2.5 text-sm font-medium flex items-center gap-2 whitespace-nowrap transition-colors ${active ? '' : 'text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`} style={active ? { color: BLUE } : undefined}>
                 <t.icon className="w-4 h-4" />{t.label}
                 {t.count != null && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10">{t.count}</span>}
                 {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ background: BLUE }} />}
@@ -141,8 +141,8 @@ function Overview({ s, scorecard, metrics, trend, risk }: { s: Supplier; scoreca
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
             {rows.map((r) => (
               <div key={r.label} className="flex items-start gap-3">
-                <r.icon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div className="min-w-0"><div className="text-[11px] uppercase tracking-wide text-gray-400">{r.label}</div><div className="text-sm font-medium truncate">{r.value}</div></div>
+                <r.icon className="w-4 h-4 text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0"><div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{r.label}</div><div className="text-sm font-medium truncate">{r.value}</div></div>
               </div>
             ))}
           </div>
@@ -155,13 +155,13 @@ function Overview({ s, scorecard, metrics, trend, risk }: { s: Supplier; scoreca
         <div className="grid grid-cols-2 gap-4">
           <div className={`${glass} rounded-2xl p-5`}>
             <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">Calidad de entrada (IQC) <SourceBadge source={metrics.iqc.ppmSource} /></h4>
-            <div className="flex items-end gap-3"><div className="text-3xl font-bold tabular-nums" style={{ color: ppmColor(metrics.iqc.ppm) }}>{metrics.iqc.ppm != null ? metrics.iqc.ppm : '—'}</div><div className="text-[12px] text-gray-400 mb-1.5">PPM</div></div>
-            <div className="text-[12px] text-gray-400 mt-1">{metrics.iqc.passRate}% aceptación · {metrics.iqc.defects} def / {metrics.iqc.inspected.toLocaleString()} insp · {metrics.iqc.lots} lotes</div>
+            <div className="flex items-end gap-3"><div className="text-3xl font-bold tabular-nums" style={{ color: ppmColor(metrics.iqc.ppm) }}>{metrics.iqc.ppm != null ? metrics.iqc.ppm : '—'}</div><div className="text-[12px] text-gray-500 dark:text-gray-400 mb-1.5">PPM</div></div>
+            <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">{metrics.iqc.passRate}% aceptación · {metrics.iqc.defects} def / {metrics.iqc.inspected.toLocaleString()} insp · {metrics.iqc.lots} lotes</div>
           </div>
           <div className={`${glass} rounded-2xl p-5`}>
             <h4 className="text-sm font-semibold mb-3">SCARs</h4>
-            <div className="flex items-end gap-3"><div className="text-3xl font-bold tabular-nums" style={{ color: metrics.scars.open ? '#f59e0b' : '#10b981' }}>{metrics.scars.open}</div><div className="text-[12px] text-gray-400 mb-1.5">abiertas</div></div>
-            <div className="text-[12px] text-gray-400 mt-1">{metrics.scars.closed} cerradas{metrics.scars.onTimeRate != null ? ` · ${metrics.scars.onTimeRate}% a tiempo` : ''} · cierre prom. {metrics.scars.avgClosureDays}d</div>
+            <div className="flex items-end gap-3"><div className="text-3xl font-bold tabular-nums" style={{ color: metrics.scars.open ? '#f59e0b' : '#10b981' }}>{metrics.scars.open}</div><div className="text-[12px] text-gray-500 dark:text-gray-400 mb-1.5">abiertas</div></div>
+            <div className="text-[12px] text-gray-500 dark:text-gray-400 mt-1">{metrics.scars.closed} cerradas{metrics.scars.onTimeRate != null ? ` · ${metrics.scars.onTimeRate}% a tiempo` : ''} · cierre prom. {metrics.scars.avgClosureDays}d</div>
           </div>
         </div>
 
@@ -178,7 +178,7 @@ function Overview({ s, scorecard, metrics, trend, risk }: { s: Supplier; scoreca
           <div className="flex items-center gap-3 mb-4">
             <span className="w-12 h-12 rounded-2xl grid place-items-center text-2xl font-bold flex-shrink-0" style={{ background: `${gradeMeta(scorecard.grade).color}1a`, color: gradeMeta(scorecard.grade).color }}>{scorecard.grade === 'NA' ? '—' : scorecard.grade}</span>
             <div className="min-w-0">
-              <div className="text-[11px] uppercase tracking-wide text-gray-400">Grade compuesto</div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Grade compuesto</div>
               <div className="text-sm font-medium">{scorecard.composite != null ? `${scorecard.composite}/100` : 'Sin datos suficientes'}</div>
             </div>
           </div>
@@ -187,11 +187,11 @@ function Overview({ s, scorecard, metrics, trend, risk }: { s: Supplier; scoreca
           {scorecard.scarResponsiveness != null && <Bar label="Respuesta SCAR" value={scorecard.scarResponsiveness} color={scoreColor(scorecard.scarResponsiveness)} />}
           {scorecard.certScore != null && <Bar label="Certificaciones" value={scorecard.certScore} color={scoreColor(scorecard.certScore)} />}
           <div className="flex items-center justify-between text-[13px] mt-4 pt-4 border-t border-black/5 dark:border-white/10">
-            <span className="text-gray-400">Nivel de riesgo</span>
+            <span className="text-gray-500 dark:text-gray-400">Nivel de riesgo</span>
             <span className="inline-flex items-center gap-1 font-medium" style={{ color: risk.color }}><ShieldCheck className="w-3.5 h-3.5" />{risk.label}</span>
           </div>
-          <div className="flex items-center justify-between text-[13px] mt-2"><span className="text-gray-400">SQE / comprador</span><span className="font-medium truncate ml-2">{s.ownerEmail || '—'}</span></div>
-          <p className="mt-3 text-[11px] text-gray-400 leading-relaxed">Ponderación: OTD {Math.round(scorecard.weights.otd * 100)}% · PPM {Math.round(scorecard.weights.ppm * 100)}% · SCAR {Math.round(scorecard.weights.scar * 100)}% · certs {Math.round(scorecard.weights.cert * 100)}%. Pesos se renormalizan sobre lo medible.</p>
+          <div className="flex items-center justify-between text-[13px] mt-2"><span className="text-gray-500 dark:text-gray-400">SQE / comprador</span><span className="font-medium truncate ml-2">{s.ownerEmail || '—'}</span></div>
+          <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">Ponderación: OTD {Math.round(scorecard.weights.otd * 100)}% · PPM {Math.round(scorecard.weights.ppm * 100)}% · SCAR {Math.round(scorecard.weights.scar * 100)}% · certs {Math.round(scorecard.weights.cert * 100)}%. Pesos se renormalizan sobre lo medible.</p>
         </div>
         {s.tags && s.tags.length > 0 && (
           <div className={`${glass} rounded-2xl p-5`}>
@@ -210,7 +210,7 @@ function TrendCard({ trend }: { trend: TrendPoint[] }) {
   const maxPpm = Math.max(100, ...trend.map((t) => t.ppm ?? 0));
   return (
     <div className={`${glass} rounded-2xl p-5`}>
-      <h4 className="text-sm font-semibold mb-4 flex items-center gap-2"><Gauge className="w-4 h-4 text-gray-400" /> Tendencia (últimos meses)</h4>
+      <h4 className="text-sm font-semibold mb-4 flex items-center gap-2"><Gauge className="w-4 h-4 text-gray-500 dark:text-gray-400" /> Tendencia (últimos meses)</h4>
       <div className="grid grid-cols-2 gap-6">
         <Sparkline label="OTD %" points={trend.map((t) => ({ m: t.month, v: t.otdPct }))} max={100} color="#10b981" fmt={(v) => `${v}%`} />
         <Sparkline label="PPM" points={trend.map((t) => ({ m: t.month, v: t.ppm }))} max={maxPpm} color="#ef4444" invert fmt={(v) => String(v)} />
@@ -234,7 +234,7 @@ function Sparkline({ label, points, max, color, invert, fmt }: { label: string; 
           );
         })}
       </div>
-      <div className="flex justify-between text-[9px] text-gray-400 mt-1"><span>{points[0]?.m.slice(2)}</span><span>{points[points.length - 1]?.m.slice(2)}</span></div>
+      <div className="flex justify-between text-[9px] text-gray-500 dark:text-gray-400 mt-1"><span>{points[0]?.m.slice(2)}</span><span>{points[points.length - 1]?.m.slice(2)}</span></div>
     </div>
   );
 }
@@ -242,7 +242,7 @@ function Sparkline({ label, points, max, color, invert, fmt }: { label: string; 
 function ContactsTab({ contacts, onAdd, onRemove }: { contacts: SupplierContact[]; onAdd: () => void; onRemove: (id: number) => void }) {
   return (
     <div>
-      <div className="flex justify-between items-center mb-4"><h2 className="text-sm font-semibold">Contactos <span className="text-gray-400">({contacts.length})</span></h2><button onClick={onAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: BLUE }}><Plus className="w-3.5 h-3.5" /> Contacto</button></div>
+      <div className="flex justify-between items-center mb-4"><h2 className="text-sm font-semibold">Contactos <span className="text-gray-500 dark:text-gray-400">({contacts.length})</span></h2><button onClick={onAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: BLUE }}><Plus className="w-3.5 h-3.5" /> Contacto</button></div>
       {contacts.length === 0 ? <EmptyCard text="Sin contactos del proveedor. Agrega a tu contraparte de ventas, calidad y logística para tener a quién escalar." /> : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {contacts.map((c) => (
@@ -250,9 +250,9 @@ function ContactsTab({ contacts, onAdd, onRemove }: { contacts: SupplierContact[
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="w-10 h-10 rounded-full grid place-items-center font-semibold text-white flex-shrink-0" style={{ background: BLUE }}>{c.name.slice(0, 2).toUpperCase()}</span>
-                  <div className="min-w-0"><div className="font-semibold flex items-center gap-1.5 truncate">{c.name}{c.isPrimary && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />}</div><div className="text-[12px] text-gray-400 truncate">{c.title || '—'}</div></div>
+                  <div className="min-w-0"><div className="font-semibold flex items-center gap-1.5 truncate">{c.name}{c.isPrimary && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />}</div><div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">{c.title || '—'}</div></div>
                 </div>
-                <button onClick={() => onRemove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 flex-shrink-0"><X className="w-3.5 h-3.5" /></button>
+                <button onClick={() => onRemove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-gray-400 hover:text-red-500 flex-shrink-0"><X className="w-3.5 h-3.5" /></button>
               </div>
               <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px]">{c.role && <span className="px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-gray-500">{ROLE_LABEL[c.role] || c.role}</span>}</div>
               <div className="mt-2 space-y-1 text-[12px] text-gray-500">
@@ -270,7 +270,7 @@ function ContactsTab({ contacts, onAdd, onRemove }: { contacts: SupplierContact[
 function CertsTab({ certs, onAdd, onRemove }: { certs: SupplierCertification[]; onAdd: () => void; onRemove: (id: number) => void }) {
   return (
     <div>
-      <div className="flex justify-between items-center mb-4"><h2 className="text-sm font-semibold">Certificaciones <span className="text-gray-400">({certs.length})</span></h2><button onClick={onAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: BLUE }}><Plus className="w-3.5 h-3.5" /> Certificación</button></div>
+      <div className="flex justify-between items-center mb-4"><h2 className="text-sm font-semibold">Certificaciones <span className="text-gray-500 dark:text-gray-400">({certs.length})</span></h2><button onClick={onAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: BLUE }}><Plus className="w-3.5 h-3.5" /> Certificación</button></div>
       {certs.length === 0 ? <EmptyCard text="Sin certificaciones registradas (ISO 9001, IATF 16949, ISO 13485…). Captura número y vencimiento y el sistema te avisa antes de que caduquen." /> : (
         <div className="space-y-2.5">
           {certs.map((c) => {
@@ -280,13 +280,13 @@ function CertsTab({ certs, onAdd, onRemove }: { certs: SupplierCertification[]; 
                 <span className="w-10 h-10 rounded-xl grid place-items-center flex-shrink-0" style={{ background: `${m.color}1a`, color: m.color }}><FileBadge className="w-5 h-5" /></span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap"><span className="font-semibold">{c.standard}</span><span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: `${m.color}1f`, color: m.color }}>{m.label}</span></div>
-                  <div className="text-[12px] text-gray-400">{[c.certNumber, c.issuedBy].filter(Boolean).join(' · ') || '—'}</div>
+                  <div className="text-[12px] text-gray-500 dark:text-gray-400">{[c.certNumber, c.issuedBy].filter(Boolean).join(' · ') || '—'}</div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className="text-[12px] text-gray-400">Vence</div>
+                  <div className="text-[12px] text-gray-500 dark:text-gray-400">Vence</div>
                   <div className="text-sm font-medium" style={{ color: c.status === 'EXPIRED' || c.status === 'EXPIRING' ? m.color : undefined }}>{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</div>
                 </div>
-                <button onClick={() => onRemove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => onRemove(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             );
           })}
@@ -300,7 +300,7 @@ function AvlTab({ parts, currency, onAdd, onEdit, onRemove, onStatus }: { parts:
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-sm font-semibold">Partes aprobadas · AVL <span className="text-gray-400">({parts.length})</span></h2>
+        <h2 className="text-sm font-semibold">Partes aprobadas · AVL <span className="text-gray-500 dark:text-gray-400">({parts.length})</span></h2>
         <button onClick={onAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: BLUE }}><Plus className="w-3.5 h-3.5" /> Aprobar parte</button>
       </div>
       {parts.length === 0 ? (
@@ -309,7 +309,7 @@ function AvlTab({ parts, currency, onAdd, onEdit, onRemove, onStatus }: { parts:
         <div className={`${glass} rounded-2xl overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
-              <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-black/5 dark:border-white/10">
+              <thead><tr className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">
                 <th className="text-left font-medium px-4 py-2.5">Parte</th>
                 <th className="text-left font-medium px-3 py-2.5">Estatus</th>
                 <th className="text-right font-medium px-3 py-2.5">Precio</th>
@@ -322,7 +322,7 @@ function AvlTab({ parts, currency, onAdd, onEdit, onRemove, onStatus }: { parts:
                   const m = AVL_STATUS_META[p.approvalStatus] ?? AVL_STATUS_META.PENDING;
                   return (
                     <tr key={p.id} className="border-b border-black/[0.03] dark:border-white/[0.04] group">
-                      <td className="px-4 py-2.5"><div className="font-mono">{p.partNumber}</div>{p.description && <div className="text-[11px] text-gray-400 truncate max-w-[220px]">{p.description}</div>}</td>
+                      <td className="px-4 py-2.5"><div className="font-mono">{p.partNumber}</div>{p.description && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[220px]">{p.description}</div>}</td>
                       <td className="px-3 py-2.5">
                         <select value={p.approvalStatus} onChange={(e) => onStatus(p.id, e.target.value)} className="rounded-full px-2 py-0.5 text-[11px] font-medium border-0 outline-none cursor-pointer" style={{ background: `${m.color}1f`, color: m.color }}>
                           {AVL_STATUSES.map((st) => <option key={st} value={st}>{AVL_STATUS_META[st].label}</option>)}
@@ -332,8 +332,8 @@ function AvlTab({ parts, currency, onAdd, onEdit, onRemove, onStatus }: { parts:
                       <td className="px-3 py-2.5 text-right tabular-nums">{p.moq != null ? p.moq.toLocaleString() : '—'}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums">{p.leadTimeDays != null ? `${p.leadTimeDays} d` : '—'}</td>
                       <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                        <button onClick={() => onEdit(p)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-blue-500"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => onRemove(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => onEdit(p)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-blue-500"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => onRemove(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                       </td>
                     </tr>
                   );
@@ -352,7 +352,7 @@ function ScarsTab({ scars, onOpen, onAdvance }: { scars: Supplier360['scars']; o
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-sm font-semibold">SCARs <span className="text-gray-400">({scars.length})</span></h2>
+        <h2 className="text-sm font-semibold">SCARs <span className="text-gray-500 dark:text-gray-400">({scars.length})</span></h2>
         <button onClick={onOpen} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: BLUE }}><Plus className="w-3.5 h-3.5" /> Abrir SCAR</button>
       </div>
       {scars.length === 0 ? <EmptyCard text="Sin SCARs (acciones correctivas de proveedor). Cuando un lote falle IQC o un proveedor incumpla, abre un SCAR aquí para darle seguimiento 8D hasta su cierre." /> : (
@@ -371,7 +371,7 @@ function ScarsTab({ scars, onOpen, onAdvance }: { scars: Supplier360['scars']; o
                   </span>
                 </div>
                 <div className="font-medium text-sm">{sc.issueSummary || sc.partNumber}</div>
-                <div className="text-[12px] text-gray-400">parte {sc.partNumber}</div>
+                <div className="text-[12px] text-gray-500 dark:text-gray-400">parte {sc.partNumber}</div>
               </div>
             );
           })}
@@ -555,23 +555,23 @@ function EditModal({ supplier, onClose, onDone }: { supplier: Supplier; onClose:
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
 function Metric({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
-  return <div className={`${glass} rounded-2xl p-3.5`}><div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div><div className="text-lg font-semibold mt-0.5 tabular-nums truncate" style={{ color }}>{value}</div>{sub && <div className="text-[10px] text-gray-400 truncate">{sub}</div>}</div>;
+  return <div className={`${glass} rounded-2xl p-3.5`}><div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div><div className="text-lg font-semibold mt-0.5 tabular-nums truncate" style={{ color }}>{value}</div>{sub && <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{sub}</div>}</div>;
 }
 function MetricSourced({ label, value, color, source, hint }: { label: string; value: string; color: string; source?: MetricSource; hint?: string }) {
   const tag = sourceLabel(source);
   return (
     <div className={`${glass} rounded-2xl p-3.5`}>
-      <div className="flex items-center justify-between gap-1"><span className="text-[10px] uppercase tracking-wide text-gray-400">{label}</span>{tag && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300" title="Valor manual — falta fuente para derivarlo">{tag}</span>}{source === 'derived' && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" title="Derivado de datos reales">real</span>}</div>
+      <div className="flex items-center justify-between gap-1"><span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>{tag && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300" title="Valor manual — falta fuente para derivarlo">{tag}</span>}{source === 'derived' && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" title="Derivado de datos reales">real</span>}</div>
       <div className="text-lg font-semibold mt-0.5 tabular-nums truncate" style={{ color }}>{value}</div>
-      {hint && <div className="text-[10px] text-gray-400 truncate">{hint}</div>}
+      {hint && <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{hint}</div>}
     </div>
   );
 }
 function GradeTile({ grade, composite, color }: { grade: string; composite: number | null; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3.5`}>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">Grade</div>
-      <div className="flex items-baseline gap-1.5"><span className="text-2xl font-bold" style={{ color }}>{grade === 'NA' ? '—' : grade}</span>{composite != null && <span className="text-[11px] text-gray-400 tabular-nums">{composite}/100</span>}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Grade</div>
+      <div className="flex items-baseline gap-1.5"><span className="text-2xl font-bold" style={{ color }}>{grade === 'NA' ? '—' : grade}</span>{composite != null && <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">{composite}/100</span>}</div>
     </div>
   );
 }
@@ -592,7 +592,7 @@ function Bar({ label, value, color, note }: { label: string; value: number; colo
     </div>
   );
 }
-function EmptyCard({ text }: { text: string }) { return <div className={`${glass} rounded-2xl p-10 text-center text-sm text-gray-400 max-w-2xl mx-auto`}>{text}</div>; }
+function EmptyCard({ text }: { text: string }) { return <div className={`${glass} rounded-2xl p-10 text-center text-sm text-gray-500 dark:text-gray-400 max-w-2xl mx-auto`}>{text}</div>; }
 function L({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) { return <label className={`block ${full ? 'md:col-span-full' : ''}`}><span className="block text-[12px] font-medium text-gray-500 mb-1">{label}</span>{children}</label>; }
 function Modal({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
   return (
@@ -612,4 +612,4 @@ function Actions({ busy, onClose, onSubmit }: { busy: boolean; onClose: () => vo
     </div>
   );
 }
-function Guard() { return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>; }
+function Guard() { return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>; }

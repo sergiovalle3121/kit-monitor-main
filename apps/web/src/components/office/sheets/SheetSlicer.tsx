@@ -74,7 +74,7 @@ export function SheetSlicer({ slicers, timelines, valuesOf, onToggle, onClearSli
                 </button>
               </div>
               <div className="flex flex-wrap gap-1 p-1.5">
-                {vals.length === 0 && <span className="px-1 py-0.5 text-[11px] text-gray-400">Sin valores</span>}
+                {vals.length === 0 && <span className="px-1 py-0.5 text-[11px] text-gray-500 dark:text-gray-400">Sin valores</span>}
                 {vals.map((v) => {
                   const on = isOn(s, v);
                   return (
@@ -126,7 +126,7 @@ export function SheetSlicer({ slicers, timelines, valuesOf, onToggle, onClearSli
                 onChange={(e) => onTimeline(t.id, e.target.value, t.to ?? '')}
                 className="min-w-0 flex-1 rounded-lg border border-black/10 bg-transparent px-1.5 py-1 dark:border-white/15"
               />
-              <span className="text-gray-400">to</span>
+              <span className="text-gray-500 dark:text-gray-400">to</span>
               <input
                 type="date"
                 value={t.to ?? ''}
