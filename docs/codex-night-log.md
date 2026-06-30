@@ -276,6 +276,14 @@
 - Extended `CadValidationReport` with normalized issue rows that include severity, affected objects, action labels, and suggested fixes.
 - Wired the existing design-check modal in `Layout3DEditor.tsx` to show top validation quick fixes and select affected objects from those rows.
 - Added focused validation-report coverage for collision, clearance, and safety issue rows.
+## 2026-06-29 — Edge clearance dimensions
+
+- Inspected required CAD docs, `Layout3DEditor.tsx`, existing measurement/annotation/DXF helpers, CAD docs, route chrome, and open CAD PRs #850/#847/#844/#839/#838.
+- Avoided active flow, plot package, warehouse/rack generator, and command-registry ownership areas.
+- Extended the existing `measurements.ts` helper with `edge-horizontal` and `edge-vertical` clearance dimensions, including overlap labeling.
+- Wired the existing two-object dimension panel in `Layout3DEditor.tsx` with `Borde H` and `Borde V` actions that create saved `dim` annotations.
+- Reused current undo history, editable measurement labels, layer visibility, and DXF export instead of creating another dimension model.
+- Added focused smoke coverage in `measurements.spec.ts`.
 ## 2026-06-29 - Manufacturing CAD symbol blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.

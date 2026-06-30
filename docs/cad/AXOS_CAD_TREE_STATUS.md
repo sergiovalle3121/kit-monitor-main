@@ -8,6 +8,14 @@ AXOS CAD is beyond seed state. The active workbench already includes a unified 2
 
 ## This run
 
+This run upgrades the existing professional dimensioning workflow:
+
+- `measurements.ts` now supports `edge-horizontal` and `edge-vertical` modes for selected-object clearance dimensions.
+- Edge dimensions use the same saved `dim` annotation model as existing measurements, so undo, editable labels, visibility, and DXF export continue through the current path.
+- The `Layout3DEditor` two-object dimension panel now exposes `Borde H` and `Borde V` actions alongside direct, horizontal, and vertical center measurements.
+- Overlapping objects are labeled as overlap measurements rather than pretending there is usable clearance.
+
+The workflow is visible in the CAD right inspector when exactly two objects are selected. It does not introduce a parallel dimension model, exporter, annotation store, or measurement panel.
 This run expands the existing CAD symbol library into a stronger manufacturing block set:
 
 - `symbols.ts` now includes solder paste printer, SPI, pick-and-place, reflow oven, X-ray inspection, ICT, functional test, conformal coating, depaneling, manual assembly, quality gate, label print, and calibration station symbols.
@@ -111,6 +119,7 @@ This does not create a second warehouse generator, block system, editor, layer m
 | Phase 11 - Blocks / industrial symbols pro | Stronger | `symbols.ts`, existing symbol rail, Cmd-K palette, and symbol spec coverage | Add native block instances after the persistence contract is settled. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
 | Phase 22 - Plot / sheet / title block | Advanced | `plot-sheet.ts`, `plot-sheet.spec.ts`, and the existing `Layout3DEditor.tsx` PDF export button | Add vector paper-space drawing and title-block revision metadata. |
+| Phase 4 - Professional dimensioning system | Advanced | `measurements.ts`, saved dimension annotations, DXF export, and `Borde H`/`Borde V` in the right inspector | Add dimension styles and critical-measurement validation rules. |
 | Phase 23 - Supermarket/kitting template | Usable | `templates.ts`, `templates.spec.ts`, existing `Layout3DEditor` template rail | Add parametric lane/cart counts after generator conflicts settle. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
