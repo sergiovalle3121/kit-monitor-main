@@ -244,6 +244,62 @@
 - Added an apply action that moves current station placements into the suggested physical order using the existing local snapshot, undo, lock-guard, selection, snap, and rebuild paths.
 - Added pure smoke coverage for the reorder preview.
 - Pending: from-to table, operator walking path, and richer flow recommendation categories.
+## 2026-06-29 - CAD line balance command
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open PR #746 before selecting a command-dock-only slice.
+- Avoided `Layout3DEditor.tsx`, minimap, scale bar, DXF, layers, validation center, and template UI because main/open PRs already own those areas.
+- Added `apps/web/src/lib/cad/line-balance.ts` to derive cycle-time metadata from explicit command input or station labels such as `CT=42s`.
+- Registered `analyze_line_balance` in the existing CAD command registry/parser so the current command dock and palette can preview takt load, bottleneck, overloads, missing metadata, balance efficiency, and score through existing report rows.
+- Added pure smoke coverage in `line-balance.spec.ts` and command-registry coverage for parser routing and over-takt warnings.
+- Pending: visual Yamazumi/load overlay in the analysis panel after active `Layout3DEditor.tsx` conflicts settle.
+## 2026-06-29 - Parametric warehouse rack generator
+
+- Inspected open CAD PR #838 and avoided its command-registry/line-balance files.
+- Reused the existing `Layout3DEditor` asset, annotation, layer, tag, snapshot, selection, validation, and DXF export paths.
+- Added `warehouse-generators.ts` to generate editable rack bays, forklift aisles, and labels from rows, bays, bay width, rack depth, aisle width, orientation, and prefix.
+- Wired the generator into the existing equipment rail so users can create warehouse rack rows without leaving CAD.
+- Added pure smoke coverage for horizontal racks, vertical rack aisles, footprint bounds, scaling warnings, and large-layout caps.
+- Pending: add supermarket lane and receiving/shipping dock generators using the same output contract.
+## 2026-06-29 - CAD plot package metadata
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `plot-sheet.ts`, `plot-scale.ts`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open CAD PRs #839, #838, and #746.
+- Avoided generator, command-registry, validation-center, minimap/scale-bar, layer-manager, and DXF internals because active PRs own those areas.
+- Reused the existing `Layout3DEditor` PDF export button and `plotSheetModel` title-block helper instead of adding another plot/export workflow.
+- Extended exported CAD PDF title blocks with connectors, dimensions, labels, layer visibility/locks, active layer, validation severity, DXF warnings, package target, and approval state.
+- Added `plot-sheet.spec.ts` for default package rows, warning metadata, layer summaries, and defensive clamping.
+- Pending: vector paper-space output using `plot-scale.ts` after viewport/minimap PRs settle.
+## 2026-06-29 - CAD validation quick fixes
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and open CAD PRs #853/#850/#847/#844/#839/#838.
+- Avoided active template, flow-reorder, plot package, warehouse/rack generator, DXF, and command-registry ownership areas.
+- Reused the existing `buildCadValidationReport`, collision/clearance/safety/flow helpers, editor validation state, selection/rebuild path, and Flow Health modal.
+- Extended `CadValidationReport` with normalized issue rows that include severity, affected objects, action labels, and suggested fixes.
+- Wired the existing design-check modal in `Layout3DEditor.tsx` to show top validation quick fixes and select affected objects from those rows.
+- Added focused validation-report coverage for collision, clearance, and safety issue rows.
+## 2026-06-29 — Edge clearance dimensions
+
+- Inspected required CAD docs, `Layout3DEditor.tsx`, existing measurement/annotation/DXF helpers, CAD docs, route chrome, and open CAD PRs #850/#847/#844/#839/#838.
+- Avoided active flow, plot package, warehouse/rack generator, and command-registry ownership areas.
+- Extended the existing `measurements.ts` helper with `edge-horizontal` and `edge-vertical` clearance dimensions, including overlap labeling.
+- Wired the existing two-object dimension panel in `Layout3DEditor.tsx` with `Borde H` and `Borde V` actions that create saved `dim` annotations.
+- Reused current undo history, editable measurement labels, layer visibility, and DXF export instead of creating another dimension model.
+- Added focused smoke coverage in `measurements.spec.ts`.
+## 2026-06-29 - DXF critical label preflight
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and open CAD PRs #858/#853/#850/#847/#844/#839/#838.
+- Avoided active dimensions, generator/template, flow, plot metadata, warehouse, rack-row, and command-registry ownership areas.
+- Reused the existing `dxf-export-readiness.ts` helper and the existing `Layout3DEditor.tsx` Exportar DXF modal instead of adding another exporter or panel.
+- Extended readiness entities with optional labels and a critical-label marker so the modal warns when included industrial footprints have no visible user label.
+- Wired station names and asset user labels into the existing DXF export summary builder; hidden/unselected objects only warn if export options include them.
+- Added focused readiness coverage for included, hidden, and selection-scoped missing-label cases.
+## 2026-06-29 - CAD command line assist
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, and current open CAD PR file lists.
+- Avoided command-registry changes because `codex/night-cad-line-balance-command` already touches parser/registry/types.
+- Avoided layers, symbols, DXF readiness, validation quick fixes, edge-clearance dimensions, templates, flow health, plot metadata, warehouse generators, and safety paths because active PRs own those areas.
+- Added `command-line-assist.ts` to rank existing command registry examples by query and current selection count.
+- Wired the existing Copiloto CAD dock to show ready/pending suggestions that reuse selected object labels and call the existing preview-first command path.
+- Pending: richer command history reconciliation and Enter-to-apply after active editor/registry PRs settle.
 ## 2026-06-29 - Manufacturing CAD symbol blocks
 
 - Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.
