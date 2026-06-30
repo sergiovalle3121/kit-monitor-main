@@ -162,6 +162,7 @@
 
 - Upgraded the Copiloto CAD dock so `report` operations render compact row details instead of only the report title.
 - Flow metrics and collision report previews now show the first report rows directly inside the preview card before apply.
+
 - Kept the UI additive and preview-only; no command execution behavior or backend path changed.
 - Pending: expand report rows into a richer viewport side panel with visual highlighting.
 
@@ -342,3 +343,13 @@
 - Wired CAD layer visibility to actual station and asset objects in the viewport instead of only export/inspector metadata.
 - Added hidden/locked layer object counts plus an `All` recovery action to the existing layer panel and status bar.
 - Pending: persist layer assignments/visibility with the layout API and add layer search/filter after the persistence contract is reviewed.
+
+## 2026-06-30 - Parametric supermarket/kitting generator
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `apps/web/src/lib/cad/**`, command helpers, route chrome, design docs, automation memory, and open CAD PRs #900/#903/#904/#905.
+- Classified #900, #903, #904, and #905 as READY_FOR_CLAUDE; all were CLEAN with green CI and already had the ready comment, so no duplicate comments were posted.
+- Reused the existing warehouse generator contract, editable asset model, annotations, CAD layers, object tags, connectors, local snapshots, selection, snapping refresh, and Flow Health.
+- Added `generateWarehouseSupermarketKitting` for parameterized kanban lanes, kitting carts, FIFO WIP, line-side delivery, receiving/QC, replenishment, pedestrian/forklift aisles, optional ESD, optional quarantine, labels, scaling, and material/flow connectors.
+- Wired the generator into the existing `Layout3DEditor` Equipment rail with visible controls for lane/cart counts, dimensions, orientation, prefix, ESD, and quarantine.
+- Added focused generator coverage in `warehouse-generators.spec.ts`.
+- Pending: add line-side delivery route variants or aisle-width validation suggestions after the active generator PRs land.

@@ -1,6 +1,17 @@
 # AXOS CAD Tree Status
 
-Last updated: 2026-06-29
+Last updated: 2026-06-30
+
+## 2026-06-30 - Parametric supermarket/kitting generator
+
+This run extends the existing warehouse generator path without adding a parallel factory template system:
+
+- `warehouse-generators.ts` now includes `generateWarehouseSupermarketKitting` for configurable kanban lanes, kitting carts, FIFO WIP, line-side delivery, receiving drop, incoming QC, replenishment rack, pedestrian/forklift aisles, and optional ESD/quarantine safety areas.
+- The existing Equipment rail in `Layout3DEditor.tsx` exposes compact controls for lane/cart counts, dimensions, orientation, prefix, ESD, and quarantine.
+- Applying the generator creates editable CAD assets, annotations, layer assignments, tags, material/flow connectors, a local snapshot, selection, snapping refresh, and Flow Health state.
+- Focused specs cover horizontal and vertical layouts, tags/layers, connectors, safety toggles, footprint containment, scaling, and responsiveness caps.
+
+This does not duplicate the static supermarket/kitting template or #905's dock/staging generator. The template remains a one-click starter; this generator creates user-sized kitting lane variants.
 
 ## 2026-06-29 - Safety paths and ESD zones
 
