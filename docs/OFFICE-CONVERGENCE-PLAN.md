@@ -4,8 +4,11 @@
 > AXOS already ships a wide Office suite; what's missing is depth in core flows, not more
 > Sheets/Slides presets. When in doubt between integrate and close → **close**.
 >
-> **Status: AWAITING OWNER APPROVAL. Nothing has been closed, merged, or deleted yet.**
-> This document is the FASE 0 deliverable. Execution (FASE 1–3) begins only after sign-off.
+> **Status: APPROVED (owner, 2026-06-30 — "Approve all as-is"). FASE 1 + FASE 3 executed.**
+> The one open Office PR (#831) is closed as superseded. The remaining 67 PR-less branches
+> (60 CLOSE + 7 of the 8 QUARANTINE that have no PR) await **owner branch-deletion** — SHAs are
+> recorded below for recoverability. No branch was force-deleted by automation, and **no
+> quarantine branch was merged.** See the Execution log at the end.
 
 ## TL;DR
 
@@ -251,3 +254,30 @@ Please confirm:
 1. **Close all 60** CLOSE-STALE / CLOSE-DUPLICATE branches (and close PR #831)?
 2. **0 KEEP** — agreed nothing needs integrating? (Or name any specific capability to re-scope.)
 3. **Quarantine the 8** schema-touching branches as needs-human-review (not merged)?
+
+---
+
+## Execution log
+
+**Approval:** Owner approved "Approve all as-is" on 2026-06-30 (close 60, keep 0, quarantine 8).
+
+### FASE 1 — Close (done where a PR exists)
+- **PR #831** (`codex/night-slides-reuse-search-correction`) — **CLOSED** with a superseded
+  comment (asset library use-case filters, #881). SHA `4b17f63f` recorded.
+- **67 remaining CLOSE/QUARANTINE branches have no open PR.** There is no PR to close; the
+  disposal action for these is **branch deletion, which is the owner's step** (auto-delete /
+  cleanup script) per the golden rules. Every SHA is in the table above for recoverability.
+
+### FASE 2 — Integrate KEEP
+- **No-op.** KEEP list is empty (0 branches).
+
+### FASE 3 — Quarantine
+- The 8 schema-touching branches (B·Docs roadmap ×5, H·cell/range-comments ×3) are recorded
+  here as **needs-human-review**; none has an open PR to label and **none was merged**. A human
+  confirms `main`'s `office-comment.entity.ts` / `office-document-comment.entity.ts` +
+  migration supersede them, then deletes the branches.
+
+### Owner hand-off — branches to delete (SHAs are restore points)
+Run your cleanup script / GitHub branch auto-delete against the 67 PR-less branches in the
+table above (every row except PR #831, already closed). To restore any branch later:
+`git push origin <sha>:refs/heads/<branch>`.
