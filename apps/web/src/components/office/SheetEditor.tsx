@@ -43,6 +43,7 @@ import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, ty
 import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, buildAxosConnectorTableFromRows, connectorProtectionFor, createAxosConnectorInstance, suggestedChartsForConnector, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
 import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
+import { buildFormulaRecalculationDiagnostics, formatFormulaRecalculationDiagnostics } from '@/lib/office/formulaDependencies';
 import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
 import { normalizeWorkbookApproval, requestWorkbookReview, WORKBOOK_APPROVAL_LABELS, type WorkbookApprovalSignoff } from '@/lib/office/workbookApproval';
 import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
@@ -1024,6 +1025,12 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     window.alert(formatFormulaAuditSummary(result));
   }
 
+  function showRecalculationPlan() {
+    const diagnostics = buildFormulaRecalculationDiagnostics(workbookPayload());
+    if (!diagnostics.totalFormulas) { toast.info('No hay formulas para planear recalculo en este libro.'); return; }
+    window.alert(formatFormulaRecalculationDiagnostics(diagnostics));
+  }
+
   function applyNumberFmt(p: NumberFmtPayload) {
     const sheets = clone(sheetsRef.current);
     const sheet = sheets[p.sheetIndex] ?? sheets[0]; if (!sheet) { setShowFormat(false); return; }
@@ -1243,6 +1250,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
               <RibbonButton icon={Search} label="Auditar fórmulas" hideLabel={false} onClick={auditFormulas} />
+              <RibbonButton icon={RefreshCw} label="Plan recalc" hideLabel={false} onClick={showRecalculationPlan} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Nombres definidos">
@@ -1319,6 +1327,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           tab={inspectorTab}
           onTab={setInspectorTab}
           health={deriveWorkbookHealth(workbookPayload())}
+          recalc={buildFormulaRecalculationDiagnostics(workbookPayload())}
           compatibility={scanXlsxCompatibility(workbookPayload())}
           selection={selectionStats()}
           sheets={sheetsRef.current}
@@ -1348,6 +1357,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           onRefreshConnectors={refreshAxosConnectors}
           onInsertConnector={insertAxosConnector}
           onSendForReview={sendWorkbookForReview}
+          onShowRecalcPlan={showRecalculationPlan}
         />
       </div>
 
@@ -1490,9 +1500,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 }
 
 function SheetWorkbenchInspector({
-  tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, approval, readOnly,
+  tab, onTab, health, recalc, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, approval, readOnly,
   onOpenValidation, onOpenConditional, onOpenNames, onOpenTransform, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
-  onInsertSlicer, onInsertTimeline, onShowSlicers, onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector, onSendForReview,
+  onInsertSlicer, onInsertTimeline, onShowSlicers, onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector, onSendForReview, onShowRecalcPlan,
 }: any) {
   const tabs = [
     ['workbook', 'Workbook'], ['cell', 'Cell'], ['data', 'Data'], ['charts', 'Charts'], ['pivot', 'Pivot'], ['comments', 'Comments'], ['protection', 'Protection'], ['xlsx', 'XLSX'], ['axos', 'AXOS'],
@@ -1562,6 +1572,26 @@ function SheetWorkbenchInspector({
           <Metric label="Hojas" value={health.sheets} /><Metric label="Celdas usadas" value={health.usedCells} /><Metric label="Fórmulas" value={health.formulas} /><Metric label="Fórmulas sin proteger" value={health.unprotectedFormulas} /><Metric label="Charts" value={health.charts} /><Metric label="Pivots" value={health.pivots} /><Metric label="Validaciones" value={health.validations} /><Metric label="Comentarios abiertos/resueltos" value={`${health.openComments}/${health.resolvedComments}`} /><Metric label="Comentarios asignados" value={health.assignedComments} /><Metric label="Hojas protegidas" value={health.protectedSheets} /><Metric label="Rangos protegidos" value={health.protectedRanges} /><Metric label="Consultas stale/fallidas" value={`${health.staleAxosConnectors}/${health.failedQueries}`} /><Metric label="Aprobaciones pend/rech/aprob" value={`${health.pendingApprovals}/${health.rejectedApprovals}/${health.approvedApprovals}`} /><Metric label="Export warnings" value={health.exportWarnings} /><Metric label="Sharing" value={`${health.sharingStatus} · ${health.sharedPrincipals}`} /><Metric label="Nombres definidos" value={health.namedRanges} /><Metric label="Warnings import/XLSX" value={health.importWarnings + health.unsupportedXlsxFeatures} />
 
           <div className="mt-3 space-y-2">{health.findings.slice(0, 5).map((f: any) => <div key={f.code} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{f.severity}</b> · {f.message}</div>)}{!health.findings.length && <div className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]">Sin hallazgos relevantes para compartir/exportar.</div>}</div>
+          <div className={`mt-3 rounded-2xl border px-3 py-2 ${recalc.ready ? 'border-emerald-500/25 bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-100' : 'border-amber-500/25 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-100'}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider">Formula recalc plan</span>
+              <span className="rounded-full border border-current/20 px-2 py-0.5 text-[10px] font-semibold">{recalc.ready ? 'Ready' : 'Review'}</span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-x-3 text-[11px]">
+              <Metric label="Formulas" value={recalc.totalFormulas} />
+              <Metric label="Safe order" value={recalc.recalculableFormulas} />
+              <Metric label="Formula edges" value={recalc.formulaToFormulaEdges} />
+              <Metric label="Blocked" value={recalc.blockedFormulas} />
+              <Metric label="Cycles" value={recalc.cycleCount} />
+              <Metric label="Missing refs" value={recalc.missingReferenceCount} />
+              <Metric label="External refs" value={recalc.externalReferenceCount} />
+              <Metric label="Precedents" value={recalc.precedentReferences} />
+            </div>
+            {recalc.blockedCells.length ? <div className="mt-2 text-[11px]"><b>Blocked:</b> {recalc.blockedCells.slice(0, 4).map((cell: any) => cell.label).join(', ')}</div> : null}
+            {recalc.orderedCells.length ? <div className="mt-1 text-[11px]"><b>First safe cells:</b> {recalc.orderedCells.slice(0, 4).map((cell: any) => cell.label).join(', ')}</div> : null}
+            {recalc.warnings.slice(0, 2).map((warning: string) => <div key={warning} className="mt-1 text-[11px] opacity-80">{warning}</div>)}
+            <button className="mt-2 rounded-lg bg-gray-900 px-2.5 py-1 text-[11px] font-semibold text-white dark:bg-white dark:text-gray-900" onClick={onShowRecalcPlan}>Open recalc detail</button>
+          </div>
         </Panel>}
         {tab === 'cell' && <Panel title="Selección / celda">
           <Metric label="Rango" value={selection.range} /><Metric label="Count" value={selection.count} /><Metric label="Números" value={selection.nums} /><Metric label="Sum" value={selection.sum.toLocaleString()} /><Metric label="Average" value={selection.average.toLocaleString()} /><Metric label="Min" value={selection.min ?? '—'} /><Metric label="Max" value={selection.max ?? '—'} /><Metric label="Fórmulas" value={selection.formulas} /><Metric label="Comentarios" value={selection.comments} /><Metric label="Estado" value={selection.protected ? 'Protected' : 'Ready'} />

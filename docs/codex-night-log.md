@@ -243,6 +243,14 @@
 - Extended readiness entities with optional labels and a critical-label marker so the modal warns when included industrial footprints have no visible user label.
 - Wired station names and asset user labels into the existing DXF export summary builder; hidden/unselected objects only warn if export options include them.
 - Added focused readiness coverage for included, hidden, and selection-scoped missing-label cases.
+## 2026-06-29 - Manufacturing CAD symbol blocks
+
+- Inspected the required CAD docs, `Layout3DEditor.tsx`, `asset-catalog.ts`, `symbols.ts`, command palette/export helpers, route chrome, design docs, and open CAD PRs #864/#861/#858/#853/#850/#847/#844/#838.
+- Avoided active `Layout3DEditor.tsx`, DXF preflight, validation, dimensions, flow, template, warehouse generator, and command-registry ownership areas.
+- Extended the existing `CAD_SYMBOL_LIBRARY` with manufacturing blocks for SMT front-end, placement, reflow, X-ray, ICT, functional test, coating, depaneling, assembly, quality gate, label print, and calibration.
+- Reused the existing symbol rail and Cmd-K palette wiring; inserted symbols become editable CAD assets and flow through existing layer, selection, validation, and DXF export paths.
+- Added symbol spec coverage for manufacturing availability, search, Equipment-layer assignment, flow ports, normalized port bounds, and placement metadata.
+- Pending: native block instances and richer warehouse/EHS utility symbols after the persistence contract and editor conflict queue settle.
 ## 2026-06-29 - Supermarket kitting template
 
 - Inspected automation memory, open CAD PRs #847/#844/#839/#838, required CAD docs, `Layout3DEditor.tsx`, route chrome, design docs, and the full `apps/web/src/lib/cad/**` tree.
