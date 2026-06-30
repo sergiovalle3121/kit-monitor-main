@@ -25,7 +25,7 @@ export function ScannerPanel({
   state: ScanState;
   lastScan: ScanResult | null;
   history: ScanResult[];
-  expected: "wo" | "serial";
+  expected: string;
   compact?: boolean;
 }) {
   const stateMeta =

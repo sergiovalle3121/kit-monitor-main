@@ -1,5 +1,157 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { MesExecutionService } from './mes-execution.service';
+import {
+  MesExecutionService,
+  normalizeMaterialTraceInput,
+} from './mes-execution.service';
+
+describe('MesExecutionService - material trace input', () => {
+  it('normalizes optional lot/reel tokens for genealogy capture', () => {
+    expect(
+      normalizeMaterialTraceInput({ lot: ' LOT-A ', reel: ' REEL-9 ' }),
+    ).toEqual({ lot: 'LOT-A', reel: 'REEL-9' });
+    expect(normalizeMaterialTraceInput({ lot: ' ', reel: '' })).toEqual({
+      lot: undefined,
+      reel: undefined,
+    });
+  });
+});
+
+describe('MesExecutionService - genealogy enrichment on confirm', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const any = (v: unknown): any => v;
+
+  it('passes scanned lot/reel and source event id to genealogy links', async () => {
+    const execution = {
+      id: 1,
+      planId: null,
+      workOrder: 'WO-GEN',
+      model: 'AX-GEN',
+      line: 3,
+      quantity: 10,
+      status: 'running',
+      startedAt: null,
+    };
+    const step = {
+      id: 33,
+      executionId: 1,
+      stepId: 7,
+      sequence: 10,
+      name: 'ICT',
+      status: 'pending',
+      unitsTarget: 10,
+      unitsCompleted: 0,
+      scrapQty: 0,
+      segregatedQty: 0,
+      startedAt: null,
+      completedAt: null,
+    };
+    const material = {
+      id: 44,
+      executionStepId: 33,
+      partNumber: 'P1',
+      qtyPerUnit: 2,
+      plannedQty: 20,
+      consumedQty: 0,
+      scrapQty: 0,
+      availableQty: 20,
+      lowStockThreshold: 0,
+      kitMaterialId: null,
+    };
+    const em = {
+      findOne: jest.fn(async (entity: { name?: string }) => {
+        if (entity.name === 'ExecutionEvent') return null;
+        return null;
+      }),
+      find: jest.fn(async (entity: { name?: string }) => {
+        if (entity.name === 'ExecutionStep') return [step];
+        if (entity.name === 'ExecutionStepMaterial') return [material];
+        return [];
+      }),
+      create: jest.fn((_entity: unknown, data: Record<string, unknown>) => data),
+      save: jest.fn(async (...args: unknown[]) => {
+        const entity = (args.length === 2 ? args[1] : args[0]) as Record<
+          string,
+          unknown
+        >;
+        if (entity.clientRequestId) return { ...entity, id: 99 };
+        return entity;
+      }),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const execRepo = { findOne: jest.fn().mockResolvedValue(execution) };
+    const downtimeRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn(async (x: unknown) => x),
+    };
+    const ledger = { recordEvent: jest.fn().mockResolvedValue({}) };
+    const signals = { emitToTenant: jest.fn() };
+    const inventory = { recordTransaction: jest.fn().mockResolvedValue({}) };
+    const genealogy = { recordLink: jest.fn().mockResolvedValue({}) };
+    const dataSource = {
+      transaction: jest.fn((fn: (manager: typeof em) => unknown) => fn(em)),
+    };
+    const tenantCtx = { getTenantId: () => null };
+    const service = new MesExecutionService(
+      any(execRepo),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any(downtimeRepo),
+      any({}),
+      any({}),
+      any({}),
+      any({}),
+      any(inventory),
+      any(ledger),
+      any(signals),
+      any({}),
+      any({}),
+      any(dataSource),
+      any(tenantCtx),
+      undefined,
+      any(genealogy),
+    );
+    jest.spyOn(service, 'getBoard').mockResolvedValue(any({ ok: true }));
+
+    await service.confirmAdvance(
+      1,
+      7,
+      any({
+        quantity: 1,
+        scrap: 0,
+        serial: ' SN-77 ',
+        lot: ' LOT-A ',
+        reel: ' REEL-9 ',
+        clientRequestId: 'req-genealogy',
+      }),
+      'op@axos.test',
+    );
+
+    expect(genealogy.recordLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        builtSerial: 'SN-77',
+        part: 'P1',
+        lot: 'LOT-A',
+        reel: 'REEL-9',
+        qty: 2,
+        sourceEventId: '99',
+        idempotencyKey: 'mes-evt:99:P1',
+      }),
+    );
+    expect(ledger.recordEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'MES_STEP_ADVANCED',
+        context: expect.objectContaining({
+          serial: ' SN-77 ',
+          lot: 'LOT-A',
+          reel: 'REEL-9',
+        }),
+      }),
+    );
+  });
+});
 
 /**
  * Gate operador↔estación en modo BLOQUEO. El gate es additivo y está OFF por
