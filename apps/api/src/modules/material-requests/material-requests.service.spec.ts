@@ -30,7 +30,12 @@ function makeService(rows: MaterialRequest[] = []) {
   };
   const signals = { emitToTenant: jest.fn() };
   const eventLedger = { recordEvent: jest.fn(async () => undefined) };
-  const inventory = { recordTransaction: jest.fn(async () => ({ id: 1 })) };
+  const inventory = {
+    issueToLine: jest.fn(async () => ({
+      deposited: true,
+      warehouseId: 'LINE-2',
+    })),
+  };
   const service = new MaterialRequestsService(
     repo as any,
     kitRepo as any,
@@ -157,21 +162,19 @@ describe('MaterialRequestsService', () => {
       };
     }
 
-    it('deposits supplied material into the plan-line warehouse via recordTransaction (ISSUE → LINE-<line>)', async () => {
+    it('deposits supplied material into the plan-line tank via issueToLine (ISSUE → LINE-<line>)', async () => {
       const { service, repo, inventory } = makeService();
       repo.findOne.mockResolvedValue(authorizedRequest());
 
       await service.fulfill(5, {}, 'wh@axos.test');
 
       // Uses the PLAN line (2, what the execution consumes from), not the free
-      // text request.line ('L2'); deposits at the shared line-level location.
-      expect(inventory.recordTransaction).toHaveBeenCalledWith(
+      // text request.line ('L2').
+      expect(inventory.issueToLine).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'ISSUE',
           partNumber: 'PN-100',
           quantity: 24,
-          toWarehouseId: 'LINE-2',
-          toLocation: 'LINE',
+          line: 2,
           referenceType: 'MATERIAL_REQUEST_FULFILL',
           referenceId: '5',
         }),
@@ -182,7 +185,7 @@ describe('MaterialRequestsService', () => {
       );
     });
 
-    it('skips the deposit (no phantom LINE warehouse) when neither plan nor request has a line', async () => {
+    it('passes no line to issueToLine (which then skips) when neither plan nor request has a line', async () => {
       const { service, repo, kitRepo, inventory } = makeService();
       kitRepo.findOne.mockResolvedValue({
         id: 7,
@@ -192,7 +195,11 @@ describe('MaterialRequestsService', () => {
 
       await service.fulfill(5, {}, 'wh@axos.test');
 
-      expect(inventory.recordTransaction).not.toHaveBeenCalled();
+      // issueToLine receives line=null and is responsible for skipping the
+      // deposit (covered by InventoryService.issueToLine's own test).
+      expect(inventory.issueToLine).toHaveBeenCalledWith(
+        expect.objectContaining({ line: null }),
+      );
       // Still completes the request — the deposit is skipped, not the fulfill.
       expect(repo.save).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'fulfilled' }),
@@ -202,7 +209,7 @@ describe('MaterialRequestsService', () => {
     it('propagates inventory failures and does NOT mark the request fulfilled', async () => {
       const { service, repo, inventory } = makeService();
       repo.findOne.mockResolvedValue(authorizedRequest());
-      inventory.recordTransaction.mockRejectedValue(
+      inventory.issueToLine.mockRejectedValue(
         new Error('Insufficient stock in LINE-2 for PN-100'),
       );
 

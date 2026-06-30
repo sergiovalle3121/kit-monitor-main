@@ -173,3 +173,42 @@ describe('Supply → consume inventory loop (LINE-<n> tank)', () => {
     ).rejects.toThrow(/Insufficient stock/i);
   });
 });
+
+describe('InventoryService.issueToLine (shared supply deposit)', () => {
+  it('deposits qty into LINE-<line> and reports deposited', async () => {
+    const { inventory, at } = makeStatefulInventory();
+    const res = await inventory.issueToLine({
+      partNumber: 'PN-100',
+      quantity: 40,
+      line: 3,
+      actorName: 'wh@axos.test',
+      referenceType: 'MES_STAGING',
+    });
+    expect(res).toEqual({ deposited: true, warehouseId: 'LINE-3' });
+    expect(at('LINE-3')).toBe(40);
+  });
+
+  it('skips (no move, no throw) when there is no line', async () => {
+    const { inventory, positions } = makeStatefulInventory();
+    const res = await inventory.issueToLine({
+      partNumber: 'PN-100',
+      quantity: 40,
+      line: null,
+      actorName: 'wh@axos.test',
+    });
+    expect(res).toEqual({ deposited: false, warehouseId: null });
+    expect(positions.size).toBe(0);
+  });
+
+  it('skips when quantity is not positive', async () => {
+    const { inventory, positions } = makeStatefulInventory();
+    const res = await inventory.issueToLine({
+      partNumber: 'PN-100',
+      quantity: 0,
+      line: 3,
+      actorName: 'wh@axos.test',
+    });
+    expect(res).toEqual({ deposited: false, warehouseId: null });
+    expect(positions.size).toBe(0);
+  });
+});
