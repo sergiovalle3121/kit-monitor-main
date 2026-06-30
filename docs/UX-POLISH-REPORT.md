@@ -268,3 +268,35 @@ y **0 hallazgos altos nuevos** introducidos por el cambio de layout. El único
 `horizontal-overflow` son **7 tiras de tabs en móvil 390** (`crm`, `import`,
 `operador`, `reports`, `rh`, `settings/permissions`, `warehouse`) — pre-existentes
 (no en desktop), pendientes de `flex-wrap`/`overflow-x-auto` por página.
+
+---
+
+## 10. Pase 3 — Landing premium ("app de billion dólar")
+
+Feedback del owner: la landing "se siente barata, no como la de OpenAI o Apple".
+Pedido explícito: **movimientos traslúcidos** vivos, **más imágenes / cosas que
+hablen por sí solas** (no texto seco), **textos colapsables**, copy **elocuente y
+claro** sobre lo que hace la app, y dar el salto a que **se sienta de altísimo
+valor**. Frontend-only; sin logos de clientes, certificaciones ni métricas
+comerciales inventadas (la demo sigue siendo de muestra / solo lectura).
+
+| Tema | Cambio |
+| --- | --- |
+| **Aurora viva (hero)** | Orbes traslúcidos índigo/violeta/cian que derivan en bucle + malla cónica girando lentísimo (estilo OpenAI/Google). CSS en `globals.css` (`.hero-orb`, `.hero-conic`, `.float-slow`, `.product-halo`, `.marquee-track`/`.marquee-mask`). Todo bajo `prefers-reduced-motion` → estático. |
+| **Producto que se muestra solo** | `LandingMockup.tsx`: recreación fiel (no captura frágil) de la Torre de Control — KPIs, throughput y andon por línea — flotando bajo el hero con halo. Marquesina de capacidades en movimiento. |
+| **Bento de capacidades** | `LandingBento.tsx`: reemplaza la cuadrícula de texto seco ("Product story") por **8 losetas con micro-visualizaciones** que *enseñan* el producto: pipeline plan→piso, anillo OEE, e-kanban, línea de trazabilidad, hold MRB, snippet de IA (CIDE) y Office. Cada loseta enlaza a su ruta real. Patrón Apple/Linear/Stripe. |
+| **Textos colapsables** | La sección *Solutions* pasa a **acordeón** (`<details>`): resumen + bullets que "se explican para abajo". La FAQ ya era colapsable. |
+| **Copy elocuente** | Titular del hero con acento en gradiente; secciones con voz de producto ("No te lo contamos. Te lo enseñamos.", "Publica la orden y míralo ejecutarse."). |
+
+Consolidación: se eliminó la sección redundante "Product story" (cuadrícula de
+tarjetas de texto, casi idéntica a *galaxy*/*platform*) — esa repetición de rejillas
+era justo lo que abarataba la página. Los anclajes "Módulos" (nav + footer) apuntan
+ahora a `#capabilities` (el bento).
+
+**QA:** `tsc` y `eslint` limpios; `next build` OK; sin `console.*` nuevos.
+Verificado a 1440 y 390, en **claro y oscuro**: hero, bento (escritorio en grid
+bento / móvil apilado a altura de contenido), acordeón abierto y `scrollWidth ==
+clientWidth` (sin overflow horizontal) en móvil.
+
+Archivos: `src/app/page.tsx`, `src/app/globals.css`,
+`src/components/landing/LandingMockup.tsx`, `src/components/landing/LandingBento.tsx`.
