@@ -69,6 +69,7 @@ function isToday(iso: string): boolean {
 function buildNotifications(
   chatConvos: ChatConversation[],
   admin: AdminNotification[],
+  t: (key: string, values?: Record<string, string | number>) => string,
 ): UnifiedNotif[] {
   const items: UnifiedNotif[] = [];
   for (const c of chatConvos) {
@@ -76,7 +77,10 @@ function buildNotifications(
       items.push({
         id: `chat-${c.id}`,
         domain: "messaging",
-        title: `${c.unread} sin leer · ${c.title || "Conversación"}`,
+        title: t("notifications.unread", {
+          count: c.unread || 0,
+          title: c.title || t("notifications.conversation"),
+        }),
         meta: `${DOMAINS.messaging.label} · ${timeAgo(c.lastMessageAt)}`,
         at: c.lastMessageAt || new Date().toISOString(),
         read: false,
@@ -154,13 +158,14 @@ function useMounted() {
 function ThemeToggle() {
   const { resolvedScheme, toggleTheme } = useTheme();
   const mounted = useMounted();
+  const t = useTranslations("topbar.theme");
   const isDark = mounted && resolvedScheme === "dark";
   return (
     <button
       onClick={toggleTheme}
-      aria-label={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+      aria-label={isDark ? t("toLight") : t("toDark")}
       aria-pressed={isDark}
-      title={isDark ? "Modo claro" : "Modo oscuro"}
+      title={isDark ? t("light") : t("dark")}
       className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground dark:hover:bg-white/10"
     >
       {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -171,19 +176,20 @@ function ThemeToggle() {
 /** Selector de apariencia (Claro / Oscuro / Auto) para el menú de avatar. */
 function ThemeChoice() {
   const { colorScheme, setColorScheme } = useTheme();
+  const t = useTranslations("topbar.theme");
   const opts: { value: ColorScheme; label: string; Icon: typeof Sun }[] = [
-    { value: "light", label: "Claro", Icon: Sun },
-    { value: "dark", label: "Oscuro", Icon: Moon },
-    { value: "system", label: "Auto", Icon: Monitor },
+    { value: "light", label: t("optLight"), Icon: Sun },
+    { value: "dark", label: t("optDark"), Icon: Moon },
+    { value: "system", label: t("optAuto"), Icon: Monitor },
   ];
   return (
     <div className="px-2 pb-2">
       <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-        Apariencia
+        {t("appearance")}
       </p>
       <div
         role="radiogroup"
-        aria-label="Tema de la interfaz"
+        aria-label={t("interfaceTheme")}
         className="grid grid-cols-3 gap-1 rounded-xl bg-black/5 dark:bg-white/10 p-1"
       >
         {opts.map(({ value, label, Icon }) => {
@@ -226,6 +232,7 @@ function LanguageChoice() {
  */
 export function DashboardTopBar() {
   const router = useRouter();
+  const t = useTranslations("topbar");
   const { session } = useDashboardSession();
   const navOpen = useNavOpen();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -263,10 +270,10 @@ export function DashboardTopBar() {
       }
     }
     load();
-    const t = setInterval(load, 20000);
+    const timer = setInterval(load, 20000);
     return () => {
       active = false;
-      clearInterval(t);
+      clearInterval(timer);
     };
   }, [session]);
 
@@ -274,7 +281,7 @@ export function DashboardTopBar() {
   const adminUnread = notifications.filter((n) => !n.read).length;
   const messagingUnread = chatConvos.reduce((s, c) => s + (c.unread || 0), 0);
   const badgeTotal = adminUnread + messagingUnread;
-  const notifItems = buildNotifications(chatConvos, notifications);
+  const notifItems = buildNotifications(chatConvos, notifications, t);
   const todayItems = notifItems.filter((n) => isToday(n.at));
   const earlierItems = notifItems.filter((n) => !isToday(n.at));
   const initials = (session?.name || "?")
@@ -345,7 +352,7 @@ export function DashboardTopBar() {
             estado (panel ↔ cerrar) para que la flecha/affordance sea clara. */}
         <button
           onClick={toggleNav}
-          aria-label={navOpen ? "Cerrar navegación" : "Abrir navegación"}
+          aria-label={navOpen ? t("closeNav") : t("openNav")}
           aria-expanded={navOpen}
           aria-haspopup="menu"
           className="group flex items-center gap-2 rounded-full py-1.5 pl-2 pr-3 text-foreground transition-colors hover:bg-foreground/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
@@ -367,7 +374,7 @@ export function DashboardTopBar() {
         onClick={() =>
           window.dispatchEvent(new CustomEvent("axos:open-search"))
         }
-        aria-label="Buscar"
+        aria-label={t("search")}
         aria-keyshortcuts="Control+K Meta+K"
         className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-600 dark:text-gray-300 w-full max-w-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.07] dark:border-white/[0.08] hover:border-black/[0.13] dark:hover:border-white/[0.16] hover:bg-black/[0.05] dark:hover:bg-white/[0.06] hover:text-gray-800 dark:hover:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-all"
       >
@@ -375,7 +382,7 @@ export function DashboardTopBar() {
           className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400"
           strokeWidth={1.75}
         />
-        <span className="flex-1 text-left">Ir a un área o pantalla…</span>
+        <span className="flex-1 text-left">{t("searchPlaceholder")}</span>
         <kbd className="hidden md:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/[0.06] dark:bg-white/[0.14] text-gray-600 dark:text-gray-200">
           ⌘K
         </kbd>
@@ -386,7 +393,7 @@ export function DashboardTopBar() {
             en celular no hay ⌘K, así que damos un botón de lupa). */}
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("axos:open-search"))}
-          aria-label="Buscar"
+          aria-label={t("search")}
           aria-keyshortcuts="Control+K Meta+K"
           className="sm:hidden rounded-full p-2 text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
@@ -397,7 +404,7 @@ export function DashboardTopBar() {
           <button
             onClick={openNotifs}
             className="relative rounded-full p-2 text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground dark:hover:bg-white/10"
-            aria-label="Notificaciones"
+            aria-label={t("notifications.label")}
             aria-expanded={notifOpen}
             aria-haspopup="menu"
           >
@@ -417,32 +424,32 @@ export function DashboardTopBar() {
                 className={`${glass} absolute right-0 mt-4 w-96 rounded-[2rem] shadow-2xl p-4 z-[100]`}
               >
                 <div className="flex justify-between items-center mb-3 px-2">
-                  <h3 className="font-bold">Notificaciones</h3>
+                  <h3 className="font-bold">{t("notifications.label")}</h3>
                   {badgeTotal > 0 && (
                     <button
                       onClick={markAllRead}
                       className="text-xs font-semibold text-primary hover:underline"
                     >
-                      Marcar leídas
+                      {t("notifications.markRead")}
                     </button>
                   )}
                 </div>
                 {notifItems.length === 0 ? (
                   <p className="text-xs text-gray-500 dark:text-gray-400 px-2 py-8 text-center">
-                    Estás al día. Sin notificaciones.
+                    {t("notifications.empty")}
                   </p>
                 ) : (
                   <div className="space-y-4 max-h-96 overflow-y-auto">
                     {todayItems.length > 0 && (
                       <NotifGroup
-                        label="Hoy"
+                        label={t("notifications.today")}
                         items={todayItems}
                         onGo={goNotif}
                       />
                     )}
                     {earlierItems.length > 0 && (
                       <NotifGroup
-                        label="Antes"
+                        label={t("notifications.earlier")}
                         items={earlierItems}
                         onGo={goNotif}
                       />
@@ -457,7 +464,7 @@ export function DashboardTopBar() {
                   onClick={() => setNotifOpen(false)}
                   className="mt-3 block text-center text-xs font-semibold text-primary hover:underline"
                 >
-                  Abrir centro de notificaciones →
+                  {t("notifications.openCenter")}
                 </Link>
                 {isAdmin && pendingCount > 0 && (
                   <Link
@@ -465,7 +472,7 @@ export function DashboardTopBar() {
                     onClick={() => setNotifOpen(false)}
                     className="mt-1.5 block text-center text-xs font-semibold text-rose-500 hover:underline"
                   >
-                    Revisar {pendingCount} pendientes
+                    {t("notifications.reviewPending", { count: pendingCount })}
                   </Link>
                 )}
               </motion.div>
@@ -477,7 +484,7 @@ export function DashboardTopBar() {
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background shadow-sm transition-transform hover:scale-[1.03] active:scale-95"
-            aria-label="Cuenta"
+            aria-label={t("account")}
           >
             {initials}
           </button>
@@ -504,21 +511,21 @@ export function DashboardTopBar() {
                             if (e.key === "Enter") saveName();
                             if (e.key === "Escape") setEditingName(false);
                           }}
-                          placeholder="Tu nombre"
+                          placeholder={t("account_menu.yourName")}
                           className="min-w-0 flex-1 bg-gray-100 dark:bg-white/10 rounded-lg px-2 py-1 text-sm outline-none"
                         />
                         <button
                           onClick={saveName}
                           disabled={savingName}
                           className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-50"
-                          aria-label="Guardar"
+                          aria-label={t("account_menu.save")}
                         >
                           <Check className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setEditingName(false)}
                           className="p-1 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"
-                          aria-label="Cancelar"
+                          aria-label={t("account_menu.cancel")}
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -526,7 +533,7 @@ export function DashboardTopBar() {
                     ) : (
                       <div className="flex items-center gap-1.5">
                         <p className="font-bold text-sm truncate">
-                          {session?.name ?? "Visitor"}
+                          {session?.name ?? t("account_menu.visitor")}
                         </p>
                         <button
                           onClick={() => {
@@ -534,7 +541,7 @@ export function DashboardTopBar() {
                             setEditingName(true);
                           }}
                           className="p-1 rounded-md text-gray-500 dark:text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10 flex-shrink-0"
-                          aria-label="Editar nombre"
+                          aria-label={t("account_menu.editName")}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -557,7 +564,7 @@ export function DashboardTopBar() {
                       onClick={() => setMenuOpen(false)}
                       className="w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs flex items-center gap-3"
                     >
-                      <ShieldAlert className="w-4 h-4" /> Aprobaciones
+                      <ShieldAlert className="w-4 h-4" /> {t("account_menu.approvals")}
                       {pendingCount > 0 && (
                         <span className="ml-auto px-2 py-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold">
                           {pendingCount}
@@ -571,7 +578,7 @@ export function DashboardTopBar() {
                       onClick={() => setMenuOpen(false)}
                       className="w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs flex items-center gap-3"
                     >
-                      <User className="w-4 h-4" /> Usuarios y accesos
+                      <User className="w-4 h-4" /> {t("account_menu.usersAccess")}
                     </Link>
                   )}
                   {isAdmin && (
@@ -580,14 +587,14 @@ export function DashboardTopBar() {
                       onClick={() => setMenuOpen(false)}
                       className="w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs flex items-center gap-3"
                     >
-                      <Building2 className="w-4 h-4" /> Organización
+                      <Building2 className="w-4 h-4" /> {t("account_menu.organization")}
                     </Link>
                   )}
                   <button
                     onClick={handleLogout}
                     className="w-full px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 rounded-xl text-xs flex items-center gap-3"
                   >
-                    <LogOut className="w-4 h-4" /> Cerrar sesión
+                    <LogOut className="w-4 h-4" /> {t("account_menu.logout")}
                   </button>
                 </div>
               </motion.div>

@@ -9,6 +9,8 @@ import common from "./en/common.json";
 import language from "./en/language.json";
 import glossary from "./en/glossary.json";
 import nav from "./en/nav.json";
+import topbar from "./en/topbar.json";
+import search from "./en/search.json";
 import landing from "./en/landing.json";
 import auth from "./en/auth.json";
 import selectWorkspace from "./en/selectWorkspace.json";
@@ -19,6 +21,8 @@ const en = {
   language,
   glossary,
   nav,
+  topbar,
+  search,
   landing,
   auth,
   selectWorkspace,

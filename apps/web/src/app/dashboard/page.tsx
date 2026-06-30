@@ -2,6 +2,7 @@
 
 import React, { Suspense, useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -25,6 +26,7 @@ import { seesAllAreas } from "@/lib/owner";
 import { timeAgo, ROLE_LABELS } from "@/lib/dashboardShared";
 import { quickAccessAreas } from "@/lib/dashboardAreas";
 import { useDashboardSession } from "@/hooks/useDashboardSession";
+import { useLocaleFormat } from "@/lib/i18n/format";
 
 const MotionLink = motion.create(Link);
 
@@ -48,6 +50,8 @@ function DashboardInner() {
   const params = useSearchParams();
   const blocked = params.get("blocked");
   const reduce = useReducedMotion();
+  const t = useTranslations("dashboard");
+  const fmt = useLocaleFormat();
 
   const { session } = useDashboardSession();
 
@@ -65,33 +69,33 @@ function DashboardInner() {
   const kpis = useMemo(
     () => [
       {
-        label: "Planes por publicar",
+        label: t("kpis.plansToPublish"),
         value: plans.filter((p) => p.status === "pending").length,
         icon: Megaphone,
         domain: "plan" as DomainKey,
         href: "/dashboard/planning",
-        meta: "requieren liberación",
+        meta: t("kpis.plansToPublishMeta"),
       },
       {
-        label: "Publicados",
+        label: t("kpis.published"),
         value: plans.filter((p) =>
           ["published", "released", "active"].includes(p.status),
         ).length,
         icon: PackageCheck,
         domain: "planning" as DomainKey,
         href: "/dashboard/planning",
-        meta: "visibles para operación",
+        meta: t("kpis.publishedMeta"),
       },
       {
-        label: "Solicitudes pendientes",
+        label: t("kpis.pendingRequests"),
         value: requests.filter((r) => r.status === "pending").length,
         icon: HandHelping,
         domain: "warehouse" as DomainKey,
         href: "/dashboard/almacen",
-        meta: "esperando almacén",
+        meta: t("kpis.pendingRequestsMeta"),
       },
     ],
-    [plans, requests],
+    [plans, requests, t],
   );
 
   const activity = useMemo(() => {
@@ -101,7 +105,7 @@ function DashboardInner() {
         key: `plan-${p.id}`,
         icon: Megaphone,
         domain: "plan" as DomainKey,
-        text: `Plan ${p.model} publicado`,
+        text: t("activity.planPublished", { model: p.model }),
         who: p.publishedBy ?? "",
         at: p.publishedAt as string,
       }));
@@ -109,7 +113,9 @@ function DashboardInner() {
       key: `req-${r.id}`,
       icon: HandHelping,
       domain: "warehouse" as DomainKey,
-      text: `Solicitud de ${r.model ?? "material"}`,
+      text: t("activity.materialRequest", {
+        model: r.model ?? t("activity.materialFallback"),
+      }),
       who: r.requestedBy ?? "",
       at: r.createdAt as string,
     }));
@@ -117,7 +123,7 @@ function DashboardInner() {
       .filter((x) => x.at)
       .sort((x, y) => +new Date(y.at) - +new Date(x.at))
       .slice(0, 5);
-  }, [plans, requests]);
+  }, [plans, requests, t]);
 
   // Cola de atención: señales accionables derivadas de datos REALES ya cargados
   // (planes por publicar, solicitudes esperando almacén). Sin inventar nada; si
@@ -138,8 +144,8 @@ function DashboardInner() {
         key: "plans-pending",
         domain: "plan",
         icon: Megaphone,
-        title: `${pendingPlans.length} ${pendingPlans.length === 1 ? "plan" : "planes"} por publicar`,
-        meta: "Libéralos para que operación los vea",
+        title: t("attention.plansPending", { count: pendingPlans.length }),
+        meta: t("attention.plansPendingMeta"),
         href: "/dashboard/planning",
         severity: "high",
       });
@@ -150,14 +156,14 @@ function DashboardInner() {
         key: "reqs-pending",
         domain: "warehouse",
         icon: HandHelping,
-        title: `${pendingReqs.length} ${pendingReqs.length === 1 ? "solicitud" : "solicitudes"} de material`,
-        meta: "Esperando surtido de almacén",
+        title: t("attention.reqsPending", { count: pendingReqs.length }),
+        meta: t("attention.reqsPendingMeta"),
         href: "/dashboard/almacen",
         severity: "medium",
       });
     }
     return items;
-  }, [plans, requests]);
+  }, [plans, requests, t]);
 
   const SEVERITY: Record<
     "high" | "medium",
@@ -166,24 +172,24 @@ function DashboardInner() {
     high: {
       dot: "bg-red-500",
       ring: "border-red-500/20",
-      label: "Prioridad alta",
+      label: t("severity.high"),
     },
     medium: {
       dot: "bg-amber-500",
       ring: "border-amber-500/20",
-      label: "Pendiente",
+      label: t("severity.medium"),
     },
   };
 
   // Acceso del owner blindado: case-insensitive + override por email.
   const seesAll = seesAllAreas(session?.role, session?.email);
-  const firstName = session?.name?.split(" ")[0] || "Usuario";
+  const firstName = session?.name?.split(" ")[0] || t("defaultUser");
   const roleLabel =
     positionLabel(session?.position) ||
     ROLE_LABELS[session?.role || ""] ||
     session?.role ||
     "—";
-  const workspaceLabel = session?.email?.split("@")[1] || "Workspace AXOS";
+  const workspaceLabel = session?.email?.split("@")[1] || t("defaultWorkspace");
 
   // Accesos rápidos contextuales (role-aware). El catálogo COMPLETO de módulos
   // vive en la navegación (Command rail / panel móvil) — el home ya no duplica
@@ -204,9 +210,7 @@ function DashboardInner() {
             className="mb-8 flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-800 shadow-sm dark:text-amber-200"
           >
             <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-            <p className="text-sm">
-              No tienes acceso a esa sección con tu puesto actual.
-            </p>
+            <p className="text-sm">{t("blocked")}</p>
           </motion.div>
         )}
 
@@ -219,13 +223,13 @@ function DashboardInner() {
         >
           <div className="max-w-2xl">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Hub operativo · {roleLabel}
+              {t("eyebrow", { role: roleLabel })}
             </p>
             <h1 className="text-3xl font-semibold tracking-[-0.035em] text-foreground sm:text-4xl">
-              Hola, {firstName}.
+              {t("greeting", { name: firstName })}
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-              Lo que requiere tu atención hoy, de un vistazo.
+              {t("subtitle")}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -235,7 +239,7 @@ function DashboardInner() {
                 className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
               >
                 <Search className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                Buscar
+                {t("search")}
                 <kbd className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
                   ⌘K
                 </kbd>
@@ -245,19 +249,19 @@ function DashboardInner() {
                 className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
               >
                 <History className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                Mi actividad
+                {t("myActivity")}
               </Link>
             </div>
           </div>
           <div className="grid min-w-[200px] gap-1.5 rounded-2xl border border-border/70 bg-background/55 px-4 py-3.5 text-sm shadow-sm backdrop-blur-sm dark:bg-white/[0.035]">
             <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Contexto
+              {t("context")}
             </span>
             <span className="truncate font-medium text-foreground">
               {workspaceLabel}
             </span>
             <span className="text-xs capitalize text-muted-foreground">
-              {new Date().toLocaleDateString("es-ES", {
+              {fmt.date(new Date(), {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
@@ -307,12 +311,12 @@ function DashboardInner() {
         <section className="mb-12">
           <div className="mb-4 flex items-end justify-between border-t border-border/70 pt-5">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-              Requiere atención
+              {t("attention.title")}
             </h2>
             <span className="text-xs text-muted-foreground">
               {attention.length > 0
-                ? `${attention.length} ${attention.length === 1 ? "señal" : "señales"} accionables`
-                : "Sin pendientes"}
+                ? t("attention.countSignals", { count: attention.length })
+                : t("attention.none")}
             </span>
           </div>
           {attention.length === 0 ? (
@@ -320,10 +324,7 @@ function DashboardInner() {
               className={`${glass} flex items-center gap-3 rounded-3xl p-5 text-sm text-muted-foreground`}
             >
               <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
-              <span>
-                Todo al día. No hay planes por publicar ni solicitudes
-                esperando surtido.
-              </span>
+              <span>{t("attention.allClear")}</span>
             </div>
           ) : (
             <motion.div
@@ -379,10 +380,10 @@ function DashboardInner() {
           <section className="mb-12">
             <div className="mb-4 flex items-end justify-between border-t border-border/70 pt-5">
               <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                Accesos rápidos
+                {t("quickAccess.title")}
               </h2>
               <span className="hidden text-xs text-muted-foreground sm:inline">
-                Abre “Axos OS” (arriba) para ver todos los módulos
+                {t("quickAccess.hint")}
               </span>
             </div>
             <motion.div
@@ -426,16 +427,16 @@ function DashboardInner() {
         <section>
           <div className="mb-4 flex items-end justify-between border-t border-border/70 pt-5">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-              Actividad reciente
+              {t("activity.title")}
             </h2>
             <span className="text-xs text-muted-foreground">
-              Últimas señales operativas
+              {t("activity.subtitle")}
             </span>
           </div>
           <div className={`${glass} rounded-3xl p-2`}>
             {activity.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                Sin actividad todavía. Publica un plan para empezar.
+                {t("activity.empty")}
               </div>
             ) : (
               <div className="divide-y divide-border/70">

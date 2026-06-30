@@ -1,3 +1,45 @@
 {
-  "_": "Las cadenas del panel se migran en la Fase B."
+  "blocked": "No tienes acceso a esa sección con tu puesto actual.",
+  "eyebrow": "Hub operativo · {role}",
+  "greeting": "Hola, {name}.",
+  "subtitle": "Lo que requiere tu atención hoy, de un vistazo.",
+  "search": "Buscar",
+  "myActivity": "Mi actividad",
+  "context": "Contexto",
+  "defaultUser": "Usuario",
+  "defaultWorkspace": "Workspace AXOS",
+  "kpis": {
+    "plansToPublish": "Planes por publicar",
+    "plansToPublishMeta": "requieren liberación",
+    "published": "Publicados",
+    "publishedMeta": "visibles para operación",
+    "pendingRequests": "Solicitudes pendientes",
+    "pendingRequestsMeta": "esperando almacén"
+  },
+  "attention": {
+    "title": "Requiere atención",
+    "countSignals": "{count, plural, one {# señal accionable} other {# señales accionables}}",
+    "none": "Sin pendientes",
+    "allClear": "Todo al día. No hay planes por publicar ni solicitudes esperando surtido.",
+    "plansPending": "{count, plural, one {# plan por publicar} other {# planes por publicar}}",
+    "plansPendingMeta": "Libéralos para que operación los vea",
+    "reqsPending": "{count, plural, one {# solicitud de material} other {# solicitudes de material}}",
+    "reqsPendingMeta": "Esperando surtido de almacén"
+  },
+  "severity": {
+    "high": "Prioridad alta",
+    "medium": "Pendiente"
+  },
+  "quickAccess": {
+    "title": "Accesos rápidos",
+    "hint": "Abre “Axos OS” (arriba) para ver todos los módulos"
+  },
+  "activity": {
+    "title": "Actividad reciente",
+    "subtitle": "Últimas señales operativas",
+    "empty": "Sin actividad todavía. Publica un plan para empezar.",
+    "planPublished": "Plan {model} publicado",
+    "materialRequest": "Solicitud de {model}",
+    "materialFallback": "material"
+  }
 }

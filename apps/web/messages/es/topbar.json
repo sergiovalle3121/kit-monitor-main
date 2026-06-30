@@ -1,0 +1,40 @@
+{
+  "openNav": "Abrir navegación",
+  "closeNav": "Cerrar navegación",
+  "search": "Buscar",
+  "searchPlaceholder": "Ir a un área o pantalla…",
+  "account": "Cuenta",
+  "theme": {
+    "toLight": "Cambiar a modo claro",
+    "toDark": "Cambiar a modo oscuro",
+    "light": "Modo claro",
+    "dark": "Modo oscuro",
+    "appearance": "Apariencia",
+    "interfaceTheme": "Tema de la interfaz",
+    "optLight": "Claro",
+    "optDark": "Oscuro",
+    "optAuto": "Auto"
+  },
+  "notifications": {
+    "label": "Notificaciones",
+    "markRead": "Marcar leídas",
+    "empty": "Estás al día. Sin notificaciones.",
+    "today": "Hoy",
+    "earlier": "Antes",
+    "openCenter": "Abrir centro de notificaciones →",
+    "reviewPending": "Revisar {count} pendientes",
+    "unread": "{count} sin leer · {title}",
+    "conversation": "Conversación"
+  },
+  "account_menu": {
+    "editName": "Editar nombre",
+    "yourName": "Tu nombre",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "visitor": "Visitante",
+    "approvals": "Aprobaciones",
+    "usersAccess": "Usuarios y accesos",
+    "organization": "Organización",
+    "logout": "Cerrar sesión"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "dialogLabel": "Search and navigate",
+  "placeholder": "Search area or screen…",
+  "close": "Close search",
+  "closeHint": "Close (Esc)",
+  "results": "Results",
+  "enter": "Enter",
+  "recent": "Recent",
+  "noAreaMatch": "No area matches «{q}».",
+  "degraded": "Couldn't query: {sources}. Showing the rest.",
+  "tcodesNote": "Looking for T-Codes? Go to",
+  "footer": {
+    "navigate": "navigate",
+    "open": "open",
+    "close": "close"
+  },
+  "records": {
+    "title": "Records",
+    "notConnected": "Record search isn't connected yet. It will appear here once the backend is ready.",
+    "noMatch": "No records match «{q}».",
+    "couldntQuery": "Couldn't query: {sources}."
+  },
+  "areas": {
+    "home": "Home & dashboards",
+    "production": "Planning & production",
+    "supply": "Warehouse & supply chain",
+    "quality": "Quality",
+    "materials": "Materials & engineering",
+    "finance": "Finance",
+    "people": "People & support",
+    "comms": "Office & communication",
+    "erp": "ERP · T-Codes",
+    "admin": "Administration & data"
+  },
+  "kinds": {
+    "wo": { "label": "Work orders", "short": "Orders" },
+    "ncr": { "label": "Quality · NCR", "short": "NCR" },
+    "part": { "label": "Parts & models", "short": "Parts" },
+    "person": { "label": "People", "short": "People" },
+    "doc": { "label": "Documents", "short": "Documents" },
+    "nav": { "label": "Go to an area", "short": "Areas" }
+  }
+}

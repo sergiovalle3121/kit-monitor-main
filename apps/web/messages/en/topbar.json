@@ -1,0 +1,40 @@
+{
+  "openNav": "Open navigation",
+  "closeNav": "Close navigation",
+  "search": "Search",
+  "searchPlaceholder": "Go to an area or screen…",
+  "account": "Account",
+  "theme": {
+    "toLight": "Switch to light mode",
+    "toDark": "Switch to dark mode",
+    "light": "Light mode",
+    "dark": "Dark mode",
+    "appearance": "Appearance",
+    "interfaceTheme": "Interface theme",
+    "optLight": "Light",
+    "optDark": "Dark",
+    "optAuto": "Auto"
+  },
+  "notifications": {
+    "label": "Notifications",
+    "markRead": "Mark as read",
+    "empty": "You're all caught up. No notifications.",
+    "today": "Today",
+    "earlier": "Earlier",
+    "openCenter": "Open notification center →",
+    "reviewPending": "Review {count} pending",
+    "unread": "{count} unread · {title}",
+    "conversation": "Conversation"
+  },
+  "account_menu": {
+    "editName": "Edit name",
+    "yourName": "Your name",
+    "save": "Save",
+    "cancel": "Cancel",
+    "visitor": "Visitor",
+    "approvals": "Approvals",
+    "usersAccess": "Users & access",
+    "organization": "Organization",
+    "logout": "Sign out"
+  }
+}
