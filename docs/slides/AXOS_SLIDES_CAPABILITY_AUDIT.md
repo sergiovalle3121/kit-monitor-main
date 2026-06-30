@@ -9,10 +9,11 @@ existing implementation instead of creating parallel editors or helper-only work
 
 ## Open PR Collision Check
 
-`gh pr list --repo Sergiovalle3121/axos-os --state open --limit 100` showed no
-open Slides PR touching `SlidesEditor.tsx`, `SlideStatusBar.tsx`,
-`SlideInspectorPanel.tsx`, `slideAssets.ts`, `components/office/slides/**`, or
-PPTX helpers at the start of this run.
+`gh pr list --repo Sergiovalle3121/axos-os --state open --limit 100` showed open
+Slides draft PR #831 touching `SlideOutline.tsx`, `SlideReusePanel.tsx`,
+`SlideSorter.tsx`, `slides/slideNavigation.*`, and `slides/slideReuse.*`. This
+run avoided those files and scoped the change to presenter readiness in the
+existing `SlidesEditor.tsx` presentation path.
 
 ## Capability Matrix
 
@@ -32,7 +33,7 @@ PPTX helpers at the start of this run.
 | Object inspector | Yes | `SlideInspectorPanel.tsx` | usable | Multi-select operations and alt text edits are incomplete | Add multi-select inspector actions and alt text field | `SlideInspectorPanel.tsx`, `SlidesEditor.tsx` | medium |
 | Animations | Yes | `SlideAnimationPanel.tsx`, `slideAssets.ts`, `SlidesEditor.tsx` | usable | Timeline exists but lacks full issue health/jump support | Add animation health, clear/apply presets per slide | `SlideAnimationPanel.tsx` | low |
 | Transitions | Yes | `slideAssets.ts`, `SlidesEditor.tsx`, presenter mode | usable | Transition consistency is counted, but no apply-to-section | Add section-level transition apply workflow | `SlidesEditor.tsx`, `slides/sections.ts` | medium |
-| Presenter mode | Yes | `SlidesEditor.tsx` | strong | Presenter has notes/timer/tools; rehearsal export/readiness is not surfaced | Add presenter readiness preflight from deck health | `SlidesEditor.tsx`, `slides/deckHealth.ts` | low |
+| Presenter mode | Yes | `SlidesEditor.tsx`, `slides/presenterReadiness.ts` | strong | Presenter now has readiness preflight, but rehearsal recording/export is not surfaced | Add rehearsal capture/export summary after presenter run | `SlidesEditor.tsx`, `slides/presenterReadiness.ts` | low |
 | Slide layouts | Yes | `slideAssets.ts`, `SlidesEditor.tsx` | usable | Layout gallery is seeded; no true master metadata model | Add master/layout metadata and reset placeholders | `slideAssets.ts`, `SlidesEditor.tsx` | medium |
 | Themes | Yes | `slideAssets.ts`, `SlidesEditor.tsx` | partial | Theme slots exist, but industrial premium themes are incomplete | Add AXOS Executive/Quality/NPI/Supplier theme variants | `slideAssets.ts` | low |
 | Tables | Yes | `slides/table.ts`, `SlideTableEditor.tsx`, `lib/office/pptx.ts` | usable | Industrial table presets are limited | Add action register/risk matrix/supplier scorecard presets | `slides/table.ts`, `SlideTableEditor.tsx` | low |
