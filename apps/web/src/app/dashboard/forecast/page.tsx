@@ -130,7 +130,7 @@ export default function ForecastLabPage() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
         <div className="flex items-center gap-6">
           <motion.div {...buttonMotion}>
-            <Link href="/dashboard" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl shadow-sm hover:border-teal-200 transition-all duration-300 inline-flex">
+            <Link href="/dashboard" aria-label="Volver al inicio" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl shadow-sm hover:border-teal-200 transition-all duration-300 inline-flex">
               <ChevronLeft className="w-5 h-5" />
             </Link>
           </motion.div>

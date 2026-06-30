@@ -97,8 +97,8 @@ const MODULES = [
     code: 'SD01–03',
     desc: 'Pedidos · Despacho · Facturación',
     icon: ShoppingCart,
-    color: 'text-primary',
-    tint: 'bg-primary dark:bg-primary/10',
+    color: 'text-violet-500',
+    tint: 'bg-violet-50 dark:bg-violet-500/10',
   },
 ];
 
@@ -175,14 +175,14 @@ export default function ErpHubPage() {
           <StatCard
             label="Utilidad neta"
             value={fmtMoney(is?.netIncome)}
-            color={is && is.netIncome >= 0 ? GREEN : RED}
+            color={typeof is?.netIncome === 'number' ? (is.netIncome >= 0 ? GREEN : RED) : undefined}
             sub="Estado de resultados"
           />
           <StatCard
             label="Activos"
             value={fmtMoney(bs?.assets)}
             sub={bs?.balanced ? 'Balance cuadrado ✓' : 'Balance'}
-            color={bs?.balanced ? GREEN : AMBER}
+            color={typeof bs?.assets === 'number' ? (bs.balanced ? GREEN : AMBER) : undefined}
           />
           <StatCard label="Valor de inventario" value={fmtMoney(val?.totalValue)} sub="Valuación MM" />
           <StatCard

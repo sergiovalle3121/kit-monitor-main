@@ -215,7 +215,7 @@ export default function OutboundPage() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(59,130,246,0.12)' }}>
@@ -225,7 +225,7 @@ export default function OutboundPage() {
             <h1 className="text-lg font-semibold leading-tight">Logística · Embarque</h1>
             <p className="text-[12px] text-gray-400 leading-tight">Empaque, embarque y entrega (ASN)</p>
           </div>
-          <button onClick={openSoPicker} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}>
+          <button onClick={openSoPicker} aria-label="Desde OV" className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}>
             <ListChecks className="w-4 h-4" /> <span className="hidden sm:inline">Desde OV</span>
           </button>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: BLUE }}>

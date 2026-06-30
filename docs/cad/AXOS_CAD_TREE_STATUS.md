@@ -100,3 +100,14 @@ This run makes the existing Copiloto CAD command line easier to use without chan
 - Missing-selection states are explicit, so users see why a command cannot preview yet.
 
 This advances Phase 21 (shortcuts + command line) while avoiding active PR areas for registry semantics, layers, validation, DXF, symbols, templates, flow, and safety.
+## 2026-06-29 - EHS and utilities asset blocks
+
+This run extends the existing shared asset catalog instead of creating a third symbol/block system:
+
+- `asset-catalog.ts` now includes Safety/EHS blocks for fire extinguishers, eyewash, emergency exits, first aid, spill kits, and PPE stations.
+- `asset-catalog.ts` now includes Utilities blocks for power panels, compressed air, network drops, maintenance areas, tool cribs, and calibration stations.
+- `Layout3DEditor.tsx` already renders `ASSET_CATEGORIES` in the Equipment rail, so these blocks are immediately insertable, editable, selectable, duplicateable, measurable, and included in the existing DXF export adapter.
+- The blocks reuse existing asset archetypes instead of adding new Three.js rendering paths.
+- `asset-catalog.spec.ts` covers uniqueness, grouping, footprints, and archetype reuse.
+
+Phase evidence: Phase 11 (Blocks / industrial symbols) advances from generic core equipment toward a fuller plant-layout library. Next non-redundant step is native block-instance metadata/default layer hints after active `symbols.ts` and template PRs settle.

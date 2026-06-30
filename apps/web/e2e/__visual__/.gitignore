@@ -1,6 +1,9 @@
 # Bulk sweep screenshots are large and fully regenerable — keep them out of git.
 screenshots/
 .cache/
+# report3/ is the capture output of evidence3.spec.ts (EVIDENCE3=1) — regenerable
+# bulk PNGs used to review the in-app polish pass. Keep out of git like screenshots/.
+report3/
 # visual-findings.json is a regenerable run artifact (rewritten on every sweep) —
 # the human-readable summary lives in docs/UX-POLISH-REPORT.md. Keep it untracked
 # so re-running the sweep never dirties the tree. Curated before/after evidence

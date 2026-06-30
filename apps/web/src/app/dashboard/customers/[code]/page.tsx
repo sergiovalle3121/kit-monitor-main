@@ -31,7 +31,7 @@ export default function Customer360Page() {
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard/customers" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
+          <Link href="/dashboard/customers" aria-label="Volver" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-10 h-10 rounded-xl grid place-items-center text-white font-bold flex-shrink-0" style={{ background: `linear-gradient(135deg, ${tierColor}, #0fb39a)` }}>{c.name.slice(0, 2).toUpperCase()}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2"><h1 className="text-lg font-semibold leading-tight truncate">{c.name}</h1>{account?.tier === 'STRATEGIC' && <Crown className="w-4 h-4" style={{ color: '#7c3aed' }} />}</div>
