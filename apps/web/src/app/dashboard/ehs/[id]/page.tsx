@@ -170,15 +170,15 @@ export default function IncidentDetailPage() {
 
   if (forbidden) return <Guard />;
   if (isLoading) {
-    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+    return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
   }
   if (!data) {
     return (
       <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-          <ShieldAlert className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+          <ShieldAlert className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Incidente no encontrado</h2>
-          <p className="text-sm text-gray-400 mt-1">Pudo haber sido eliminado o el folio no existe.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Pudo haber sido eliminado o el folio no existe.</p>
           <Link href="/dashboard/ehs" className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: ROSE }}>
             <ChevronLeft className="w-4 h-4" /> Volver a EHS
           </Link>
@@ -252,7 +252,7 @@ export default function IncidentDetailPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-lg font-semibold leading-tight truncate">{inc.title}</h1>
             </div>
-            <div className="flex items-center gap-2 text-[12px] text-gray-400 leading-tight flex-wrap">
+            <div className="flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400 leading-tight flex-wrap">
               {inc.folio && <span className="font-mono">{inc.folio}</span>}
               <span>·</span><span>{TYPE_LABEL[inc.type]}</span>
             </div>
@@ -266,11 +266,11 @@ export default function IncidentDetailPage() {
       <main className="max-w-5xl mx-auto px-6 pt-6 pb-24">
         {/* Clasificación regulatoria (siempre visible, derivada del tipo) */}
         <div className="mb-4 flex flex-wrap items-center gap-2 text-[13px]">
-          <span className="text-gray-400">Clasificación:</span>
+          <span className="text-gray-500 dark:text-gray-400">Clasificación:</span>
           <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium" style={{ background: `${cls.color}1a`, color: cls.color }}>
             <ClipboardCheck className="h-3.5 w-3.5" /> {cls.label}
           </span>
-          <span className="text-gray-400">{cls.detail}</span>
+          <span className="text-gray-500 dark:text-gray-400">{cls.detail}</span>
         </div>
 
         {/* CAPA por vencer / vencida — alerta visible al responsable */}
@@ -337,7 +337,7 @@ export default function IncidentDetailPage() {
           <div className="space-y-6">
             <div className={`${glass} rounded-2xl p-5`}>
               <h3 className="text-sm font-semibold mb-1">Flujo del incidente</h3>
-              <p className="text-[12px] text-gray-400 mb-4">Estado actual: <span className="font-medium" style={{ color: sm.color }}>{sm.label}</span></p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">Estado actual: <span className="font-medium" style={{ color: sm.color }}>{sm.label}</span></p>
 
               {/* Stepper */}
               <Stepper current={inc.status} />
@@ -345,13 +345,13 @@ export default function IncidentDetailPage() {
               {/* Transition actions */}
               <div className="mt-5">
                 {terminal ? (
-                  <div className="text-[13px] text-gray-400 flex items-center gap-2">
+                  <div className="text-[13px] text-gray-500 dark:text-gray-400 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4" style={{ color: inc.status === 'CLOSED' ? GREEN : RED }} />
                     {inc.status === 'CLOSED' ? `Cerrado el ${fmtDate(inc.closedAt)}.` : 'Estado terminal — sin transiciones.'}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <span className="text-[11px] uppercase tracking-wide text-gray-400">Avanzar a</span>
+                    <span className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Avanzar a</span>
                     {NEXT[inc.status].map((to) => {
                       const m = STATUS_META[to];
                       const danger = to === 'CANCELLED';
@@ -385,7 +385,7 @@ export default function IncidentDetailPage() {
                 <TimelineRow icon={Search} color={VIOLET} label="Investigado" value={fmtDateTime(inc.investigatedAt)} done={!!inc.investigatedAt} />
                 <TimelineRow icon={CheckCircle2} color={GREEN} label="Cerrado" value={fmtDateTime(inc.closedAt)} done={!!inc.closedAt} />
               </div>
-              <p className="mt-3 text-[11px] text-gray-400">La fecha de investigación se fija al pasar a «Investigando».</p>
+              <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">La fecha de investigación se fija al pasar a «Investigando».</p>
             </div>
           </div>
         </div>
@@ -453,7 +453,7 @@ function InvestigationCard({ inc, onSaved }: { inc: Incident; onSaved: () => voi
         <Search className="w-4 h-4" style={{ color: VIOLET }} />
         <h3 className="text-sm font-semibold">Investigación</h3>
       </div>
-      <p className="text-[12px] text-gray-400 mb-4">Análisis de causa raíz (5-Por qué) y acción correctiva (CAPA).</p>
+      <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">Análisis de causa raíz (5-Por qué) y acción correctiva (CAPA).</p>
 
       <div className="space-y-4">
         <label className="block">
@@ -514,7 +514,7 @@ function InvestigationCard({ inc, onSaved }: { inc: Incident; onSaved: () => voi
       </div>
 
       <div className="mt-5 flex items-center justify-between">
-        <span className="text-[12px] text-gray-400 inline-flex items-center gap-1.5">
+        <span className="text-[12px] text-gray-500 dark:text-gray-400 inline-flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5" />
           {inc.investigatedAt ? `Investigado el ${fmtDate(inc.investigatedAt)}` : 'Aún sin marcar como investigado'}
         </span>
@@ -564,7 +564,7 @@ function Stepper({ current }: { current: Status }) {
             </div>
             <div className={`pb-3 ${last ? 'pb-0' : ''}`}>
               <div className="text-sm font-medium" style={{ color: active ? m.color : undefined }}>{m.label}</div>
-              <div className="text-[11px] text-gray-400">{done ? 'Completado' : active ? 'En curso' : 'Pendiente'}</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">{done ? 'Completado' : active ? 'En curso' : 'Pendiente'}</div>
             </div>
           </div>
         );
@@ -577,9 +577,9 @@ function Stepper({ current }: { current: Status }) {
 function Metric({ icon: Icon, label, value, sub, color }: { icon: typeof Search; label: string; value: string; sub?: string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3.5`}>
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400"><Icon className="w-3 h-3" />{label}</div>
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"><Icon className="w-3 h-3" />{label}</div>
       <div className="text-base font-semibold mt-0.5 truncate" style={{ color }} title={value}>{value}</div>
-      {sub && <div className="text-[11px] text-gray-400 truncate" title={sub}>{sub}</div>}
+      {sub && <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={sub}>{sub}</div>}
     </div>
   );
 }
@@ -592,7 +592,7 @@ function TimelineRow({ icon: Icon, color, label, value, done }: { icon: typeof S
       </span>
       <div className="min-w-0">
         <div className="text-[13px] font-medium">{label}</div>
-        <div className="text-[11px] text-gray-400">{done ? value : 'Pendiente'}</div>
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">{done ? value : 'Pendiente'}</div>
       </div>
     </div>
   );
@@ -693,9 +693,9 @@ function Guard() {
   return (
     <div className="min-h-screen grid place-items-center text-foreground">
       <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
-        <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+        <Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
         <h2 className="text-lg font-semibold">Sin acceso</h2>
-        <p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el incidente.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Inicia sesión para ver el incidente.</p>
       </div>
     </div>
   );

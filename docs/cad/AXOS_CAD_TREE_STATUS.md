@@ -57,6 +57,16 @@ This run hardens the existing Flow Health workbench:
 - Users can apply the suggested physical slot order directly from Flow Health; the action records a local snapshot, uses the existing undo stack, respects locked CAD layers, selects affected stations, and recomputes Flow Health.
 - The workflow reuses current station placements, connectors, layers, snapping, snapshots, and rebuild paths.
 - It does not add another flow engine, another command registry path, another editor, or backend optimization dependency.
+## 2026-06-29 - Supermarket and kitting template
+
+This run extends the existing editable template workflow without touching the editor shell:
+
+- `templates.ts` now includes a "Supermarket + kitting" starter layout with receiving drop, incoming QC, material supermarket, kanban lanes, kitting carts, FIFO WIP, line-side delivery, replenishment rack, visual kanban board, forklift/pedestrian aisles, ESD boundary, quarantine, and operator position.
+- The existing `Layout3DEditor` template rail picks it up automatically because it already maps `CAD_LAYOUT_TEMPLATES`.
+- Applying it creates editable assets, annotations, layer assignments, object tags, connectors, local snapshot coverage, selection, flow-health priming, and DXF-exportable geometry through the current template path.
+- `templates.spec.ts` now covers the new template's kanban/kitting tags, safety/aisle layers, and material/flow connectors.
+
+This does not create a second warehouse generator, block system, editor, layer model, flow model, or DXF path. It keeps the current generator PRs independent while giving users another plant-layout starter they can apply immediately.
 
 ## Phase evidence
 
@@ -76,6 +86,7 @@ This run hardens the existing Flow Health workbench:
 | Phase 17 - Flow Health | Advanced | `flow-optimization.ts`, Flow Health UI, `arrange_flow_line`, and template-seeded flow health | Add richer flow recommendations and before/after preview cards. |
 | Phase 21 - Shortcuts and command line | Advanced | Command dock, parser, registry, palette, shortcuts | Add more industrial command examples and history reconciliation. |
 | Phase 23 - CAD project / layout templates | Usable | `templates.ts` plus the equipment-rail template launcher | Add parametric rack/line generators with user inputs. |
+| Phase 23 - Supermarket/kitting template | Usable | `templates.ts`, `templates.spec.ts`, existing `Layout3DEditor` template rail | Add parametric lane/cart counts after generator conflicts settle. |
 | Phase 27 - QA harness | In progress | Pure specs under `apps/web/src/lib/cad` | Add specs for each new command/helper. |
 
 ## Next CAD PR

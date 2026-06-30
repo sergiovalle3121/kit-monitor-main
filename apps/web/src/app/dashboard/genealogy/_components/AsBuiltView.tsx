@@ -81,7 +81,7 @@ export function AsBuiltView({ tree }: { tree: AsBuiltTree }) {
             </Badge>
           )}
           {tree.woFolio && <Badge color="#7c5cff">{tree.woFolio}</Badge>}
-          <span className="ml-auto text-[12px] text-gray-400">As-built · cuna-a-tumba</span>
+          <span className="ml-auto text-[12px] text-gray-500 dark:text-gray-400">As-built · cuna-a-tumba</span>
         </div>
 
         <div className="mt-2">
@@ -110,17 +110,17 @@ function ComponentNode({ comp }: { comp: AsBuiltComponent }) {
           className="flex w-full flex-wrap items-center gap-2 text-left"
         >
           <ChevronRight
-            className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
+            className={`h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
           />
           <span className="font-mono text-sm font-semibold">{comp.part}</span>
           <Badge color="#16a394">{fmtQty(comp.totalQty)} u</Badge>
           {comp.lots.length > 0 && (
-            <span className="text-[12px] text-gray-400">
+            <span className="text-[12px] text-gray-500 dark:text-gray-400">
               · {comp.lots.length} lote{comp.lots.length > 1 ? 's' : ''}
             </span>
           )}
           {comp.reels.length > 0 && (
-            <span className="text-[12px] text-gray-400">
+            <span className="text-[12px] text-gray-500 dark:text-gray-400">
               · {comp.reels.length} reel{comp.reels.length > 1 ? 's' : ''}
             </span>
           )}
@@ -145,7 +145,7 @@ function ComponentNode({ comp }: { comp: AsBuiltComponent }) {
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-[12px]">
-                <thead className="text-gray-400">
+                <thead className="text-gray-500 dark:text-gray-400">
                   <tr className="border-b border-black/5 dark:border-white/10">
                     <th className="py-2 pr-3 font-medium">Lote / Reel</th>
                     <th className="py-2 pr-3 text-right font-medium">Cant.</th>
@@ -164,13 +164,13 @@ function ComponentNode({ comp }: { comp: AsBuiltComponent }) {
                           {c.lot && <span>L:{c.lot}</span>}
                           {c.lot && c.reel ? ' · ' : ''}
                           {c.reel && <span>R:{c.reel}</span>}
-                          {!c.lot && !c.reel && <span className="text-gray-400">sin lote</span>}
+                          {!c.lot && !c.reel && <span className="text-gray-500 dark:text-gray-400">sin lote</span>}
                         </td>
                         <td className="py-2 pr-3 text-right">{fmtQty(c.qty)}</td>
                         <td className="py-2 pr-3">
                           {c.station ? (
                             <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-gray-400" />
+                              <MapPin className="h-3 w-3 text-gray-500 dark:text-gray-400" />
                               {c.station}
                             </span>
                           ) : (
@@ -180,7 +180,7 @@ function ComponentNode({ comp }: { comp: AsBuiltComponent }) {
                         <td className="py-2 pr-3">
                           {c.operator ? (
                             <span className="inline-flex items-center gap-1">
-                              <User className="h-3 w-3 text-gray-400" />
+                              <User className="h-3 w-3 text-gray-500 dark:text-gray-400" />
                               {c.operator}
                             </span>
                           ) : (

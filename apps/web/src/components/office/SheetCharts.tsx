@@ -42,7 +42,7 @@ export function SheetCharts({
         className="w-full flex items-center gap-2 px-3 h-9 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5"
       >
         <BarChart3 className="w-4 h-4 text-emerald-500" /> Gráficas
-        <span className="text-gray-400">({charts.length})</span>
+        <span className="text-gray-500 dark:text-gray-400">({charts.length})</span>
         <span className="ml-auto">{open ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}</span>
       </button>
 
@@ -61,13 +61,13 @@ export function SheetCharts({
                 adding
                   ? <ChartForm sheets={sheets} sheetsCount={sheets.length} tables={tables} pivots={pivots} onCancel={() => setAdding(false)} onSubmit={(c) => { onAdd({ ...c, id: uid() }); setAdding(false); }} submitLabel="Crear" />
                   : (
-                    <button onClick={() => setAdding(true)} className="flex-shrink-0 w-40 h-full rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/15 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-emerald-500 hover:border-emerald-400 transition-colors">
+                    <button onClick={() => setAdding(true)} className="flex-shrink-0 w-40 h-full rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/15 flex flex-col items-center justify-center gap-2 text-gray-500 dark:text-gray-400 hover:text-emerald-500 hover:border-emerald-400 transition-colors">
                       <Plus className="w-6 h-6" /> <span className="text-xs font-semibold">Nueva gráfica</span>
                     </button>
                   )
               )}
               {charts.length === 0 && readOnly && (
-                <div className="flex items-center justify-center w-full text-sm text-gray-400">Sin gráficas.</div>
+                <div className="flex items-center justify-center w-full text-sm text-gray-500 dark:text-gray-400">Sin gráficas.</div>
               )}
             </div>
           </motion.div>
@@ -124,14 +124,14 @@ function ChartCard({ cfg, sheet, sheets, sheetsCount, tables, pivots, readOnly, 
     <div className="flex-shrink-0 w-80 h-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161616] p-3 flex flex-col">
       <div className="flex items-center gap-2 mb-2">
         <p className="text-sm font-semibold truncate flex-1">{cfg.title || 'Gráfica'}</p>
-        <span className="text-[10px] text-gray-400 font-mono">{cfg.range}</span>
+        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{cfg.range}</span>
         {!readOnly && onUpdate && <button onClick={() => setEditing(true)} title="Editar" className="p-1 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10"><Pencil className="w-3.5 h-3.5" /></button>}
         {!readOnly && <button onClick={onRemove} title="Eliminar" className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" /></button>}
       </div>
       <div className="flex-1 min-h-0 relative">
         {data
           ? <Chart type={chartJsType(cfg.type) as any} data={data as any} options={chartOptions(cfg)} />
-          : <div className="h-full flex items-center justify-center text-xs text-gray-400 text-center px-2">Rango inválido o sin datos.<br />Ej: A1:B8</div>}
+          : <div className="h-full flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 text-center px-2">Rango inválido o sin datos.<br />Ej: A1:B8</div>}
       </div>
     </div>
   );
@@ -170,7 +170,7 @@ function ChartForm({ sheets, sheetsCount, tables = [], pivots = [], initial, onS
     <div className="flex-shrink-0 w-72 h-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161616] p-3 flex flex-col gap-1.5 overflow-y-auto">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold">{initial ? 'Editar gráfica' : 'Nueva gráfica'}</p>
-        <button onClick={onCancel} className="p-1 rounded-lg text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        <button onClick={onCancel} className="p-1 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
       </div>
       <label className="text-[11px] text-gray-500">Título<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Mi gráfica" className={field} /></label>
       <label className="text-[11px] text-gray-500">Tipo
@@ -229,7 +229,7 @@ function ChartForm({ sheets, sheetsCount, tables = [], pivots = [], initial, onS
           )}
         </div>
       )}
-      <div className="min-h-32 rounded-xl border border-gray-200 dark:border-white/10 p-2"><p className="mb-1 text-[11px] font-semibold text-gray-500">Preview</p>{preview ? <div className="h-28"><Chart type={chartJsType(type) as any} data={preview as any} options={chartOptions({ id: 'preview', type, title, range, sheetIndex, legend, palette, stacked, xTitle, yTitle, y1Title, series } as ChartConfig)} /></div> : <div className="flex h-28 items-center justify-center text-center text-[11px] text-gray-400">Selecciona un origen con encabezados y valores numéricos.</div>}</div>
+      <div className="min-h-32 rounded-xl border border-gray-200 dark:border-white/10 p-2"><p className="mb-1 text-[11px] font-semibold text-gray-500">Preview</p>{preview ? <div className="h-28"><Chart type={chartJsType(type) as any} data={preview as any} options={chartOptions({ id: 'preview', type, title, range, sheetIndex, legend, palette, stacked, xTitle, yTitle, y1Title, series } as ChartConfig)} /></div> : <div className="flex h-28 items-center justify-center text-center text-[11px] text-gray-500 dark:text-gray-400">Selecciona un origen con encabezados y valores numéricos.</div>}</div>
       {sheetsCount > 1 && (
         <label className="text-[11px] text-gray-500">Hoja
           <select value={sheetIndex} onChange={(e) => setSheetIndex(Number(e.target.value))} className={field}>
@@ -241,7 +241,7 @@ function ChartForm({ sheets, sheetsCount, tables = [], pivots = [], initial, onS
         className="mt-auto h-8 rounded-lg bg-black dark:bg-white text-white dark:text-black text-sm font-semibold hover:opacity-90">
         {submitLabel}
       </button>
-      <p className="text-[10px] text-gray-400 leading-tight">{type === 'bubble' ? 'Columnas: X, Y, Tamaño (3 columnas).' : '1ª fila = títulos de serie; 1ª columna = etiquetas.'}</p>
+      <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">{type === 'bubble' ? 'Columnas: X, Y, Tamaño (3 columnas).' : '1ª fila = títulos de serie; 1ª columna = etiquetas.'}</p>
     </div>
   );
 }

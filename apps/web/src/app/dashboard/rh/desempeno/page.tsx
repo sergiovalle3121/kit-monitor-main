@@ -134,9 +134,9 @@ export default function DesempenoPage() {
           {/* 9-box grid */}
           <section className={`${glass} rounded-2xl p-5 mb-6`}>
             <h3 className="font-semibold mb-1">Matriz 9-box</h3>
-            <p className="text-[12px] text-gray-400 mb-4">Eje vertical: desempeño · Eje horizontal: potencial</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-4">Eje vertical: desempeño · Eje horizontal: potencial</p>
             <div className="flex gap-3">
-              <div className="flex flex-col justify-between py-2 text-[10px] uppercase tracking-wide text-gray-400" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+              <div className="flex flex-col justify-between py-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
                 <span>Desempeño →</span>
               </div>
               <div className="flex-1">
@@ -156,14 +156,14 @@ export default function DesempenoPage() {
                             {(cell?.people ?? []).slice(0, 3).map((p, i) => (
                               <div key={i} className="text-[11px] text-gray-600 dark:text-gray-300 truncate">{p.name}</div>
                             ))}
-                            {(cell?.people?.length ?? 0) > 3 && <div className="text-[10px] text-gray-400">+{(cell?.people.length ?? 0) - 3} más</div>}
+                            {(cell?.people?.length ?? 0) > 3 && <div className="text-[10px] text-gray-500 dark:text-gray-400">+{(cell?.people.length ?? 0) - 3} más</div>}
                           </div>
                         </div>
                       );
                     }),
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-2 text-[10px] uppercase tracking-wide text-gray-400 text-center">
+                <div className="grid grid-cols-3 gap-2 mt-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 text-center">
                   <span>Potencial bajo</span><span>Medio</span><span>Alto</span>
                 </div>
               </div>
@@ -217,9 +217,9 @@ export default function DesempenoPage() {
             <h3 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400 mb-3">Evaluaciones recientes</h3>
             {reviewList.length === 0 ? (
               <div className={`${glass} rounded-3xl p-12 text-center`}>
-                <Star className="w-8 h-8 mx-auto mb-3 text-gray-400" />
+                <Star className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" />
                 <h3 className="font-semibold">Sin evaluaciones</h3>
-                <p className="text-sm text-gray-400 mt-1">Registra evaluaciones para poblar la matriz 9-box.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Registra evaluaciones para poblar la matriz 9-box.</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -233,7 +233,7 @@ export default function DesempenoPage() {
                           {v.nineBoxKey && <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: `${color}1f`, color }}>{cellLabel(v.nineBoxKey)}</span>}
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10">{STATUS_LABEL[v.status] ?? v.status}</span>
                         </div>
-                        <div className="mt-0.5 text-[12px] text-gray-400">
+                        <div className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
                           {v.period}{v.area && ` · ${v.area}`}
                           {v.performanceScore != null && ` · desempeño ${v.performanceScore}/5`}
                           {v.potential && ` · potencial ${POT_LABEL[v.potential]}`}

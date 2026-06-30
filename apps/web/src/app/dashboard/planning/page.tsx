@@ -286,7 +286,7 @@ export default function PlanningPage() {
           />
         )}
         {!forbidden && isLoading && (
-          <div className="flex items-center justify-center py-20 text-gray-400">
+          <div className="flex items-center justify-center py-20 text-gray-500 dark:text-gray-400">
             <Loader2 className="w-6 h-6 animate-spin" />
           </div>
         )}
@@ -320,7 +320,7 @@ export default function PlanningPage() {
                       >
                         {meta.label}
                       </span>
-                      <span className="text-[11px] text-gray-400 font-mono">WO {plan.workOrder}</span>
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">WO {plan.workOrder}</span>
                     </div>
                     <h3 className="text-xl font-bold tracking-tight truncate">{plan.model}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -328,7 +328,7 @@ export default function PlanningPage() {
                       {plan.bahia ? ` · Bahía ${plan.bahia}` : ''} · Turno {plan.shift}
                     </p>
                     {plan.publishedBy && (
-                      <p className="text-[11px] text-gray-400 mt-1">
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
                         Publicado por {plan.publishedBy}
                       </p>
                     )}
@@ -349,7 +349,7 @@ export default function PlanningPage() {
                         </button>
                       </div>
                     ) : (
-                      <button onClick={() => setConfirmId(plan.id)} aria-label="Borrar plan" className="p-2 rounded-full text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
+                      <button onClick={() => setConfirmId(plan.id)} aria-label="Borrar plan" className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
@@ -417,7 +417,7 @@ export default function PlanningPage() {
                               <div className="min-w-0">
                                 <span className="font-mono font-medium">{l.partNumber}</span>
                                 {l.description && (
-                                  <span className="text-gray-400 ml-2 text-xs truncate">{l.description}</span>
+                                  <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs truncate">{l.description}</span>
                                 )}
                               </div>
                               <span className="font-semibold tabular-nums flex-shrink-0">
@@ -452,7 +452,7 @@ export default function PlanningPage() {
                                 <div key={l.partNumber} className="flex items-center justify-between text-sm px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/5">
                                   <div className="min-w-0">
                                     <span className="font-mono font-medium">{l.partNumber}</span>
-                                    {l.description && <span className="text-gray-400 ml-2 text-xs truncate">{l.description}</span>}
+                                    {l.description && <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs truncate">{l.description}</span>}
                                   </div>
                                   <span className="font-semibold tabular-nums flex-shrink-0">{l.quantityRequired} {l.unit}</span>
                                 </div>
@@ -538,7 +538,7 @@ function NewPlanForm({
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold">Nuevo plan de producción</h3>
-        <button type="button" onClick={onClose} className="text-gray-400 hover:text-foreground">
+        <button type="button" onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -606,7 +606,7 @@ function LineLoadPanel({ intel }: { intel?: Intelligence }) {
           <Gauge className="w-4 h-4" style={{ color: VIOLET }} />
         </span>
         <h3 className="font-bold">Carga de líneas</h3>
-        <span className="text-xs text-gray-400">capacidad vs carga activa</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">capacidad vs carga activa</span>
         <span className="ml-auto inline-flex items-center gap-2">
           <span className="text-[11px] px-2 py-0.5 rounded-full inline-flex items-center gap-1" style={{ background: 'rgba(0,0,0,0.05)' }}>
             <Layers className="w-3 h-3" /> {intel.backlog} en backlog
@@ -650,7 +650,7 @@ function LineLoadPanel({ intel }: { intel?: Intelligence }) {
 function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>

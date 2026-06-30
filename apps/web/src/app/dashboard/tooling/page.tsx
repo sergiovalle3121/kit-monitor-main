@@ -75,7 +75,7 @@ function CalibrationCell({ tool }: { tool: Tool }) {
 
 function LoanCell({ tool }: { tool: Tool }) {
   const c = tool.activeCheckout;
-  if (!c) return <span className="text-gray-400">—</span>;
+  if (!c) return <span className="text-gray-500 dark:text-gray-400">—</span>;
   return (
     <span className="inline-flex items-center gap-1.5 text-[12px]" title={`Desde ${fmtDate(c.checkedOutAt)}`}>
       <PackageCheck className="h-3.5 w-3.5 text-blue-500" />
@@ -139,7 +139,7 @@ const COLUMNS: ColumnDef<Tool, unknown>[] = [
     accessorFn: (t) => pmProjection(t.shotsUsed, t.lifeShots).state,
     header: 'PM (proy.)',
     cell: ({ row }) => {
-      if (row.original.status === 'RETIRED') return <span className="text-gray-400">—</span>;
+      if (row.original.status === 'RETIRED') return <span className="text-gray-500 dark:text-gray-400">—</span>;
       const m = PM_META[pmProjection(row.original.shotsUsed, row.original.lifeShots).state];
       return <span className="inline-flex items-center gap-1 text-[12px] font-medium" style={{ color: m.color }}><Wrench className="h-3.5 w-3.5" />{m.label}</span>;
     },
@@ -256,9 +256,9 @@ export default function ToolingPage() {
     return (
       <div className="grid min-h-[60vh] place-items-center text-foreground">
         <div className={`${glass} max-w-sm rounded-3xl p-10 text-center`}>
-          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+          <Lock className="mx-auto mb-3 h-8 w-8 text-gray-500 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
-          <p className="mt-1 text-sm text-gray-400">Inicia sesión para ver herramentales.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Inicia sesión para ver herramentales.</p>
         </div>
       </div>
     );

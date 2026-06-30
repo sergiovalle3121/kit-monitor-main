@@ -133,7 +133,7 @@ export function ExportButton<T>({
                 onClick={() => run('csv')}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
               >
-                <FileText className="h-4 w-4 text-gray-400" /> CSV (.csv)
+                <FileText className="h-4 w-4 text-gray-500 dark:text-gray-400" /> CSV (.csv)
               </button>
             )}
             {formats.includes('xlsx') && (

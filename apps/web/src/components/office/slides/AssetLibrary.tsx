@@ -87,7 +87,7 @@ export function SlideAssetLibrary({ onPick }: { onPick: (asset: SlideAssetSymbol
   return (
     <div className="w-[360px] p-3 space-y-3">
       <div className="flex items-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.05] px-2.5 h-9">
-        <Search className="w-4 h-4 text-gray-400" />
+        <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar asset industrial..." className="flex-1 bg-transparent outline-none text-sm" />
       </div>
 
@@ -149,7 +149,7 @@ export function SlideAssetLibrary({ onPick }: { onPick: (asset: SlideAssetSymbol
         ))}
       </div>
 
-      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         <span>{filtered.length} / {stats.total} assets</span>
         <span>{useCase === 'all' ? (category === 'all' ? 'Industrial library' : CATEGORY_LABEL[category]) : ASSET_USE_CASE_LABEL[useCase]}</span>
       </div>
@@ -165,7 +165,7 @@ export function SlideAssetLibrary({ onPick }: { onPick: (asset: SlideAssetSymbol
                   <span className="w-11 h-11 rounded-lg bg-white dark:bg-black/20 border border-black/5 dark:border-white/10 p-1.5 flex-shrink-0" dangerouslySetInnerHTML={{ __html: asset.svg }} />
                   <span className="min-w-0">
                     <span className="block text-xs font-semibold text-foreground truncate">{asset.label}</span>
-                    <span className="block text-[10px] text-gray-400 truncate">{CATEGORY_LABEL[asset.category]}</span>
+                    <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">{CATEGORY_LABEL[asset.category]}</span>
                     <span className="block text-[10px] text-gray-500 dark:text-gray-400 truncate">{asset.description}</span>
                   </span>
                 </span>
@@ -192,7 +192,7 @@ export function SlideAssetLibrary({ onPick }: { onPick: (asset: SlideAssetSymbol
           );
         })}
         {!filtered.length && (
-          <div className="col-span-2 py-8 text-center text-xs text-gray-400 rounded-xl border border-dashed border-black/10 dark:border-white/10">
+          <div className="col-span-2 py-8 text-center text-xs text-gray-500 dark:text-gray-400 rounded-xl border border-dashed border-black/10 dark:border-white/10">
             Sin assets para este filtro.
           </div>
         )}

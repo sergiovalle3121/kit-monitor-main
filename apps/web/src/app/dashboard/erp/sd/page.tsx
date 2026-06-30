@@ -102,7 +102,7 @@ export default function ErpSdPage() {
                 sortable: false,
                 render: (r) => {
                   const next = NEXT_ACTION[String(r.status)];
-                  if (!next) return <span className="text-[11px] text-gray-400">—</span>;
+                  if (!next) return <span className="text-[11px] text-gray-500 dark:text-gray-400">—</span>;
                   return (
                     <button
                       onClick={() => advance(Number(r.id), next.path)}

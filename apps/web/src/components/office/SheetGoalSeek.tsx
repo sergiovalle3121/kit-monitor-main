@@ -31,7 +31,7 @@ export function SheetGoalSeek({ defaultFormulaCell, onApply, onClose }: {
         <div className="flex items-center gap-2 px-5 h-14 border-b border-black/5 dark:border-white/10">
           <Target className="w-5 h-5 text-emerald-600" />
           <h2 className="text-lg font-bold">Buscar objetivo</h2>
-          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="ml-auto p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-3">
           <p className="text-xs text-gray-500 dark:text-gray-400">Encuentra el valor de una celda que hace que una fórmula alcance un objetivo.</p>

@@ -28,7 +28,7 @@ export default function QuoteBuilderPage() {
   const [adding, setAdding] = useState(false);
 
   if (forbidden) return <Guard />;
-  if (isLoading || !data) return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+  if (isLoading || !data) return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
 
   const { quote: q, lines } = data;
   const ccy = q.currency;
@@ -61,7 +61,7 @@ export default function QuoteBuilderPage() {
               <h1 className="text-lg font-semibold leading-tight truncate">{q.title}</h1>
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: `${QUOTE_META[q.status].color}1a`, color: QUOTE_META[q.status].color }}>{QUOTE_META[q.status].label}</span>
             </div>
-            <p className="text-[12px] text-gray-400 leading-tight font-mono">{q.folio || 'borrador'}{q.rev > 1 ? ` · rev ${q.rev}` : ''}</p>
+            <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight font-mono">{q.folio || 'borrador'}{q.rev > 1 ? ` · rev ${q.rev}` : ''}</p>
           </div>
           {actions.filter((a) => a.show).map((a) => (
             <button key={a.status} onClick={() => transition(a.status)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-white" style={{ background: a.status === 'REJECTED' ? '#ef4444' : a.status === 'ACCEPTED' ? '#10b981' : VIOLET }}>
@@ -92,16 +92,16 @@ export default function QuoteBuilderPage() {
         {/* Lines table */}
         <div className={`${glass} rounded-2xl overflow-hidden`}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-black/5 dark:border-white/10">
-            <h2 className="text-sm font-semibold">Líneas <span className="text-gray-400">({lines.length})</span></h2>
+            <h2 className="text-sm font-semibold">Líneas <span className="text-gray-500 dark:text-gray-400">({lines.length})</span></h2>
             <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white" style={{ background: VIOLET }}><Plus className="w-3.5 h-3.5" /> Línea</button>
           </div>
           {lines.length === 0 ? (
-            <div className="p-10 text-center text-sm text-gray-400">Sin líneas. Agrega partes con EAU, costo y precio para calcular el margen.</div>
+            <div className="p-10 text-center text-sm text-gray-500 dark:text-gray-400">Sin líneas. Agrega partes con EAU, costo y precio para calcular el margen.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-black/5 dark:border-white/10">
+                  <tr className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-black/5 dark:border-white/10">
                     <th className="text-left font-medium px-4 py-2">#</th>
                     <th className="text-left font-medium px-3 py-2">Descripción</th>
                     <th className="text-right font-medium px-3 py-2">EAU</th>
@@ -119,10 +119,10 @@ export default function QuoteBuilderPage() {
                     const margin = l.unitPrice > 0 ? Math.round(((l.unitPrice - l.unitCost) / l.unitPrice) * 1000) / 10 : 0;
                     return (
                       <tr key={l.id} className="border-b border-black/[0.03] dark:border-white/[0.04] hover:bg-black/[0.02] dark:hover:bg-white/[0.03]">
-                        <td className="px-4 py-2.5 text-gray-400">{l.lineNo}</td>
+                        <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{l.lineNo}</td>
                         <td className="px-3 py-2.5">
                           <div className="font-medium">{l.description}</div>
-                          {l.partNumber && <div className="text-[11px] text-gray-400 font-mono">{l.partNumber}</div>}
+                          {l.partNumber && <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{l.partNumber}</div>}
                         </td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{l.eau ? l.eau.toLocaleString() : '—'}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{l.quantity.toLocaleString()}</td>
@@ -131,8 +131,8 @@ export default function QuoteBuilderPage() {
                         <td className="px-3 py-2.5 text-right tabular-nums">{money(ext, ccy)}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums" style={{ color: margin >= 20 ? '#10b981' : margin >= 10 ? '#f59e0b' : '#ef4444' }}>{margin}%</td>
                         <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                          <button onClick={() => setEditLine(l)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><Pencil className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => removeLine(l.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setEditLine(l)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><Pencil className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => removeLine(l.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                         </td>
                       </tr>
                     );
@@ -197,7 +197,7 @@ function LineModal({ quoteId, line, onClose, onDone }: { quoteId: string; line?:
           <label className="block"><span className="block text-[12px] font-medium text-gray-500 mb-1">Precio unitario</span><input type="number" min={0} step="0.01" className={crmInput} value={f.unitPrice} onChange={(e) => setF({ ...f, unitPrice: Number(e.target.value) })} /></label>
         </div>
         <div className="mt-3 flex items-center justify-between text-[13px] px-1">
-          <span className="text-gray-400">Margen de línea</span>
+          <span className="text-gray-500 dark:text-gray-400">Margen de línea</span>
           <span className="font-semibold" style={{ color: margin >= 20 ? '#10b981' : margin >= 10 ? '#f59e0b' : '#ef4444' }}>{margin}%</span>
         </div>
         <div className="mt-5 flex justify-end gap-2">
@@ -210,16 +210,16 @@ function LineModal({ quoteId, line, onClose, onDone }: { quoteId: string; line?:
 }
 
 function Info({ label, value }: { label: string; value: string }) {
-  return <div className={`${glass} rounded-xl p-3`}><div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div><div className="text-sm font-medium truncate">{value}</div></div>;
+  return <div className={`${glass} rounded-xl p-3`}><div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div><div className="text-sm font-medium truncate">{value}</div></div>;
 }
 function Money({ label, value, accent, color }: { label: string; value: string; accent?: boolean; color?: string }) {
   return (
     <div className={`${glass} rounded-2xl p-3.5 ${accent ? 'ring-1 ring-primary/30' : ''}`}>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400 truncate">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate">{label}</div>
       <div className="text-base font-semibold mt-0.5 tabular-nums truncate" style={{ color: color || (accent ? VIOLET : undefined) }}>{value}</div>
     </div>
   );
 }
 function Guard() {
-  return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
+  return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-500 dark:text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
 }
