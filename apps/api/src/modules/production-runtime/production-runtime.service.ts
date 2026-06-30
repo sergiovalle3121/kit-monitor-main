@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { Kit } from '../kits/entities/kit.entity';
@@ -14,6 +14,7 @@ import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-prog
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { ProductionWip } from './entities/production-wip.entity';
 import { InventoryService } from '../inventory/inventory.service';
+import { LINE_STOCK_LOCATION, lineStockWarehouse } from '../inventory/line-stock';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
@@ -27,6 +28,8 @@ type ScopeQuery = { line?: string; model?: string; workOrder?: string; buildingI
 
 @Injectable()
 export class ProductionRuntimeService {
+  private readonly logger = new Logger(ProductionRuntimeService.name);
+
   constructor(
     @InjectRepository(Kit) private readonly kitRepo: Repository<Kit>,
     @InjectRepository(KitMaterial) private readonly kitMaterialRepo: Repository<KitMaterial>,
@@ -188,21 +191,38 @@ export class ProductionRuntimeService {
           });
         }
         
-        // Formal Inventory Consumption
-        await this.inventory.recordTransaction({
-          type: 'CONSUME' as any,
-          partNumber: state.partNumber,
-          quantity: consume,
-          fromWarehouseId: `LINE-${kit.plan.line}`, // Virtual line-side warehouse
-          fromLocation: `BAY-${bayId}`,
-          actorName: dto.operator || 'System',
-          referenceType: 'PRODUCTION_EVENT',
-          referenceId: clientRequestId,
-          reason: `Production Consumption - WO ${kit.plan.workOrder}`
-        }).catch(() => {
-          // Fallback if inventory is not hard-locked for production yet
-          console.warn(`Inventory decrement failed for ${state.partNumber} at line ${kit.plan.line}`);
-        });
+        // Formal Inventory Consumption — drains the SAME line tank that the
+        // supply (staging / fulfill) fills: `LINE-<línea>` / `LINE_STOCK_LOCATION`
+        // (no longer `BAY-<bayId>`, which fragmented the tank per bay; the bay is
+        // kept in `reason` as context). Fail-soft but VISIBLE (logger.warn, no
+        // `.catch(()=>console.warn)` swallow) — same stance as #902.
+        const lineWarehouseId = lineStockWarehouse(kit.plan.line);
+        if (lineWarehouseId) {
+          try {
+            await this.inventory.recordTransaction({
+              type: 'CONSUME',
+              partNumber: state.partNumber,
+              quantity: consume,
+              fromWarehouseId: lineWarehouseId,
+              fromLocation: LINE_STOCK_LOCATION,
+              actorName: dto.operator || 'System',
+              referenceType: 'PRODUCTION_EVENT',
+              referenceId: clientRequestId,
+              reason: `Production Consumption · WO ${kit.plan.workOrder} · BAY-${bayId}`,
+            });
+          } catch (err) {
+            this.logger.warn(
+              `Inventario formal no decrementado: ${state.partNumber} (${consume}) ` +
+                `@ ${lineWarehouseId} · WO ${kit.plan.workOrder} · req ${clientRequestId} → ` +
+                `${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        } else {
+          this.logger.warn(
+            `Consumo de producción sin línea: se omite el decremento formal de ` +
+              `${state.partNumber} (${consume}) · WO ${kit.plan.workOrder}.`,
+          );
+        }
 
         state.consumedQty = Math.round((state.consumedQty + consume) * 1e6) / 1e6;
         state.availableQty = Math.max(0, Math.round((state.availableQty - consume) * 1e6) / 1e6);
