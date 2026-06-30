@@ -268,3 +268,93 @@ y **0 hallazgos altos nuevos** introducidos por el cambio de layout. El único
 `horizontal-overflow` son **7 tiras de tabs en móvil 390** (`crm`, `import`,
 `operador`, `reports`, `rh`, `settings/permissions`, `warehouse`) — pre-existentes
 (no en desktop), pendientes de `flex-wrap`/`overflow-x-auto` por página.
+
+---
+
+## 10. Pase 3 — Landing premium ("app de billion dólar")
+
+Feedback del owner: la landing "se siente barata, no como la de OpenAI o Apple".
+Pedido explícito: **movimientos traslúcidos** vivos, **más imágenes / cosas que
+hablen por sí solas** (no texto seco), **textos colapsables**, copy **elocuente y
+claro** sobre lo que hace la app, y dar el salto a que **se sienta de altísimo
+valor**. Frontend-only; sin logos de clientes, certificaciones ni métricas
+comerciales inventadas (la demo sigue siendo de muestra / solo lectura).
+
+| Tema | Cambio |
+| --- | --- |
+| **Aurora viva (hero)** | Orbes traslúcidos índigo/violeta/cian que derivan en bucle + malla cónica girando lentísimo (estilo OpenAI/Google). CSS en `globals.css` (`.hero-orb`, `.hero-conic`, `.float-slow`, `.product-halo`, `.marquee-track`/`.marquee-mask`). Todo bajo `prefers-reduced-motion` → estático. |
+| **Producto que se muestra solo** | `LandingMockup.tsx`: recreación fiel (no captura frágil) de la Torre de Control — KPIs, throughput y andon por línea — flotando bajo el hero con halo. Marquesina de capacidades en movimiento. |
+| **Bento de capacidades** | `LandingBento.tsx`: reemplaza la cuadrícula de texto seco ("Product story") por **8 losetas con micro-visualizaciones** que *enseñan* el producto: pipeline plan→piso, anillo OEE, e-kanban, línea de trazabilidad, hold MRB, snippet de IA (CIDE) y Office. Cada loseta enlaza a su ruta real. Patrón Apple/Linear/Stripe. |
+| **Textos colapsables** | La sección *Solutions* pasa a **acordeón** (`<details>`): resumen + bullets que "se explican para abajo". La FAQ ya era colapsable. |
+| **Copy elocuente** | Titular del hero con acento en gradiente; secciones con voz de producto ("No te lo contamos. Te lo enseñamos.", "Publica la orden y míralo ejecutarse."). |
+
+Consolidación: se eliminó la sección redundante "Product story" (cuadrícula de
+tarjetas de texto, casi idéntica a *galaxy*/*platform*) — esa repetición de rejillas
+era justo lo que abarataba la página. Los anclajes "Módulos" (nav + footer) apuntan
+ahora a `#capabilities` (el bento).
+
+**QA:** `tsc` y `eslint` limpios; `next build` OK; sin `console.*` nuevos.
+Verificado a 1440 y 390, en **claro y oscuro**: hero, bento (escritorio en grid
+bento / móvil apilado a altura de contenido), acordeón abierto y `scrollWidth ==
+clientWidth` (sin overflow horizontal) en móvil.
+
+Archivos: `src/app/page.tsx`, `src/app/globals.css`,
+`src/components/landing/LandingMockup.tsx`, `src/components/landing/LandingBento.tsx`.
+
+---
+
+## 11. Pase 4 — Pulir la app por dentro (defectos concretos)
+
+Tras la landing, el owner pidió **elevar el dashboard y los módulos núcleo** al
+mismo nivel premium, "arreglando lo que se vea barato o roto". Se capturaron las
+superficies núcleo **autenticadas** (sesión de owner + mock backend, vía
+`e2e/visual-sweep/evidence3.spec.ts`, opt-in `EVIDENCE3=1`) en claro/oscuro y
+escritorio/móvil. De ahí salieron dos defectos reales y sistémicos:
+
+| Defecto | Detalle | Fix |
+| --- | --- | --- |
+| **Ícono invisible en losetas** | El patrón `color: 'text-primary'` + `tint: 'bg-primary dark:bg-primary/10'` pinta, en **modo claro**, una loseta de color sólido con un glifo **del mismo color** → cuadro liso sin ícono. Aparecía en **5 hubs**: ERP (Ventas), RH (Analítica), Métricas (Forecast), Ingeniería Industrial (Forecast) y Finanzas (Contabilidad). | Tinte suave + glifo de color visible (igual que las losetas hermanas): violeta/índigo según la lista, sin colisión de color. Visible en claro **y** oscuro. |
+| **Hub ERP "alarmado" en vacío** | Los `StatCard` de Utilidad neta y Activos pintaban **rojo/ámbar** cuando no hay datos (el endpoint devuelve vacío `{}`, no un número), haciendo ver el ERP como en pérdida/descuadre al entrar. | Se colorea **solo cuando hay un número real** (`typeof … === 'number'`); sin dato → color neutro. El rojo/verde por signo se conserva con datos reales. |
+
+**Decisión de alcance:** la navegación (doble "volver" breadcrumb + cabecera de
+workbench en Mission Control/ERP/Operador) se dejó **como está** — es chrome ya
+iterado y aprobado en los pases 1–2; reabrirlo añadiría riesgo sin defecto claro.
+
+**QA:** `tsc` 0 · `eslint` 0 · `next build` OK · sin `console.*` nuevos.
+Verificado en claro y oscuro (ERP: Ventas con ícono violeta y StatCards neutros;
+Finanzas: Contabilidad con ícono violeta visible).
+
+Archivos: `src/app/dashboard/erp/page.tsx`, `src/app/dashboard/rh/page.tsx`,
+`src/app/dashboard/metrics/page.tsx`,
+`src/app/dashboard/industrial-engineering/page.tsx`,
+`src/app/dashboard/finance/page.tsx`, `e2e/visual-sweep/evidence3.spec.ts`.
+
+---
+
+## 12. Pase 5 — A11y: nombres accesibles en los back-links de ícono
+
+Tras verificar que el interior está visualmente sólido (no había más defectos
+visuales que arreglar), se ataca lo único concreto y verificable que quedaba del
+barrido: **`axe:link-name`**. El mismo back-link de ícono (`‹` → volver) estaba
+**copiado en 31 páginas sin nombre accesible** — un `<Link>` que envuelve solo un
+`<ChevronLeft/>`, sin texto ni `aria-label`. Para un lector de pantalla era un
+enlace "en blanco".
+
+| Patrón | Páginas | `aria-label` |
+| --- | --- | --- |
+| `‹` → `/dashboard` (volver al hub) | 21 | `Volver al inicio` |
+| `‹` → lista padre (páginas de detalle `[id]`/`[code]`) | 9 | `Volver` |
+| `‹` → `/dashboard/rh` (sub-cabecera RH) | 1 | `Volver a Recursos Humanos` |
+
+Cambio quirúrgico: **31 archivos, 1 línea cada uno** (solo se añade el atributo;
+sin cambio visual ni de comportamiento). Mission Control ya tenía su `aria-label`,
+así que queda consistente con el resto.
+
+**Evidencia:** barrido axe sobre rutas afectadas (`crm`, `traffic`,
+`line-engineering`, `maintenance`, `skills`) → **`axe:link-name` = 0** (antes
+fallaban). `tsc` + `eslint` limpios, `next build` OK.
+
+**Pendiente (no en este PR):** el resto de la deuda de a11y del barrido es
+`axe:color-contrast` (texto *muted* por debajo de 4.5:1) y algún `axe:button-name`
+— son cambios a nivel de token/iconos sueltos, de otra naturaleza; se dejan como
+follow-up trackeable.

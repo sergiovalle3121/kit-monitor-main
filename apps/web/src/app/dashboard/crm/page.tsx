@@ -130,7 +130,7 @@ export default function CrmPage() {
       {/* Header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
+          <Link href="/dashboard" aria-label="Volver al inicio" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
             <ChevronLeft className="w-5 h-5" />
           </Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.12)' }}>
@@ -161,12 +161,12 @@ export default function CrmPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 mb-6 border-b border-black/5 dark:border-white/10">
+        <div className="flex items-center gap-1 mb-6 overflow-x-auto border-b border-black/5 dark:border-white/10">
           {tabs.map((t) => {
             const active = tab === t.key;
             return (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className={`relative px-4 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors ${active ? '' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+                className={`relative shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors ${active ? '' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
                 style={active ? { color: VIOLET } : undefined}>
                 <t.icon className="w-4 h-4" />
                 {t.label}
