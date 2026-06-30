@@ -437,7 +437,7 @@ export default function Home() {
             </motion.button>
           </motion.div>
 
-          <motion.p variants={itemVariants} className="text-xs text-gray-400 mt-4">
+          <motion.p variants={itemVariants} className="text-xs text-gray-500 dark:text-gray-400 mt-4">
             Demo de solo lectura · sesión de 30 min · sin tarjeta
           </motion.p>
         </motion.div>
@@ -477,7 +477,7 @@ export default function Home() {
       >
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
               De extremo a extremo
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
@@ -510,7 +510,7 @@ export default function Home() {
       <section id="galaxy" className="py-20 px-6 scroll-mt-24">
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
               El sistema operativo
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
@@ -532,7 +532,7 @@ export default function Home() {
               >
                 <div className="flex items-center justify-between">
                   <IconTile domain={p.domain} icon={p.icon} size={46} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     {p.tag}
                   </span>
                 </div>
@@ -561,7 +561,7 @@ export default function Home() {
       >
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
               Platform
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
@@ -600,7 +600,7 @@ export default function Home() {
       <section id="why" className="py-20 px-6 scroll-mt-24">
         <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
               Por qué AXOS
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
@@ -635,7 +635,7 @@ export default function Home() {
       <section id="solutions" className="py-20 px-6 scroll-mt-24">
         <Reveal className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
               Solutions
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
@@ -691,7 +691,7 @@ export default function Home() {
                       {s.summary}
                     </p>
                   </div>
-                  <span className="mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 dark:border-white/10 text-gray-400 transition-transform group-open:rotate-90">
+                  <span className="mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 transition-transform group-open:rotate-90">
                     <ChevronRight className="h-4 w-4" />
                   </span>
                 </summary>
@@ -718,7 +718,7 @@ export default function Home() {
         className="py-20 px-6 bg-white dark:bg-black/40 scroll-mt-24"
       >
         <Reveal className="max-w-4xl mx-auto text-center">
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
             Enterprise
           </span>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2 mb-6">
@@ -768,7 +768,7 @@ export default function Home() {
       <section id="faq" className="py-20 px-6 scroll-mt-24">
         <Reveal className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
               FAQ
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
@@ -783,7 +783,7 @@ export default function Home() {
               >
                 <summary className="cursor-pointer list-none font-semibold flex items-center justify-between gap-4">
                   {faq.q}
-                  <ChevronRight className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-90" />
+                  <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400 transition-transform group-open:rotate-90" />
                 </summary>
                 <p className="mt-3 text-sm leading-relaxed text-gray-500 dark:text-gray-400 font-light">
                   {faq.a}
@@ -885,10 +885,10 @@ export default function Home() {
           </div>
 
           <div className="mt-12 pt-6 border-t border-gray-100 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p className="text-xs text-gray-400 font-light">
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-light">
               © 2026 AXOS OS · Industrial Operating System
             </p>
-            <p className="text-xs text-gray-400 font-light">
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-light">
               ERP · MES · Office · CAD · AI
             </p>
           </div>
@@ -989,7 +989,7 @@ function FooterCol({
 }) {
   return (
     <div>
-      <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400 mb-4">
+      <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400 mb-4">
         {title}
       </h3>
       <ul className="flex flex-col gap-2.5">{children}</ul>

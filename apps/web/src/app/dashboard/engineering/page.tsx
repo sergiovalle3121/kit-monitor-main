@@ -118,7 +118,7 @@ export default function EngineeringPage() {
           </select>
           <button onClick={() => model && setActive(model)} className="bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-xl hover:scale-[1.03] active:scale-95 transition-transform whitespace-nowrap">Cargar ruta</button>
         </div>
-        <p className="text-[12px] text-gray-400 mb-6 px-1">¿No aparece tu modelo? <Link href="/dashboard/models" className="underline hover:text-gray-600 dark:hover:text-gray-200">Créalo en Modelos · NPI</Link>.</p>
+        <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-6 px-1">¿No aparece tu modelo? <Link href="/dashboard/models" className="underline hover:text-gray-600 dark:hover:text-gray-200">Créalo en Modelos · NPI</Link>.</p>
 
         <AnimatePresence>
           {err && <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex gap-2 items-center p-3 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 text-sm mb-4"><AlertCircle className="w-4 h-4" /> {err}</motion.div>}
@@ -127,7 +127,7 @@ export default function EngineeringPage() {
         {!active ? (
           <Empty icon={<Workflow className="w-6 h-6" />} title="Carga un modelo" body="Escribe un modelo y carga su ruta para definir las estaciones de la línea." />
         ) : isLoading ? (
-          <div className="flex justify-center py-16 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          <div className="flex justify-center py-16 text-gray-500 dark:text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : (
           <>
             <div className="flex items-center justify-between mb-3">
@@ -137,7 +137,7 @@ export default function EngineeringPage() {
               </button>
             </div>
 
-            <div className="flex items-start gap-1.5 text-[12px] text-gray-400 mb-3 px-1">
+            <div className="flex items-start gap-1.5 text-[12px] text-gray-500 dark:text-gray-400 mb-3 px-1">
               <Clock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
               <span>El tiempo estándar por estación (para takt, balanceo y yamazumi) se captura en <Link href="/dashboard/line-engineering" className="underline hover:text-gray-600 dark:hover:text-gray-200">Disposición de líneas</Link>.</span>
             </div>
@@ -197,36 +197,36 @@ function WhereUsed() {
         <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 flex items-center justify-center flex-shrink-0"><Search className="w-4 h-4" /></div>
         <div className="min-w-0 flex-1">
           <h3 className="font-bold text-sm">¿Dónde se usa? · Where-used de BOM</h3>
-          <p className="text-[12px] text-gray-400">Encuentra en qué modelos (BOMs) se consume una parte.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">Encuentra en qué modelos (BOMs) se consume una parte.</p>
         </div>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
         <div className="px-4 pb-4 border-t border-black/5 dark:border-white/10 pt-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="flex items-center gap-2 flex-1 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl px-3">
-              <Search className="w-4 h-4 text-gray-400" />
+              <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Número de parte (ej. CAP-0402-100NF)" className="bg-transparent outline-none text-sm flex-1 py-2.5" />
               {q && <button onClick={() => setQ("")} className="text-gray-300 hover:text-gray-500"><X className="w-4 h-4" /></button>}
             </div>
           </div>
 
           {isLoading ? (
-            <div className="flex justify-center py-8 text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+            <div className="flex justify-center py-8 text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
           ) : !term ? (
-            <p className="text-[13px] text-gray-400 px-1 py-2">Escribe un número de parte para ver dónde se usa.</p>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 px-1 py-2">Escribe un número de parte para ver dónde se usa.</p>
           ) : results.length === 0 ? (
-            <p className="text-[13px] text-gray-400 px-1 py-2">No se encontró <span className="font-mono text-gray-500">{q.trim()}</span> en ningún BOM.</p>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 px-1 py-2">No se encontró <span className="font-mono text-gray-500">{q.trim()}</span> en ningún BOM.</p>
           ) : (
             <>
-              <p className="text-[12px] text-gray-400 mb-2 px-1">{results.length} línea(s) en {bomCount} BOM(s).</p>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400 mb-2 px-1">{results.length} línea(s) en {bomCount} BOM(s).</p>
               <div className="space-y-1.5">
                 {results.map((r, i) => (
                   <div key={`${r.h.id}-${r.c.componentNumber}-${i}`} className="flex items-center justify-between gap-3 text-sm px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5">
                     <div className="min-w-0">
-                      <div className="font-medium truncate">{r.h.model} · rev {r.h.revision}{r.h.productName ? <span className="text-gray-400 font-normal"> — {r.h.productName}</span> : null}</div>
-                      <div className="text-[12px] text-gray-400 truncate">
+                      <div className="font-medium truncate">{r.h.model} · rev {r.h.revision}{r.h.productName ? <span className="text-gray-500 dark:text-gray-400 font-normal"> — {r.h.productName}</span> : null}</div>
+                      <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
                         <span className="font-mono">{r.c.componentNumber}</span>
                         {r.c.referenceDesignator ? <span className="ml-2">{r.c.referenceDesignator}</span> : null}
                       </div>
@@ -241,7 +241,7 @@ function WhereUsed() {
             </>
           )}
 
-          <div className="mt-4 flex items-start gap-1.5 text-[12px] text-gray-400 border-t border-black/5 dark:border-white/10 pt-3">
+          <div className="mt-4 flex items-start gap-1.5 text-[12px] text-gray-500 dark:text-gray-400 border-t border-black/5 dark:border-white/10 pt-3">
             <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
             <span><b>AVL</b> (lista de proveedores aprobados por parte) aún no la expone el backend de compras — <span className="opacity-70">tarea backend pendiente</span>.</span>
           </div>
@@ -294,24 +294,24 @@ function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualA
         <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 font-bold flex items-center justify-center text-sm flex-shrink-0">{step.sequence}</div>
         <div className="min-w-0 flex-1">
           <h3 className="font-bold truncate">{step.name}</h3>
-          {typeLabel && <p className="text-[11px] text-gray-400">{typeLabel}</p>}
+          {typeLabel && <p className="text-[11px] text-gray-500 dark:text-gray-400">{typeLabel}</p>}
         </div>
-        <button onClick={() => setAddMat((v) => !v)} className="p-2 rounded-full text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors" title="Agregar material"><Package className="w-4 h-4" /></button>
-        <button onClick={removeStep} className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" title="Borrar estación"><Trash2 className="w-4 h-4" /></button>
+        <button onClick={() => setAddMat((v) => !v)} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors" title="Agregar material"><Package className="w-4 h-4" /></button>
+        <button onClick={removeStep} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" title="Borrar estación"><Trash2 className="w-4 h-4" /></button>
       </div>
 
       <div className="pl-11 mb-2 flex items-center gap-2 flex-wrap text-sm">
-        <ImageIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        <ImageIcon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
         {aid ? (
           <>
             <button onClick={() => openAid(aid.pdfUrl, onError)} className="font-medium text-indigo-600 dark:text-indigo-300 hover:underline inline-flex items-center gap-1">{aid.title}<ExternalLink className="w-3 h-3" /></button>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <button onClick={() => setAid("")} disabled={savingAid} className="text-xs text-gray-400 hover:text-red-500">Quitar</button>
+            <button onClick={() => setAid("")} disabled={savingAid} className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500">Quitar</button>
           </>
         ) : step.visualAidId ? (
           <>
             <span className="text-gray-500">Ayuda visual adjunta (otro modelo/rev)</span>
-            <button onClick={() => setAid("")} disabled={savingAid} className="text-xs text-gray-400 hover:text-red-500">Quitar</button>
+            <button onClick={() => setAid("")} disabled={savingAid} className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500">Quitar</button>
           </>
         ) : aids.length > 0 ? (
           <select value="" onChange={(e) => e.target.value && setAid(e.target.value)} disabled={savingAid} className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-1.5 px-2 text-sm outline-none">
@@ -319,9 +319,9 @@ function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualA
             {aids.map((a) => <option key={a.id} value={a.id}>{a.title}{a.revision ? ` · rev ${a.revision}` : ""}</option>)}
           </select>
         ) : (
-          <span className="text-xs text-gray-400">Sin ayudas para este modelo — <Link href="/dashboard/visual-aids" className="underline hover:text-gray-600 dark:hover:text-gray-200">súbelas</Link></span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">Sin ayudas para este modelo — <Link href="/dashboard/visual-aids" className="underline hover:text-gray-600 dark:hover:text-gray-200">súbelas</Link></span>
         )}
-        {savingAid && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
+        {savingAid && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500 dark:text-gray-400" />}
       </div>
 
       <AnimatePresence>
@@ -339,7 +339,7 @@ function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualA
         <div className="pl-11 space-y-1">
           {step.materials.map((m) => (
             <div key={m.id} className="flex items-center justify-between text-sm px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-white/5">
-              <span className="font-mono">{m.partNumber}{m.description ? <span className="text-gray-400 ml-2 text-xs">{m.description}</span> : null}</span>
+              <span className="font-mono">{m.partNumber}{m.description ? <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">{m.description}</span> : null}</span>
               <span className="flex items-center gap-2">
                 <span className="font-semibold tabular-nums">{m.qtyPerUnit} {m.unit}/u</span>
                 <button onClick={() => removeMat(m.id)} className="text-gray-300 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
@@ -355,7 +355,7 @@ function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualA
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 mb-4">{icon}</div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>

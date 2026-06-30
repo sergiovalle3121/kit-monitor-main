@@ -83,9 +83,9 @@ export default function LayoutScorecard({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !card ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : !card.scored ? (
-          <p className="text-[12px] text-gray-400 py-8 text-center">Coloca estaciones en el plano para evaluar el layout.</p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400 py-8 text-center">Coloca estaciones en el plano para evaluar el layout.</p>
         ) : (
           <>
             <div className="flex items-center gap-4 mb-4">
@@ -93,7 +93,7 @@ export default function LayoutScorecard({
                 {card.grade}
               </div>
               <div>
-                <div className="text-3xl font-semibold" style={{ color: gradeColor(card.grade) }}>{card.score}<span className="text-base text-gray-400"> / 100</span></div>
+                <div className="text-3xl font-semibold" style={{ color: gradeColor(card.grade) }}>{card.score}<span className="text-base text-gray-500 dark:text-gray-400"> / 100</span></div>
                 <div className="text-[12px] text-gray-500 mt-0.5">
                   {card.blockers.length ? 'Con bloqueos para liberar' : card.grade === 'A' ? 'Listo para liberar' : 'Mejorable antes de liberar'}
                 </div>
@@ -104,7 +104,7 @@ export default function LayoutScorecard({
               {card.dimensions.map((d) => (
                 <div key={d.key}>
                   <div className="flex items-center justify-between text-[12px] mb-0.5">
-                    <span className="text-gray-600 dark:text-gray-300">{d.label} <span className="text-gray-400">· {Math.round(d.weight * 100)}%</span></span>
+                    <span className="text-gray-600 dark:text-gray-300">{d.label} <span className="text-gray-500 dark:text-gray-400">· {Math.round(d.weight * 100)}%</span></span>
                     <span className="tabular-nums font-medium" style={{ color: barColor(d.score) }}>{Math.round(d.score)}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-black/[0.06] dark:bg-white/10 overflow-hidden">

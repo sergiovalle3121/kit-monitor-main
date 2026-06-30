@@ -195,8 +195,8 @@ export default function ImportPage() {
             <div className={`${glass} rounded-2xl p-4 flex items-center gap-3 text-sm`}>
               <FileUp className="w-4 h-4 text-primary" />
               <span className="font-medium">{fileName}</span>
-              <span className="text-gray-400">{rows.length} filas · {headers.length} columnas</span>
-              <span className="ml-auto text-gray-400">{TARGET_META[target].label}</span>
+              <span className="text-gray-500 dark:text-gray-400">{rows.length} filas · {headers.length} columnas</span>
+              <span className="ml-auto text-gray-500 dark:text-gray-400">{TARGET_META[target].label}</span>
             </div>
             <div className={`${glass} rounded-2xl p-5`}>
               <h3 className="font-semibold mb-3">Mapeo de columnas</h3>
@@ -205,7 +205,7 @@ export default function ImportPage() {
                   <div key={f.field} className="grid grid-cols-2 gap-3 items-center">
                     <div className="text-sm">
                       {f.label} {f.required && <span className="text-rose-500">*</span>}
-                      {f.enumValues && <span className="block text-[11px] text-gray-400">{f.enumValues.join(' · ')}</span>}
+                      {f.enumValues && <span className="block text-[11px] text-gray-500 dark:text-gray-400">{f.enumValues.join(' · ')}</span>}
                     </div>
                     <select className={field} value={mapping[f.field] ?? ''} onChange={(e) => setMapping({ ...mapping, [f.field]: e.target.value })}>
                       <option value="">— sin mapear —</option>
@@ -254,7 +254,7 @@ function ImportCapabilityPanel({ matrix, failed }: { matrix: CapabilityMatrix | 
 
   if (!matrix) {
     return (
-      <div className={`${glass} rounded-2xl p-4 mb-6 text-sm text-gray-400`}>
+      <div className={`${glass} rounded-2xl p-4 mb-6 text-sm text-gray-500 dark:text-gray-400`}>
         Consultando cobertura de importacion...
       </div>
     );
@@ -268,9 +268,9 @@ function ImportCapabilityPanel({ matrix, failed }: { matrix: CapabilityMatrix | 
     <section className={`${glass} rounded-2xl p-5 mb-6 space-y-5`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[11px] uppercase tracking-wide text-gray-400">SAP/import-data</p>
+          <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">SAP/import-data</p>
           <h2 className="text-base font-semibold">Matriz de cobertura real</h2>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Product Models, Material Master, BOM y Routing comparten mapper, preview, commit y auditoria.
           </p>
         </div>
@@ -284,7 +284,7 @@ function ImportCapabilityPanel({ matrix, failed }: { matrix: CapabilityMatrix | 
               <div className="text-sm font-medium leading-tight">{node.label}</div>
               <StatusDot status={node.status} />
             </div>
-            <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">{node.detail}</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{node.detail}</p>
             {node.route && (
               <Link href={node.route} className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary">
                 Abrir <ExternalLink className="w-3 h-3" />
@@ -296,7 +296,7 @@ function ImportCapabilityPanel({ matrix, failed }: { matrix: CapabilityMatrix | 
 
       <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-white/10">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50/80 dark:bg-white/[0.04] text-[11px] uppercase tracking-wide text-gray-400">
+          <thead className="bg-gray-50/80 dark:bg-white/[0.04] text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
             <tr>
               <th className="px-3 py-2 text-left">Destino AXOS</th>
               {matrix.sources.map((source) => (
@@ -309,15 +309,15 @@ function ImportCapabilityPanel({ matrix, failed }: { matrix: CapabilityMatrix | 
               <tr key={target.target}>
                 <td className="px-3 py-3 align-top min-w-52">
                   <Link href={target.route} className="font-medium hover:text-primary">{target.label}</Link>
-                  <div className="text-[11px] text-gray-400 mt-1">{target.sapObjects.join(' / ')}</div>
-                  <div className="text-[11px] text-gray-400">Req: {target.requiredFields.join(', ')}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{target.sapObjects.join(' / ')}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Req: {target.requiredFields.join(', ')}</div>
                 </td>
                 {matrix.sources.map((source) => {
                   const cell = cellFor(source.source, target.target);
                   return (
                     <td key={`${source.source}-${target.target}`} className="px-3 py-3 align-top min-w-40">
                       <StatusPill status={cell?.status ?? 'CONFIG_REQUIRED'} label={cell?.status === 'READY' ? 'Listo' : 'Requiere config'} />
-                      <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">{cell?.evidence}</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{cell?.evidence}</p>
                     </td>
                   );
                 })}
@@ -379,7 +379,7 @@ function Stepper({ step }: { step: Step }) {
     <div className="flex items-center gap-2 mb-6">
       {steps.map((s, i) => (
         <React.Fragment key={s.key}>
-          <div className={`flex items-center gap-2 text-sm ${i <= idx ? 'text-foreground font-medium' : 'text-gray-400'}`}>
+          <div className={`flex items-center gap-2 text-sm ${i <= idx ? 'text-foreground font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
             <span className={`w-6 h-6 rounded-full grid place-items-center text-xs ${i < idx ? 'bg-emerald-500 text-white' : i === idx ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/10'}`}>
               {i < idx ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </span>
@@ -406,9 +406,9 @@ function SetupStep({ target, setTarget, source, setSource, busy, fileRef, onFile
             const m = TARGET_META[t]; const Icon = m.icon; const active = target === t;
             return (
               <button key={t} onClick={() => setTarget(t)} className={`rounded-xl p-4 text-left border transition-all ${active ? 'border-primary ring-2 ring-primary/20' : 'border-gray-100 dark:border-white/10 hover:border-gray-200'}`}>
-                <Icon className={`w-5 h-5 mb-2 ${active ? 'text-primary' : 'text-gray-400'}`} />
+                <Icon className={`w-5 h-5 mb-2 ${active ? 'text-primary' : 'text-gray-500 dark:text-gray-400'}`} />
                 <div className="font-semibold text-sm">{m.label}</div>
-                <div className="text-[11px] text-gray-400">{m.desc}</div>
+                <div className="text-[11px] text-gray-500 dark:text-gray-400">{m.desc}</div>
               </button>
             );
           })}
@@ -431,13 +431,13 @@ function SetupStep({ target, setTarget, source, setSource, busy, fileRef, onFile
             <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border-2 border-dashed border-gray-200 dark:border-white/15 hover:border-primary w-full justify-center">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Subir archivo {source === 'EXCEL' ? '.xlsx' : '.csv'}
             </button>
-            <p className="text-[11px] text-gray-400 mt-2">La primera fila debe ser el encabezado. Se lee la primera hoja.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">La primera fila debe ser el encabezado. Se lee la primera hoja.</p>
           </div>
         )}
 
         {source === 'SQL_STAGING' && (
           <div>
-            <p className="text-[11px] text-gray-400 mb-2">Pega filas de tu tabla de staging (CSV/TSV con encabezado). Una integración SQL puede POSTear estas filas directo al API.</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Pega filas de tu tabla de staging (CSV/TSV con encabezado). Una integración SQL puede POSTear estas filas directo al API.</p>
             <textarea className={field} rows={6} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder={'partNumber,description,itemType\nRES-1,Resistor 10k,PURCHASED'} />
             <div className="flex justify-end mt-2">
               <button onClick={onPaste} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white dark:text-black bg-black dark:bg-white disabled:opacity-60">
@@ -484,7 +484,7 @@ function PreviewStep({ preview, target, createMissing, setCreateMissing, busy, o
         <div className="overflow-x-auto max-h-[420px]">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-white/90 dark:bg-black/80 backdrop-blur">
-              <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400">
+              <tr className="text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 <th className="px-3 py-2">#</th>
                 {cols.map((c) => <th key={c} className="px-3 py-2 whitespace-nowrap">{c}</th>)}
                 <th className="px-3 py-2">Estado</th>
@@ -493,7 +493,7 @@ function PreviewStep({ preview, target, createMissing, setCreateMissing, busy, o
             <tbody className="divide-y divide-gray-100 dark:divide-white/10">
               {preview.rows.map((r) => (
                 <tr key={r.rowIndex} className={r.valid ? '' : 'bg-rose-500/5'}>
-                  <td className="px-3 py-2 text-gray-400 tabular-nums">{r.rowIndex + 1}</td>
+                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400 tabular-nums">{r.rowIndex + 1}</td>
                   {cols.map((c) => <td key={c} className="px-3 py-2 whitespace-nowrap">{String(r.data[c] ?? '')}</td>)}
                   <td className="px-3 py-2">
                     {r.valid
@@ -507,7 +507,7 @@ function PreviewStep({ preview, target, createMissing, setCreateMissing, busy, o
         </div>
       </div>
       {preview.summary.errors > 0 && (
-        <p className="text-xs text-gray-400">Las filas con error NO se importan; el resto sí. Corrige el origen y reimporta para completarlas.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Las filas con error NO se importan; el resto sí. Corrige el origen y reimporta para completarlas.</p>
       )}
 
       <div className="flex justify-between">
@@ -527,7 +527,7 @@ function DoneStep({ report, onReset }: { report: Report; onReset: () => void }) 
       <div className={`${glass} rounded-2xl p-6 text-center`}>
         <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-emerald-500" />
         <h3 className="text-lg font-semibold">Importación completada</h3>
-        <p className="text-sm text-gray-400">{TARGET_META[report.target].label} · {report.source}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{TARGET_META[report.target].label} · {report.source}</p>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Kpi label="Creados" value={r.created} color="#10b981" />
@@ -537,11 +537,11 @@ function DoneStep({ report, onReset }: { report: Report; onReset: () => void }) 
       </div>
       {r.rowErrors.length > 0 && (
         <div className={`${glass} rounded-2xl overflow-hidden`}>
-          <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-white/10">Errores por fila</div>
+          <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/10">Errores por fila</div>
           <div className="max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-white/10">
             {r.rowErrors.map((e, i) => (
               <div key={i} className="flex items-start gap-2 px-4 py-2 text-sm">
-                <span className="text-gray-400 tabular-nums shrink-0">fila {e.rowIndex + 1}</span>
+                <span className="text-gray-500 dark:text-gray-400 tabular-nums shrink-0">fila {e.rowIndex + 1}</span>
                 <span className="text-rose-500">{e.message}</span>
               </div>
             ))}
@@ -560,7 +560,7 @@ function DoneStep({ report, onReset }: { report: Report; onReset: () => void }) 
 function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
     <div className={`${glass} rounded-2xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );

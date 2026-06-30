@@ -151,7 +151,7 @@ export function AppointmentsTab({
           getValue() ? (
             <span className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-white/10">{getValue() as string}</span>
           ) : (
-            <span className="text-gray-400">—</span>
+            <span className="text-gray-500 dark:text-gray-400">—</span>
           ),
         meta: { filterable: true, filterPlaceholder: "Folio…" },
       },
@@ -173,7 +173,7 @@ export function AppointmentsTab({
             <button
               onClick={() => setModal({ edit: row.original })}
               title="Editar"
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+              className="rounded-lg p-1.5 text-gray-500 dark:text-gray-400 hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
             >
               <Pencil className="h-4 w-4" />
             </button>

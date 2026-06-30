@@ -130,7 +130,7 @@ export default function DossierExport({
         {error ? (
           <p className="text-[12px] text-amber-500 py-8 text-center">{error}</p>
         ) : !data ? (
-          <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          <div className="py-10 grid place-items-center text-gray-500 dark:text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-2.5 text-sm mb-4">
@@ -174,7 +174,7 @@ export default function DossierExport({
               </button>
             </div>
 
-            <p className="text-[11px] text-gray-400 mt-3">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3">
               El JSON lleva el expediente completo (reporte, revisión, personal, costo y estaciones). El CSV es la tabla de estaciones lista para Excel. Generado {new Date(data.generatedAt).toLocaleString()}.
             </p>
           </>
@@ -188,7 +188,7 @@ export default function DossierExport({
 function Mini({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="rounded-xl p-2.5 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className="text-base font-semibold mt-0.5">{value}</div>
       <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{sub}</div>
     </div>

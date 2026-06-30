@@ -34,7 +34,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').re
 const AUTOSAVE_MS = 800;
 
 const Spinner = () => (
-  <div className="flex h-full items-center justify-center text-gray-400">
+  <div className="flex h-full items-center justify-center text-gray-500 dark:text-gray-400">
     <Loader2 className="w-6 h-6 animate-spin" />
   </div>
 );
@@ -187,7 +187,7 @@ export default function OfficeEditorPage() {
     );
   }
   if (loading || authLoading || !doc) {
-    return <OfficeShellMessage><Loader2 className="w-7 h-7 animate-spin text-gray-400" /><p className="text-sm text-gray-500">Abriendo documento…</p></OfficeShellMessage>;
+    return <OfficeShellMessage><Loader2 className="w-7 h-7 animate-spin text-gray-500 dark:text-gray-400" /><p className="text-sm text-gray-500">Abriendo documento…</p></OfficeShellMessage>;
   }
 
   const readOnly = !canWrite || !!doc.locked;
@@ -262,7 +262,7 @@ export default function OfficeEditorPage() {
       {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} fileActions={actions} title={title} docId={id} />
         : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} fileActions={actions} />
         : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} fileActions={actions} docId={id} />
-        : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}
+        : <div className="py-20 text-center text-sm text-gray-500 dark:text-gray-400">Tipo de documento desconocido.</div>}
     </OfficeShell>
   );
 }
