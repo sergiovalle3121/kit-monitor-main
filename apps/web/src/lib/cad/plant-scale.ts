@@ -19,6 +19,8 @@ export interface CadPlantPresetFootprint {
   gridSize: number;
 }
 
+export type CadPlantDisplayUnit = "mm" | "m";
+
 export interface CadPlantBoundsObject {
   id: string;
   label: string;
@@ -101,6 +103,25 @@ export function cadValueFromMm(
   return factor === 1 ? Math.round(value) : Number(value.toFixed(3));
 }
 
+export function cadValueForUnit(
+  value: number,
+  sourceUnit: string | null | undefined,
+  displayUnit: CadPlantDisplayUnit,
+): number {
+  return cadValueFromMm(cadValueToMm(value, sourceUnit), displayUnit);
+}
+
+export function formatCadPlantLength(
+  value: number,
+  sourceUnit: string | null | undefined,
+  displayUnit: CadPlantDisplayUnit,
+): string {
+  const converted = cadValueForUnit(value, sourceUnit, displayUnit);
+  return `${converted.toLocaleString("en-US", {
+    maximumFractionDigits: displayUnit === "mm" ? 0 : 2,
+  })} ${displayUnit}`;
+}
+
 export function cadPlantPresetFootprint(
   presetId: CadPlantPresetId,
   unit: string | null | undefined,
@@ -135,6 +156,7 @@ export function formatCadPlantSize(
   width: number,
   height: number,
   unit: string | null | undefined,
+  displayUnit?: CadPlantDisplayUnit,
 ): string {
   const activeUnit = unit || "mm";
   const widthMm = cadValueToMm(width, activeUnit);
@@ -151,9 +173,9 @@ export function formatCadPlantSize(
   })} x ${heightM.toLocaleString("en-US", {
     maximumFractionDigits: 2,
   })} m`;
-  return activeUnit === "m"
-    ? `${metric} (${Math.round(widthMm).toLocaleString("en-US")} x ${Math.round(heightMm).toLocaleString("en-US")} mm)`
-    : `${active} (${metric})`;
+  const millimeter = `${Math.round(widthMm).toLocaleString("en-US")} x ${Math.round(heightMm).toLocaleString("en-US")} mm`;
+  if (!displayUnit) return activeUnit === "m" ? `${metric} (${millimeter})` : `${active} (${metric})`;
+  return displayUnit === "m" ? `${metric} (${millimeter})` : `${millimeter} (${metric})`;
 }
 
 export function detectObjectsOutsidePlantBounds(input: {

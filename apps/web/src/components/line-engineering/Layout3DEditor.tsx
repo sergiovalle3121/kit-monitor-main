@@ -84,8 +84,10 @@ import {
   cadPlantPresetFootprint,
   cadValueFromMm,
   detectObjectsOutsidePlantBounds,
+  formatCadPlantLength,
   formatCadPlantSize,
   recommendCadGridSize,
+  type CadPlantDisplayUnit,
   type CadPlantBoundsIssue,
   type CadPlantPresetId,
 } from '@/lib/cad/plant-scale';
@@ -776,6 +778,7 @@ export default function Layout3DEditor({
   const [cadLayers, setCadLayers] = useState<CadLayer[]>(DEFAULT_CAD_LAYERS);
   const [layerAssignments, setLayerAssignments] = useState<CadLayerAssignments>({});
   const [activeCadLayer, setActiveCadLayer] = useState<CadLayerId>('equipment');
+  const [plantDisplayUnit, setPlantDisplayUnit] = useState<CadPlantDisplayUnit>('m');
   const cadLayersRef = useRef<CadLayer[]>(DEFAULT_CAD_LAYERS);
   const layerAssignmentsRef = useRef<CadLayerAssignments>({});
   const [objectTags, setObjectTags] = useState<Record<string, string>>({});
@@ -3874,9 +3877,9 @@ export default function Layout3DEditor({
   const flowReorderMoveRows = flowReorderPreview?.moves.filter((move) => move.from.x !== move.to.x || move.from.y !== move.to.y).slice(0, 5) ?? [];
   const dxfExportLayerRows = dxfExportSummary.layerSummary.filter((layer) => layer.included > 0 || layer.hidden > 0).slice(0, 5);
   const dxfExportIssueRows = dxfExportSummary.issues.slice(0, 5);
-  const plantSizeLabel = data ? formatCadPlantSize(data.footprint.footprintW, data.footprint.footprintH, data.footprint.unit) : '';
-  const plantMetricLabel = data ? `${fmtLen(data.footprint.footprintW, data.footprint.unit || 'mm')} x ${fmtLen(data.footprint.footprintH, data.footprint.unit || 'mm')}` : '';
-  const plantGridLabel = data ? fmtLen(data.footprint.gridSize, data.footprint.unit || 'mm') : '';
+  const plantSizeLabel = data ? formatCadPlantSize(data.footprint.footprintW, data.footprint.footprintH, data.footprint.unit, plantDisplayUnit) : '';
+  const plantMetricLabel = data ? `${formatCadPlantLength(data.footprint.footprintW, data.footprint.unit || 'mm', plantDisplayUnit)} x ${formatCadPlantLength(data.footprint.footprintH, data.footprint.unit || 'mm', plantDisplayUnit)}` : '';
+  const plantGridLabel = data ? formatCadPlantLength(data.footprint.gridSize, data.footprint.unit || 'mm', plantDisplayUnit) : '';
 
   // Portal to <body> so the full-screen overlay escapes the editor's glass
   // container (backdrop-filter would otherwise be the containing block for our
@@ -4009,7 +4012,22 @@ export default function Layout3DEditor({
                   </button>
                 ))}
               </div>
-              <div className="text-[10px] uppercase tracking-wide text-gray-500 mt-2.5 mb-1.5">Plano ({data?.footprint.unit ?? 'mm'})</div>
+              <div className="mt-2.5 mb-1.5 flex items-center justify-between gap-2">
+                <div className="text-[10px] uppercase tracking-wide text-gray-500">Plano ({data?.footprint.unit ?? 'mm'})</div>
+                <div className="inline-flex overflow-hidden rounded-md border border-white/10 bg-white/[0.04]" title="Unidad visible del plano">
+                  {(['mm', 'm'] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      aria-pressed={plantDisplayUnit === unit}
+                      onClick={() => setPlantDisplayUnit(unit)}
+                      className={`px-2 py-0.5 text-[10px] font-semibold ${plantDisplayUnit === unit ? 'bg-cyan-500 text-white' : 'text-gray-400 hover:bg-white/[0.08] hover:text-white'}`}
+                    >
+                      {unit}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {data && (
                 <div className="mb-2 rounded-lg border border-cyan-400/15 bg-cyan-400/[0.06] px-2 py-1.5">
                   <div className="text-[11px] font-semibold text-cyan-100">{plantSizeLabel}</div>
@@ -4340,13 +4358,13 @@ export default function Layout3DEditor({
             <div className="absolute bottom-3 right-3 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-gray-950/85 px-3 py-1.5 text-[11px] text-gray-300 shadow-xl backdrop-blur">
               <span className="text-cyan-200">Tool: {tool}</span>
               <span>{selList.length} sel</span>
-              <span>{data?.footprint.unit ?? 'mm'}</span>
+              <span title={`Layout unit: ${data?.footprint.unit ?? 'mm'}`}>{plantDisplayUnit}</span>
               {plantMetricLabel && <span title={plantSizeLabel}>Plant {plantMetricLabel}</span>}
               <span>Layer {cadLayers.find((layer) => layer.id === activeCadLayer)?.label ?? activeCadLayer}</span>
               {cadLayerSummary.hiddenObjectCount > 0 && <span className="text-amber-300">Hidden layer objs {cadLayerSummary.hiddenObjectCount}</span>}
               {cadLayerSummary.lockedObjectCount > 0 && <span className="text-amber-300">Locked layer objs {cadLayerSummary.lockedObjectCount}</span>}
               <span>Grilla {layers.grid ? 'on' : 'off'} / Snap {snap ? 'grid' : 'free'} / {osnap ? 'obj' : 'obj off'}</span>
-              {plantBoundsIssues.length > 0 && <button onClick={fitAllObjects} className="text-amber-300 hover:text-white" title={plantBoundsIssues.slice(0, 3).map((issue) => `${issue.label}: ${fmtLen(issue.overflow, data?.footprint.unit || 'mm')}`).join('\n')}>Bounds {plantBoundsIssues.length}</button>}
+              {plantBoundsIssues.length > 0 && <button onClick={fitAllObjects} className="text-amber-300 hover:text-white" title={plantBoundsIssues.slice(0, 3).map((issue) => `${issue.label}: ${formatCadPlantLength(issue.overflow, data?.footprint.unit || 'mm', plantDisplayUnit)}`).join('\n')}>Bounds {plantBoundsIssues.length}</button>}
               <button onClick={openChecks} className={`${releaseTone} hover:text-white`}>Release {releaseState}</button>
               {report && <span className={report.score === 'error' ? 'text-rose-300' : report.score === 'warn' ? 'text-amber-300' : 'text-emerald-300'}>Validación {report.score}</span>}
               {cadValidationReport && <span className={cadValidationReport.severity === 'critical' ? 'text-rose-300' : cadValidationReport.severity === 'warning' ? 'text-amber-300' : 'text-emerald-300'}>CAD {cadValidationReport.severity}</span>}

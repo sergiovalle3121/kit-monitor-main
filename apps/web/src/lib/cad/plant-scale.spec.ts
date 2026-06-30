@@ -2,7 +2,9 @@ import { strict as assert } from "node:assert";
 import {
   CAD_PLANT_PRESETS,
   cadPlantPresetFootprint,
+  cadValueForUnit,
   detectObjectsOutsidePlantBounds,
+  formatCadPlantLength,
   formatCadPlantSize,
   recommendCadGridSize,
 } from "./plant-scale";
@@ -38,6 +40,21 @@ assert.equal(
   formatCadPlantSize(30000, 12000, "mm"),
   "30,000 x 12,000 mm (30 x 12 m)",
   "plant size displays both mm and m",
+);
+assert.equal(
+  formatCadPlantSize(120, 80, "m", "mm"),
+  "120,000 x 80,000 mm (120 x 80 m)",
+  "plant size can display a meter-native layout in millimeters",
+);
+assert.equal(
+  cadValueForUnit(2500, "mm", "m"),
+  2.5,
+  "display conversion keeps grid values readable in meters",
+);
+assert.equal(
+  formatCadPlantLength(5000, "mm", "m"),
+  "5 m",
+  "grid and bounds labels can use the selected display unit",
 );
 
 const issues = detectObjectsOutsidePlantBounds({
