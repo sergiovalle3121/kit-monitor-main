@@ -692,7 +692,7 @@ function Picker({
         <button
           type="submit"
           disabled={busy || !wo.trim()}
-          className="flex items-center gap-2 bg-amber-500 text-white text-base font-bold px-7 py-5 rounded-full hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-50"
+          className="flex items-center gap-2 bg-amber-700 text-white text-base font-bold px-7 py-5 rounded-full hover:bg-amber-800 active:scale-95 transition-all disabled:opacity-50"
         >
           {busy ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -1129,7 +1129,7 @@ function ConfirmForm({
           <button
             onClick={submit}
             disabled={busy || qty + scrap <= 0}
-            className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+            className="w-full bg-emerald-700 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-800 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {busy ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -1558,7 +1558,7 @@ function MaterialRequestForm({
                     }}
                     className={`rounded-2xl border px-3 py-3 text-left transition-all ${
                       active
-                        ? "border-amber-500 bg-amber-500 text-white"
+                        ? "border-amber-700 bg-amber-700 text-white"
                         : "border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
                     }`}
                   >
@@ -1643,7 +1643,7 @@ function MaterialRequestForm({
           <button
             onClick={submit}
             disabled={busy || !readiness.canRequest}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 py-4 text-base font-black text-white transition-all hover:bg-amber-600 active:scale-[0.98] disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-700 py-4 text-base font-black text-white transition-all hover:bg-amber-800 active:scale-[0.98] disabled:opacity-40"
           >
             {busy ? (
               <Loader2 className="h-5 w-5 animate-spin" />

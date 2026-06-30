@@ -398,7 +398,7 @@ export default function CostIntelligencePage() {
                   onClick={() => setProgramId(p.id)}
                   className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                     p.id === programId
-                      ? 'bg-emerald-500 text-white'
+                      ? 'bg-emerald-700 text-white'
                       : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/15'
                   }`}
                 >

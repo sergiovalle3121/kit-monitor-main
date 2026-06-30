@@ -106,7 +106,7 @@ export function SlideActions({ content, title }: { content: any; title: string }
                 )}
               </div>
 
-              <button onClick={exportPowerPoint} disabled={!preflight.exportedSlideCount} className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50">
+              <button onClick={exportPowerPoint} disabled={!preflight.exportedSlideCount} className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-amber-700 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50">
                 <Presentation className="w-4 h-4" /> Exportar PowerPoint (.pptx)
               </button>
 

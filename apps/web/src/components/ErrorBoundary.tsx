@@ -69,7 +69,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <div className="rounded-2xl border border-amber-300/40 bg-amber-50/60 dark:bg-amber-500/10 p-6 text-center">
             <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Hay una versión nueva de la app.</p>
             <p className="text-[12px] text-gray-500 mt-1">Recarga para cargar los archivos actualizados.</p>
-            <button onClick={() => window.location.reload()} className="mt-3 px-3.5 py-1.5 rounded-lg text-sm font-medium text-white" style={{ background: '#f59e0b' }}>
+            <button onClick={() => window.location.reload()} className="mt-3 px-3.5 py-1.5 rounded-lg text-sm font-medium text-white" style={{ background: '#b45309' }}>
               Recargar página
             </button>
           </div>
@@ -79,7 +79,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       return (
         <div className="rounded-2xl border border-amber-300/40 bg-amber-50/60 dark:bg-amber-500/10 p-6 text-center">
           <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Algo falló al mostrar este panel.</p>
-          <button onClick={this.retry} className="mt-3 px-3.5 py-1.5 rounded-lg text-sm font-medium text-white" style={{ background: '#f59e0b' }}>
+          <button onClick={this.retry} className="mt-3 px-3.5 py-1.5 rounded-lg text-sm font-medium text-white" style={{ background: '#b45309' }}>
             Reintentar
           </button>
         </div>

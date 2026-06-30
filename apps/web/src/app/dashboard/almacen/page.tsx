@@ -171,7 +171,7 @@ export default function AlmacenPage() {
                 <button
                   onClick={() => act(r.id, 'authorize')}
                   disabled={busy === r.id}
-                  className="flex items-center gap-1.5 bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-60"
+                  className="flex items-center gap-1.5 bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-emerald-800 active:scale-95 transition-all disabled:opacity-60"
                 >
                   {busy === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Autorizar
                 </button>

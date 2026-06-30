@@ -88,8 +88,8 @@ export function SlideReusePanel({ current, ratio, onInsert, onClose }: {
           <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400"><X className="w-5 h-5" /></button>
         </div>
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-          <button onClick={() => setTab('deck')} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors ${tab === 'deck' ? 'bg-amber-500 text-white' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20'}`}>Esta presentación</button>
-          <button onClick={() => setTab('file')} disabled={!fileItems.length} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40 ${tab === 'file' ? 'bg-amber-500 text-white' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20'}`}>{fileName ? `Importada · ${fileName}`.slice(0, 28) : 'Otra presentación'}</button>
+          <button onClick={() => setTab('deck')} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors ${tab === 'deck' ? 'bg-amber-700 text-white' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20'}`}>Esta presentación</button>
+          <button onClick={() => setTab('file')} disabled={!fileItems.length} className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-40 ${tab === 'file' ? 'bg-amber-700 text-white' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20'}`}>{fileName ? `Importada · ${fileName}`.slice(0, 28) : 'Otra presentación'}</button>
           <label className="ml-auto text-sm px-3 py-1.5 rounded-lg font-medium bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 cursor-pointer flex items-center gap-1.5">
             <Upload className="w-4 h-4" /> Importar .json
             <input type="file" accept="application/json,.json" onChange={onFile} className="hidden" />
@@ -110,7 +110,7 @@ export function SlideReusePanel({ current, ratio, onInsert, onClose }: {
                   </div>
                   <button onClick={() => onInsert(it)} title="Insertar copia"
                     className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 opacity-0 group-hover:opacity-100 transition-all">
-                    <span className="flex items-center gap-1.5 text-sm font-semibold text-white bg-amber-500 px-3 py-1.5 rounded-lg shadow"><Plus className="w-4 h-4" /> Insertar</span>
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-white bg-amber-700 px-3 py-1.5 rounded-lg shadow"><Plus className="w-4 h-4" /> Insertar</span>
                   </button>
                 </div>
               ))}

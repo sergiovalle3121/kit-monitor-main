@@ -169,7 +169,7 @@ export default function DossierExport({
               <button onClick={downloadJson} className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white" style={{ background: '#3b82f6' }}>
                 <FileJson className="w-4 h-4" /> Descargar JSON
               </button>
-              <button onClick={downloadCsv} className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white" style={{ background: '#10b981' }}>
+              <button onClick={downloadCsv} className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white" style={{ background: '#047857' }}>
                 <FileSpreadsheet className="w-4 h-4" /> Descargar CSV
               </button>
             </div>

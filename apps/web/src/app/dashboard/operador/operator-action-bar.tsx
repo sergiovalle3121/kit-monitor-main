@@ -21,7 +21,7 @@ export function OperatorActionBar({
       <button
         onClick={() => onOpenSheet("confirm")}
         disabled={confirmDisabled}
-        className="min-w-0 flex-[1.4] flex items-center justify-center gap-2 bg-emerald-500 text-white text-sm sm:text-xl font-black px-3 sm:px-6 py-5 sm:py-6 rounded-3xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40"
+        className="min-w-0 flex-[1.4] flex items-center justify-center gap-2 bg-emerald-700 text-white text-sm sm:text-xl font-black px-3 sm:px-6 py-5 sm:py-6 rounded-3xl hover:bg-emerald-800 active:scale-[0.98] transition-all disabled:opacity-40"
       >
         <CheckCircle2 className="w-5 h-5 shrink-0" />{" "}
         <span className="truncate">

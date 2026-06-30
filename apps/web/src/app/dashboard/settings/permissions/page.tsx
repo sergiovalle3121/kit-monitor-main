@@ -66,14 +66,14 @@ export default function PermissionsMatrixPage() {
     <div className="min-h-screen bg-[#FBFBFD] dark:bg-black p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white transition-colors mb-4">
+        <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-[#1D1D1F] dark:hover:text-white transition-colors mb-4">
           <ChevronLeft className="w-4 h-4" /> Dashboard
         </Link>
         <div className="flex items-center gap-2 text-blue-600 font-medium mb-2">
           <Shield className="w-4 h-4" /><span className="text-sm tracking-wide uppercase">Administración</span>
         </div>
         <h1 className="text-4xl font-semibold text-[#1D1D1F] dark:text-white tracking-tight">Matriz de permisos</h1>
-        <p className="text-[#86868B] mt-2 text-lg max-w-3xl">
+        <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg max-w-3xl">
           Solo lectura. Muestra qué <code className="px-1.5 py-0.5 rounded bg-[#F2F2F7] dark:bg-white/10 text-sm">resource:action</code> otorga
           cada rol del catálogo RBAC, para que sea transparente quién puede qué.
         </p>
@@ -101,7 +101,7 @@ export default function PermissionsMatrixPage() {
             <div key={s.label} className="bg-white dark:bg-white/5 p-5 rounded-3xl border border-[#F2F2F7] dark:border-white/10 shadow-sm">
               <div className={`p-2 rounded-xl bg-slate-50 dark:bg-white/10 inline-flex ${s.tone} mb-3`}><s.icon className="w-5 h-5" /></div>
               <div className="text-2xl font-semibold text-[#1D1D1F] dark:text-white">{s.value}</div>
-              <div className="text-sm text-[#86868B] font-medium">{s.label}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">{s.label}</div>
             </div>
           ))}
         </div>
@@ -129,15 +129,15 @@ export default function PermissionsMatrixPage() {
                 {ROLE_META.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
               <div className="inline-flex p-1 rounded-2xl bg-[#F5F5F7] dark:bg-white/10">
-                <button onClick={() => setView('cards')} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${view === 'cards' ? 'bg-white dark:bg-white/15 text-[#1D1D1F] dark:text-white shadow-sm' : 'text-[#86868B]'}`}><Rows3 className="w-4 h-4" />Tarjetas</button>
-                <button onClick={() => setView('grid')} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${view === 'grid' ? 'bg-white dark:bg-white/15 text-[#1D1D1F] dark:text-white shadow-sm' : 'text-[#86868B]'}`}><LayoutGrid className="w-4 h-4" />Cuadrícula</button>
+                <button onClick={() => setView('cards')} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${view === 'cards' ? 'bg-white dark:bg-white/15 text-[#1D1D1F] dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-400'}`}><Rows3 className="w-4 h-4" />Tarjetas</button>
+                <button onClick={() => setView('grid')} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${view === 'grid' ? 'bg-white dark:bg-white/15 text-[#1D1D1F] dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-400'}`}><LayoutGrid className="w-4 h-4" />Cuadrícula</button>
               </div>
             </div>
           </div>
 
           {/* Resource chips */}
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#86868B] uppercase tracking-wider mr-1"><Filter className="w-3.5 h-3.5" />Recursos</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mr-1"><Filter className="w-3.5 h-3.5" />Recursos</span>
             {PERMISSION_GROUPS.map((g) => {
               const on = resourceFilter.has(g.resource);
               const tone = TONES[g.tone];
@@ -145,7 +145,7 @@ export default function PermissionsMatrixPage() {
                 <button
                   key={g.resource}
                   onClick={() => toggleResource(g.resource)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${on ? `${tone.chip} ${tone.text} border-transparent` : 'bg-white dark:bg-white/5 text-[#86868B] border-[#F2F2F7] dark:border-white/10 hover:text-[#1D1D1F] dark:hover:text-white'}`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${on ? `${tone.chip} ${tone.text} border-transparent` : 'bg-white dark:bg-white/5 text-gray-600 dark:text-gray-400 border-[#F2F2F7] dark:border-white/10 hover:text-[#1D1D1F] dark:hover:text-white'}`}
                 >
                   <span className={`w-2 h-2 rounded-full ${tone.dot}`} />
                   {g.label}
@@ -153,13 +153,13 @@ export default function PermissionsMatrixPage() {
               );
             })}
             {view === 'cards' && (
-              <label className="ml-auto inline-flex items-center gap-2 text-xs font-medium text-[#86868B] cursor-pointer select-none">
+              <label className="ml-auto inline-flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 cursor-pointer select-none">
                 <input type="checkbox" checked={onlyGranted} onChange={(e) => setOnlyGranted(e.target.checked)} className="rounded accent-blue-600" />
                 Solo recursos con acceso
               </label>
             )}
             {hasFilters && (
-              <button onClick={clearFilters} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-[#86868B] hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+              <button onClick={clearFilters} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
                 <X className="w-3.5 h-3.5" /> Limpiar
               </button>
             )}
@@ -172,7 +172,7 @@ export default function PermissionsMatrixPage() {
             <div className="bg-white dark:bg-white/5 rounded-3xl border border-[#F2F2F7] dark:border-white/10 p-16 text-center">
               <Search className="w-8 h-8 text-slate-300 mx-auto mb-3" />
               <h3 className="text-lg font-medium text-[#1D1D1F] dark:text-white">Sin permisos que coincidan</h3>
-              <p className="text-[#86868B] mt-1">Ajusta la búsqueda o los filtros de recurso.</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">Ajusta la búsqueda o los filtros de recurso.</p>
             </div>
           ) : view === 'cards' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -186,7 +186,7 @@ export default function PermissionsMatrixPage() {
         </div>
 
         {/* Footer note */}
-        <p className="mt-6 text-xs text-[#86868B] max-w-3xl">
+        <p className="mt-6 text-xs text-gray-600 dark:text-gray-400 max-w-3xl">
           Refleja el catálogo RBAC del backend (<code className="px-1 py-0.5 rounded bg-[#F2F2F7] dark:bg-white/10">auth/rbac.ts</code>).
           La asignación de rol por usuario se hace en <Link href="/dashboard/settings/users" className="underline">Usuarios y roles</Link>.
           Editar la matriz misma (qué otorga cada rol) es una tarea de backend.
@@ -228,19 +228,19 @@ function RoleCard({
             </span>
             <div className="min-w-0">
               <div className="text-sm font-semibold text-[#1D1D1F] dark:text-white truncate">{role.label}</div>
-              <div className="text-xs text-[#86868B]">{role.group}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">{role.group}</div>
             </div>
           </div>
           <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${isAdmin ? 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300' : 'bg-[#F5F5F7] dark:bg-white/10 text-[#1D1D1F] dark:text-white'}`}>
             {isAdmin ? 'Acceso total' : `${totalGranted} permiso${totalGranted === 1 ? '' : 's'}`}
           </span>
         </div>
-        <p className="text-xs text-[#86868B] mt-2.5 leading-relaxed">{role.description}</p>
+        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2.5 leading-relaxed">{role.description}</p>
       </div>
 
       <div className="p-5 space-y-3 flex-1">
         {sections.length === 0 ? (
-          <div className="text-xs text-[#86868B] italic">Sin permisos en los recursos visibles.</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400 italic">Sin permisos en los recursos visibles.</div>
         ) : (
           sections.map((g) => {
             const gTone = TONES[g.tone];
@@ -294,7 +294,7 @@ function MatrixGrid({
           <thead>
             <tr>
               <th rowSpan={2} className="sticky left-0 z-20 bg-[#FBFBFD] dark:bg-[#0a0a0a] px-4 py-3 text-left align-bottom border-b border-r border-[#F2F2F7] dark:border-white/10 min-w-[200px]">
-                <span className="text-xs uppercase tracking-widest font-semibold text-[#86868B]">Rol \ Permiso</span>
+                <span className="text-xs uppercase tracking-widest font-semibold text-gray-600 dark:text-gray-400">Rol \ Permiso</span>
               </th>
               {groups.map((g) => {
                 const tone = TONES[g.tone];
@@ -310,7 +310,7 @@ function MatrixGrid({
             <tr>
               {cols.map((c) => (
                 <th key={c.id} title={c.id} className="px-1.5 py-2 border-b border-[#F2F2F7] dark:border-white/10 align-bottom">
-                  <div className="text-[11px] font-medium text-[#86868B] whitespace-nowrap [writing-mode:vertical-rl] rotate-180 mx-auto h-16">{c.actionLabel}</div>
+                  <div className="text-[11px] font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap [writing-mode:vertical-rl] rotate-180 mx-auto h-16">{c.actionLabel}</div>
                 </th>
               ))}
             </tr>
@@ -347,7 +347,7 @@ function MatrixGrid({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center gap-4 px-4 py-3 border-t border-[#F2F2F7] dark:border-white/10 text-xs text-[#86868B]">
+      <div className="flex items-center gap-4 px-4 py-3 border-t border-[#F2F2F7] dark:border-white/10 text-xs text-gray-600 dark:text-gray-400">
         <span className="inline-flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-600" strokeWidth={3} /> Otorgado</span>
         <span className="inline-flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-[#E5E5EA] dark:bg-white/15" /> Sin acceso</span>
         <span className="inline-flex items-center gap-1.5"><Crown className="w-3.5 h-3.5 text-purple-500" /> Admin / Master: acceso total (omite el guard)</span>

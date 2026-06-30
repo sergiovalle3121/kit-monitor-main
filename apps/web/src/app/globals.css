@@ -116,7 +116,7 @@
 
     /* Acento índigo: en oscuro se baja la saturación para atenuar el "neón"
        sobre el fondo profundo — mismo tono índigo, brillo casi idéntico. */
-    --primary: 239 72% 70%;
+    --primary: 239 72% 60%;
     --primary-foreground: 0 0% 100%;
     --ring: 239 72% 70%;
 

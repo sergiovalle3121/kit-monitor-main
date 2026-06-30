@@ -380,7 +380,7 @@ function Stepper({ step }: { step: Step }) {
       {steps.map((s, i) => (
         <React.Fragment key={s.key}>
           <div className={`flex items-center gap-2 text-sm ${i <= idx ? 'text-foreground font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
-            <span className={`w-6 h-6 rounded-full grid place-items-center text-xs ${i < idx ? 'bg-emerald-500 text-white' : i === idx ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/10'}`}>
+            <span className={`w-6 h-6 rounded-full grid place-items-center text-xs ${i < idx ? 'bg-emerald-700 text-white' : i === idx ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/10'}`}>
               {i < idx ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </span>
             {s.label}

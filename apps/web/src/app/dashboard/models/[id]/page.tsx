@@ -119,7 +119,7 @@ export default function ModelDetailPage() {
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {canActivate && (
-              <button data-testid="model-activate-btn" onClick={() => transition('activate')} disabled={!!busy} className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-full text-white disabled:opacity-60" style={{ background: '#10b981' }}>
+              <button data-testid="model-activate-btn" onClick={() => transition('activate')} disabled={!!busy} className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-full text-white disabled:opacity-60" style={{ background: '#047857' }}>
                 {busy === 'activate' ? <Loader2 className="w-4 h-4 animate-spin" /> : model.status === 'OBSOLETE' ? <RotateCcw className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                 {model.status === 'OBSOLETE' ? 'Reactivar' : 'Activar'}
               </button>
@@ -584,7 +584,7 @@ function BomSection({ modelNumber, productName }: { modelNumber: string; product
                 <input data-testid="bom-part-input" value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} placeholder="Número de parte" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm flex-1 outline-none" />
                 <input data-testid="bom-qty-input" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} type="number" min={0.0001} step="any" placeholder="Cant/u" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm w-24 outline-none" />
                 <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="EA" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm w-16 outline-none" />
-                <button data-testid="bom-add-btn" onClick={addComponent} disabled={busy === 'add'} className="bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-60">
+                <button data-testid="bom-add-btn" onClick={addComponent} disabled={busy === 'add'} className="bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-emerald-800 active:scale-95 transition-all disabled:opacity-60">
                   {busy === 'add' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Agregar'}
                 </button>
               </div>
@@ -608,7 +608,7 @@ function BomSection({ modelNumber, productName }: { modelNumber: string; product
               </button>
             )}
             {bom.status === 'APPROVED' && (
-              <button onClick={() => transition('activate')} disabled={busy === 'activate'} className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full text-white disabled:opacity-60" style={{ background: '#10b981' }}>
+              <button onClick={() => transition('activate')} disabled={busy === 'activate'} className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full text-white disabled:opacity-60" style={{ background: '#047857' }}>
                 {busy === 'activate' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Activar BOM
               </button>
             )}

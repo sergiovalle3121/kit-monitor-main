@@ -84,7 +84,7 @@ export function SlideInspectorPanel({
               </div>
             )}
             {!readOnly && !health.currentHasTitle && (
-              <button onClick={onFixCurrentTitle} className="mt-2 w-full rounded-lg bg-amber-500 px-2 py-1.5 text-[11px] font-bold text-white hover:bg-amber-600">Agregar título al slide actual</button>
+              <button onClick={onFixCurrentTitle} className="mt-2 w-full rounded-lg bg-amber-700 px-2 py-1.5 text-[11px] font-bold text-white hover:bg-amber-800">Agregar título al slide actual</button>
             )}
             {!readOnly && health.currentEmpty && (
               <button onClick={onFixCurrentEmpty} className="mt-2 w-full rounded-lg bg-blue-600 px-2 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700">Aplicar layout base</button>

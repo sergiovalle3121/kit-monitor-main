@@ -166,7 +166,7 @@ export function ExecutionCommandCenter({
           />
           <button
             onClick={() => onOpenSheet("material")}
-            className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 text-sm font-black text-white transition-all hover:bg-amber-600 active:scale-[0.98]"
+            className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-amber-700 text-sm font-black text-white transition-all hover:bg-amber-800 active:scale-[0.98]"
           >
             <Truck className="h-4 w-4" /> F4 Solicitar material
           </button>

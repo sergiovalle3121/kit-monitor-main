@@ -149,7 +149,7 @@ export default function EngineeringPage() {
                   <select value={stepType} onChange={(e) => setStepType(e.target.value)} className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm outline-none">
                     {STATION_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
-                  <button onClick={addStep} className="bg-emerald-500 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-emerald-600 active:scale-95 transition-all">Agregar</button>
+                  <button onClick={addStep} className="bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-emerald-800 active:scale-95 transition-all">Agregar</button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -330,7 +330,7 @@ function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualA
             <input value={pn} onChange={(e) => setPn(e.target.value)} placeholder="Núm. parte" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm flex-1 outline-none" />
             <input value={qty} onChange={(e) => setQty(e.target.value)} type="number" min={1} placeholder="Cant/unidad" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm w-28 outline-none" />
             <input value={unit} onChange={(e) => setUnit(e.target.value)} className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm w-16 outline-none" />
-            <button onClick={add} className="bg-emerald-500 text-white text-sm font-semibold px-3 rounded-lg hover:bg-emerald-600 active:scale-95 transition-all">OK</button>
+            <button onClick={add} className="bg-emerald-700 text-white text-sm font-semibold px-3 rounded-lg hover:bg-emerald-800 active:scale-95 transition-all">OK</button>
           </motion.div>
         )}
       </AnimatePresence>
