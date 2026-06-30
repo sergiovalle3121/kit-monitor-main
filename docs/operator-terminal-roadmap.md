@@ -41,6 +41,9 @@ This slice starts the AXOS MES operator terminal redesign on the connected `plan
   now persist structured WO, line, station, part number, requested quantity and
   unit on `material_requests`; `/dashboard/material-staging` renders those fields
   directly instead of relying on note parsing.
+- Genealogy lot/reel capture slice: confirm advance now accepts scanned material
+  lot and reel tokens, stores them in the as-built genealogy index with the MES
+  event id, and avoids double-counting the live consumption ledger.
 
 ### Next slices
 

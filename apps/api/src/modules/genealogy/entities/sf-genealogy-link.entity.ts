@@ -16,10 +16,10 @@ export type GenealogyLinkSource =
  * It is the FORWARD-capture / enrichment store: the shop-floor consumption ledger
  * (`sf_consumption_events`) records serial+part+station+operator+timestamp but NOT
  * the lot/reel of the consumed material — this table closes that gap. It is
- * populated by event (the `recordLink` hook the operator terminal CAN call when a
- * reel/lot is scanned — wired later like the SAP stub, never touching the source
- * tables) and read by the as-built / where-used queries, which UNION it with the
- * live consumption ledger. Fully additive, prefixed table, all columns
+ * populated by event (the `recordLink` hook the MES confirmation path calls when
+ * a reel/lot is scanned, never touching the source tables) and read by the
+ * as-built / where-used queries, which UNION it with the live consumption ledger.
+ * Fully additive, prefixed table, all columns
  * nullable/defaulted; idempotent via `idempotency_key`.
  */
 @Entity('sf_genealogy_index')

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { ReceivingEvent } from './entities/receiving-event.entity';
@@ -92,10 +92,12 @@ export class ReceivingService {
     user: User,
   ): Promise<ReceivingEvent> {
     const receiptNumber = await this.nextReceiptNumber();
+    const expiresAt = this.normalizeExpiry(dto.expiresAt);
 
     const receipt = this.receivingRepo.create({
       ...dto,
       receiptNumber,
+      expiresAt,
     });
     const saved = await this.receivingRepo.save(receipt);
 
@@ -112,6 +114,7 @@ export class ReceivingService {
       holdStatus: 'pending_iqc', // FORCE PENDING IQC STATUS
       lotNumber: saved.lotNumber,
       serialNumber: saved.serialNumber,
+      expiresAt: saved.expiresAt ?? null,
       reason: `Material Receipt from Supplier: ${saved.supplierCode}`,
     });
 
@@ -125,6 +128,7 @@ export class ReceivingService {
         partNumber: saved.partNumber,
         qty: saved.quantity,
         status: 'pending_iqc',
+        expiresAt: saved.expiresAt ?? null,
       },
     });
 
@@ -143,5 +147,14 @@ export class ReceivingService {
     });
 
     return saved;
+  }
+
+  private normalizeExpiry(value: Date | string | null | undefined): Date | null {
+    if (value === undefined || value === null || value === '') return null;
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('expiresAt must be a valid date.');
+    }
+    return date;
   }
 }

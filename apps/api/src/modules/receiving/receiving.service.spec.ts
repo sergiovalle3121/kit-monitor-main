@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { BadRequestException } from '@nestjs/common';
 import { ReceivingService } from './receiving.service';
 import { ReceivingEvent } from './entities/receiving-event.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
@@ -72,9 +73,11 @@ describe('ReceivingService — folio + cableado de inventario', () => {
   });
 
   it('asigna folio REC-YYYY-NNNN y registra un movimiento RECEIVE con ese folio', async () => {
-    const r = await service.recordReceipt(dto(), user);
+    const expiresAt = new Date('2026-12-31T00:00:00.000Z');
+    const r = await service.recordReceipt(dto({ expiresAt }), user);
 
     expect(r.receiptNumber).toBe(`REC-${year}-0001`);
+    expect(r.expiresAt).toEqual(expiresAt);
     expect(inventory.recordTransaction).toHaveBeenCalledTimes(1);
     const tx = inventory.recordTransaction.mock.calls[0][0] as Record<
       string,
@@ -86,12 +89,20 @@ describe('ReceivingService — folio + cableado de inventario', () => {
     expect(tx.holdStatus).toBe('pending_iqc');
     expect(tx.partNumber).toBe('RES-0402-10K');
     expect(tx.quantity).toBe(5000);
+    expect(tx.expiresAt).toEqual(expiresAt);
   });
 
   it('incrementa el folio de forma atómica en recibos sucesivos', async () => {
     await service.recordReceipt(dto({ partNumber: 'A' }), user);
     const r2 = await service.recordReceipt(dto({ partNumber: 'B' }), user);
     expect(r2.receiptNumber).toBe(`REC-${year}-0002`);
+  });
+
+  it('rejects an invalid lot expiry before saving receipt inventory', async () => {
+    await expect(
+      service.recordReceipt(dto({ expiresAt: 'not-a-date' as never }), user),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(inventory.recordTransaction).not.toHaveBeenCalled();
   });
 
   it('si la numeración falla, usa un folio de respaldo único con marca F (sin colisión)', async () => {

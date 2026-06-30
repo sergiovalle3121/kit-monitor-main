@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
@@ -16,6 +17,7 @@ import {
 } from '../../common/tenant/tenant-scoped.repository';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import {
   MesStagingLine,
   MesStagingStatus,
@@ -53,8 +55,15 @@ interface StagingSummary {
   totalLines: number;
   stagedLines: number;
   shortageLines: number;
+  stockShortageLines: number;
   fillRatePct: number;
   allStaged: boolean;
+  stockReady: boolean;
+}
+
+interface LineStockSnapshot {
+  availableQty: number;
+  shortageQty: number;
 }
 
 /**
@@ -75,6 +84,8 @@ export class MaterialStagingMesService {
     // así el kitteador ve los MISMOS planes que monta el operador en /operador.
     @Inject(getTenantRepositoryToken(MesStagingLine))
     private readonly staging: TenantScopedRepository<MesStagingLine>,
+    @Inject(getTenantRepositoryToken(InventoryPosition))
+    private readonly positions: TenantScopedRepository<InventoryPosition>,
     @InjectRepository(Plan)
     private readonly planRepo: Repository<Plan>,
     private readonly pickList: PickListService,
@@ -140,11 +151,17 @@ export class MaterialStagingMesService {
     for (const r of rows)
       if (r.kitMaterialId != null) byKitMat.set(r.kitMaterialId, r);
 
-    const lines = (pick.lines ?? []).map((l) => {
+    const pickLines = pick.lines ?? [];
+    const stockByLine = await this.stockByLine(pickLines);
+    const lines = pickLines.map((l) => {
       const st = byKitMat.get(l.id);
       const requiredQty = Number(l.quantityRequired) || 0;
       const stagedQty = st ? Number(st.stagedQty) : 0;
       const stagingStatus: MesStagingStatus = st?.status ?? 'PENDING';
+      const stock = stockByLine.get(l.id) ?? {
+        availableQty: 0,
+        shortageQty: requiredQty,
+      };
       return {
         id: l.id,
         partNumber: l.partNumber,
@@ -157,6 +174,9 @@ export class MaterialStagingMesService {
         requiredQty,
         stagedQty,
         stagingStatus,
+        availableQty: stock.availableQty,
+        shortageQty: stock.shortageQty,
+        stockStatus: stock.shortageQty > 0 ? 'SHORTAGE' : 'READY',
         staged: stagingStatus === 'STAGED',
       };
     });
@@ -180,6 +200,7 @@ export class MaterialStagingMesService {
     const requiredQty = Number(line.quantityRequired) || 0;
     const stagedQty =
       dto?.stagedQty != null ? Number(dto.stagedQty) : requiredQty;
+    await this.assertStockAvailableForLine(planId, line, stagedQty);
     await this.upsert(
       planId,
       pick.workOrder ?? null,
@@ -198,6 +219,7 @@ export class MaterialStagingMesService {
   async stageAllForPlan(planId: number): Promise<any> {
     const pick = (await this.pickList.getByPlan(planId)) as PickListResult;
     const lines = pick.lines ?? [];
+    await this.assertAllStockAvailable(lines);
     for (const line of lines) {
       const requiredQty = Number(line.quantityRequired) || 0;
       await this.upsert(
@@ -265,6 +287,134 @@ export class MaterialStagingMesService {
     return this.staging.save(row);
   }
 
+  private async assertAllStockAvailable(lines: PickListLine[]): Promise<void> {
+    const availableByPart = await this.availableByPart(
+      lines.map((line) => line.partNumber),
+    );
+    const demandByPart = this.demandByPart(lines);
+    const shortages = [...demandByPart.entries()]
+      .map(([partNumber, demand]) => {
+        const availableQty = availableByPart.get(partNumber) ?? 0;
+        const shortageQty = round(Math.max(0, demand.requiredQty - availableQty));
+        return {
+          partNumber,
+          requiredQty: demand.requiredQty,
+          availableQty,
+          shortageQty,
+          unit: demand.unit,
+        };
+      })
+      .filter((line) => line.shortageQty > 0);
+
+    if (shortages.length === 0) return;
+
+    const detail = shortages
+      .slice(0, 3)
+      .map(
+        (line) =>
+          `${line.partNumber}: faltan ${line.shortageQty} ${line.unit} (req ${line.requiredQty}, disp ${line.availableQty})`,
+      )
+      .join('; ');
+    throw new BadRequestException(
+      `No se puede surtir el plan: inventario disponible insuficiente. ${detail}`,
+    );
+  }
+
+  private async assertStockAvailableForLine(
+    planId: number,
+    line: PickListLine,
+    stagedQty: number,
+  ): Promise<void> {
+    const availableQty = await this.availableForPart(line.partNumber);
+    const requestedQty = Math.max(0, Number(stagedQty) || 0);
+    const siblingRows = await this.staging.find({
+      where: { planId, part: line.partNumber },
+    });
+    const alreadyStagedForPart = siblingRows
+      .filter((row) => row.kitMaterialId !== line.id)
+      .reduce((sum, row) => sum + (Number(row.stagedQty) || 0), 0);
+    const projectedQty = round(alreadyStagedForPart + requestedQty);
+    if (projectedQty <= availableQty) return;
+
+    throw new BadRequestException(
+      `No se puede surtir ${line.partNumber}: faltan ${round(
+        projectedQty - availableQty,
+      )} ${line.unit ?? 'EA'} (req ${projectedQty}, disp ${availableQty}).`,
+    );
+  }
+
+  private async availableForPart(partNumber: string): Promise<number> {
+    const availableByPart = await this.availableByPart([partNumber]);
+    return availableByPart.get(partNumber) ?? 0;
+  }
+
+  private async availableByPart(parts: string[]): Promise<Map<string, number>> {
+    const partNumbers = [...new Set(parts.filter(Boolean))];
+    const availableByPart = new Map<string, number>();
+    if (partNumbers.length === 0) return availableByPart;
+
+    const positions = await this.positions.find({
+      where: { partNumber: In(partNumbers), holdStatus: 'available' },
+    });
+    for (const position of positions) {
+      const available = Math.max(
+        0,
+        (Number(position.onHand) || 0) - (Number(position.allocated) || 0),
+      );
+      availableByPart.set(
+        position.partNumber,
+        round((availableByPart.get(position.partNumber) ?? 0) + available),
+      );
+    }
+    return availableByPart;
+  }
+
+  private async stockByLine(
+    lines: PickListLine[],
+  ): Promise<Map<number, LineStockSnapshot>> {
+    const availableByPart = await this.availableByPart(
+      lines.map((line) => line.partNumber),
+    );
+    const remainingByPart = new Map(availableByPart);
+    const stockByLine = new Map<number, LineStockSnapshot>();
+    for (const line of lines) {
+      const requiredQty = Number(line.quantityRequired) || 0;
+      const availableQty = remainingByPart.get(line.partNumber) ?? 0;
+      const shortageQty = round(Math.max(0, requiredQty - availableQty));
+      stockByLine.set(line.id, {
+        availableQty: round(Math.max(0, availableQty)),
+        shortageQty,
+      });
+      remainingByPart.set(
+        line.partNumber,
+        round(Math.max(0, availableQty - requiredQty)),
+      );
+    }
+    return stockByLine;
+  }
+
+  private demandByPart(lines: PickListLine[]): Map<
+    string,
+    {
+      requiredQty: number;
+      unit: string;
+    }
+  > {
+    const demandByPart = new Map<string, { requiredQty: number; unit: string }>();
+    for (const line of lines) {
+      if (!line.partNumber) continue;
+      const existing = demandByPart.get(line.partNumber) ?? {
+        requiredQty: 0,
+        unit: line.unit ?? 'EA',
+      };
+      existing.requiredQty = round(
+        existing.requiredQty + (Number(line.quantityRequired) || 0),
+      );
+      demandByPart.set(line.partNumber, existing);
+    }
+    return demandByPart;
+  }
+
   private scopeFields() {
     return {
       tenant_id: this.tenantCtx.getTenantId(),
@@ -308,19 +458,28 @@ export function deriveStagedStatus(
 }
 
 function summarize(
-  lines: { staged: boolean; stagingStatus: MesStagingStatus }[],
+  lines: {
+    staged: boolean;
+    stagingStatus: MesStagingStatus;
+    shortageQty?: number;
+  }[],
 ): StagingSummary {
   const totalLines = lines.length;
   const stagedLines = lines.filter((l) => l.staged).length;
   const shortageLines = lines.filter(
     (l) => l.stagingStatus === 'SHORTAGE',
   ).length;
+  const stockShortageLines = lines.filter(
+    (l) => Number(l.shortageQty) > 0,
+  ).length;
   return {
     totalLines,
     stagedLines,
     shortageLines,
+    stockShortageLines,
     fillRatePct: totalLines ? round(stagedLines / totalLines, 4) : 0,
     allStaged: totalLines > 0 && stagedLines >= totalLines,
+    stockReady: stockShortageLines === 0,
   };
 }
 

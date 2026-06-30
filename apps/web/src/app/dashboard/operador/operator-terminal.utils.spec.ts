@@ -8,6 +8,8 @@ const cases = [
   ["SN-ABC1234", "serial", "SN-ABC1234", true],
   ["SERIAL ABC1234", "serial", "SN-ABC1234", true],
   ["LOT-77A", "lot", "LOT-77A", true],
+  ["REEL-88A", "reel", "REEL-88A", true],
+  ["R 88A", "reel", "REEL-88A", true],
   ["PN-AX-99", "material", "AX-99", true],
   ["]C101095011015300", "code128", "01095011015300", true],
   ["]D201ABC", "datamatrix", "01ABC", true],

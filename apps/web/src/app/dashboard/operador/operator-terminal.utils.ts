@@ -2,6 +2,7 @@ export type ScanKind =
   | "wo"
   | "serial"
   | "lot"
+  | "reel"
   | "material"
   | "qr"
   | "datamatrix"
@@ -225,6 +226,15 @@ export function classifyScan(raw: string): Omit<ScanResult, "at"> {
       kind: "lot",
       valid: true,
       message: "Lote detectado para trazabilidad.",
+    };
+  }
+  if (/^(REEL|R)[-_:\s]?[A-Z0-9-]{3,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(REEL|R)[-_:\s]?/i, "REEL-"),
+      kind: "reel",
+      valid: true,
+      message: "Reel detectado para trazabilidad.",
     };
   }
   if (/^(MAT|PN|MPN)[-_:\s]?[A-Z0-9_.-]{3,}$/i.test(upper)) {

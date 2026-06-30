@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Plan } from '../plans/entities/plan.entity';
+import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { MesStagingLine } from './entities/mes-staging-line.entity';
 import { MaterialStagingMesService } from './material-staging-mes.service';
 import { MaterialStagingMesController } from './material-staging-mes.controller';
@@ -22,7 +23,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Plan, MesStagingLine]),
+    TypeOrmModule.forFeature([Plan, MesStagingLine, InventoryPosition]),
     PickListModule, // PickListService.getByPlan(planId)
     EventLedgerModule, // auditoría best-effort
     GovernanceModule, // AuditService requerido por PermissionsGuard
@@ -31,6 +32,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
   providers: [
     MaterialStagingMesService,
     provideTenantScopedRepository(MesStagingLine),
+    provideTenantScopedRepository(InventoryPosition),
   ],
   exports: [MaterialStagingMesService],
 })

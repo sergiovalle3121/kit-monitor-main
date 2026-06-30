@@ -29,6 +29,7 @@ interface Position {
   holdStatus?: string;
   lotNumber?: string | null;
   serialNumber?: string | null;
+  expiresAt?: string | null;
 }
 
 // Espejo de InventoryTransactionType del backend (inventory-movement.entity.ts).
@@ -184,6 +185,24 @@ function timeAgo(iso?: string | null): string {
   const h = Math.floor(min / 60);
   if (h < 24) return `hace ${h} h`;
   return d.toLocaleDateString();
+}
+
+function fmtDate(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
+}
+
+function lotExpiryMeta(iso?: string | null): { label: string; color: string } | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.floor((d.getTime() - today.getTime()) / 86_400_000);
+  if (days < 0) return { label: `Venció ${fmtDate(iso)}`, color: RED };
+  if (days <= 30) return { label: `Vence ${fmtDate(iso)}`, color: AMBER };
+  return { label: `Vence ${fmtDate(iso)}`, color: "#6b7280" };
 }
 
 type Tab = "positions" | "shortage" | "discrepancies" | "movements" | "replenishment" | "traceability";
@@ -731,6 +750,7 @@ function PartGroupCard({ g, onTrace, onCount, busyCount }: {
             {g.rows.map((p) => {
               const hold = HOLD_META[p.holdStatus ?? "available"] ?? { label: p.holdStatus ?? "—", color: "#6b7280" };
               const avail = Number(p.onHand ?? 0) - Number(p.allocated ?? 0);
+              const expiry = lotExpiryMeta(p.expiresAt);
               return (
                 <div key={p.id} className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-white/5">
                   <MapPin className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
@@ -743,6 +763,11 @@ function PartGroupCard({ g, onTrace, onCount, busyCount }: {
                       </span>
                     )}
                   </div>
+                  {expiry && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: `${expiry.color}1f`, color: expiry.color }}>
+                      {expiry.label}
+                    </span>
+                  )}
                   <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: `${hold.color}1f`, color: hold.color }}>{hold.label}</span>
                   <span className="tabular-nums text-xs flex-shrink-0 w-20 text-right">
                     <span className="font-semibold">{fmtQty(avail)}</span>
