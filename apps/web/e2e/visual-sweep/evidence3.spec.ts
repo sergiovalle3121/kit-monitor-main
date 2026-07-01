@@ -20,7 +20,6 @@ const SURFACES: { slug: string; path: string }[] = [
   { slug: "quality", path: "/dashboard/quality" },
   // hubs that had the invisible icon-tile bug (verify the fix)
   { slug: "finance", path: "/dashboard/finance" },
-  { slug: "rh", path: "/dashboard/rh" },
   { slug: "metrics", path: "/dashboard/metrics" },
   { slug: "industrial-engineering", path: "/dashboard/industrial-engineering" },
 ];

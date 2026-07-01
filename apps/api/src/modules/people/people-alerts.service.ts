@@ -100,7 +100,7 @@ export class PeopleAlertsService {
             body,
             domain: 'people',
             source: 'Skills',
-            href: '/dashboard/skills',
+            href: '/dashboard',
             dedupeKey,
           });
           result.notified += 1;

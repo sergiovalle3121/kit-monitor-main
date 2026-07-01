@@ -83,8 +83,6 @@ export const AREAS: DashboardArea[] = [
   // ── Finanzas · ERP ──
   { name: "Finanzas", desc: "Costos y P&L", href: "/dashboard/finance", icon: DollarSign, domain: "finance", roles: ["finance"], section: "Finanzas · ERP" },
   { name: "Costos y métricas", desc: "Dinero y eficiencia", href: "/dashboard/metrics", icon: Icons.Activity, domain: "finance", roles: ["finance", "planner", "production_supervisor"], section: "Finanzas · ERP" },
-  { name: "Activos Fijos", desc: "Depreciación y valor en libros", href: "/dashboard/fixed-assets", icon: Icons.Building, domain: "finance", roles: ["finance"], section: "Finanzas · ERP" },
-  { name: "Gastos · Viáticos", desc: "Reportes y reembolsos", href: "/dashboard/expenses", icon: Icons.Receipt, domain: "finance", roles: ["finance", "buyer", "production_supervisor"], section: "Finanzas · ERP" },
   { name: "Axos ERP", desc: "FIN · MM · PP · SD · T-Codes", href: "/dashboard/erp", icon: Icons.Landmark, domain: "erp", roles: ["finance", "planner", "production_supervisor", "buyer"], section: "Finanzas · ERP" },
 
   // ── Control e inteligencia ──
@@ -98,11 +96,7 @@ export const AREAS: DashboardArea[] = [
   { name: "Mejora Continua", desc: "Kaizen, Lean y 6σ", href: "/dashboard/improvement", icon: Icons.Lightbulb, domain: "engineering", roles: ["industrial_engineer", "engineering", "production_supervisor", "quality_engineer"], section: "Control e inteligencia" },
 
   // ── Administración ──
-  { name: "Personas (RH)", desc: "Plantilla y accesos", href: "/dashboard/rh", icon: Icons.Users, domain: "people", roles: ["hr"], section: "Administración" },
-  { name: "Skills · Certificaciones", desc: "Matriz de habilidades y recerts", href: "/dashboard/skills", icon: Icons.GraduationCap, domain: "people", roles: ["hr", "production_supervisor", "quality_engineer"], section: "Administración" },
   { name: "EHS · Seguridad", desc: "Incidentes y casi-accidentes", href: "/dashboard/ehs", icon: Icons.ShieldAlert, domain: "people", roles: ["hr", "production_supervisor", "maintenance_tech"], section: "Administración" },
-  { name: "Legal · Contratos", desc: "Contratos, vencimientos y renovaciones", href: "/dashboard/legal", icon: Icons.Scale, domain: "office", roles: ["finance", "hr", "plant_manager"], section: "Administración" },
-  { name: "CRM · Pipeline", desc: "Oportunidades de venta", href: "/dashboard/crm", icon: Icons.Target, domain: "finance", roles: ["finance"], section: "Administración" },
 ];
 
 // Accesos de los puestos agregados (Comercial/Programas, Test Engineering, SQE,
@@ -110,8 +104,7 @@ export const AREAS: DashboardArea[] = [
 // fila de AREAS; cada rol nuevo ve aquí sus módulos núcleo. admin/executive/owner
 // siguen viendo TODO vía seesAllAreas, así que no necesitan estar aquí.
 const EXTRA_ROLE_GRANTS: Record<string, string[]> = {
-  // Comercial / Gestión de programas → comercial, cliente y control
-  "/dashboard/crm": ["program_manager"],
+  // Comercial / Gestión de programas → cliente y control
   "/dashboard/customers": ["program_manager"],
   "/dashboard/mission-control": ["program_manager"],
   "/dashboard/control-tower": ["program_manager"],
@@ -133,9 +126,8 @@ const EXTRA_ROLE_GRANTS: Record<string, string[]> = {
   "/dashboard/traffic": ["trade_compliance"],
   "/dashboard/packing": ["trade_compliance"],
   "/dashboard/inventory": ["trade_compliance"],
-  // EHS / Seguridad → EHS y matriz de habilidades
+  // EHS / Seguridad → EHS
   "/dashboard/ehs": ["ehs_specialist"],
-  "/dashboard/skills": ["ehs_specialist"],
 };
 
 for (const area of AREAS) {

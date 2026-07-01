@@ -10,7 +10,6 @@
  *   • WO        → GET /production-plan         (SfWorkOrder[])
  *   • NCR       → GET /ncr                     (NCR[])
  *   • Parts     → GET /product-models          (ProductModel[])
- *   • People    → GET /people/certifications   (Certification[], deduped by person)
  *
  * The lists are fetched once, normalized into a flat `SearchHit[]` index with a
  * precomputed lowercase `haystack`, and cached for a short TTL so typing filters
@@ -24,10 +23,10 @@ import { apiFetch } from '@/lib/apiFetch';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
-export type SearchKind = 'wo' | 'ncr' | 'part' | 'person';
+export type SearchKind = 'wo' | 'ncr' | 'part';
 
 /** Order groups are presented in (records first, navigation is appended by the UI). */
-export const ENTITY_ORDER: SearchKind[] = ['wo', 'ncr', 'part', 'person'];
+export const ENTITY_ORDER: SearchKind[] = ['wo', 'ncr', 'part'];
 
 /** Max hits rendered per group so one noisy source can't drown the rest. */
 const PER_GROUP = 6;
@@ -98,7 +97,6 @@ function lower(...parts: Array<string | number | null | undefined>): string {
 interface RawWo { id: string; folio?: string | null; model?: string; line?: string; customer?: string | null; status?: string; priority?: string; quantityPlanned?: number; quantityCompleted?: number; publishedAt?: string; scheduledDate?: string }
 interface RawNcr { id: number; ncrNumber: string; partNumber?: string; model?: string; workOrder?: string; category?: string; description?: string; status?: string; customer?: string; createdAt?: string }
 interface RawPart { id: string; modelNumber: string; name: string; customer?: string | null; revision?: string; status?: string; createdAt?: string }
-interface RawCert { id: string; employeeName: string; employeeEmail?: string | null; skill?: string; area?: string | null; station?: string | null; expiresDate?: string }
 
 function mapWos(rows: RawWo[]): SearchHit[] {
   return rows.map((w) => {
@@ -149,47 +147,16 @@ function mapParts(rows: RawPart[]): SearchHit[] {
   }));
 }
 
-/** Certifications are one row per skill; collapse to one hit per person. */
-function mapPeople(rows: RawCert[]): SearchHit[] {
-  const byPerson = new Map<string, { name: string; email?: string | null; count: number; skills: string[]; areas: Set<string> }>();
-  for (const c of rows) {
-    const name = (c.employeeName || '').trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    const agg = byPerson.get(key) ?? { name, email: c.employeeEmail, count: 0, skills: [], areas: new Set<string>() };
-    agg.count += 1;
-    if (c.skill) agg.skills.push(c.skill);
-    if (c.area) agg.areas.add(c.area);
-    if (!agg.email && c.employeeEmail) agg.email = c.employeeEmail;
-    byPerson.set(key, agg);
-  }
-  return [...byPerson.values()].map((p) => {
-    const areas = [...p.areas];
-    const certs = `${p.count} ${p.count === 1 ? 'certificación' : 'certificaciones'}`;
-    return {
-      kind: 'person' as const,
-      id: `person:${p.name.toLowerCase()}`,
-      title: p.name,
-      subtitle: [certs, areas.join(', ')].filter(Boolean).join(' · '),
-      href: '/dashboard/skills',
-      haystack: lower(p.name, p.email, p.skills.join(' '), areas.join(' ')),
-      score: 0,
-      ts: 0,
-    };
-  });
-}
-
 // ── Index build + cache ──────────────────────────────────────────────────────
 
 let cache: { at: number; index: SearchIndex } | null = null;
 let inflight: Promise<SearchIndex> | null = null;
 
 async function buildIndex(signal?: AbortSignal): Promise<SearchIndex> {
-  const [wo, ncr, part, ppl] = await Promise.all([
+  const [wo, ncr, part] = await Promise.all([
     getJson('/production-plan', signal),
     getJson('/ncr', signal),
     getJson('/product-models', signal),
-    getJson('/people/certifications', signal),
   ]);
 
   // If the user kept typing and this load was aborted, don't cache a torn result.
@@ -206,7 +173,6 @@ async function buildIndex(signal?: AbortSignal): Promise<SearchIndex> {
   collect('wo', wo, mapWos as never);
   collect('ncr', ncr, mapNcrs as never);
   collect('part', part, mapParts as never);
-  collect('person', ppl, mapPeople as never);
 
   return { hits, degraded, authError: degraded.length === ENTITY_ORDER.length };
 }
@@ -250,7 +216,7 @@ export function filterSearchIndex(index: SearchIndex, query: string): SearchHit[
   if (!q) return [];
   const terms = q.split(/\s+/).filter(Boolean);
 
-  const buckets: Record<SearchKind, SearchHit[]> = { wo: [], ncr: [], part: [], person: [] };
+  const buckets: Record<SearchKind, SearchHit[]> = { wo: [], ncr: [], part: [] };
   for (const hit of index.hits) {
     if (!terms.every((t) => hit.haystack.includes(t))) continue;
     buckets[hit.kind].push({ ...hit, score: scoreHit(hit, q, terms) });

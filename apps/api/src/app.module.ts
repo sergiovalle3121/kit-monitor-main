@@ -14,7 +14,6 @@ import { NumberingModule } from './modules/numbering/numbering.module';
 import { ImprovementModule } from './modules/improvement/improvement.module';
 import { EhsModule } from './modules/ehs/ehs.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
-import { LegalModule } from './modules/legal/legal.module';
 import { TestingModule } from './modules/testing/testing.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { PeopleModule } from './modules/people/people.module';
@@ -25,9 +24,6 @@ import { TrafficModule } from './modules/traffic/traffic.module';
 import { PackingModule } from './modules/packing/packing.module';
 import { InboundModule } from './modules/inbound/inbound.module';
 import { CycleCountsModule } from './modules/cycle-counts/cycle-counts.module';
-import { CrmModule } from './modules/crm/crm.module';
-import { FixedAssetsModule } from './modules/fixed-assets/fixed-assets.module';
-import { ExpensesModule } from './modules/expenses/expenses.module';
 import { ToolingModule } from './modules/tooling/tooling.module';
 import { RmaModule } from './modules/rma/rma.module';
 import { LineEngineeringModule } from './modules/line-engineering/line-engineering.module';
@@ -112,7 +108,6 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     ImprovementModule,
     EhsModule,
     MaintenanceModule,
-    LegalModule,
     TestingModule,
     ProcurementModule,
     PeopleModule,
@@ -123,9 +118,6 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     PackingModule,
     InboundModule,
     CycleCountsModule,
-    CrmModule,
-    FixedAssetsModule,
-    ExpensesModule,
     ToolingModule,
     RmaModule,
     LineEngineeringModule,

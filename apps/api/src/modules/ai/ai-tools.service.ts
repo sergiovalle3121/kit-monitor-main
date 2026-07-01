@@ -23,7 +23,6 @@ import { VisualAidsService } from '../visual-aids/visual-aids.service';
 import { ShippingService } from '../shipping/shipping.service';
 import { ToolingService } from '../tooling/tooling.service';
 import { RmaService } from '../rma/rma.service';
-import { FixedAssetsService } from '../fixed-assets/fixed-assets.service';
 import { GenealogyService } from '../genealogy/genealogy.service';
 import { ACTIONS, ACTION_KEYS } from './ai-actions';
 import { CideToolSpec } from './cide-provider';
@@ -1006,28 +1005,6 @@ export class AiToolsService {
               status: str(i.status),
               customerName: str(i.customerName),
             })
-            .then((d) => clip(d, 60)),
-      },
-      // ── Finanzas: Activos fijos ────────────────────────────────────────────
-      {
-        name: 'list_fixed_assets',
-        description:
-          'Activos fijos (capital) con su estado y categoría, para gestión y depreciación. Filtros: status, category.',
-        requiredPermission: 'finance:read',
-        mockTriggers: [
-          'activo fijo',
-          'activos fijos',
-          'depreciaci',
-          'capital',
-          'fixed asset',
-        ],
-        input_schema: schema({
-          status: { type: 'string', description: 'Estado del activo' },
-          category: { type: 'string', description: 'Categoría' },
-        }),
-        run: (i) =>
-          this.svc(FixedAssetsService)
-            .list({ status: str(i.status), category: str(i.category) })
             .then((d) => clip(d, 60)),
       },
       // ── Trazabilidad: Genealogía as-built ──────────────────────────────────

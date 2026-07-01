@@ -4,13 +4,12 @@ import React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
-  ChevronLeft, Loader2, Lock, Target, Layers, ShieldAlert, Truck, DollarSign,
-  ArrowUpRight, Crown, ExternalLink,
+  ChevronLeft, Loader2, Lock, Layers, ShieldAlert, Truck, DollarSign,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import {
-  money, compactMoney, TIER_COLOR, PROGRAM_META, healthColor, type Customer360,
+  money, compactMoney, PROGRAM_META, type Customer360,
 } from '@/lib/customer360';
 
 const SEV_COLOR: Record<string, string> = { LOW: '#6b7280', MEDIUM: '#f59e0b', HIGH: '#ef4444', CRITICAL: '#dc2626' };
@@ -23,57 +22,32 @@ export default function Customer360Page() {
   if (forbidden) return <Guard />;
   if (isLoading || !data) return <div className="min-h-screen grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" /></div>;
 
-  const { customer: c, account, programs, commercial, quality, delivery, finance, metrics } = data;
-  const tierColor = account?.tier ? TIER_COLOR[account.tier] || '#6b7280' : '#0fb39a';
-  const ccy = commercial.currency || 'USD';
+  const { customer: c, programs, quality, delivery, finance, metrics } = data;
+  const ccy = finance.currency || 'USD';
 
   return (
     <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
           <Link href="/dashboard/customers" aria-label="Volver" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
-          <span className="w-10 h-10 rounded-xl grid place-items-center text-white font-bold flex-shrink-0" style={{ background: `linear-gradient(135deg, ${tierColor}, #0fb39a)` }}>{c.name.slice(0, 2).toUpperCase()}</span>
+          <span className="w-10 h-10 rounded-xl grid place-items-center text-white font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0fb39a, #0a84ff)' }}>{c.name.slice(0, 2).toUpperCase()}</span>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2"><h1 className="text-lg font-semibold leading-tight truncate">{c.name}</h1>{account?.tier === 'STRATEGIC' && <Crown className="w-4 h-4" style={{ color: '#7c3aed' }} />}</div>
+            <div className="flex items-center gap-2"><h1 className="text-lg font-semibold leading-tight truncate">{c.name}</h1></div>
             <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight font-mono">{c.code}{c.industry ? ` · ${c.industry}` : ''}</p>
           </div>
-          {account && (
-            <Link href={`/dashboard/crm/accounts/${account.id}`} className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium border border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10">
-              Cuenta CRM <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
-          )}
         </div>
       </div>
 
       <main className="max-w-6xl mx-auto px-6 pt-6 pb-24">
         {/* Metric strip */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Metric label="Programas" value={String(metrics.programs)} sub={`${metrics.activePrograms} activos`} color="#3b82f6" />
-          <Metric label="Pipeline" value={compactMoney(metrics.pipelineValue, ccy)} color="#7c3aed" />
-          <Metric label="Ganado" value={compactMoney(metrics.wonValue, ccy)} color="#10b981" />
           <Metric label="RMAs abiertas" value={String(metrics.openRmas)} color={metrics.openRmas ? '#ef4444' : '#10b981'} />
           <Metric label="OTD" value={metrics.otdPct != null ? `${metrics.otdPct}%` : '—'} color={metrics.otdPct == null ? '#6b7280' : metrics.otdPct >= 95 ? '#10b981' : '#f59e0b'} />
           <Metric label="Órdenes venta" value={compactMoney(metrics.salesOrderValue, ccy)} color="#0fb39a" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Comercial */}
-          <Section icon={Target} title="Comercial (CRM)" accent="#7c3aed" right={account && <Link href={`/dashboard/crm/accounts/${account.id}`} className="text-[12px] font-medium inline-flex items-center gap-1" style={{ color: '#7c3aed' }}>Abrir <ExternalLink className="w-3 h-3" /></Link>}>
-            {commercial.account ? (
-              <div className="space-y-2.5">
-                <Row label="Pipeline" value={money(commercial.pipelineValue, ccy)} />
-                <Row label="Ponderado" value={money(commercial.weightedValue, ccy)} />
-                <Row label="Ganado" value={money(commercial.wonValue, ccy)} valueColor="#10b981" />
-                <Row label="Cotizaciones abiertas" value={`${commercial.openQuotes} · ${compactMoney(commercial.quoteValue, ccy)}`} />
-                <div className="pt-2 mt-1 border-t border-black/5 dark:border-white/10 space-y-2.5">
-                  <Row label="Tier" value={account?.tier || '—'} />
-                  <Row label="Términos" value={commercial.account.paymentTerms || '—'} />
-                  <Row label="Crédito" value={commercial.account.creditLimit ? money(commercial.account.creditLimit, ccy) : '—'} />
-                </div>
-              </div>
-            ) : <Muted text="Sin cuenta comercial ligada." />}
-          </Section>
-
           {/* Programas */}
           <Section icon={Layers} title="Programas" accent="#3b82f6">
             {programs.length === 0 ? <Muted text="Sin programas." /> : (
@@ -127,22 +101,13 @@ export default function Customer360Page() {
               <Row label="Valor total" value={money(finance.totalValue, finance.currency)} valueColor="#0fb39a" />
             </div>
           </Section>
-
-          {/* Salud */}
-          {account && (
-            <Section icon={Target} title="Salud de cuenta" accent={healthColor(account.healthScore)}>
-              <div className="flex items-end gap-2 mb-2"><div className="text-4xl font-bold tabular-nums" style={{ color: healthColor(account.healthScore) }}>{account.healthScore}</div><div className="text-[12px] text-gray-500 dark:text-gray-400 mb-1.5">/ 100</div></div>
-              <div className="h-2 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden mb-3"><div className="h-full rounded-full" style={{ width: `${account.healthScore}%`, background: healthColor(account.healthScore) }} /></div>
-              <Row label="Account manager" value={account.ownerEmail || '—'} />
-            </Section>
-          )}
         </div>
       </main>
     </div>
   );
 }
 
-function Section({ icon: Icon, title, accent, right, children }: { icon: typeof Target; title: string; accent: string; right?: React.ReactNode; children: React.ReactNode }) {
+function Section({ icon: Icon, title, accent, right, children }: { icon: typeof Layers; title: string; accent: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className={`${glass} rounded-2xl p-5`}>
       <div className="flex items-center justify-between mb-4">
