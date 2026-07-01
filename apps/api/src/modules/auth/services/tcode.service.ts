@@ -21,18 +21,12 @@ export class TCodeService {
   private registerErpTCodes() {
     const codes: Array<[string, string, string, string]> = [
       ['ERP', 'Axos Core ERP — HUB central', 'ERP', '/dashboard/erp'],
-      ['FIN01', 'Libro Mayor / Balanza (GL)', 'ERP · Finanzas', '/dashboard/erp/fin'],
-      ['FIN02', 'Cuentas por Cobrar / Pagar (AR/AP)', 'ERP · Finanzas', '/dashboard/erp/fin?tab=invoices'],
-      ['FIN03', 'Centros de Costo y Presupuesto', 'ERP · Finanzas', '/dashboard/erp/fin?tab=cost-centers'],
       ['MM01', 'Maestro de Materiales y Valuación', 'ERP · Materiales', '/dashboard/erp/mm?tab=valuation'],
       ['MM02', 'Órdenes de Compra (PO)', 'ERP · Materiales', '/dashboard/erp/mm?tab=po'],
       ['MM03', 'Requisiciones y Movimientos', 'ERP · Materiales', '/dashboard/erp/mm?tab=requisitions'],
       ['PP01', 'Órdenes de Fabricación (Planeadas)', 'ERP · Producción', '/dashboard/erp/pp?tab=planned'],
       ['PP02', 'Cálculo de Necesidades (MRP Run)', 'ERP · Producción', '/dashboard/erp/pp'],
       ['PP03', 'Liberar Órdenes Planeadas', 'ERP · Producción', '/dashboard/erp/pp?tab=planned'],
-      ['SD01', 'Pedidos de Cliente (Sales Orders)', 'ERP · Ventas', '/dashboard/erp/sd'],
-      ['SD02', 'Despacho / Logística de Salida', 'ERP · Ventas', '/dashboard/erp/sd?tab=delivery'],
-      ['SD03', 'Facturación de Ventas', 'ERP · Ventas', '/dashboard/erp/sd?tab=invoices'],
     ];
     for (const [code, description, category, route] of codes) {
       this.tCodes.set(code, {
@@ -183,67 +177,6 @@ export class TCodeService {
       handler: async (params) => await this.handleME01(params),
     });
 
-    // ==================== VENTAS Y DISTRIBUCIÓN (SD) ====================
-    this.tCodes.set('VA01', {
-      description: 'Crear pedido de venta',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVA01(params),
-    });
-
-    this.tCodes.set('VA02', {
-      description: 'Modificar pedido de venta',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVA02(params),
-    });
-
-    this.tCodes.set('VA03', {
-      description: 'Visualizar pedido de venta',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVA03(params),
-    });
-
-    this.tCodes.set('VF01', {
-      description: 'Crear documento de facturación',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVF01(params),
-    });
-
-    this.tCodes.set('VF02', {
-      description: 'Modificar documento de facturación',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVF02(params),
-    });
-
-    this.tCodes.set('VF03', {
-      description: 'Visualizar documento de facturación',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVF03(params),
-    });
-
-    this.tCodes.set('VL01N', {
-      description: 'Crear entrega saliente',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVL01N(params),
-    });
-
-    this.tCodes.set('VL02N', {
-      description: 'Modificar entrega saliente',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVL02N(params),
-    });
-
-    this.tCodes.set('VL03N', {
-      description: 'Visualizar entrega saliente',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVL03N(params),
-    });
-
-    this.tCodes.set('VK11', {
-      description: 'Crear condiciones de precios',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVK11(params),
-    });
-
     // ==================== PLANIFICACIÓN DE PRODUCCIÓN (PP) ====================
     this.tCodes.set('CO01', {
       description: 'Crear orden de producción',
@@ -281,92 +214,7 @@ export class TCodeService {
       handler: async (params) => await this.handleCOOIS(params),
     });
 
-    // ==================== CONTABILIDAD FINANCIERA (FI) ====================
-    this.tCodes.set('FB01', {
-      description: 'Documento financiero posterior',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFB01(params),
-    });
-
-    this.tCodes.set('FB50', {
-      description: 'Introducir asiento contable en cuenta de mayor',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFB50(params),
-    });
-
-    this.tCodes.set('FBL1N', {
-      description: 'Mostrar artículos de línea del proveedor',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFBL1N(params),
-    });
-
-    this.tCodes.set('FBL3N', {
-      description: 'Mostrar partidas individuales de cuenta de mayor',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFBL3N(params),
-    });
-
-    this.tCodes.set('FBL5N', {
-      description: 'Mostrar partidas del cliente',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFBL5N(params),
-    });
-
-    this.tCodes.set('F-53', {
-      description: 'Pagos salientes',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleF53(params),
-    });
-
-    this.tCodes.set('F-28', {
-      description: 'Pagos entrantes',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleF28(params),
-    });
-
-    this.tCodes.set('FS10N', {
-      description: 'Mostrar saldo de cuenta de mayor',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFS10N(params),
-    });
-
-    this.tCodes.set('FB60', {
-      description: 'Introducir factura del proveedor',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFB60(params),
-    });
-
-    this.tCodes.set('FB70', {
-      description: 'Introducir factura del cliente',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFB70(params),
-    });
-
-    this.tCodes.set('FD32', {
-      description: 'Gestión del crédito al cliente',
-      category: 'Finanzas',
-      handler: async (params) => await this.handleFD32(params),
-    });
-
     // ==================== DATOS MAESTROS ====================
-    this.tCodes.set('XD01', {
-      description: 'Crear maestro de clientes',
-      category: 'Datos Maestros',
-      handler: async (params) => await this.handleXD01(params),
-    });
-
-    this.tCodes.set('XD02', {
-      description: 'Modificar datos maestros del cliente',
-      category: 'Datos Maestros',
-      handler: async (params) => await this.handleXD02(params),
-    });
-
-    this.tCodes.set('XD03', {
-      description: 'Visualizar maestro de clientes',
-      category: 'Datos Maestros',
-      handler: async (params) => await this.handleXD03(params),
-    });
-
     this.tCodes.set('XK01', {
       description: 'Crear maestro de proveedores',
       category: 'Datos Maestros',
@@ -711,30 +559,12 @@ export class TCodeService {
     };
   }
 
-  private async handleFBL3N(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'Cuentas de proveedor obtenidas',
-      action: 'VENDOR_ACCOUNTS',
-      data: { accounts: [{ vendor: 'PROVEEDOR A', balance: 15000 }, { vendor: 'PROVEEDOR B', balance: 8500 }] },
-    };
-  }
-
   private async handleQE51N(params?: any): Promise<TCodeResult> {
     return {
       success: true,
       message: 'Resultados de inspección obtenidos',
       action: 'QUALITY_RESULTS',
       data: { results: [{ lot: '0100000001', status: 'ACEPTADO' }, { lot: '0100000002', status: 'RECHAZADO' }] },
-    };
-  }
-
-  private async handleVA03(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'Pedido de venta visualizado',
-      action: 'VIEW_SALES_ORDER',
-      data: { order: { number: '100000001', customer: 'CLIENTE A', total: 25000 } },
     };
   }
 
@@ -903,88 +733,6 @@ export class TCodeService {
     };
   }
 
-  // ==================== VENTAS ====================
-  private async handleVA01(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VA01 - Crear pedido de venta',
-      action: 'CREATE_SALES_ORDER',
-      data: { message: 'Pedido de venta creado', params },
-    };
-  }
-
-  private async handleVA02(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VA02 - Modificar pedido de venta',
-      action: 'MODIFY_SALES_ORDER',
-      data: { message: 'Pedido de venta modificado', params },
-    };
-  }
-
-  private async handleVF01(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VF01 - Crear documento de facturación',
-      action: 'CREATE_BILLING_DOC',
-      data: { message: 'Documento de facturación creado', params },
-    };
-  }
-
-  private async handleVF02(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VF02 - Modificar documento de facturación',
-      action: 'MODIFY_BILLING_DOC',
-      data: { message: 'Documento de facturación modificado', params },
-    };
-  }
-
-  private async handleVF03(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VF03 - Visualizar documento de facturación',
-      action: 'VIEW_BILLING_DOC',
-      data: { message: 'Documento de facturación visualizado', params },
-    };
-  }
-
-  private async handleVL01N(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VL01N - Crear entrega saliente',
-      action: 'CREATE_OUTBOUND_DELIVERY',
-      data: { message: 'Entrega saliente creada', params },
-    };
-  }
-
-  private async handleVL02N(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VL02N - Modificar entrega saliente',
-      action: 'MODIFY_OUTBOUND_DELIVERY',
-      data: { message: 'Entrega saliente modificada', params },
-    };
-  }
-
-  private async handleVL03N(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VL03N - Visualizar entrega saliente',
-      action: 'VIEW_OUTBOUND_DELIVERY',
-      data: { message: 'Entrega saliente visualizada', params },
-    };
-  }
-
-  private async handleVK11(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'VK11 - Crear condiciones de precios',
-      action: 'CREATE_PRICE_CONDITIONS',
-      data: { message: 'Condiciones de precios creadas', params },
-    };
-  }
-
   // ==================== PRODUCCIÓN ====================
   private async handleCO01(params?: any): Promise<TCodeResult> {
     return {
@@ -1022,125 +770,7 @@ export class TCodeService {
     };
   }
 
-  // ==================== FINANZAS ====================
-  private async handleFB01(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'FB01 - Documento financiero posterior',
-      action: 'POST_FINANCIAL_DOCUMENT',
-      data: { message: 'Documento financiero registrado', params },
-    };
-  }
-
-  private async handleFB50(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'FB50 - Introducir asiento contable en cuenta de mayor',
-      action: 'ENTER_GL_POSTING',
-      data: { message: 'Asiento contable registrado', params },
-    };
-  }
-
-  private async handleFBL1N(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'FBL1N - Mostrar artículos de línea del proveedor',
-      action: 'VIEW_VENDOR_LINE_ITEMS',
-      data: { message: 'Artículos de línea del proveedor obtenidos', params },
-    };
-  }
-
-  private async handleFBL5N(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'FBL5N - Mostrar partidas del cliente',
-      action: 'VIEW_CUSTOMER_LINE_ITEMS',
-      data: { message: 'Partidas del cliente obtenidas', params },
-    };
-  }
-
-  private async handleF53(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'F-53 - Pagos salientes',
-      action: 'OUTGOING_PAYMENTS',
-      data: { message: 'Pagos salientes procesados', params },
-    };
-  }
-
-  private async handleF28(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'F-28 - Pagos entrantes',
-      action: 'INCOMING_PAYMENTS',
-      data: { message: 'Pagos entrantes procesados', params },
-    };
-  }
-
-  private async handleFS10N(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'FS10N - Mostrar saldo de cuenta de mayor',
-      action: 'VIEW_GL_BALANCE',
-      data: { message: 'Saldo de cuenta de mayor obtenido', params },
-    };
-  }
-
-  private async handleFB60(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'FB60 - Introducir factura del proveedor',
-      action: 'ENTER_VENDOR_INVOICE',
-      data: { message: 'Factura del proveedor registrada', params },
-    };
-  }
-
-  private async handleFB70(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'FB70 - Introducir factura del cliente',
-      action: 'ENTER_CUSTOMER_INVOICE',
-      data: { message: 'Factura del cliente registrada', params },
-    };
-  }
-
-  private async handleFD32(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'FD32 - Gestión del crédito al cliente',
-      action: 'CUSTOMER_CREDIT_MANAGEMENT',
-      data: { message: 'Gestión del crédito al cliente actualizada', params },
-    };
-  }
-
   // ==================== DATOS MAESTROS ====================
-  private async handleXD01(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'XD01 - Crear maestro de clientes',
-      action: 'CREATE_CUSTOMER',
-      data: { message: 'Maestro de clientes creado', params },
-    };
-  }
-
-  private async handleXD02(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'XD02 - Modificar datos maestros del cliente',
-      action: 'MODIFY_CUSTOMER',
-      data: { message: 'Datos maestros del cliente modificados', params },
-    };
-  }
-
-  private async handleXD03(params?: any): Promise<TCodeResult> {
-    return {
-      success: true,
-      message: 'XD03 - Visualizar maestro de clientes',
-      action: 'VIEW_CUSTOMER',
-      data: { message: 'Maestro de clientes visualizado', params },
-    };
-  }
-
   private async handleXK01(params?: any): Promise<TCodeResult> {
     return {
       success: true,

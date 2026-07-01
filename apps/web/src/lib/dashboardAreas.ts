@@ -38,7 +38,6 @@ export const AREAS: DashboardArea[] = [
   { name: "Tooling · Herramentales", desc: "Moldes, fixtures y vida en disparos", href: "/dashboard/tooling", icon: Icons.Hammer, domain: "engineering", roles: ["engineering", "industrial_engineer", "maintenance_tech", "production_supervisor"], section: "Diseño · NPI" },
   { name: "Importar Datos", desc: "Migración: materiales, BOM, ruteo", href: "/dashboard/import", icon: Icons.Upload, domain: "erp", roles: ["engineering", "industrial_engineer", "planner", "buyer"], section: "Diseño · NPI" },
   { name: "Ingeniería", desc: "BOM y proceso", href: "/dashboard/engineering", icon: Cpu, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
-  { name: "Ing. Industrial", desc: "Proceso, capacidad y mejora", href: "/dashboard/industrial-engineering", icon: Icons.Gauge, domain: "engineering", roles: ["engineering", "industrial_engineer", "production_supervisor"], section: "Diseño · NPI" },
   { name: "Disposición de líneas", desc: "Layout, ruteo y balanceo", href: "/dashboard/line-engineering", icon: Icons.Gauge, domain: "engineering", roles: ["industrial_engineer", "engineering", "production_supervisor"], section: "Diseño · NPI" },
 
   // ── Planeación ──
@@ -70,7 +69,6 @@ export const AREAS: DashboardArea[] = [
   { name: "Características CTQ", desc: "Catálogo CTQ + límites (cimiento SPC)", href: "/dashboard/quality/characteristics", icon: Icons.Crosshair, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },
   { name: "Mediciones CTQ", desc: "Lecturas y resumen descriptivo", href: "/dashboard/quality/measurements", icon: Icons.Ruler, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },
   { name: "Calidad de piso · MRB", desc: "Holds y disposición", href: "/dashboard/floor-quality", icon: Icons.ShieldX, domain: "quality", roles: ["quality_engineer", "mrb_member", "production_supervisor"], section: "Calidad" },
-  { name: "Pruebas / Lab", desc: "Inspección y validación", href: "/dashboard/lab", icon: Icons.FlaskConical, domain: "quality", roles: ["quality_engineer", "engineering"], section: "Calidad" },
   { name: "Test Engineering", desc: "Yields, FPY y Pareto de fallas", href: "/dashboard/test-engineering", icon: Icons.Sigma, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },
   { name: "RMA · Quejas", desc: "Devoluciones de cliente y 8D", href: "/dashboard/rma", icon: Icons.PackageX, domain: "quality", roles: ["quality_engineer", "mrb_member"], section: "Calidad" },
   { name: "Genealogía", desc: "Trazabilidad cuna-a-tumba", href: "/dashboard/genealogy", icon: Icons.Network, domain: "quality", roles: ["quality_engineer", "mrb_member", "engineering", "production_supervisor"], section: "Calidad" },
@@ -83,7 +81,7 @@ export const AREAS: DashboardArea[] = [
   // ── Finanzas · ERP ──
   { name: "Finanzas", desc: "Costos y P&L", href: "/dashboard/finance", icon: DollarSign, domain: "finance", roles: ["finance"], section: "Finanzas · ERP" },
   { name: "Costos y métricas", desc: "Dinero y eficiencia", href: "/dashboard/metrics", icon: Icons.Activity, domain: "finance", roles: ["finance", "planner", "production_supervisor"], section: "Finanzas · ERP" },
-  { name: "Axos ERP", desc: "FIN · MM · PP · SD · T-Codes", href: "/dashboard/erp", icon: Icons.Landmark, domain: "erp", roles: ["finance", "planner", "production_supervisor", "buyer"], section: "Finanzas · ERP" },
+  { name: "Axos ERP", desc: "MM · PP · T-Codes", href: "/dashboard/erp", icon: Icons.Landmark, domain: "erp", roles: ["finance", "planner", "production_supervisor", "buyer"], section: "Finanzas · ERP" },
 
   // ── Control e inteligencia ──
   { name: "Centro de Inteligencia", desc: "Capa semántica: métricas y ontología (CIDE)", href: "/dashboard/intelligence", icon: Icons.BrainCircuit, domain: "mes", roles: ["plant_manager", "planner", "production_supervisor", "finance", "quality_engineer", "engineering"], section: "Control e inteligencia" },
@@ -113,7 +111,6 @@ const EXTRA_ROLE_GRANTS: Record<string, string[]> = {
   // Test Engineering → pruebas y calidad
   "/dashboard/test-engineering": ["test_engineer"],
   "/dashboard/test-flow": ["test_engineer"],
-  "/dashboard/lab": ["test_engineer"],
   "/dashboard/quality/measurements": ["test_engineer"],
   "/dashboard/quality/characteristics": ["test_engineer"],
   // Calidad de proveedores (SQE) → proveedores, calidad, RMA, recibo

@@ -53,18 +53,12 @@ export function exportToXlsx(name: string, rows: Row[]): void {
 
 const ERP_ROUTES: Record<string, string> = {
   ERP: '/dashboard/erp',
-  FIN01: '/dashboard/erp/fin',
-  FIN02: '/dashboard/erp/fin?tab=invoices',
-  FIN03: '/dashboard/erp/fin?tab=cost-centers',
   MM01: '/dashboard/erp/mm?tab=valuation',
   MM02: '/dashboard/erp/mm?tab=po',
   MM03: '/dashboard/erp/mm?tab=requisitions',
   PP01: '/dashboard/erp/pp?tab=planned',
   PP02: '/dashboard/erp/pp',
   PP03: '/dashboard/erp/pp?tab=planned',
-  SD01: '/dashboard/erp/sd',
-  SD02: '/dashboard/erp/sd?tab=delivery',
-  SD03: '/dashboard/erp/sd?tab=invoices',
 };
 
 export function ErpHeader({
