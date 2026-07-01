@@ -1,10 +1,18 @@
 # Plan de limpieza — Dieta 3: quitar cascarones muertos + erp/fin + erp/sd
 
-> **Estado:** FASE 0 (mapa) COMPLETA. **DETENIDO esperando aprobación del owner** antes de FASE 1.
+> **Estado:** FASE 0 (mapa) + FASE 1 (ejecución) **COMPLETAS**, según las decisiones del owner (abajo).
 > Rama: `claude/remove-dead-shells-erp-jkn05y` (rama designada por el harness para esta tarea;
 > el prompt sugería `chore/diet3-remove-erp-fin-sd`, pero se respeta la rama asignada, igual que
 > en la Dieta anterior `REMOVE-OFFICE-PLAN.md`).
 > Método: mismo probado en `docs/cleanup/REMOVE-OFFICE-PLAN.md` — desenredar ANTES de borrar, un solo PR draft, sin mergear.
+
+## Decisiones del owner (aplicadas)
+
+- **Q1 (FASE 1):** **GO** — ejecutar el plan tal cual.
+- **Q2 (backend erp-core):** **dejar todo intacto** (frontend-only). No se toca ningún controller/service/entidad de `erp-core`.
+- **Q3 (T-codes SAP simulados):** **quitarlos también** — se eliminaron los handlers mock de **Ventas (SD)** (`VA0*`,`VF0*`,`VL0*N`,`VK11`), **Finanzas (FI)** (`FB01`,`FB50`,`FBL1N`,`FBL3N`,`FBL5N`,`F-53`,`F-28`,`FS10N`,`FB60`,`FB70`,`FD32`) y **maestro de clientes** (`XD01/02/03`) en `tcode.service.ts`, además de los 6 navigate T-codes `FIN01–03`/`SD01–03`. Se conservan los T-codes de MM/Compras/Producción/Sistema/Pagos y los customs `Z*` (incl. `ZFIN`) + `XK*` (maestro de proveedores).
+
+**Gate FASE 1 (verde):** `api build` ✅ · `api test` ✅ (166 suites / 1173 tests) · `web lint` ✅ (0 errores) · `web build` ✅. Rutas borradas ausentes del manifest; `finance`/`erp/mm`/`erp/pp`/`customers` compilan. `smoke:bootstrap` no afectado (no se agregó/quitó módulo, provider, entidad ni controller; el grafo DI y el esquema no cambian). Nota: `apps/api` `tsc --noEmit` (que incluye specs) arrastra errores **preexistentes** en 3 archivos `*.spec.ts` ajenos a este cambio; no es parte del CI (`ci.yml` usa build+test+lint+smoke) y ningún archivo que toqué produce errores de tipos.
 
 ## ⚠️ Distinción crítica (no confundir) — `finance` ≠ `erp/fin`
 
@@ -104,31 +112,20 @@ Se dejan intactas (son reportes con fecha).
 
 ---
 
-## 6. Decisiones del owner (BLOQUEANTES antes de FASE 1)
+## 6. Decisiones del owner — resueltas
 
-**Q1 — ¿GO para FASE 1 tal como está el plan?** (borrar los 4 frontends + desenredar §2, backend intacto)
-- **(Recomendado)** Sí, ejecutar §7 tal cual.
-- Ajustar algo antes.
-
-**Q2 — Backend erp-core:** ¿cómo tratarlo?
-- **(Recomendado)** Dejar **todo** `erp-core` intacto (frontend-only). Cero riesgo, reutilizable.
-- Además, podar los 2 *controllers* HTTP `erp-fin.controller.ts` + `erp-sd.controller.ts` (services se quedan). Quita rutas muertas pero no aporta funcionalidad.
-
-**Q3 — T-codes SAP simulados** (`VA01`,`FB01`,`FB70`,`XD01`…, ~40 handlers mock en `tcode.service`):
-- **(Recomendado)** Dejarlos (fuera de alcance; es otro feature).
-- Quitarlos también (limpieza extra de "AXOS imitando SAP").
+Ver **"Decisiones del owner (aplicadas)"** al inicio del documento. Resumen: Q1 = GO · Q2 = backend intacto · Q3 = quitar T-codes SAP simulados de Ventas/Finanzas/maestro-de-clientes.
 
 ---
 
-## 7. FASE 1 (tras aprobación) — orden de ejecución
+## 7. FASE 1 — ejecutada
 
-1. **Desenredar** referencias §2 filas 1–13 (nav, búsqueda, hub ERP, finance, ErpUI, tcode backend, e2e).
-2. **Reescribir** `erp/page.tsx` a solo MM/PP (quitar KPIs/chart/cards/T-codes de fin/sd).
-3. **Borrar** los 4 dirs frontend: `lab/`, `industrial-engineering/`, `erp/fin/`, `erp/sd/`.
-4. **Backend intacto** (salvo lo que apruebe Q2).
-5. **Gate:** `api build` ✅ · `api test` ✅ · `web lint` ✅ · `web build` ✅ · `typecheck` ✅.
-   Revertir auto-fixes de lint no relacionados (commit limpio).
-6. **Verificar sanos:** `finance`, `erp/mm`, `erp/pp`, `customers` y el flujo de piso; sin links muertos.
+1. ✅ **Desenredadas** las 13 referencias §2 (nav, búsqueda, hub ERP, finance, ErpUI, tcode backend, e2e).
+2. ✅ **Reescrito** `erp/page.tsx` a solo MM/PP (quitados KPIs financieros, chart de resultado, tarjetas fin/sd, T-codes FIN/SD).
+3. ✅ **Borrados** los 4 dirs frontend: `lab/`, `industrial-engineering/`, `erp/fin/`, `erp/sd/`.
+4. ✅ **Backend `erp-core` intacto** (Q2). Además se limpiaron los T-codes SAP simulados SD/FI/XD (Q3).
+5. ✅ **Gate verde:** `api build` · `api test` (166/1173) · `web lint` (0 err) · `web build`. (`tsc --noEmit` con specs: errores preexistentes ajenos — ver nota arriba; `smoke:bootstrap` no afectado.)
+6. ✅ **Sanos verificados:** `finance`, `erp/mm`, `erp/pp`, `customers` compilan y están en el manifest; sin links muertos.
 
 ---
 
@@ -137,4 +134,5 @@ Se dejan intactas (son reportes con fecha).
 - `lab`, `industrial-engineering`, `erp/fin`, `erp/sd` (front) eliminados.
 - `finance` + `erp/mm` + `erp/pp` + `customers` + flujo de piso **intactos**.
 - Backend `erp-core` intacto (no separable); tablas anotadas, **NO dropeadas**; sin migración destructiva.
+- T-codes SAP simulados de Ventas/Finanzas/maestro-de-clientes eliminados de `tcode.service.ts` (Q3).
 - App compila y navega sin links muertos. Este documento. **UN PR (draft), sin mergear.**

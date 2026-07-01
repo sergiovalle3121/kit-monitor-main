@@ -21,7 +21,6 @@ const SURFACES: { slug: string; path: string }[] = [
   // hubs that had the invisible icon-tile bug (verify the fix)
   { slug: "finance", path: "/dashboard/finance" },
   { slug: "metrics", path: "/dashboard/metrics" },
-  { slug: "industrial-engineering", path: "/dashboard/industrial-engineering" },
 ];
 
 async function settle(page: import("@playwright/test").Page) {
