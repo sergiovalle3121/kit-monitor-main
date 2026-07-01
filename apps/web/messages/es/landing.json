@@ -9,10 +9,10 @@
     "signup": "Crear cuenta"
   },
   "hero": {
-    "badge": "Industrial OS · ERP · MES · Office · CAD · IA — en una sola plataforma",
+    "badge": "Industrial OS · ERP · MES · CAD · IA — en una sola plataforma",
     "titleLead": "El sistema operativo que corre",
-    "titleHighlight": "toda tu planta",
-    "subtitle": "ERP, MES, calidad, inventario, CAD e IA en un solo lugar. Del diseño al embarque, sobre una base de datos común — sin silos ni integraciones frágiles, con la operación completa en una pantalla.",
+    "titleHighlight": "tu piso de producción",
+    "subtitle": "ERP, MES, calidad, inventario, CAD e IA en un solo lugar. Del diseño al embarque sobre una base de datos común — conectado a tu SAP + MES donde ya lo corres, con el piso de producción en una pantalla.",
     "ctaStart": "Comenzar",
     "ctaDemo": "Ver demo en vivo",
     "demoNote": "Demo de solo lectura · sesión de 30 min · sin tarjeta"
@@ -23,7 +23,7 @@
     "Calidad · MRB",
     "Inventario · e-kanban",
     "CAD 2D ⇄ 3D",
-    "Office nativo",
+    "Kitting",
     "CIDE · IA",
     "Trazabilidad",
     "MRP",
@@ -104,7 +104,7 @@
     "items": {
       "db": {
         "title": "Una sola base de datos",
-        "body": "Del diseño al embarque sin integraciones frágiles ni silos entre departamentos."
+        "body": "Del diseño al embarque sobre una base común, integrado con tu SAP — sin silos entre departamentos."
       },
       "planToFloor": {
         "title": "Del plan al piso, en vivo",
@@ -183,7 +183,7 @@
       },
       {
         "q": "¿AXOS depende de integraciones externas para contar su historia?",
-        "a": "La landing describe capacidades nativas del repositorio: módulos de ERP, MES, Office, CAD, calidad, analítica e IA ya expuestos en rutas internas."
+        "a": "Describe capacidades nativas ya expuestas en rutas internas — ERP, MES, CAD, calidad, analítica e IA — y habla el contrato de movimiento 261 (goods-issue) de SAP donde corres SAP."
       }
     ]
   },
@@ -201,7 +201,7 @@
     "company": "Empresa",
     "access": "Acceso",
     "copyright": "© 2026 AXOS OS · Industrial Operating System",
-    "stack": "ERP · MES · Office · CAD · AI",
+    "stack": "ERP · MES · CAD · AI",
     "links": {
       "programs": "Programas",
       "flow": "Flujo end-to-end",
@@ -221,6 +221,7 @@
   },
   "mockup": {
     "urlbar": "axos.os / torre-de-control",
+    "sampleBadge": "Vista de ejemplo",
     "title": "Torre de Control",
     "subtitle": "Vista ejecutiva · en vivo",
     "inControl": "En control",
@@ -233,6 +234,7 @@
     "eyebrow": "Capacidades",
     "title": "No te lo contamos. Te lo enseñamos.",
     "subtitle": "Cada pieza de la operación, viva y conectada a la misma base de datos. Esto es lo que pasa dentro del OS.",
+    "sampleNote": "Datos de ejemplo",
     "planToFloor": {
       "kicker": "Del plan al piso · en vivo",
       "title": "Publica la orden y míralo ejecutarse.",

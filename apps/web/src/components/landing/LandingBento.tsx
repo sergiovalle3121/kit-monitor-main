@@ -212,6 +212,9 @@ export function LandingBento() {
           <p className="mt-3 font-light text-gray-500 dark:text-gray-400">
             {t("subtitle")}
           </p>
+          <p className="mt-3 text-[11px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            {t("sampleNote")}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:auto-rows-[minmax(0,1fr)] md:grid-cols-3">
