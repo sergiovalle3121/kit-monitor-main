@@ -219,3 +219,29 @@ task). No puedo elegir esto solo — cambia el thesis completo de la landing. Do
 - **La mayoría de la landing ya es verdad** (flujo, galaxy, platform, solutions, enterprise, FAQ Q2–Q3).
 
 **➡️ Se requiere aprobación del owner antes de FASE 1** (especialmente la decisión §3).
+
+---
+
+## 7. FASE 1 — APLICADO (Opción C · híbrido, aprobada por el owner)
+
+> Sólo se editaron **valores de texto** (`messages/{en,es}/landing.json`) y se añadieron **dos
+> etiquetas mínimas** con tokens existentes. **No** se tocó layout, colores, animaciones ni estructura.
+
+**Office (H1–H4) — quitado en EN+ES:**
+- `hero.badge`: sin "Office".
+- `heroPills[5]`: "Native Office" / "Office nativo" → **"Kitting"** (capacidad real del piso).
+- `footer.stack`: sin "Office".
+- `faq.items[3].a`: sin "Office" + reconciliado hacia SAP (contrato 261).
+
+**Etiquetas de ejemplo (I1–I5):**
+- `LandingMockup.tsx`: chip **"Vista de ejemplo / Example view"** en la barra de título (clave `mockup.sampleBadge`).
+- `LandingBento.tsx`: nota **"Datos de ejemplo / Sample data"** bajo el subtítulo (clave `bento.sampleNote`).
+
+**Suavizado de posicionamiento (Opción C, P1–P3, P6):**
+- `hero.titleHighlight`: "your whole plant / toda tu planta" → **"your production floor / tu piso de producción"**.
+- `hero.subtitle`: "no silos or brittle integrations" → **"connected to your SAP + MES where you already run it"**.
+- `why.items.db.body`: "no fragile integrations" → **"integrated with your SAP"**.
+- `faq.items[3].a`: "not external integrations" → **"speaks SAP's movement-type 261 goods-issue contract"**.
+
+**No modificado (a propósito):** módulos ERP/CAD/AI reales se mantienen como pilares; el resto de la
+landing ya era verdad (§2.3). Estética 100% intacta.

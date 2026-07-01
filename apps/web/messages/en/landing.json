@@ -9,10 +9,10 @@
     "signup": "Create account"
   },
   "hero": {
-    "badge": "Industrial OS · ERP · MES · Office · CAD · AI — on a single platform",
+    "badge": "Industrial OS · ERP · MES · CAD · AI — on a single platform",
     "titleLead": "The operating system that runs",
-    "titleHighlight": "your whole plant",
-    "subtitle": "ERP, MES, quality, inventory, CAD and AI in one place. From design to shipment, on a shared database — no silos or brittle integrations, with the entire operation on one screen.",
+    "titleHighlight": "your production floor",
+    "subtitle": "ERP, MES, quality, inventory, CAD and AI in one place. From design to shipment on a shared database — connected to your SAP + MES where you already run it, with the production floor on one screen.",
     "ctaStart": "Get started",
     "ctaDemo": "Watch live demo",
     "demoNote": "Read-only demo · 30-min session · no card required"
@@ -23,7 +23,7 @@
     "Quality · MRB",
     "Inventory · e-kanban",
     "CAD 2D ⇄ 3D",
-    "Native Office",
+    "Kitting",
     "CIDE · AI",
     "Traceability",
     "MRP",
@@ -104,7 +104,7 @@
     "items": {
       "db": {
         "title": "A single database",
-        "body": "From design to shipment with no fragile integrations or silos between departments."
+        "body": "From design to shipment on a shared database, integrated with your SAP — no silos between departments."
       },
       "planToFloor": {
         "title": "From plan to floor, live",
@@ -183,7 +183,7 @@
       },
       {
         "q": "Does AXOS rely on external integrations to tell its story?",
-        "a": "The landing describes native capabilities of the repository: ERP, MES, Office, CAD, quality, analytics and AI modules already exposed on internal routes."
+        "a": "It describes native capabilities already on internal routes — ERP, MES, CAD, quality, analytics and AI — and it speaks SAP's movement-type 261 goods-issue contract where you run SAP."
       }
     ]
   },
@@ -201,7 +201,7 @@
     "company": "Company",
     "access": "Access",
     "copyright": "© 2026 AXOS OS · Industrial Operating System",
-    "stack": "ERP · MES · Office · CAD · AI",
+    "stack": "ERP · MES · CAD · AI",
     "links": {
       "programs": "Programs",
       "flow": "End-to-end flow",
@@ -221,6 +221,7 @@
   },
   "mockup": {
     "urlbar": "axos.os / control-tower",
+    "sampleBadge": "Example view",
     "title": "Control Tower",
     "subtitle": "Executive view · live",
     "inControl": "In control",
@@ -233,6 +234,7 @@
     "eyebrow": "Capabilities",
     "title": "We don't tell you. We show you.",
     "subtitle": "Every piece of the operation, live and connected to the same database. This is what happens inside the OS.",
+    "sampleNote": "Sample data",
     "planToFloor": {
       "kicker": "From plan to floor · live",
       "title": "Publish the order and watch it run.",

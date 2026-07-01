@@ -51,6 +51,9 @@ export function LandingMockup() {
         <div className="mx-auto flex items-center gap-2 rounded-md bg-black/[0.04] px-3 py-1 text-[11px] text-gray-500 dark:text-gray-400 dark:bg-white/[0.06]">
           <ShieldCheck className="h-3 w-3 text-emerald-500" /> {t("urlbar")}
         </div>
+        <span className="rounded-md bg-black/[0.04] px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+          {t("sampleBadge")}
+        </span>
       </div>
 
       <div className="flex">
