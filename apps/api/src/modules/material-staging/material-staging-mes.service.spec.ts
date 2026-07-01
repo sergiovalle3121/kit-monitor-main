@@ -21,7 +21,7 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
   let pickList: { getByPlan: jest.Mock };
   let positions: { find: jest.Mock };
   let planRepo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
-  let inventory: { issueToLine: jest.Mock };
+  let inventory: { transferToLine: jest.Mock };
   let stockByPart: Record<string, number>;
 
   const PLAN_ID = 1;
@@ -118,9 +118,10 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
       })),
     };
     inventory = {
-      issueToLine: jest.fn(async () => ({
+      transferToLine: jest.fn(async () => ({
         deposited: true,
         warehouseId: 'LINE-1',
+        sources: [{ warehouseId: 'WH-RM', location: 'BULK', quantity: 50 }],
       })),
     };
     svc = new MaterialStagingMesService(
@@ -180,11 +181,11 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
     expect(plans[0].allStaged).toBe(true);
   });
 
-  it('fills the line tank (issueToLine → LINE-<plan.line>) when a line is staged', async () => {
+  it('fills the line tank (conserving transferToLine → LINE-<plan.line>) when a line is staged', async () => {
     await svc.stageLine(PLAN_ID, LINES[0].id, {});
     // Closes the loop for the primary plan-staging path: deposits the staged
     // qty into the plan's line tank, where /operador later consumes from.
-    expect(inventory.issueToLine).toHaveBeenCalledWith(
+    expect(inventory.transferToLine).toHaveBeenCalledWith(
       expect.objectContaining({
         partNumber: LINES[0].partNumber,
         quantity: 50,
@@ -196,11 +197,11 @@ describe('MaterialStagingMesService (carril 1 · puente MES)', () => {
 
   it('fills the line tank for every line on stage-all', async () => {
     await svc.stageAllForPlan(PLAN_ID);
-    expect(inventory.issueToLine).toHaveBeenCalledTimes(2);
-    expect(inventory.issueToLine).toHaveBeenCalledWith(
+    expect(inventory.transferToLine).toHaveBeenCalledTimes(2);
+    expect(inventory.transferToLine).toHaveBeenCalledWith(
       expect.objectContaining({ partNumber: LINES[0].partNumber, line: 1 }),
     );
-    expect(inventory.issueToLine).toHaveBeenCalledWith(
+    expect(inventory.transferToLine).toHaveBeenCalledWith(
       expect.objectContaining({ partNumber: LINES[1].partNumber, line: 1 }),
     );
   });

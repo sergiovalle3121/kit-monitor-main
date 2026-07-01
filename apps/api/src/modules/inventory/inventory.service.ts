@@ -3,12 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { InventoryPosition } from './entities/inventory-position.entity';
 import { InventoryMovement, InventoryTransactionType } from './entities/inventory-movement.entity';
-import { LINE_STOCK_LOCATION, lineStockWarehouse } from './line-stock';
+import {
+  LINE_STOCK_LOCATION,
+  lineStockWarehouse,
+  isLineStockWarehouse,
+} from './line-stock';
 import { MaterialMaster } from './entities/material-master.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
-import { In } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
@@ -80,6 +84,131 @@ export class InventoryService {
       reason: opts.reason,
     });
     return { deposited: true, warehouseId };
+  }
+
+  /**
+   * Surtido CONSERVATIVO al tanque de línea `LINE-<línea>`.
+   *
+   * A diferencia de `issueToLine` (un ISSUE que sólo ACREDITA el tanque y por
+   * tanto "crea" existencias de la nada, inflando el on-hand global), aquí se
+   * DEBITA stock real de los almacenes que ya lo tienen y se ACREDITA en el
+   * tanque, vía `TRANSFER`: el on-hand global se conserva (lo que entra a la
+   * línea sale de un almacén de origen).
+   *
+   * Selección del origen — "greedy" sobre existencias reales:
+   *  - posiciones `available` de la parte, EXCLUYENDO los tanques `LINE-*` (no se
+   *    surte una línea desde otra) y sólo "planas" (sin programId/lote/serie),
+   *    para que origen y destino compartan la misma llave de posición y el
+   *    `TRANSFER` sea atómico;
+   *  - se consume en orden FIFO (createdAt, luego id) repartiendo entre varias
+   *    posiciones hasta cubrir la cantidad;
+   *  - si las existencias reales no alcanzan, se PROPAGA un error (no se inventa
+   *    inventario): el surtido falla de forma visible.
+   *
+   * Sin línea o sin cantidad → registra y omite (igual que `issueToLine`). La
+   * lectura de orígenes usa el repo tenant-scoped (respeta el tenant actual).
+   */
+  async transferToLine(opts: {
+    partNumber: string | null | undefined;
+    quantity: number | null | undefined;
+    line: number | string | null | undefined;
+    actorName: string;
+    referenceType?: string;
+    referenceId?: string;
+    reason?: string;
+  }): Promise<{
+    deposited: boolean;
+    warehouseId: string | null;
+    sources: { warehouseId: string; location: string; quantity: number }[];
+  }> {
+    const qty = this.round6(opts.quantity ?? 0);
+    if (!opts.partNumber || qty <= 0) {
+      return { deposited: false, warehouseId: null, sources: [] };
+    }
+
+    const warehouseId = lineStockWarehouse(opts.line);
+    if (!warehouseId) {
+      this.logger.warn(
+        `Surtido sin línea: se omite el depósito de inventario a un almacén de ` +
+          `línea inexistente (parte ${opts.partNumber}, ${qty}).`,
+      );
+      return { deposited: false, warehouseId: null, sources: [] };
+    }
+
+    // Orígenes candidatos: existencias REALES disponibles de la parte —
+    // `available`, planas (sin programId/lote/serie) y NO en un tanque de línea —
+    // ordenadas FIFO. El reparto agota cada posición antes de pasar a la
+    // siguiente.
+    const candidates = (
+      await this.positionRepo.find({
+        where: {
+          partNumber: opts.partNumber,
+          holdStatus: 'available',
+          programId: IsNull(),
+          lotNumber: IsNull(),
+          serialNumber: IsNull(),
+        },
+        order: { createdAt: 'ASC', id: 'ASC' },
+      })
+    ).filter(
+      (p) => !isLineStockWarehouse(p.warehouseId) && this.spareOnHand(p) > 0,
+    );
+
+    const totalAvailable = this.round6(
+      candidates.reduce((sum, p) => sum + this.spareOnHand(p), 0),
+    );
+    if (totalAvailable + 1e-9 < qty) {
+      throw new BadRequestException(
+        `Existencias reales insuficientes para surtir ${opts.partNumber} a ` +
+          `${warehouseId}: se requieren ${qty}, disponibles ${totalAvailable} ` +
+          `(excluyendo tanques de línea).`,
+      );
+    }
+
+    let remaining = qty;
+    const sources: {
+      warehouseId: string;
+      location: string;
+      quantity: number;
+    }[] = [];
+    for (const pos of candidates) {
+      if (remaining <= 0) break;
+      const take = this.round6(Math.min(remaining, this.spareOnHand(pos)));
+      if (take <= 0) continue;
+      await this.recordTransaction({
+        type: 'TRANSFER',
+        partNumber: opts.partNumber,
+        quantity: take,
+        fromWarehouseId: pos.warehouseId,
+        fromLocation: pos.location,
+        toWarehouseId: warehouseId,
+        toLocation: LINE_STOCK_LOCATION,
+        actorName: opts.actorName,
+        referenceType: opts.referenceType,
+        referenceId: opts.referenceId,
+        reason: opts.reason,
+      });
+      sources.push({
+        warehouseId: pos.warehouseId,
+        location: pos.location,
+        quantity: take,
+      });
+      remaining = this.round6(remaining - take);
+    }
+
+    return { deposited: true, warehouseId, sources };
+  }
+
+  /** Existencias libres (on-hand menos lo asignado) de una posición, sin negativos. */
+  private spareOnHand(pos: { onHand?: number; allocated?: number }): number {
+    return Math.max(
+      0,
+      this.round6((Number(pos.onHand) || 0) - (Number(pos.allocated) || 0)),
+    );
+  }
+
+  private round6(value: number): number {
+    return Math.round((Number(value) || 0) * 1e6) / 1e6;
   }
 
   private applyScope<T extends ObjectLiteral>(

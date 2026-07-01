@@ -200,8 +200,10 @@ export class MaterialRequestsService {
    * Deposita el material surtido en el "tanque" de la línea `LINE-<línea>` para
    * que el consumo posterior (mes-execution /operador) tenga stock real de dónde
    * descontar — cerrando el lazo de inventario. Delega en el punto único
-   * `InventoryService.issueToLine` (tipo ISSUE; crea la posición destino si no
-   * existe; sin línea registra y omite; un fallo se PROPAGA).
+   * `InventoryService.transferToLine` (TRANSFER CONSERVATIVO: debita existencias
+   * reales de los almacenes de origen y las acredita en el tanque, conservando el
+   * on-hand global; sin línea registra y omite; si no hay existencias reales
+   * suficientes, un fallo se PROPAGA antes de marcar surtida la solicitud).
    *
    * La línea autoritativa es la del PLAN (la que hereda la ejecución y de la que
    * el operador consume), no el texto libre `request.line`.
@@ -212,7 +214,7 @@ export class MaterialRequestsService {
     actor: string,
   ): Promise<void> {
     const line = kit?.plan?.line ?? request.line ?? null;
-    await this.inventory.issueToLine({
+    await this.inventory.transferToLine({
       partNumber: request.partNumber,
       quantity: request.requestedQty,
       line,

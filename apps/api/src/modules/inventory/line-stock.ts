@@ -29,3 +29,22 @@ export function lineStockWarehouse(
   if (line === null || line === undefined || line === '') return null;
   return `LINE-${line}`;
 }
+
+/** Prefijo de los almacenes virtuales de línea (`LINE-<n>`). */
+export const LINE_STOCK_WAREHOUSE_PREFIX = 'LINE-';
+
+/**
+ * ¿Es `warehouseId` un tanque virtual de línea (`LINE-<n>`)?
+ *
+ * Se usa para EXCLUIR los tanques al elegir el origen de un surtido conservativo
+ * (no se surte una línea desde otra) y al medir existencias "reales" disponibles
+ * (un tanque ya surtido no debe contarse como origen surtible otra vez).
+ */
+export function isLineStockWarehouse(
+  warehouseId: string | null | undefined,
+): boolean {
+  return (
+    typeof warehouseId === 'string' &&
+    warehouseId.startsWith(LINE_STOCK_WAREHOUSE_PREFIX)
+  );
+}
