@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { isOwnerEmail } from '@/lib/owner';
 
@@ -63,21 +63,6 @@ export interface PermissionFlags {
 export function usePermissions(): PermissionFlags {
   const { isAdmin, permissions, user } = useAuth();
   const email = user?.email ?? null;
-
-  // Reproducción (paso 1 del fix): en desarrollo deja en consola lo que useAuth()
-  // entrega realmente para la cuenta activa la primera vez que la auth se resuelve.
-  // Sirve para confirmar qué llega para el Master/owner (rol vs. permisos vacíos).
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.debug('[usePermissions] auth snapshot', {
-        email,
-        isAdmin,
-        permissions,
-        isOwnerEmail: isOwnerEmail(email),
-        canWrite: computeCanWrite({ isAdmin, permissions, email }),
-      });
-    }
-  }, [email, isAdmin, permissions]);
 
   return useMemo<PermissionFlags>(
     () => ({
