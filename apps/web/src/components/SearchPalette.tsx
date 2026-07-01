@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, Landmark, Users, Building2,
-  ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX, Package,
+  ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, FlaskConical, ShoppingCart, Truck, PackageCheck, ClipboardList, Hammer, PackageX, Package,
   Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus, Rocket, X,
 } from 'lucide-react';
 import {
@@ -47,22 +47,12 @@ const DESTS: Dest[] = [
   { label: 'Mejora continua', sub: 'Kaizen · Lean · 6σ', href: '/dashboard/improvement', keywords: 'mejora continua kaizen lean six sigma opex ahorros iniciativas 5s', icon: Lightbulb },
   { label: 'EHS · Seguridad', sub: 'Incidentes y casi-accidentes', href: '/dashboard/ehs', keywords: 'ehs seguridad medio ambiente incidentes casi accidente near miss safety lesiones recordable', icon: ShieldAlert },
   { label: 'Mantenimiento · TPM', sub: 'Activos y órdenes (CMMS)', href: '/dashboard/maintenance', keywords: 'mantenimiento tpm cmms activos equipos ordenes preventivo correctivo mtbf mttr averias paros', icon: Wrench },
-  { label: 'Legal · Contratos', sub: 'Contratos y vencimientos', href: '/dashboard/legal', keywords: 'legal contratos compliance vencimiento renovacion nda proveedor cliente acuerdos', icon: Scale },
   { label: 'Test Engineering', sub: 'Yields y Pareto de fallas', href: '/dashboard/test-engineering', keywords: 'test engineering pruebas yield fpy first pass rendimiento pareto fallas ict fct aoi ensayo', icon: FlaskConical },
   { label: 'Flujo de Pruebas', sub: 'Ensamble → prueba → destino', href: '/dashboard/test-flow', keywords: 'flujo pruebas serie serial ensamble prueba empaque disposicion cola queue trazabilidad destino mes', icon: Workflow },
   { label: 'Compras · Procurement', sub: 'Órdenes de compra y OTD', href: '/dashboard/procurement', keywords: 'compras procurement po orden de compra proveedor sourcing otd recepcion purchasing', icon: ShoppingCart },
-  { label: 'RH · Skills', sub: 'Certificaciones y matriz', href: '/dashboard/skills', keywords: 'rh skills habilidades certificaciones matriz capacitacion recertificacion empleados ipc esd', icon: GraduationCap },
-  { label: 'Personas (RH)', sub: 'Capital humano', href: '/dashboard/rh', keywords: 'rh recursos humanos personas capital humano hr generalista analista plantilla', icon: Users },
-  { label: 'Plantilla · Colaboradores', sub: 'Maestro de personal y headcount', href: '/dashboard/rh/plantilla', keywords: 'rh plantilla colaboradores empleados headcount alta baja directo indirecto turno nomina personal', icon: Users },
-  { label: 'Analítica de fuerza laboral', sub: 'Rotación, ausentismo y staffing', href: '/dashboard/rh/analitica', keywords: 'rh analitica people analytics rotacion turnover ausentismo attrition headcount riesgo staffing flight risk costo mano de obra', icon: Gauge },
-  { label: 'Reclutamiento', sub: 'Vacantes, pipeline y time-to-fill', href: '/dashboard/rh/reclutamiento', keywords: 'rh reclutamiento seleccion vacantes requisiciones candidatos pipeline ats contratacion time to fill rampa', icon: ClipboardList },
-  { label: 'Desempeño y 9-box', sub: 'Evaluaciones, talento y sucesión', href: '/dashboard/rh/desempeno', keywords: 'rh desempeno performance evaluacion 9-box nine box talento potencial sucesion calibracion objetivos', icon: Target },
   { label: 'Logística · Embarque', sub: 'Embarques, ASN y OTD', href: '/dashboard/outbound', keywords: 'logistica embarque shipping outbound asn entrega otd carrier guia tracking incoterm aduana', icon: Truck },
   { label: 'Recibo · Inbound', sub: 'Recepción e IQC', href: '/dashboard/inbound', keywords: 'recibo inbound recepcion iqc inspeccion entrada lote cuarentena dock to stock proveedor material', icon: PackageCheck },
   { label: 'Conteos Cíclicos', sub: 'Exactitud de inventario', href: '/dashboard/cycle-counts', keywords: 'conteos ciclicos cycle count exactitud inventario varianza ajuste reconciliacion almacen', icon: ClipboardList },
-  { label: 'CRM · Pipeline', sub: 'Oportunidades de venta', href: '/dashboard/crm', keywords: 'crm pipeline oportunidades ventas sales pronostico forecast win rate cliente prospecto sd', icon: Target },
-  { label: 'Activos Fijos', sub: 'Depreciación y libros', href: '/dashboard/fixed-assets', keywords: 'activos fijos fixed assets depreciacion linea recta valor en libros capitalizacion maquinaria fin', icon: Building },
-  { label: 'Gastos · Viáticos', sub: 'Reportes y reembolsos', href: '/dashboard/expenses', keywords: 'gastos viaticos expenses reembolso aprobacion ap viaje comidas hospedaje finanzas', icon: Receipt },
   { label: 'Tooling · Herramentales', sub: 'Moldes y vida en disparos', href: '/dashboard/tooling', keywords: 'tooling herramentales moldes fixtures stencil galga vida disparos shots eol mantenimiento npi', icon: Hammer },
   { label: 'RMA · Quejas', sub: 'Devoluciones de cliente', href: '/dashboard/rma', keywords: 'rma quejas devoluciones cliente complaint return calidad disposicion reparar reemplazar credito 8d', icon: PackageX },
   { label: 'Torre de Control', sub: 'Cockpit ejecutivo cross-área', href: '/dashboard/control-tower', keywords: 'torre de control control tower cockpit ejecutivo semaforo cross area resumen kpis vp operaciones', icon: RadioTower },
@@ -155,7 +145,6 @@ const KIND_META: Record<RenderKind, { label: string; short: string; icon: React.
   wo:     { label: 'Órdenes de trabajo', short: 'Órdenes',    icon: Factory,       from: '#ff9a66', to: '#ff7a45', solid: '#ff7a45' },
   ncr:    { label: 'Calidad · NCR',      short: 'NCR',        icon: ShieldAlert,   from: '#fb7185', to: '#f43f5e', solid: '#f43f5e' },
   part:   { label: 'Partes y modelos',   short: 'Partes',     icon: Boxes,         from: '#7c84ff', to: '#5b63e0', solid: '#5b63e0' },
-  person: { label: 'Personas',           short: 'Personas',   icon: Users,         from: '#ff7db0', to: '#ff4d8d', solid: '#ff4d8d' },
   nav:    { label: 'Ir a un área',       short: 'Áreas',      icon: CornerDownLeft, from: '#94a3b8', to: '#64748b', solid: '#64748b' },
 };
 

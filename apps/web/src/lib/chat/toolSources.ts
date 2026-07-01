@@ -42,15 +42,13 @@ const SOURCES: Record<string, ToolSource> = {
     label: 'Compras',
     href: '/dashboard/procurement',
   },
-  // Ventas / clientes
-  list_sales_orders: { label: 'Ventas', href: '/dashboard/crm' },
+  // Clientes
   list_customers: { label: 'Clientes', href: '/dashboard/customers' },
   // Finanzas
   income_statement: { label: 'Finanzas', href: '/dashboard/finance' },
   balance_sheet: { label: 'Finanzas', href: '/dashboard/finance' },
   trial_balance: { label: 'Finanzas', href: '/dashboard/finance' },
   ar_ap_aging: { label: 'Finanzas', href: '/dashboard/finance' },
-  list_fixed_assets: { label: 'Activos fijos', href: '/dashboard/fixed-assets' },
   // Ingeniería / trazabilidad
   bom_headers: { label: 'Ingeniería', href: '/dashboard/engineering' },
   visual_aids: { label: 'Ayudas visuales', href: '/dashboard/visual-aids' },
