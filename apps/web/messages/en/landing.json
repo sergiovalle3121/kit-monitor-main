@@ -54,7 +54,6 @@
       "erp": { "name": "ERP · Supply Chain", "tag": "ERP", "value": "Integrated purchasing, materials and finance." },
       "inventory": { "name": "Inventory", "tag": "Materials", "value": "Kitting, e-kanban and cycle counts." },
       "quality": { "name": "Quality · MRB", "tag": "Quality", "value": "Holds, quarantine and MRB disposition." },
-      "office": { "name": "Office", "tag": "Productivity", "value": "Native Docs, Sheets and Slides." },
       "cad": { "name": "CAD · Layout", "tag": "Engineering", "value": "Unified 2D ⇄ 3D line layout." },
       "ai": { "name": "AI · CIDE", "tag": "Intelligence", "value": "Your data analyst with built-in AI." }
     }
@@ -270,10 +269,6 @@
       "answerPre": "3 NCRs from reel",
       "answerPost": "(solder skips). The hold is already active; check the reflow profile.",
       "cta": "Ask your plant"
-    },
-    "office": {
-      "kicker": "Native Office",
-      "body": "SOPs and reports connected to the real work, inside the OS."
     }
   }
 }

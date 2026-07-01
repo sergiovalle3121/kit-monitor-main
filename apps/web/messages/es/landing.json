@@ -54,7 +54,6 @@
       "erp": { "name": "ERP · Supply Chain", "tag": "ERP", "value": "Compras, materiales y finanzas integradas." },
       "inventory": { "name": "Inventario", "tag": "Materiales", "value": "Kitting, e-kanban y conteos cíclicos." },
       "quality": { "name": "Calidad · MRB", "tag": "Calidad", "value": "Holds, cuarentena y disposición MRB." },
-      "office": { "name": "Office", "tag": "Productividad", "value": "Docs, Sheets y Slides nativos." },
       "cad": { "name": "CAD · Layout", "tag": "Ingeniería", "value": "Layout de línea unificado 2D ⇄ 3D." },
       "ai": { "name": "AI · CIDE", "tag": "Inteligencia", "value": "Tu analista de datos con IA propia." }
     }
@@ -270,10 +269,6 @@
       "answerPre": "3 NCR del reel",
       "answerPost": "(solder skips). El hold ya está activo; revisa el perfil de reflow.",
       "cta": "Preguntarle a tu planta"
-    },
-    "office": {
-      "kicker": "Office nativo",
-      "body": "SOPs y reportes conectados al trabajo real, dentro del OS."
     }
   }
 }

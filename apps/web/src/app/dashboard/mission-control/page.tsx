@@ -30,8 +30,6 @@ import {
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { useSignals, CorrectiveProposal } from '@/hooks/useSignals';
-import { usePermissions } from '@/hooks/usePermissions';
-import { GenerateDeckButton } from '@/components/office/GenerateDeckButton';
 
 // Paleta de semáforos (de AXOS_OS_ARCHITECTURE.md)
 const GREEN = '#10b981';
@@ -172,7 +170,6 @@ function ForbiddenState() {
 // ── Página ────────────────────────────────────────────────────────────
 export default function MissionControlPage() {
   const reduce = useReducedMotion();
-  const { canWrite } = usePermissions();
 
   const lines = useApi<ProductionLine[] | unknown>('/production-runtime/lines');
   const wip = useApi<unknown>('/production-runtime/wip');
@@ -259,22 +256,6 @@ export default function MissionControlPage() {
       .slice(-20);
   }, [trends.data]);
 
-  // ── Deck de revisión de línea (Fase 4) ───────────────────────────────
-  const buildLineDeck = async () => {
-    const { buildLineReviewDeck } = await import('@/lib/office/deckGen');
-    return buildLineReviewDeck({
-      overall: overallLabel,
-      kpis: { activeLines: linesArr.length, wip: wipTotal ?? '—', openAlerts: openAlertCount, materialRisk: shortageArr.length, inventory: inventoryArr.length || '—' },
-      lines: linesArr.slice(0, 12).map((l, i) => {
-        const name = l.line || l.name || `Línea ${l.kitId ?? l.id ?? i + 1}`;
-        return { name, model: l.model, status: l.status || 'activa', bottleneck: !!(bottleneckLine && name === bottleneckLine) };
-      }),
-      shortages: shortageArr.map((s) => ({ partNumber: s.partNumber || 'Parte', description: s.description, severity: s.severity })),
-      trend: chartData,
-      alerts: allProposals.map((p) => ({ title: p.title || p.category || 'Alerta', severity: p.severity, status: p.status })),
-    });
-  };
-
   return (
     <div className="min-h-screen text-foreground">
       <div className="mx-auto max-w-7xl px-6 py-8 md:px-10 lg:px-12">
@@ -297,15 +278,6 @@ export default function MissionControlPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {canWrite && (
-              <GenerateDeckButton
-                title="Revisión de línea"
-                label="Generar deck"
-                build={buildLineDeck}
-                disabled={lines.isLoading}
-                className={`${glass} inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium hover:scale-[1.02] transition-transform disabled:opacity-50`}
-              />
-            )}
             <div className={`${glass} flex items-center gap-3 rounded-full px-4 py-2`}>
               <motion.span
                 aria-hidden

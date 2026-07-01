@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
-  Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
+  Cpu, DollarSign, Calculator, RadioTower, Landmark, Users, Building2,
   ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX, Package,
   Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus, Rocket, X,
 } from 'lucide-react';
@@ -67,7 +67,6 @@ const DESTS: Dest[] = [
   { label: 'RMA · Quejas', sub: 'Devoluciones de cliente', href: '/dashboard/rma', keywords: 'rma quejas devoluciones cliente complaint return calidad disposicion reparar reemplazar credito 8d', icon: PackageX },
   { label: 'Torre de Control', sub: 'Cockpit ejecutivo cross-área', href: '/dashboard/control-tower', keywords: 'torre de control control tower cockpit ejecutivo semaforo cross area resumen kpis vp operaciones', icon: RadioTower },
   { label: 'Mission Control', sub: 'Vista ejecutiva', href: '/dashboard/mission-control', keywords: 'mission control kpi ejecutivo metricas', icon: RadioTower },
-  { label: 'Office', sub: 'Docs · Hojas · Slides', href: '/dashboard/office', keywords: 'office documentos hojas slides word excel', icon: FileText },
   { label: 'Axos ERP', sub: 'FIN · MM · PP · SD · T-Codes', href: '/dashboard/erp', keywords: 'erp tcode t-code fin mm pp sd sap', icon: Landmark },
   { label: 'ERP · Finanzas (FIN)', sub: 'Contabilidad', href: '/dashboard/erp/fin', keywords: 'erp fin contabilidad polizas cuentas', icon: Landmark },
   { label: 'ERP · Materiales (MM)', sub: 'Compras y valuación', href: '/dashboard/erp/mm', keywords: 'erp mm materiales compras po requisicion valuacion', icon: Boxes },
@@ -104,7 +103,7 @@ const AREA_META: Record<AreaKey, { label: string } & Tone> = {
   materials:  { label: 'Materiales e ingeniería',        from: '#7c84ff', to: '#5b63e0', solid: '#5b63e0' },
   finance:    { label: 'Finanzas',                       from: '#34d1bf', to: '#0fb39a', solid: '#0fb39a' },
   people:     { label: 'Personas y soporte',             from: '#ff7db0', to: '#ff4d8d', solid: '#ff4d8d' },
-  comms:      { label: 'Office y comunicación',          from: '#4aa3ff', to: '#0a84ff', solid: '#0a84ff' },
+  comms:      { label: 'Comunicación',                   from: '#4aa3ff', to: '#0a84ff', solid: '#0a84ff' },
   erp:        { label: 'ERP · T-Codes',                  from: '#9a7bff', to: '#7c5cff', solid: '#7c5cff' },
   admin:      { label: 'Administración y datos',         from: '#94a3b8', to: '#64748b', solid: '#64748b' },
 };
@@ -123,7 +122,7 @@ function areaFor(href: string): AreaKey {
   if (p === '/models' || p === '/materials' || p === '/bom' || p === '/routing' || p === '/engineering' || p === '/backflush' || p === '/mrp' || p === '/tooling') return 'materials';
   if (p === '/finance' || p.startsWith('/finance/') || p === '/fixed-assets' || p === '/expenses') return 'finance';
   if (p === '/skills' || p === '/ehs' || p === '/maintenance' || p === '/legal' || p === '/improvement' || p === '/crm') return 'people';
-  if (p === '/office' || p === '/chat') return 'comms';
+  if (p === '/chat') return 'comms';
   if (p === '/import' || p.startsWith('/settings') || p.startsWith('/admin')) return 'admin';
   return 'home';
 }
@@ -157,7 +156,6 @@ const KIND_META: Record<RenderKind, { label: string; short: string; icon: React.
   ncr:    { label: 'Calidad · NCR',      short: 'NCR',        icon: ShieldAlert,   from: '#fb7185', to: '#f43f5e', solid: '#f43f5e' },
   part:   { label: 'Partes y modelos',   short: 'Partes',     icon: Boxes,         from: '#7c84ff', to: '#5b63e0', solid: '#5b63e0' },
   person: { label: 'Personas',           short: 'Personas',   icon: Users,         from: '#ff7db0', to: '#ff4d8d', solid: '#ff4d8d' },
-  doc:    { label: 'Documentos',         short: 'Documentos', icon: FileText,      from: '#aab2c0', to: '#7e8796', solid: '#7e8796' },
   nav:    { label: 'Ir a un área',       short: 'Áreas',      icon: CornerDownLeft, from: '#94a3b8', to: '#64748b', solid: '#64748b' },
 };
 

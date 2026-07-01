@@ -11,7 +11,6 @@
  *   • NCR       → GET /ncr                     (NCR[])
  *   • Parts     → GET /product-models          (ProductModel[])
  *   • People    → GET /people/certifications   (Certification[], deduped by person)
- *   • Documents → GET /office-documents        (OfficeDocument[], all types)
  *
  * The lists are fetched once, normalized into a flat `SearchHit[]` index with a
  * precomputed lowercase `haystack`, and cached for a short TTL so typing filters
@@ -25,10 +24,10 @@ import { apiFetch } from '@/lib/apiFetch';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
-export type SearchKind = 'wo' | 'ncr' | 'part' | 'person' | 'doc';
+export type SearchKind = 'wo' | 'ncr' | 'part' | 'person';
 
 /** Order groups are presented in (records first, navigation is appended by the UI). */
-export const ENTITY_ORDER: SearchKind[] = ['wo', 'ncr', 'part', 'person', 'doc'];
+export const ENTITY_ORDER: SearchKind[] = ['wo', 'ncr', 'part', 'person'];
 
 /** Max hits rendered per group so one noisy source can't drown the rest. */
 const PER_GROUP = 6;
@@ -100,13 +99,6 @@ interface RawWo { id: string; folio?: string | null; model?: string; line?: stri
 interface RawNcr { id: number; ncrNumber: string; partNumber?: string; model?: string; workOrder?: string; category?: string; description?: string; status?: string; customer?: string; createdAt?: string }
 interface RawPart { id: string; modelNumber: string; name: string; customer?: string | null; revision?: string; status?: string; createdAt?: string }
 interface RawCert { id: string; employeeName: string; employeeEmail?: string | null; skill?: string; area?: string | null; station?: string | null; expiresDate?: string }
-interface RawDoc { id: string; type: 'doc' | 'sheet' | 'slides'; title?: string; model?: string | null; updatedAt?: string }
-
-const DOC_TYPE_LABEL: Record<RawDoc['type'], string> = {
-  doc: 'Documento',
-  sheet: 'Hoja de cálculo',
-  slides: 'Presentación',
-};
 
 function mapWos(rows: RawWo[]): SearchHit[] {
   return rows.map((w) => {
@@ -187,31 +179,17 @@ function mapPeople(rows: RawCert[]): SearchHit[] {
   });
 }
 
-function mapDocs(rows: RawDoc[]): SearchHit[] {
-  return rows.map((d) => ({
-    kind: 'doc' as const,
-    id: `doc:${d.id}`,
-    title: d.title || 'Sin título',
-    subtitle: [DOC_TYPE_LABEL[d.type] ?? 'Documento', d.model].filter(Boolean).join(' · '),
-    href: `/dashboard/office/${d.id}`,
-    haystack: lower(d.title, DOC_TYPE_LABEL[d.type], d.model),
-    score: 0,
-    ts: ts(d.updatedAt),
-  }));
-}
-
 // ── Index build + cache ──────────────────────────────────────────────────────
 
 let cache: { at: number; index: SearchIndex } | null = null;
 let inflight: Promise<SearchIndex> | null = null;
 
 async function buildIndex(signal?: AbortSignal): Promise<SearchIndex> {
-  const [wo, ncr, part, ppl, doc] = await Promise.all([
+  const [wo, ncr, part, ppl] = await Promise.all([
     getJson('/production-plan', signal),
     getJson('/ncr', signal),
     getJson('/product-models', signal),
     getJson('/people/certifications', signal),
-    getJson('/office-documents', signal),
   ]);
 
   // If the user kept typing and this load was aborted, don't cache a torn result.
@@ -229,7 +207,6 @@ async function buildIndex(signal?: AbortSignal): Promise<SearchIndex> {
   collect('ncr', ncr, mapNcrs as never);
   collect('part', part, mapParts as never);
   collect('person', ppl, mapPeople as never);
-  collect('doc', doc, mapDocs as never);
 
   return { hits, degraded, authError: degraded.length === ENTITY_ORDER.length };
 }
@@ -273,7 +250,7 @@ export function filterSearchIndex(index: SearchIndex, query: string): SearchHit[
   if (!q) return [];
   const terms = q.split(/\s+/).filter(Boolean);
 
-  const buckets: Record<SearchKind, SearchHit[]> = { wo: [], ncr: [], part: [], person: [], doc: [] };
+  const buckets: Record<SearchKind, SearchHit[]> = { wo: [], ncr: [], part: [], person: [] };
   for (const hit of index.hits) {
     if (!terms.every((t) => hit.haystack.includes(t))) continue;
     buckets[hit.kind].push({ ...hit, score: scoreHit(hit, q, terms) });

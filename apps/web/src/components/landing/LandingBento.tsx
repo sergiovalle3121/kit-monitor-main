@@ -306,26 +306,6 @@ export function LandingBento() {
               <Cta>{t("cide.cta")}</Cta>
             </Link>
           </motion.div>
-
-          {/* Office / nativo */}
-          <motion.div {...fade(6)}>
-            <Link href="/dashboard/office" className={`${tile} flex h-full flex-col justify-between`}>
-              <span className={kicker}>{t("office.kicker")}</span>
-              <div aria-hidden className="my-4 flex gap-1.5">
-                {["Docs", "Sheets", "Slides"].map((d) => (
-                  <span
-                    key={d}
-                    className="flex-1 rounded-lg border border-black/[0.06] bg-white/80 py-2 text-center text-[10px] font-semibold dark:border-white/10 dark:bg-white/[0.04]"
-                  >
-                    {d}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs font-light leading-relaxed text-gray-500 dark:text-gray-400">
-                {t("office.body")}
-              </p>
-            </Link>
-          </motion.div>
         </div>
       </div>
     </section>

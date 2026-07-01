@@ -16,7 +16,6 @@ import { apiFetch } from '@/lib/apiFetch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { GenerateDeckButton } from '@/components/office/GenerateDeckButton';
 import {
   Toolbar, KpiRow, FilterBar, ExportButton,
   DetailDrawer, DrawerSection,
@@ -173,27 +172,6 @@ export default function QualityAnalyticsPage() {
     { label: 'CAPAs vencidas', value: cap ? cap.overdue : '—', sublabel: cap ? `${cap.open} abiertas` : undefined, color: cap && cap.overdue > 0 ? RED : GRAY, icon: AlertTriangle },
   ];
 
-  // ── Deck de calidad (Fase 4) ─────────────────────────────────────────────
-  const periodLabel = ({ '30': 'Últimos 30 días', '90': 'Últimos 90 días', '180': 'Últimos 180 días', '365': 'Último año' } as Record<string, string>)[(filters.period as string) || '365'] || 'Periodo';
-  const buildQualityDeckFn = async () => {
-    const { buildQualityDeck } = await import('@/lib/office/deckGen');
-    const openNcrs = filteredNcrs.filter((n) => ['open', 'under_review', 'contained'].includes(n.status));
-    return buildQualityDeck({
-      period: periodLabel,
-      kpis: {
-        fpy: analytics?.yield.fpyOverall != null ? `${analytics.yield.fpyOverall}%` : '—',
-        yieldPct: analytics?.yield.oqc.yieldPct != null ? `${analytics.yield.oqc.yieldPct}%` : '—',
-        fails: analytics?.yield.oqc.failed ?? 0,
-        openNcr: ncrKpis.open, critical: ncrKpis.critical, affected,
-      },
-      pareto: pareto.map((r) => ({ label: r.label, count: r.count })),
-      trend: ncrTrend.map((t) => ({ label: t.label, count: t.count })),
-      byModel: (analytics?.cuts.byModel ?? []).map((g) => ({ label: g.label, count: g.count })),
-      openNcrs: openNcrs.slice(0, 10).map((n) => ({ ncrNumber: n.ncrNumber, partNumber: n.partNumber, model: n.model ?? undefined, severity: NCR_SEVERITY_META[n.severity as NcrSeverity]?.label ?? n.severity, affected: n.quantityAffected })),
-    });
-  };
-  const deckEmpty = !analytics || meta?.totalNcrs === 0;
-
   const FILTER_DEFS: FilterDef[] = [
     { key: 'period', type: 'select', label: 'Periodo', options: [
       { value: '30', label: 'Últimos 30 días' }, { value: '90', label: 'Últimos 90 días' },
@@ -229,9 +207,6 @@ export default function QualityAnalyticsPage() {
       >
         <FilterBar defs={FILTER_DEFS} value={filters} onChange={setFilters} />
         <div className="ml-auto flex items-center gap-1.5">
-          {canWrite && (
-            <GenerateDeckButton title="Calidad · Revisión" build={buildQualityDeckFn} disabled={deckEmpty} />
-          )}
           <ExportButton<DefectParetoRow> rows={pareto} columns={PARETO_EXPORT} filename="calidad-pareto" />
         </div>
       </Toolbar>

@@ -43,12 +43,11 @@ export const BARE_PREFIXES = [
 
 /**
  * Rutas workbench: editores a pantalla completa que portan su propio header y
- * salida. Hoy el editor de Office (`OfficeShell`, `fixed inset-0`) ya se monta
- * por encima del cromo global; declararlo aquí evita renderizar el dock debajo
- * del overlay y centraliza la decisión para los demás workbenches conforme se
- * migren (CAD, editores) en las fases siguientes.
+ * salida. Actualmente no hay workbenches por pathname; los que existen (CAD) se
+ * declaran de forma imperativa (`useWorkbenchChrome`) mientras están abiertos.
+ * El array se conserva para reintroducir prefijos cuando se añadan editores.
  */
-export const WORKBENCH_PREFIXES = ["/dashboard/office/"] as const;
+export const WORKBENCH_PREFIXES = [] as const;
 
 /** Rutas que se comportan como torres de control dentro del chrome global. */
 export const COMMAND_CENTER_PATHS = ["/dashboard"] as const;
@@ -104,7 +103,7 @@ export function useRouteChrome(): RouteChrome {
 
   const inDashboard = pathname.startsWith("/dashboard");
   const bareRoute = isBarePath(pathname);
-  // Workbench por pathname (Office editor) o imperativo (CAD montado dentro de
+  // Workbench por pathname (ninguno hoy) o imperativo (CAD montado dentro de
   // una ruta standard, que se declara workbench mientras está abierto).
   const workbench = imperativeWorkbench || isWorkbenchPath(pathname);
 
