@@ -56,7 +56,6 @@ const PROGRAMS: Program[] = [
   { id: "erp", domain: "erp", href: "/dashboard/erp" },
   { id: "inventory", domain: "inventory", href: "/dashboard/inventory" },
   { id: "quality", domain: "quality", href: "/dashboard/quality" },
-  { id: "office", domain: "office", href: "/dashboard/office" },
   { id: "cad", domain: "engineering", icon: Box, href: "/dashboard/line-engineering" },
   { id: "ai", domain: "plan", icon: Sparkles, href: "/dashboard/intelligence" },
 ];

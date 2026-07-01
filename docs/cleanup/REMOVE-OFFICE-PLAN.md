@@ -1,8 +1,19 @@
-# Plan de limpieza — Quitar Office + cascarones (FASE 0, mapa de desenredo)
+# Plan de limpieza — Quitar Office + cascarones
 
-> **Estado:** FASE 0 completa. **DETENIDO esperando aprobación del owner.**
-> No se ha borrado nada todavía. Este documento es el mapa de desenredo.
+> **Estado:** FASE 0 (mapa) + FASE 1 (ejecución) completas, según decisiones del owner.
 > Rama: `claude/remove-office-shells-ncvn0u` (rama designada por el harness para esta tarea).
+
+## Decisiones del owner (aplicadas)
+
+- **Q1 (cascarones):** borrar **solo `documents`** (redirect muerto a Office). Se
+  **conservan** `lab`, `industrial-engineering`, `metrics` (hubs funcionales) y `chat`
+  (mensajería interna; ver nota abajo — pendiente de confirmación final de alcance).
+- **Q2 (`lib/office/`):** **borrar los 80 archivos.** Antes de borrar, los 5 archivos de
+  **generación de documentos** quedan listados como **referencia histórica** (§8) para
+  reconstruir los machotes/plantillas estándar de Jabil más adelante. El resto
+  (auditoría/gobernanza de sheets) es peso muerto y se elimina sin más.
+- **Q3 (acople `/office-documents` con operador/MES, Balde 2):** **dejar el código
+  intacto y anotarlo** (§Hallazgo 3 / §4). No se toca Balde 2.
 
 ---
 
@@ -169,7 +180,28 @@ office_document_review_tasks
 ## 7. "Hecho" (entregable)
 
 - Este documento con lo borrado y lo desenredado.
-- Office (+ `lib/office` si Q2) + páginas `dev/pptx-*` + cascarón(es) aprobados eliminados.
+- Office + `lib/office` (80) + páginas `dev/pptx-*` + shell `documents` eliminados.
 - Balde 2 intacto; el resto compila y navega sin links muertos; Quality y Mission-Control sanos.
 - Tablas huérfanas anotadas (NO dropeadas).
 - UN PR (draft), sin mergear.
+
+---
+
+## 8. Referencia histórica — generación de documentos (`lib/office/`, ya borrados)
+
+Estos 5 archivos vivían en `apps/web/src/lib/office/` y se **eliminaron** con el resto de
+la suite, pero se documentan aquí a propósito: contienen la lógica de **generación/exportación
+de documentos** que servirá de base cuando se construyan los **machotes/plantillas estándar de
+Jabil** (SOPs, reportes). Recuperables desde el historial de git (`git show <commit>^:<ruta>`).
+
+| Archivo | Qué hacía | Librerías / notas de interés |
+|---|---|---|
+| `lib/office/pdf.ts` | Exporta un documento TipTap (JSON) a **PDF** vía HTML intermedio (`tiptapJsonToHtmlDocument` → `jsPDF`). | `jspdf`. Sanitiza nombre de archivo; extrae `<body>` del HTML. |
+| `lib/office/docx.ts` | Interop **Word**: `exportDocx` (TipTap JSON → `.docx` con la lib `docx`, MIT) e `importDocx` (`.docx` → HTML con `mammoth`, BSD). | `docx`, `mammoth`, ambas por import dinámico. Maneja imágenes embebidas (data URLs → bytes + dimensiones). |
+| `lib/office/templates.ts` | **Galería de plantillas** "nuevo documento": doc/sheet estáticas (TipTap/Fortune-sheet) + slides pintadas con Fabric. Cada plantilla "se ve terminada y profesional al abrir" (paletas reales, fondos, jerarquía tipográfica). | Contrato verificado en `NIGHT_LOG_TEMPLATES.md`. **La referencia más directa para los machotes de Jabil.** |
+| `lib/office/slidesPdf.ts` | Rasteriza un **deck de slides** (Fabric StaticCanvas) a **PDF** 16:9 full-bleed, una página por slide. | `fabric`, `jspdf`, import dinámico. |
+| `lib/office/typography.ts` | **Tipografía inteligente** (el "Autoformato" de Word): comillas/apóstrofos curvos, raya `—`, elipsis `…`, `© ® ™`, fracciones. Función pura, sin dependencias. | Integración con el editor vivía en `components/office/docs/smartTypography.ts`. |
+
+> El resto de `lib/office/` (auditoría de fórmulas, gobernanza/salud de workbooks, conectores
+> AXOS, import/export xlsx/pptx, etc.) era peso muerto tras quitar la suite y se eliminó sin
+> reservarlo. Si en el futuro se necesita, está en el historial de git.

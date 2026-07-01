@@ -7,8 +7,7 @@
     "build": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096\" next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint",
-    "e2e": "playwright test",
-    "test:office:sheets": "node scripts/run-office-sheets-specs.mjs"
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@axos/contracts": "*",

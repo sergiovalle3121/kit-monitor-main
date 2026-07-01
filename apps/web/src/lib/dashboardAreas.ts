@@ -2,7 +2,7 @@ import * as Icons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   Megaphone, PackageCheck, Warehouse, LineChart,
-  Boxes, Factory, ShieldCheck, Cpu, DollarSign, RadioTower, FileText,
+  Boxes, Factory, ShieldCheck, Cpu, DollarSign, RadioTower,
 } from "lucide-react";
 import type { DomainKey } from "@/lib/design/domains";
 
@@ -103,7 +103,6 @@ export const AREAS: DashboardArea[] = [
   { name: "EHS · Seguridad", desc: "Incidentes y casi-accidentes", href: "/dashboard/ehs", icon: Icons.ShieldAlert, domain: "people", roles: ["hr", "production_supervisor", "maintenance_tech"], section: "Administración" },
   { name: "Legal · Contratos", desc: "Contratos, vencimientos y renovaciones", href: "/dashboard/legal", icon: Icons.Scale, domain: "office", roles: ["finance", "hr", "plant_manager"], section: "Administración" },
   { name: "CRM · Pipeline", desc: "Oportunidades de venta", href: "/dashboard/crm", icon: Icons.Target, domain: "finance", roles: ["finance"], section: "Administración" },
-  { name: "Office", desc: "Docs · Hojas · Slides", href: "/dashboard/office", icon: FileText, domain: "office", roles: ["engineering", "planner", "quality_engineer", "production_supervisor", "warehouse_operator", "finance", "buyer", "hr"], section: "Administración" },
 ];
 
 // Accesos de los puestos agregados (Comercial/Programas, Test Engineering, SQE,

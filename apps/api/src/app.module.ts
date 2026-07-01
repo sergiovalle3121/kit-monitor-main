@@ -92,7 +92,6 @@ import { AutopilotModule } from './modules/autopilot/autopilot.module';
 import { SignalModule } from './common/gateway/signal.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { ProcessRoutingModule } from './modules/process-routing/process-routing.module';
-import { OfficeModule } from './modules/office/office.module';
 import { MesExecutionModule } from './modules/mes-execution/mes-execution.module';
 import { ErpCoreModule } from './modules/erp-core/erp-core.module';
 import { AiModule } from './modules/ai/ai.module';
@@ -186,7 +185,6 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     SignalModule,
     MessagingModule,
     ProcessRoutingModule,
-    OfficeModule,
     MesExecutionModule,
     ErpCoreModule,
     AiModule,
