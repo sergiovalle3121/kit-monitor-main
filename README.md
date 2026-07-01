@@ -31,8 +31,8 @@ apps/
 docs/    Arquitectura, blueprint, visión de producto, y archive/ (listas de limpieza)
 ```
 
-Los `workspaces` de npm reservan `packages/*` para tipos/contratos compartidos a
-futuro, pero **ese directorio aún no existe**.
+Los `workspaces` de npm incluyen `packages/*` para tipos/contratos compartidos;
+hoy existe [`packages/contracts`](packages/contracts) (tipos/contratos compartidos).
 
 ## Stack
 
@@ -51,25 +51,23 @@ agrupan por Domain-Driven Design:
 
 | Dominio | Qué cubre | Módulos backend (`apps/api/src/modules`) | UI (`/dashboard`) |
 | --- | --- | --- | --- |
-| **Materiales** | maestro de materiales, inventario, recepción, almacén, conteos cíclicos, surtido a línea | `material-master`, `materials`, `inventory`, `receiving`, `inbound`, `warehouse`, `cycle-counts`, `material-staging`, `material-requests` | `/materials`, `/inventory`, `/receiving`, `/warehouse`, `/cycle-counts`, `/material-staging` |
+| **Materiales** | maestro de materiales, inventario, recepción, almacén, conteos cíclicos, surtido a línea | `material-master`, `inventory`, `receiving`, `inbound`, `warehouse`, `cycle-counts`, `material-staging`, `material-requests` | `/materials`, `/inventory`, `/receiving`, `/warehouse`, `/cycle-counts`, `/material-staging` |
 | **BOM & Modelos** | BOM multinivel, modelos y revisiones de ingeniería | `bom`, `bom-tree`, `product-models` | `/bom`, `/models` |
 | **Ruteo** | rutas de proceso, estaciones, balanceo de línea, backflush | `routing`, `process-routing`, `routing-backflush`, `line-engineering` | `/routing`, `/line-engineering` |
 | **MRP & Compras** | planeación de materiales, requisiciones, órdenes de compra, proveedores | `mrp`, `purchase-planning`, `procurement`, `suppliers` | `/mrp`, `/procurement`, `/suppliers` |
 | **Planeación & Producción** | planes/WO, ejecución MES en piso, terminal de operador, monitor en vivo, OEE | `plans`, `production-plan`, `mes-execution`, `production-runtime`, `operator-terminal`, `live`, `oee`, `changeover` | `/planning`, `/production`, `/operador`, `/operator-terminal`, `/live`, `/line-control-tower` |
 | **Calidad** | IQC/IPQC/OQC, NCR/CAPA, holds, FAI, RMA | `quality`, `floor-quality`, `ncr`, `fai`, `rma` | `/quality`, `/floor-quality`, `/rma` |
 | **Logística & Embarques** | empaque, tráfico, salida, listas de surtido | `shipping`, `packing`, `outbound`, `traffic`, `pick-lists` | `/shipping`, `/packing`, `/outbound`, `/traffic` |
-| **Finanzas & Costos** | contabilidad, costeo de producto, COGS / cost intelligence, gastos, activos fijos | `accounting`, `product-costing`, `cost-intelligence`, `cost-rollup`, `expenses`, `fixed-assets`, `erp-core` | `/finance`, `/erp/fin`, `/expenses`, `/fixed-assets` |
+| **Finanzas & Costos** | contabilidad, costeo de producto, COGS / cost intelligence | `accounting`, `product-costing`, `cost-intelligence`, `cost-rollup`, `erp-core` | `/finance`, `/erp/fin` |
 | **Trazabilidad** | genealogía cuna-a-tumba, Event Ledger inmutable | `genealogy`, `event-ledger` | `/genealogy` |
 | **Torre de control & Inteligencia** | agregadores globales, forecast, decision intelligence, autopilot, **CIDE** (IA propia self-hosted), **capa semántica** (catálogo de métricas + ontología), **analítica** (tendencias + narrativa), **Cliente 360 cross-área** | `control-tower`, `line-control-tower`, `forecast`, `decision-intelligence`, `autopilot`, `ai` (CIDE), `semantic`, `analytics`, `customer-insights` | `/control-tower`, `/forecast`, `/mission-control`, `/intelligence`, `/admin/ai`, `/customers` |
-| **Plataforma** | usuarios/RBAC, governance/auditoría, numeración de folios, settings, búsqueda, chat, notificaciones, suite Office | `users`, `auth`, `governance`, `numbering`, `messaging`, `office`, `import-data` | `/settings`, `/admin`, `/chat`, `/documents` |
+| **Plataforma** | usuarios/RBAC, governance/auditoría, numeración de folios, settings, búsqueda, chat, notificaciones | `users`, `auth`, `governance`, `numbering`, `messaging`, `import-data` | `/settings`, `/admin`, `/chat` |
 
-> Hay más módulos transversales (`crm`, `people`, `maintenance`, `ehs`,
-> `engineering`, `visual-aids`, `tooling`, `legal`…). La lista completa vive en
+> Hay más módulos transversales (`people`, `maintenance`, `ehs`,
+> `engineering`, `visual-aids`, `tooling`…). La lista completa vive en
 > [`apps/api/src/modules/`](apps/api/src/modules).
 
-> **Suite comercial (profundidad de negocio).** El **CRM** es ahora una suite
-> (cuentas/Cliente 360, contactos, oportunidades, cotizaciones RFQ→Quote con
-> líneas y margen, actividades) y **Proveedores** un maestro de cadena de
+> **Profundidad comercial.** **Proveedores** es un maestro de cadena de
 > suministro (calificación, certificaciones con vencimiento, scorecard, AVL,
 > SCARs). La vista **Cliente 360** (`/customers`) une a un cliente a través de
 > ventas, programas, calidad, entrega y finanzas. Detalle y patrón reutilizable
@@ -164,7 +162,7 @@ es no-bloqueante** por ahora (deuda de formato preexistente; ver
 | Documento | Para qué |
 | --- | --- |
 | [`AXOS_OS_ARCHITECTURE.md`](AXOS_OS_ARCHITECTURE.md) | Topología, módulos por dominio (DDD), Event Ledger, design system. |
-| [`docs/commercial-suite.md`](docs/commercial-suite.md) | Suite comercial (CRM 360 · Proveedores 360 · Cliente 360) y el patrón de profundidad reutilizable. |
+| [`docs/commercial-suite.md`](docs/commercial-suite.md) | Profundidad comercial (Proveedores 360 · Cliente 360) y el patrón reutilizable. |
 | [`DECISIONS.md`](DECISIONS.md) | ADR ligero: rationale, supuestos, deuda técnica y rieles de seguridad. |
 | [`docs/`](docs) | Blueprint de manufactura, arquitectura back/front, visión de producto, plan de multi-tenencia. |
 | [`AGENTS.md`](AGENTS.md) | Reglas para agentes de IA que contribuyen al repo. |

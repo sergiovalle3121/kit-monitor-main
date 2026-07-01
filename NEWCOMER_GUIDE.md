@@ -1,142 +1,150 @@
 # Newcomer Guide: AXOS OS
 
+> Onboarding for someone opening this repo for the first time. For the full
+> architecture and rationale, read [`AXOS_OS_ARCHITECTURE.md`](AXOS_OS_ARCHITECTURE.md)
+> and [`DECISIONS.md`](DECISIONS.md). For the domain map, read [`README.md`](README.md).
+
 ## 1) What this project is
 
-AXOS OS is a monorepo for tracking production plans, kits, BOM materials, and execution events on the shop floor.
+AXOS OS is an **ERP + MES for an EMS** (electronics contract manufacturer): a
+multi-tenant industrial platform that covers the manufacturing flow end to end —
+material master and BOM → routing, MRP, shop-floor execution, quality, logistics
+and finance — with an immutable **Event Ledger** as the traceability backbone.
 
-- **Frontend:** Angular app (`frontend/`) for operators/planners.
-- **Backend:** NestJS API (`backend/`) with TypeORM and JWT auth.
-- **Data:** SQLite by default in local dev, PostgreSQL when DB env vars are provided.
+- **Monorepo:** Turborepo + npm workspaces.
+- **Backend:** NestJS API in [`apps/api`](apps/api) — TypeORM, JWT, WebSockets.
+- **Frontend:** Next.js (App Router) app in [`apps/web`](apps/web) — React +
+  TypeScript + Tailwind + shadcn/ui + SWR.
+- **Shared:** [`packages/contracts`](packages/contracts) — shared types/contracts.
+- **Data:** SQLite by default in local dev; PostgreSQL when `DATABASE_URL` is set.
 
-## 2) High-level architecture
+## 2) Repo layout
 
-### Frontend (Angular)
+```
+apps/
+  api/   NestJS backend — TypeORM, JWT, ~81 domain modules   → http://localhost:3000  (prefix /api)
+  web/   Next.js frontend (App Router), dashboard by domain  → http://localhost:3001
+packages/
+  contracts/   shared types/contracts
+docs/          architecture, blueprint, product vision, cleanup lists, archive/
+```
 
-- Entry and global setup: `frontend/src/main.ts`, `frontend/src/app/app.config.ts`.
-- Routing and navigation: `frontend/src/app/app.routes.ts`.
-- Auth stack:
-  - `frontend/src/app/core/auth.service.ts`
-  - `frontend/src/app/core/auth.guard.ts`
-  - `frontend/src/app/core/jwt-interceptor.ts`
-- Shared API client: `frontend/src/app/core/api.service.ts`.
-- Feature screens (lazy-loaded):
-  - `features/plan`, `features/forecast`, `features/bom`, `features/kits`,
-    `features/conteos`, `features/production`, `features/monitor`.
-- Shell layout/sidebar: `frontend/src/app/layout/shell/`.
+## 3) High-level architecture
 
-### Backend (NestJS)
+### Backend (NestJS) — `apps/api/src`
 
-- App composition: `backend/src/app.module.ts`.
-- Bootstrap/config/CORS/security: `backend/src/main.ts`.
-- DB strategy config: `backend/src/orm.options.ts`.
-- Module-per-domain organization under `backend/src/modules/`:
-  - `auth`, `users`, `plans`, `bom`, `bay-layout`, `kits`, `kit-materials`,
-    `advances`, `resupplies`, `exceptions`.
-- Typical module structure:
-  - `*.module.ts` (wiring)
-  - `*.controller.ts` (HTTP)
-  - `*.service.ts` (business logic)
-  - `dto/` (request validation/types)
-  - `entities/` (TypeORM models)
+- App composition / module wiring: `apps/api/src/app.module.ts`
+- Bootstrap, config, CORS, security, admin auto-seed: `apps/api/src/main.ts`
+- TypeORM / DB strategy (SQLite dev vs Postgres prod): `apps/api/src/orm.options.ts`
+- TypeORM CLI datasource (migrations): `apps/api/src/typeorm-cli.datasource.ts`
+- Domain modules under `apps/api/src/modules/` — one folder per domain.
+- Cross-cutting concerns under `apps/api/src/common/` (tenant scoping,
+  interceptors, filters, database column types, security).
 
-## 3) Core domain model to understand first
+Typical module structure:
 
-If you learn these entities first, most of the app behavior becomes obvious:
+- `*.module.ts` (wiring) · `*.controller.ts` (HTTP) · `*.service.ts` (logic)
+- `dto/` (request validation/types) · `entities/` (TypeORM models)
+- `*.spec.ts` (unit tests, colocated)
 
-1. **Plan** (`plans`): what must be produced (WO, model, qty, shift, sequence).
-2. **Kit** (`kits`): kit generated for a plan, with lifecycle status.
-3. **KitMaterial** (`kit_materials`): required vs actual material quantities per kit.
-4. **Resupply** (`resupplies`): shortage requests and delivered quantities.
-5. **KitException** (`kit_exceptions`): disruptions/issues raised and resolved.
-6. **Advance** (`advances`): production progress updates over time.
+### Frontend (Next.js App Router) — `apps/web/src`
 
-## 4) Runtime flow in plain language
+- Root layout: `apps/web/src/app/layout.tsx`; landing: `apps/web/src/app/page.tsx`
+- Dashboard shell (shared chrome for the domain screens):
+  `apps/web/src/app/dashboard/layout.tsx`, with feature screens under
+  `apps/web/src/app/dashboard/<domain>/`.
+- API client: `apps/web/src/lib/apiFetch.ts` (all routes target the `/api` prefix).
+- Auth: `apps/web/src/hooks/useAuth.ts`; permission gates:
+  `apps/web/src/hooks/usePermissions.ts`.
+- Data fetching: SWR via `apps/web/src/hooks/useApi.ts`.
 
-1. User logs in (`/auth/login`) and receives JWT.
-2. Frontend stores token and sends it in later API calls.
-3. Planner creates/updates plans.
-4. Kit is created and moved through statuses.
-5. BOM import/catalog maps model -> required part numbers and usage factors.
-6. During execution, operators report advances, resupplies, and exceptions.
-7. Monitoring screens aggregate this operational state.
+## 4) Core domain model to understand first
+
+The topology is ISA-95-like; learn it first and most behavior becomes obvious:
+
+**Plant → Customer → Program → Model → Revision → Work Order → Line / Station**
+
+Every transactional action also writes an **Event Ledger** entry (immutable
+audit trail with full dimensional context). See
+[`AXOS_OS_ARCHITECTURE.md`](AXOS_OS_ARCHITECTURE.md) §4.
 
 ## 5) Files newcomers should open first
 
-### Backend (in this order)
+**Backend (in this order)**
 
-1. `backend/src/app.module.ts`
-2. `backend/src/main.ts`
-3. `backend/src/orm.options.ts`
-4. `backend/src/modules/kits/kits.controller.ts`
-5. `backend/src/modules/kits/kits.service.ts`
-6. `backend/src/modules/plans/plans.service.ts`
-7. `backend/src/modules/bom/bom.service.ts`
-8. `backend/src/modules/resupplies/resupplies.service.ts`
-9. `backend/src/modules/exceptions/exceptions.service.ts`
+1. `apps/api/src/app.module.ts`
+2. `apps/api/src/main.ts`
+3. `apps/api/src/orm.options.ts`
+4. `apps/api/src/modules/kits/kits.service.ts`
+5. `apps/api/src/modules/plans/plans.service.ts`
+6. `apps/api/src/modules/bom/bom.service.ts`
 
-### Frontend (in this order)
+**Frontend (in this order)**
 
-1. `frontend/src/app/app.routes.ts`
-2. `frontend/src/app/core/api.service.ts`
-3. `frontend/src/app/core/auth.service.ts`
-4. `frontend/src/app/layout/shell/shell.ts`
-5. `frontend/src/app/features/plan/plan.component.ts`
-6. `frontend/src/app/features/kits/kits.component.ts`
-7. `frontend/src/app/features/monitor/monitor.component.ts`
-8. `frontend/src/app/features/forecast/forecast.component.ts`
+1. `apps/web/src/app/layout.tsx`
+2. `apps/web/src/app/dashboard/layout.tsx`
+3. `apps/web/src/lib/apiFetch.ts`
+4. `apps/web/src/hooks/useAuth.ts`
+5. `apps/web/src/hooks/usePermissions.ts`
 
 ## 6) Local setup and useful commands
 
-From repo root:
+**Requirements:** Node 20.9+, npm 10+. PostgreSQL is optional in dev (without
+`DATABASE_URL` the API falls back to SQLite).
 
 ```bash
-# Backend
-cd backend
+# From the repo root (installs all workspaces)
 npm install
-npm run start:dev
-
-# Frontend (new terminal)
-cd frontend
-npm install
-npm start
+npm run dev            # turbo: API on :3000 (under /api) and web on :3001
 ```
 
-Useful backend commands:
+Or per app:
 
 ```bash
-npm run seed                  # create default admin if missing
-npm run test                  # unit tests
-npm run test:e2e              # e2e tests
+cd apps/api && npm install && npm run start:dev   # backend → http://localhost:3000 (/api)
+cd apps/web && npm install && npm run dev          # frontend → http://localhost:3001
 ```
+
+Useful API commands (`apps/api`):
+
+```bash
+npm run build          # nest/tsc build
+npm test               # unit tests (Jest)
+npm run typecheck      # tsc --noEmit
+npm run seed           # create default admin if missing
+npm run seed:demo      # seed the demo universe (public-domain data)
+npm run smoke:bootstrap  # boot the compiled dist against Postgres (DI/schema check)
+```
+
+Copy [`apps/api/.env.example`](apps/api/.env.example) to `apps/api/.env` and set
+`NODE_ENV`, `PORT`, `ALLOWED_ORIGIN`, `DATABASE_URL`, `JWT_SECRET`.
 
 ## 7) Things that can surprise you
 
-- Backend applies global `/api` prefix; frontend URLs should target API paths accordingly.
-- CORS and optional shared-header gate are controlled in `backend/src/main.ts`.
-- TypeORM can auto-sync schema in some modes (`orm.options.ts`); verify before prod changes.
-- There are migrations in `backend/src/migrations/`; check schema intent before editing entities.
-- BOM import supports multiple spreadsheet layouts via parsers in `backend/src/modules/bom/`.
+- The API applies a global `/api` prefix; the frontend targets `/api/...`.
+- CORS and an optional shared-header gate live in `apps/api/src/main.ts`.
+- **`synchronize: true` in prod** materializes the schema from entities (not from
+  migrations). Existing migrations are incremental patches, not a from-scratch
+  build. Entity changes must be **additive only** (nullable/defaulted columns; no
+  DROP/rename/NOT-NULL-without-default). See [`DECISIONS.md`](DECISIONS.md) §2/§14.
+- CI runs the blocking gates on every PR (build API · test API · lint web · build
+  web · bootstrap smoke vs Postgres). API lint is non-blocking (pre-existing
+  format debt; DECISIONS §13). See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+- Multi-tenancy (`tenant_id` + `TenantScopedRepository`) is adopted incrementally
+  — not every module enforces it yet.
 
 ## 8) Recommended learning path (next)
 
-1. **Trace one full user story end-to-end**
-   - Login -> create plan -> create kit -> register advance/resupply/exception.
-2. **Read one domain module deeply**
-   - Start with `kits` (status transitions touch many modules).
-3. **Understand data ingest paths**
-   - BOM and Kanban parsers (`bom-parser.ts`, `kanban-parser.ts`).
-4. **Understand forecasting internals**
-   - `frontend/src/app/features/forecast/forecast.parser.ts`
-   - `frontend/src/app/features/forecast/forecast.analytics.ts`
-   - `frontend/src/app/features/forecast/forecast.engine.ts`
-5. **Finally, inspect migrations and deployment config**
-   - `backend/src/migrations/*`
-   - `.env.example` files and Docker/nginx files.
+1. Trace one story end-to-end: login → create plan → kit → advance/exception.
+2. Read one domain module deeply — start with `kits` (status transitions touch
+   many modules) or `mes-execution`.
+3. Read `common/` (tenant scoping, interceptors, Event Ledger interceptor).
+4. Finally, inspect `orm.options.ts` + migrations and the deployment config
+   before touching entities.
 
-## 9) First contribution ideas for a newcomer
+## 9) First contribution ideas
 
-- Add/expand API DTO validation and error messages.
-- Add integration tests for one critical workflow (kit + resupply).
-- Improve typing in frontend feature services/components (replace `any`).
-- Add lightweight architecture diagrams to this guide.
-
+- Expand DTO validation / error messages on a controller.
+- Add a unit test for one critical service (e.g. `kits` + `resupplies`).
+- Tighten typing (replace `any`) in a frontend hook or screen.
+- Add a small architecture diagram to this guide.
